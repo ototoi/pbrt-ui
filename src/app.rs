@@ -1,0 +1,254 @@
+use crate::controllers::AppController;
+use crate::io::export::pbrt::*;
+use crate::io::import::pbrt::*;
+use crate::models::scene::SceneComponent;
+use crate::panels::HierarchyPanel;
+use crate::panels::InspectorPanel;
+use crate::panels::ManagePanel;
+use crate::panels::Panel;
+use crate::panels::PreferencesWindow;
+use crate::panels::ViewsPanel;
+
+use eframe::egui;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::RwLock;
+
+#[allow(dead_code)]
+pub struct PbrtUIApp {
+    controller: Arc<RwLock<AppController>>,
+    panels: Vec<Box<dyn Panel>>,
+    windows: Vec<Box<dyn Panel>>,
+    opening_modal: Option<String>,
+}
+
+impl PbrtUIApp {
+    pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Self {
+        let mut controller = AppController::new();
+        controller.load_config();
+        let controller = Arc::new(RwLock::new(controller));
+        let panels: Vec<Box<dyn Panel>> = vec![
+            Box::new(InspectorPanel::new(&controller)),
+            Box::new(ManagePanel::new(&controller)),
+            Box::new(HierarchyPanel::new(&controller)),
+            Box::new(ViewsPanel::new(cc, &controller)),
+        ];
+
+        let windows: Vec<Box<dyn Panel>> = vec![Box::new(PreferencesWindow::new(&controller))];
+
+        Self {
+            controller,
+            panels,
+            windows,
+            opening_modal: None,
+        }
+    }
+
+    fn get_current_scene_path(&self) -> Option<String> {
+        let controller = self.controller.read().unwrap();
+        let node = controller.get_root_node();
+        let node = node.read().unwrap();
+        if let Some(scene) = node.get_component::<SceneComponent>() {
+            let fullpath = scene.get_fullpath();
+            return fullpath;
+        }
+        return None;
+    }
+}
+
+#[derive(Debug, Clone)]
+enum MenuCommand {
+    Import(String),
+    Export(String),
+    Quit,
+}
+
+impl PbrtUIApp {
+    pub fn show_top_menu(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                self.show_top_menu_file(ctx, ui);
+                //self.show_top_menu_edit(ui);
+                self.show_top_menu_panels(ui);
+            });
+        });
+    }
+
+    pub fn show_top_menu_file(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let mut commands = Vec::new();
+        ui.menu_button("File", |ui| {
+            if ui.button("Import").clicked() {
+                let mut dialog = rfd::FileDialog::new()
+                    .set_title("Import PBRT File")
+                    .add_filter("PBRT", &["pbrt", "pbrt.gz"]);
+                if let Some(current_path) = self.get_current_scene_path() {
+                    let current_path = PathBuf::from(current_path);
+                    if current_path.exists() {
+                        dialog = dialog.set_directory(current_path.parent().unwrap());
+                    }
+                }
+
+                if let Some(path) = dialog.pick_file() {
+                    if path.exists() {
+                        let path = path.to_str().unwrap().to_string();
+                        commands.push(MenuCommand::Import(path));
+                    }
+                }
+                ui.close_menu();
+            }
+            if ui.button("Export").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_title("Export PBRT File")
+                    .add_filter("PBRT", &["pbrt", "pbrt.gz"])
+                    .save_file()
+                {
+                    let path = path.to_str().unwrap().to_string();
+                    commands.push(MenuCommand::Export(path));
+                }
+                ui.close_menu();
+            }
+            //
+            ui.separator();
+            if ui.button("Preferences").clicked() {
+                // Open preferences window
+                ui.close_menu();
+                if let Some(preferences) =
+                    self.windows.iter_mut().find(|w| w.name() == "Preferences")
+                {
+                    preferences.toggle_open();
+                }
+                //log::info!("Preferences window opened");
+            }
+            ui.separator();
+            if ui.button("Quit").clicked() {
+                commands.push(MenuCommand::Quit);
+                ui.close_menu();
+            }
+        });
+
+        if let Some(msg) = self.opening_modal.as_mut() {
+            let modal = egui::Modal::new(egui::Id::new(&msg)).show(ctx, |ui| {
+                ui.heading("Quit");
+                ui.separator();
+                ui.label("Are you sure you want to quit?");
+
+                ui.horizontal(|ui| {
+                    if ui.button("Yes").clicked() {
+                        ctx.request_repaint();
+                        std::process::exit(0);
+                    }
+                    if ui.button("No").clicked() {
+                        self.opening_modal = None;
+                    }
+                });
+            });
+            if modal.should_close() {
+                self.opening_modal = None;
+            }
+        }
+
+        if commands.is_empty() {
+            return;
+        }
+
+        for command in commands.iter() {
+            match command {
+                MenuCommand::Import(path) => {
+                    match load_pbrt(&path) {
+                        Ok(node) => {
+                            // Handle successful load
+                            let controller = self.controller.clone();
+                            let mut controller = controller.write().unwrap();
+                            controller.set_root_node(&node);
+                            {
+                                let node = node.read().unwrap();
+                                if let Some(scene) = node.get_component::<SceneComponent>() {
+                                    if let Some(fullpath) = scene.get_fullpath() {
+                                        let title = format!("PBRT UI - {}", fullpath);
+                                        ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
+                                    }
+                                }
+                            }
+                            log::info!("Loaded PBRT file: {}", path);
+                        }
+                        Err(e) => {
+                            // Handle error
+                            log::error!("Error loading PBRT file: {}", e);
+                        }
+                    }
+                }
+                MenuCommand::Export(path) => {
+                    let controller = self.controller.clone();
+                    let controller = controller.read().unwrap();
+                    let node = controller.get_root_node();
+
+                    let mut options = SavePbrtOptions::default();
+                    options.copy_resources = true;
+                    match save_pbrt(&node, path, &options) {
+                        Ok(_) => {
+                            // Handle successful save
+                            log::info!("Saved PBRT file: {}", path);
+                        }
+                        Err(e) => {
+                            // Handle error
+                            log::error!("Error saving PBRT file: {}", e);
+                        }
+                    }
+                }
+                MenuCommand::Quit => {
+                    self.opening_modal = Some("quit_modal".to_string());
+                }
+            }
+        }
+    }
+
+    pub fn show_top_menu_edit(&mut self, ui: &mut egui::Ui) {
+        ui.menu_button("Edit", |ui| {
+            //if ui.button("Dummy").clicked() {
+            // Open a file
+            //    ui.close_menu();
+            //}
+        });
+    }
+
+    pub fn show_top_menu_panels(&mut self, ui: &mut egui::Ui) {
+        ui.menu_button("Panels", |ui| {
+            for panel in self.panels.iter_mut() {
+                let name = panel.name();
+                if name == "Views" {
+                    continue; // Skip view panels
+                }
+                let title = format!("{} {}", name, if panel.is_open() { "✅" } else { " " },);
+                if ui.button(title).clicked() {
+                    panel.toggle_open();
+                    ui.close_menu();
+                }
+            }
+        });
+    }
+
+    pub fn show_footer(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("This is the footer.");
+            });
+        });
+    }
+
+    pub fn show_windows(&mut self, ctx: &egui::Context) {
+        for window in self.panels.iter_mut() {
+            window.show(ctx);
+        }
+        for window in self.windows.iter_mut() {
+            window.show(ctx);
+        }
+    }
+}
+
+impl eframe::App for PbrtUIApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.show_top_menu(ctx);
+        self.show_footer(ctx);
+        self.show_windows(ctx);
+    }
+}
