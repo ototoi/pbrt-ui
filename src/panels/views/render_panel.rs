@@ -122,7 +122,7 @@ impl RenderPanel {
                     |ui| {
                         match state {
                             RenderState::Ready => {
-                                if ui.button("Render").clicked() {
+                                if ui.button("▶ Render").clicked() {
                                     log::info!("Render button clicked");
                                     self.tiles.clear();
                                     let controller = self.app_controller.read().unwrap();
@@ -155,13 +155,13 @@ impl RenderPanel {
                                 }
                             }
                             RenderState::Saving => {
-                                if ui.add_enabled(false, egui::Button::new("Stop")).clicked() {
+                                if ui.add_enabled(false, egui::Button::new("⏹ Stop")).clicked() {
                                     log::info!("Stop button clicked");
                                     // Here you can add the logic to render the scene
                                 }
                             }
                             RenderState::Rendering => {
-                                if ui.button("Stop").clicked() {
+                                if ui.button("⏹ Stop").clicked() {
                                     log::info!("Stop button clicked");
                                     match self.render_controller.cancel() {
                                         Ok(_) => {

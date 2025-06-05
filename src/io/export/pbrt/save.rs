@@ -26,11 +26,11 @@ use crate::models::scene::ShapeComponent;
 use crate::models::scene::ShapeProperties;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
+use super::super::copy_utility;
 
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -694,14 +694,10 @@ impl PbrtSaver {
             }
 
             for (src_path, dst_path) in copy_paths.iter() {
-                let odir = dst_path.parent().ok_or(PbrtError::error("Invalid path!"))?;
-                std::fs::create_dir_all(odir)?;
-                if !dst_path.exists() {
-                    std::fs::copy(src_path, dst_path)?;
-                    log::info!(
-                        "Copy resource from {} to {}",
-                        src_path.display(),
-                        dst_path.display()
+                if let Err(e) = copy_utility::copy_file(src_path, dst_path) {
+                    println!(
+                        "Failed to copy resource from {:?} to {:?}: {}",
+                        src_path, dst_path, e
                     );
                 }
             }
