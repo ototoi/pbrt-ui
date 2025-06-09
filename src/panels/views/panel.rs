@@ -47,23 +47,10 @@ impl Panel for ViewsPanel {
     }
     fn show(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(&egui::Style::default()).inner_margin(4.0))
+            .frame(egui::Frame::central_panel(&egui::Style::default()).inner_margin(1.0))
             .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.visuals_mut().button_frame = false;
-                    ui.selectable_value(&mut self.current_tab, ViewsTab::Scene, "Scene");
-                    ui.selectable_value(&mut self.current_tab, ViewsTab::Render, "Render");
-                });
-                ui.separator();
-                match self.current_tab {
-                    ViewsTab::Scene => {
-                        self.scene_panel.show(ui);
-                    }
-                    ViewsTab::Render => {
-                        ctx.request_repaint(); //continuously repaint
-                        self.render_panel.show(ui);
-                    }
-                }
+                ctx.request_repaint(); //continuously repaint
+                self.render_panel.show(ui);
             });
     }
 }

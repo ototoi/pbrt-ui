@@ -93,6 +93,12 @@ pub struct RenderPanel {
     texture_id: Option<egui::TextureId>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RenderCommand {
+    Render,
+    Stop,
+}
+
 impl RenderPanel {
     pub fn new<'a>(
         _cc: &'a eframe::CreationContext<'a>,
@@ -110,80 +116,101 @@ impl RenderPanel {
     pub fn show(&mut self, ui: &mut egui::Ui) {
         let _res = self.render_controller.update();
         let state = self.render_controller.get_state();
+        let mut final_image_path = "".to_string();
+        let mut render_command: Option<RenderCommand> = None;
         egui::TopBottomPanel::bottom("buttons").show_inside(ui, |ui| {
+            ui.add_space(3.0);
             ui.horizontal(|ui| {
-                ui.label("Status:");
-                ui.monospace(get_status_string(state));
+                ui.text_edit_singleline(&mut final_image_path);
+                if ui.button("Output Path").on_hover_text("Set the output path for the rendered image").clicked() {
+                    log::info!("Output Path button clicked");
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_title("Select Output Path")
+                        .set_file_name("rendered_image.png")
+                        .save_file()
+                    {
+                        final_image_path = path.to_str().unwrap_or("").to_string();
+                        //self.render_controller.set_output_path(final_image_path.clone());
+                    }
+                }
+                match state {
+                    RenderState::Ready => {
+                        if ui.button("▶ Render").clicked() {
+                            log::info!("Render button clicked");
+                            render_command = Some(RenderCommand::Render);
+                        }
+                    }
+                    RenderState::Saving => {
+                        if ui.add_enabled(false, egui::Button::new("⏹ Stop")).clicked() {
+                            log::info!("Stop button clicked");
+                            //
+                        }
+                    }
+                    RenderState::Rendering => {
+                        if ui.button("⏹ Stop").clicked() {
+                            log::info!("Stop button clicked");
+                            render_command = Some(RenderCommand::Stop);
+                        }
+                    }
+                    RenderState::Finishing => {
+                        if ui.add_enabled(false, egui::Button::new("⏹ Stop")).clicked() {
+                            log::info!("Stop button clicked");
+                            // Here you can add the logic to render the scene
+                        }
+                    }
+                }
             });
             ui.separator();
             ui.horizontal(|ui| {
-                ui.with_layout(
-                    egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
-                    |ui| {
-                        match state {
-                            RenderState::Ready => {
-                                if ui.button("▶ Render").clicked() {
-                                    log::info!("Render button clicked");
-                                    self.tiles.clear();
-                                    let controller = self.app_controller.read().unwrap();
-                                    let root_node = controller.get_root_node();
-                                    {
-                                        let image_size = get_render_size(&root_node);
-                                        let image_size =
-                                            [image_size.x as usize, image_size.y as usize];
-                                        let color_image =
-                                            egui::ColorImage::new(image_size, egui::Color32::BLACK);
-                                        let tex_manager = ui.ctx().tex_manager().clone();
-                                        let mut tex_manager = tex_manager.write();
-                                        let image_data =
-                                            egui::ImageData::Color(Arc::new(color_image));
-                                        let options = egui::TextureOptions::LINEAR;
-                                        self.texture_id = Some(tex_manager.alloc(
-                                            "render_image".to_string(),
-                                            image_data,
-                                            options,
-                                        ));
-                                    }
-                                    match self.render_controller.render(&root_node) {
-                                        Ok(_) => {
-                                            log::info!("Render started");
-                                        }
-                                        Err(e) => {
-                                            log::error!("Render error: {}", e);
-                                        }
-                                    }
-                                }
-                            }
-                            RenderState::Saving => {
-                                if ui.add_enabled(false, egui::Button::new("⏹ Stop")).clicked() {
-                                    log::info!("Stop button clicked");
-                                    // Here you can add the logic to render the scene
-                                }
-                            }
-                            RenderState::Rendering => {
-                                if ui.button("⏹ Stop").clicked() {
-                                    log::info!("Stop button clicked");
-                                    match self.render_controller.cancel() {
-                                        Ok(_) => {
-                                            log::info!("Render cancelled");
-                                        }
-                                        Err(e) => {
-                                            log::error!("Render error: {}", e);
-                                        }
-                                    }
-                                }
-                            }
-                            RenderState::Finishing => {
-                                if ui.add_enabled(false, egui::Button::new("Stop")).clicked() {
-                                    log::info!("Stop button clicked");
-                                    // Here you can add the logic to render the scene
-                                }
-                            }
-                        }
-                    },
-                );
+                ui.monospace(get_status_string(state));
             });
         });
+        {
+            if let Some(command) = render_command {
+                match command {
+                    RenderCommand::Render => {
+                        self.tiles.clear();
+                        let controller = self.app_controller.read().unwrap();
+                        let root_node = controller.get_root_node();
+                        {
+                            let image_size = get_render_size(&root_node);
+                            let image_size = [image_size.x as usize, image_size.y as usize];
+                            let color_image =
+                                egui::ColorImage::new(image_size, egui::Color32::BLACK);
+                            let tex_manager = ui.ctx().tex_manager().clone();
+                            let mut tex_manager = tex_manager.write();
+                            let image_data = egui::ImageData::Color(Arc::new(color_image));
+                            let options = egui::TextureOptions::LINEAR;
+                            self.texture_id = Some(tex_manager.alloc(
+                                "render_image".to_string(),
+                                image_data,
+                                options,
+                            ));
+                        }
+                        match self.render_controller.render(&root_node) {
+                            Ok(_) => {
+                                log::info!("Render started");
+                            }
+                            Err(e) => {
+                                log::error!("Render error: {}", e);
+                            }
+                        }
+                    }
+                    RenderCommand::Stop => {
+                        log::info!("Stopping render");
+                        match self.render_controller.cancel() {
+                            Ok(_) => {
+                                log::info!("Render cancelled");
+                            }
+                            Err(e) => {
+                                log::error!("Render error: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let available_rect = ui.available_rect_before_wrap();
             let available_size = available_rect.size();
@@ -215,9 +242,13 @@ impl RenderPanel {
                 }
             }
 
+            ui.painter().rect_filled(
+                available_rect.clone(),
+                0.0,
+                egui::Color32::from_rgb(0, 0, 64),
+            );
             ui.painter()
-                .rect_filled(available_rect.clone(), 0.0, egui::Color32::BLUE);
-            ui.painter().rect_filled(scaled_rect, 0, egui::Color32::RED);
+                .rect_filled(scaled_rect, 0, egui::Color32::from_rgb(0, 0, 128));
 
             if let Some(texture_id) = self.texture_id {
                 ui.painter().image(
