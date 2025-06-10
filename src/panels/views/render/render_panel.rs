@@ -119,13 +119,22 @@ impl RenderPanel {
                                 // If no file name, use a default one
                                 dialog = dialog.set_file_name("render_image.exr");
                             }
-                            
+
                             if let Some(path) = dialog
                                 .set_title("Select Output Path")
                                 .add_filter("EXR", &["exr"])
                                 .save_file()
                             {
                                 history.output_image_path = path.to_str().unwrap_or("").to_string();
+                                if let Some(parent) = path.parent() {
+                                    if parent.exists() {
+                                        let config =
+                                            self.app_controller.read().unwrap().get_config();
+                                        let mut config = config.write().unwrap();
+                                        config.render_output_directory =
+                                            parent.to_str().unwrap_or("").to_string();
+                                    }
+                                }
                             }
                         }
 
