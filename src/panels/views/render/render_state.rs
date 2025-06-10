@@ -5,8 +5,6 @@ use crate::error::PbrtError;
 use crate::io::export::pbrt::*;
 use crate::models::scene::Node;
 
-use std::io::BufReader;
-use std::io::Read;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -16,6 +14,7 @@ pub enum RenderState {
     Saving,
     Rendering,
     Finishing,
+    Finished,
 }
 
 fn save_pbrt_file(node: &Arc<RwLock<Node>>, pbrt_path: &str) -> Result<(), PbrtError> {
@@ -136,33 +135,7 @@ impl RenderTask for RenderingRenderTask {
         if let Some(display_server) = &self.display_server {
             command.arg("--display-server").arg(display_server);
         }
-
-        //let mut s = std::io::Cursor::new(Vec::new());
-        //command.stdout(std::io::stdout());
-        command.stdout(std::process::Stdio::piped());
-
         let child = command.spawn()?;
-        //if let Some(mut stdout) = child.stdout.as_mut() {
-        //    std::io::copy(&mut stdout, &mut std::io::stdout());
-        //}
-
-        //https://qiita.com/Kumassy/items/3fb3e52729e375efd5ed
-        {
-            /*
-            let stdout = BufReader::new(child.stdout.unwrap());
-            let lines = std::io::BufRead::lines(stdout);
-            for line in lines {
-                match line {
-                    Ok(l) => {
-                        log::info!("PBRT Output: {}", l);
-                    }
-                    Err(e) => {
-                        log::error!("Error reading PBRT output: {}", e);
-                    }
-                }
-            }
-            */
-        }
         self.child = Some(child);
         Ok(())
     }
@@ -243,6 +216,28 @@ impl RenderTask for FinishingRenderTask {
     fn update(&mut self) -> Result<RenderState, PbrtError> {
         // Here you would finalize the rendering process
         // For now, we just simulate it
-        Ok(RenderState::Ready)
+        Ok(RenderState::Finished)
+    }
+}
+
+pub struct FinishedRenderTask {}
+impl FinishedRenderTask {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+impl RenderTask for FinishedRenderTask {
+    fn get_state(&self) -> RenderState {
+        RenderState::Finished
+    }
+    fn enter(&mut self) -> Result<(), PbrtError> {
+        // Here you would finalize the rendering process
+        log::info!("Finalizing rendering process");
+        Ok(())
+    }
+    fn update(&mut self) -> Result<RenderState, PbrtError> {
+        // Here you would finalize the rendering process
+        // For now, we just simulate it
+        Ok(RenderState::Finished)
     }
 }

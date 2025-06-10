@@ -12,7 +12,7 @@ nom = "7.1.1"
 flate2 = "1.1.1"
 tempfile = "3.19.1"
 tar = "0.4.44"
-rfd = "0.15.3"
+rfd = { git = "https://github.com/ototoi/rfd.git", branch = "fix/save_file-set_directory-macos" }
 log = "0.4.27"
 convert_case = "0.8.0"
 ply-rs = "0.1.3"
