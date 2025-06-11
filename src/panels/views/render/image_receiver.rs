@@ -363,10 +363,11 @@ impl ImageReceiver {
         let core = self.core.clone();
         println!("Starting ImageReceiver on {}", hostname);
         let listener = TcpListener::bind(hostname)?;
-        //listener
-        //    .set_nonblocking(true)
-        //    .map_err(|e| PbrtError::error(&format!("Failed to set non-blocking mode: {}", e)))?;
-
+        /*
+                listener
+                    .set_nonblocking(true)
+                    .map_err(|e| PbrtError::error(&format!("Failed to set non-blocking mode: {}", e)))?;
+        */
         println!("ImageReceiver listening on {}", hostname);
         let (tx, rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
         let handle = thread::spawn(move || {
@@ -433,7 +434,7 @@ impl ImageReceiver {
             // Send a signal to stop the thread
             let _ = tx.send(0);
             // Wait for the thread to finish
-            handle.join().unwrap(); //
+            //handle.join().unwrap(); //
         }
         self.handle = None;
         Ok(())

@@ -1,6 +1,8 @@
 use super::render_history::RenderHistory;
 use super::render_state::RenderState;
 //
+use super::show_render_view::show_render_view;
+//
 use crate::controllers::AppController;
 
 use std::path::PathBuf;
@@ -171,7 +173,7 @@ impl RenderPanel {
                         ui.label("Ready to render.");
                     }
                     RenderState::Rendering => {
-                        ui.label("Rendering...");
+                        show_render_view(ui, history); 
                     }
                     RenderState::Saving => {
                         ui.label("Saving image...");

@@ -10,11 +10,14 @@ use std::sync::Mutex;
 use std::sync::RwLock;
 use uuid::Uuid;
 
+use eframe::egui;
+
 pub struct RenderHistory {
     pub id: Uuid,
     pub name: String,
     pub output_image_path: String,
     pub session: Option<RenderSession>,
+    pub texture_id: Option<egui::TextureId>,
 }
 
 impl RenderHistory {
@@ -27,6 +30,7 @@ impl RenderHistory {
             name,
             output_image_path,
             session: None,
+            texture_id: None,
         }
     }
 
@@ -47,8 +51,13 @@ impl RenderHistory {
 
     pub fn update(&mut self) -> Result<RenderState, PbrtError> {
         if let Some(session) = self.session.as_mut() {
-            //println!("Updating render session for history: {}", self.name);
-            return session.update();
+            let before_state = session.get_state();
+            let next_state = session.update()?;
+            if next_state != before_state {
+                if next_state == RenderState::Finished {
+                    self.session = None;
+                }
+            }
         }
         return Ok(RenderState::Ready);
     }
@@ -62,9 +71,9 @@ impl RenderHistory {
         if self.session.is_some() {
             return Ok(());
         }
-        println!("Creating new render session for history: {}", self.name);
+        //println!("Creating new render session for history: {}", self.name);
         let session = RenderSession::new(node, config)?;
-        println!("Render session created for history: {}", self.name);
+        //println!("Render session created for history: {}", self.name);
         self.session = Some(session);
         return Ok(());
     }

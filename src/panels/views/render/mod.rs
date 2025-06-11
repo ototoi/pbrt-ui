@@ -4,5 +4,6 @@ pub mod render_history;
 pub mod render_panel;
 pub mod render_session;
 pub mod render_state;
+pub mod show_render_view;
 
 pub use render_panel::RenderPanel;
