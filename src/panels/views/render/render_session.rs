@@ -50,13 +50,14 @@ pub struct RenderSession {
     state: RenderState,
     tasks: HashMap<RenderState, Box<dyn RenderTask>>,
     receiver: Option<ImageReceiver>,
-    session_id: Uuid,
 }
 
 impl RenderSession {
-    pub fn new(node: &Arc<RwLock<Node>>, config: &AppConfig) -> Result<RenderSession, PbrtError> {
-        let session_id = Uuid::new_v4();
-
+    pub fn new(
+        node: &Arc<RwLock<Node>>,
+        config: &AppConfig,
+        session_id: &Uuid,
+    ) -> Result<RenderSession, PbrtError> {
         let cache_dir = scene_cache_dir(get_file_path(node));
 
         let execute_path = config.pbrt_executable_path.clone();
@@ -68,18 +69,18 @@ impl RenderSession {
         let image_path = image_path.to_str().unwrap().to_string();
 
         let display_server = if config.enable_display_server {
-            Some(format!(
-                "{}:{}",
-                config.display_server_host, config.display_server_port
+            Some((
+                config.display_server_host.clone(),
+                config.display_server_port,
             ))
         } else {
             None
         };
 
-        let image_receiver = if let Some(display_server) = display_server.as_ref() {
+        let image_receiver = if let Some((_hostname, port)) = display_server.as_ref() {
             //println!("Using display server: {}", display_server);
             let mut image_receiver = ImageReceiver::new();
-            image_receiver.start(display_server)?;
+            image_receiver.start(*port)?;
             Some(image_receiver)
         } else {
             None
@@ -114,12 +115,10 @@ impl RenderSession {
         if let Some(save_task) = tasks.get_mut(&RenderState::Saving) {
             save_task.enter()?;
         }
-        println!("Render session created with ID: {}", session_id);
         return Ok(Self {
             state: RenderState::Saving,
             tasks: tasks,
             receiver: image_receiver,
-            session_id: session_id,
         });
     }
 
@@ -133,15 +132,15 @@ impl RenderSession {
             let next_state = task.update()?;
             if next_state != before_state {
                 task.exit()?;
-                println!("Exited state: {:?}", before_state);
+                //println!("Exited state: {:?}", before_state);
                 if let Some(next_task) = self.tasks.get_mut(&next_state) {
-                    println!("Entering next task: {:?}", next_task.get_state());
+                    //println!("Entering next task: {:?}", next_task.get_state());
                     next_task.enter()?;
-                    println!("Task entered: {:?}", next_task.get_state());
-                    self.state = next_state;
+                    //println!("Task entered: {:?}", next_task.get_state())
                 }
                 //println!("Entered state: {:?}", self.state);
             }
+            self.state = next_state;
         }
         Ok(self.state)
     }

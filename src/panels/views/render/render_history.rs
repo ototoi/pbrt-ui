@@ -19,6 +19,7 @@ pub struct RenderHistory {
     pub session: Option<RenderSession>,
     pub texture_id: Option<egui::TextureId>,
     pub state: RenderState,
+    pub image_data: Option<Arc<Mutex<ImageData>>>,
 }
 
 impl RenderHistory {
@@ -33,6 +34,7 @@ impl RenderHistory {
             session: None,
             texture_id: None,
             state: RenderState::Ready,
+            image_data: None,
         }
     }
 
@@ -50,14 +52,18 @@ impl RenderHistory {
 
     pub fn update(&mut self) -> Result<RenderState, PbrtError> {
         if let Some(session) = self.session.as_mut() {
-            //let before_state = session.get_state();
             let next_state = session.update()?;
-
-            if next_state == RenderState::Finished {
-                self.session = None;
-            }
-
             self.state = next_state;
+
+            if self.image_data.is_none() {
+                if let Some(image_data) = session.get_image_data() {
+                    self.image_data = Some(image_data);
+                }
+            }
+        }
+
+        if self.state == RenderState::Finished {
+            self.session = None;
         }
         return Ok(self.state);
     }
@@ -67,12 +73,12 @@ impl RenderHistory {
         node: &Arc<RwLock<Node>>,
         config: &AppConfig,
     ) -> Result<(), PbrtError> {
-        println!("Starting render for history: {}", self.name);
+        //println!("Starting render for history: {}", self.name);
         if self.session.is_some() {
             return Ok(());
         }
         //println!("Creating new render session for history: {}", self.name);
-        let session = RenderSession::new(node, config)?;
+        let session = RenderSession::new(node, config, &self.id)?;
         self.state = session.get_state();
         //println!("Render session created for history: {}", self.name);
         self.session = Some(session);
@@ -82,22 +88,12 @@ impl RenderHistory {
     pub fn cancel(&mut self) -> Result<(), PbrtError> {
         if let Some(session) = self.session.as_mut() {
             session.cancel()?;
+            self.state = session.get_state();
         }
-        //self.session = None;
         return Ok(());
     }
 
-    pub fn kill(&mut self) {
-        if let Some(session) = self.session.as_mut() {
-            session.cancel().unwrap_or(());
-        }
-        self.session = None;
-    }
-
     pub fn get_image_data(&self) -> Option<Arc<Mutex<ImageData>>> {
-        if let Some(session) = self.session.as_ref() {
-            return session.get_image_data();
-        }
-        return None;
+        return self.image_data.clone();
     }
 }

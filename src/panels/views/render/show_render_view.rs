@@ -59,13 +59,7 @@ fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
 pub fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {
     let available_rect = ui.available_rect_before_wrap();
     let available_size = available_rect.size();
-    ui.painter()
-        .rect_filled(available_rect, 0.0, egui::Color32::RED);
-
     if let Some(image) = history.get_image_data() {
-        ui.painter()
-            .rect_filled(available_rect, 0.0, egui::Color32::BLUE);
-
         let mut image = image.lock().unwrap();
         let render_size = egui::vec2(image.width as f32, image.height as f32);
         let scale_x = available_size.x / render_size.x;

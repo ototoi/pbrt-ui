@@ -148,13 +148,17 @@ impl RenderPanel {
                         } else {
                             ("⏹ Stop", RenderCommand::Stop)
                         };
+                        let button_text =
+                            egui::RichText::new(text).family(egui::FontFamily::Monospace);
                         if ui
-                            .add_enabled(is_ready | is_stoppable, egui::Button::new(text))
+                            .add_enabled(is_ready | is_stoppable, egui::Button::new(button_text))
                             .clicked()
                         {
                             log::info!("Clicked {}", text);
                             commamds.push(cmd);
                         }
+                        ui.separator();
+                        ui.label(format!("{:?}", state));
                     }
                 });
             }
@@ -163,32 +167,21 @@ impl RenderPanel {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let history = &mut self.histories[current_index];
             let state = history.get_state();
-            let is_ready = state == RenderState::Ready;
             let available_rect = ui.available_rect_before_wrap();
             ui.painter()
                 .rect_filled(available_rect, 0.0, egui::Color32::BLACK);
-            if is_ready {
-                ui.label("Ready to render.");
-            } else {
-                match state {
-                    RenderState::Ready => {
-                        ui.label("Ready to render.");
-                    }
-                    RenderState::Rendering => {
-                        show_render_view(ui, history);
-                    }
-                    RenderState::Saving => {
-                        ui.label("Saving image...");
-                    }
-                    RenderState::Finished => {
-                        ui.label("Render finished.");
-                    }
-                    _ => {
-                        ui.label(format!("Current state: {:?}", state));
-                    }
+            match state {
+                RenderState::Ready => {
+                    ui.label("Ready to render.");
                 }
-                //show renderred image
+                RenderState::Saving | RenderState::Rendering => {
+                    show_render_view(ui, history);
+                }
+                RenderState::Finishing | RenderState::Finished => {
+                    show_render_view(ui, history);
+                }
             }
+            //show renderred image
         });
         //---------------------------------------------------------------------------
         {
@@ -219,7 +212,6 @@ impl RenderPanel {
                         }
                     }
                     RenderCommand::Stop => {
-                        // Handle stop command
                         assert!(!self.histories.is_empty());
                         let last_history = self.histories.last_mut().unwrap();
                         match last_history.cancel() {
@@ -235,9 +227,6 @@ impl RenderPanel {
                     }
                     RenderCommand::NewHistory => {
                         // Create a new history
-                        for history in self.histories.iter_mut() {
-                            history.kill();
-                        }
                         let new_history =
                             Box::new(RenderHistory::new(&(self.histories.len() + 1).to_string()));
                         self.histories.push(new_history);

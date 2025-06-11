@@ -1,6 +1,3 @@
-use eframe::egui::mutex::Mutex;
-use eframe::egui::output;
-
 use crate::error::PbrtError;
 use crate::io::export::pbrt::*;
 use crate::models::scene::Node;
@@ -86,7 +83,7 @@ pub struct RenderingRenderTask {
     execute_path: String,
     pbrt_path: String,
     output_path: String,
-    display_server: Option<String>,
+    display_server: Option<(String, u16)>,
     child: Option<std::process::Child>,
 }
 
@@ -95,7 +92,7 @@ impl RenderingRenderTask {
         execute_path: &str,
         pbrt_path: &str,
         output_path: &str,
-        display_server: &Option<String>,
+        display_server: &Option<(String, u16)>,
     ) -> Self {
         let execute_path = execute_path.to_string();
         let pbrt_path = pbrt_path.to_string();
@@ -124,15 +121,12 @@ impl RenderTask for RenderingRenderTask {
         let pbrt_path = self.pbrt_path.clone();
         let output_path = self.output_path.clone();
 
-        //println!("A: execute_path: {}", execute_path);
-        //println!("A: pbrt_path: {}", pbrt_path);
-        //println!("A: output_path: {}", output_path);
-        //let (tx, rx) = std::sync::mpsc::channel();
         let mut command = std::process::Command::new(execute_path);
         //.arg("-v") // Optional: quiet mode
         //.arg("-i")
         command.arg(pbrt_path).arg("--outfile").arg(output_path);
-        if let Some(display_server) = &self.display_server {
+        if let Some((hostname, port)) = &self.display_server {
+            let display_server = format!("{}:{}", hostname, port);
             command.arg("--display-server").arg(display_server);
         }
         let child = command.spawn()?;
@@ -180,7 +174,6 @@ impl RenderTask for RenderingRenderTask {
     }
 
     fn exit(&mut self) -> Result<(), PbrtError> {
-        println!("Exiting rendering state");
         log::info!("Exiting rendering state");
         Ok(())
     }

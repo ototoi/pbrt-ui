@@ -36,7 +36,7 @@ impl Default for AppConfig {
             pbrt_executable_path: PathBuf::from(""),
             enable_display_server: false,
             display_server_host: "localhost".to_string(),
-            display_server_port: 14158,
+            display_server_port: 24158,
             render_output_directory: render_output_directory,
             import_file_directory: import_file_directory,
             export_file_directory: export_file_directory,
