@@ -18,6 +18,7 @@ pub struct RenderHistory {
     pub output_image_path: String,
     pub session: Option<RenderSession>,
     pub texture_id: Option<egui::TextureId>,
+    pub state: RenderState,
 }
 
 impl RenderHistory {
@@ -31,6 +32,7 @@ impl RenderHistory {
             output_image_path,
             session: None,
             texture_id: None,
+            state: RenderState::Ready,
         }
     }
 
@@ -43,23 +45,21 @@ impl RenderHistory {
     }
 
     pub fn get_state(&self) -> RenderState {
-        if let Some(session) = self.session.as_ref() {
-            return session.get_state();
-        }
-        return RenderState::Ready;
+        return self.state;
     }
 
     pub fn update(&mut self) -> Result<RenderState, PbrtError> {
         if let Some(session) = self.session.as_mut() {
-            let before_state = session.get_state();
+            //let before_state = session.get_state();
             let next_state = session.update()?;
-            if next_state != before_state {
-                if next_state == RenderState::Finished {
-                    self.session = None;
-                }
+
+            if next_state == RenderState::Finished {
+                self.session = None;
             }
+
+            self.state = next_state;
         }
-        return Ok(RenderState::Ready);
+        return Ok(self.state);
     }
 
     pub fn render(
@@ -73,6 +73,7 @@ impl RenderHistory {
         }
         //println!("Creating new render session for history: {}", self.name);
         let session = RenderSession::new(node, config)?;
+        self.state = session.get_state();
         //println!("Render session created for history: {}", self.name);
         self.session = Some(session);
         return Ok(());
@@ -80,9 +81,17 @@ impl RenderHistory {
 
     pub fn cancel(&mut self) -> Result<(), PbrtError> {
         if let Some(session) = self.session.as_mut() {
-            return session.cancel();
+            session.cancel()?;
         }
+        //self.session = None;
         return Ok(());
+    }
+
+    pub fn kill(&mut self) {
+        if let Some(session) = self.session.as_mut() {
+            session.cancel().unwrap_or(());
+        }
+        self.session = None;
     }
 
     pub fn get_image_data(&self) -> Option<Arc<Mutex<ImageData>>> {

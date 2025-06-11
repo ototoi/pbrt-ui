@@ -52,11 +52,13 @@ impl RenderPanel {
         //---------------------------------------------------------------------------
         {
             if let Some(last_history) = self.histories.last_mut() {
+                //let before_state = last_history.get_state();
                 match last_history.update() {
                     Ok(state) => {
                         if state == RenderState::Finished {
                             commamds.push(RenderCommand::NewHistory);
                         }
+
                         // log::info!("Render state updated: {:?}", last_history.get_state());
                     }
                     Err(e) => {
@@ -173,7 +175,7 @@ impl RenderPanel {
                         ui.label("Ready to render.");
                     }
                     RenderState::Rendering => {
-                        show_render_view(ui, history); 
+                        show_render_view(ui, history);
                     }
                     RenderState::Saving => {
                         ui.label("Saving image...");
@@ -198,19 +200,21 @@ impl RenderPanel {
                         let node = self.app_controller.read().unwrap().get_root_node();
                         let config = self.app_controller.read().unwrap().get_config();
                         let config = config.read().unwrap();
-                        match last_history.render(&node, &config) {
-                            Ok(_) => {
-                                log::info!(
-                                    "Render started for session: {}",
-                                    last_history.get_name()
-                                );
-                            }
-                            Err(e) => {
-                                log::error!(
-                                    "Failed to start render for session {}: {}",
-                                    last_history.get_name(),
-                                    e
-                                );
+                        if last_history.get_state() == RenderState::Ready {
+                            match last_history.render(&node, &config) {
+                                Ok(_) => {
+                                    log::info!(
+                                        "Render started for session: {}",
+                                        last_history.get_name()
+                                    );
+                                }
+                                Err(e) => {
+                                    log::error!(
+                                        "Failed to start render for session {}: {}",
+                                        last_history.get_name(),
+                                        e
+                                    );
+                                }
                             }
                         }
                     }
@@ -231,6 +235,9 @@ impl RenderPanel {
                     }
                     RenderCommand::NewHistory => {
                         // Create a new history
+                        for history in self.histories.iter_mut() {
+                            history.kill();
+                        }
                         let new_history =
                             Box::new(RenderHistory::new(&(self.histories.len() + 1).to_string()));
                         self.histories.push(new_history);

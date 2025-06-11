@@ -360,34 +360,52 @@ impl ImageReceiver {
     }
 
     pub fn start(&mut self, hostname: &str) -> Result<(), PbrtError> {
+        let hostname = hostname.to_string();
         let core = self.core.clone();
-        println!("Starting ImageReceiver on {}", hostname);
-        let listener = TcpListener::bind(hostname)?;
-        /*
-                listener
-                    .set_nonblocking(true)
-                    .map_err(|e| PbrtError::error(&format!("Failed to set non-blocking mode: {}", e)))?;
-        */
-        println!("ImageReceiver listening on {}", hostname);
+
+        let listener =  TcpListener::bind(&hostname);
+            if listener.is_err() {
+                println!("Failed to bind to {}: {}", &hostname, listener.err().unwrap());
+                return Ok(());
+            }
+            let listener = listener.unwrap();
+        
         let (tx, rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
         let handle = thread::spawn(move || {
+            println!("Starting ImageReceiver on {}", hostname);
             let core = core.clone();
             let mut continue_receiving = true;
+            
+            //listener
+            //    .set_nonblocking(true)
+            //    .expect("Failed to set listener to non-blocking mode");
+            //listener.
+            /*
             loop {
                 if rx.try_recv().is_ok() {
                     // Handle the received message (if needed)
                     println!("Received stop signal, shutting down ImageReceiver thread.");
-                    break;
+                    return;
                 }
 
                 if !continue_receiving {
-                    break;
+                   return;
+                }
+                */
+            loop {
+
+                if rx.try_recv().is_ok() {
+                    // Handle the received message (if needed)
+                    println!("Received stop signal, shutting down ImageReceiver thread.");
+                    return;
                 }
                 match listener.accept() {
-                    Ok((mut stream, _addr)) => {
+                    //match listener.accept() {
+                    Ok((mut stream, addr)) => {
                         //stream.set_nonblocking(true)
-                        //    .expect("Failed to set stream to non-blocking mode");
+                        //   .expect("Failed to set stream to non-blocking mode");
                         // Handle the incoming stream
+
                         loop {
                             if rx.try_recv().is_ok() {
                                 // Handle the received message (if needed)
@@ -397,6 +415,7 @@ impl ImageReceiver {
                                 continue_receiving = false;
                                 break;
                             }
+
                             match read_bytes(&mut stream) {
                                 Ok(data) => {
                                     if data.is_empty() {
@@ -412,16 +431,20 @@ impl ImageReceiver {
                                 Err(e) => {
                                     println!("Error reading from stream: {}", e);
                                     continue_receiving = false;
-                                    break; // Exit the loop on error
+                                    return;
                                 }
                             }
                         }
                     }
                     Err(e) => {
-                        println!("Error accepting connection: {}", e);
+                        //println!("Error accepting connection: {}", e);
+                        return;
                     }
                 }
             }
+
+            //thread::sleep(std::time::Duration::from_millis(100));
+            //}
             //listener.
         });
         println!("ImageReceiver thread started.");
@@ -432,9 +455,12 @@ impl ImageReceiver {
     pub fn stop(&mut self) -> Result<(), PbrtError> {
         if let Some((tx, handle)) = self.handle.take() {
             // Send a signal to stop the thread
-            let _ = tx.send(0);
+            if !handle.is_finished() {
+                let _ = tx.send(0);
+                //handle.join().unwrap();
+            }
             // Wait for the thread to finish
-            //handle.join().unwrap(); //
+            //handle.join().unwrap();
         }
         self.handle = None;
         Ok(())
@@ -457,9 +483,15 @@ impl Drop for ImageReceiver {
         // The listener will automatically close when it goes out of scope
         // No explicit action needed here
         //let _ = self.stop();
-        if let Some((tx, _)) = self.handle.take() {
+        if let Some((tx, handle)) = self.handle.take() {
             // Send a signal to stop the thread
-            let _ = tx.send(0);
+            if !handle.is_finished() {
+                let _ = tx.send(0);
+            }
+            // Wait for the thread to finish
+            //handle.join().unwrap(); // Wait for the thread to finish
+            //handle.join().unwrap();
         }
+        self.handle = None;
     }
 }

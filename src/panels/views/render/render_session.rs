@@ -77,7 +77,7 @@ impl RenderSession {
         };
 
         let image_receiver = if let Some(display_server) = display_server.as_ref() {
-            println!("Using display server: {}", display_server);
+            //println!("Using display server: {}", display_server);
             let mut image_receiver = ImageReceiver::new();
             image_receiver.start(display_server)?;
             Some(image_receiver)
@@ -114,6 +114,7 @@ impl RenderSession {
         if let Some(save_task) = tasks.get_mut(&RenderState::Saving) {
             save_task.enter()?;
         }
+        println!("Render session created with ID: {}", session_id);
         return Ok(Self {
             state: RenderState::Saving,
             tasks: tasks,
@@ -132,11 +133,11 @@ impl RenderSession {
             let next_state = task.update()?;
             if next_state != before_state {
                 task.exit()?;
-                //println!("Exited state: {:?}", before_state);
+                println!("Exited state: {:?}", before_state);
                 if let Some(next_task) = self.tasks.get_mut(&next_state) {
-                    //println!("Entering next task: {:?}", next_task.get_state());
+                    println!("Entering next task: {:?}", next_task.get_state());
                     next_task.enter()?;
-                    //println!("Task entered: {:?}", next_task.get_state());
+                    println!("Task entered: {:?}", next_task.get_state());
                     self.state = next_state;
                 }
                 //println!("Entered state: {:?}", self.state);
@@ -148,9 +149,10 @@ impl RenderSession {
     pub fn cancel(&mut self) -> Result<(), PbrtError> {
         if let Some(task) = self.tasks.get_mut(&self.state) {
             task.cancel()?;
-            //if let Some(receiver) = self.receiver.as_mut() {
-                //receiver.stop();
-            //}
+            if let Some(receiver) = self.receiver.as_mut() {
+                let _ = receiver.stop();
+            }
+            //self.receiver = None;
         }
         Ok(())
     }
