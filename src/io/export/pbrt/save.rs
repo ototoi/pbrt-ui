@@ -382,7 +382,7 @@ impl PbrtSaver {
                         format!("{}MakeNamedMaterial \"{}\"", make_indent(indent), name).as_bytes(),
                     )?;
                     writer.write(format!(" \"string type\" [\"{}\"]", t).as_bytes())?;
-                    writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
+                    //writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
                     for (key_type, key_name, init, _range) in props.iter() {
                         self.write_property(0, key_type, key_name, init, &material.props, writer)?;
                     }
@@ -408,7 +408,7 @@ impl PbrtSaver {
                 writer.write(format!("{}# Textures\n", make_indent(indent)).as_bytes())?;
             }
             let mut textures = Vec::new();
-            for (id, texture) in resouces_component.textures.iter() {
+            for texture in resouces_component.textures.values() {
                 let order = texture.read().unwrap().get_order();
                 textures.push((order, texture.clone()));
             }

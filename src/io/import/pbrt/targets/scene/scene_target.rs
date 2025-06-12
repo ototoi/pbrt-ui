@@ -142,7 +142,7 @@ impl SceneTarget {
 
         // Set define order of the texture
         {
-            let order = self.textures.len();//
+            let order = self.textures.len(); //
             let mut texture = texture.write().unwrap();
             texture.set_order(order as i32);
         }

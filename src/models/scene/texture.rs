@@ -79,9 +79,7 @@ impl Texture {
     }
 
     pub fn get_order(&self) -> i32 {
-        self.props
-            .find_one_int("integer order")
-            .unwrap_or(-1)
+        self.props.find_one_int("integer order").unwrap_or(-1)
     }
 
     pub fn set_order(&mut self, order: i32) {
