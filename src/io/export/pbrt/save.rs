@@ -407,7 +407,13 @@ impl PbrtSaver {
             if self.options.pretty_print {
                 writer.write(format!("{}# Textures\n", make_indent(indent)).as_bytes())?;
             }
+            let mut textures = Vec::new();
             for (id, texture) in resouces_component.textures.iter() {
+                let order = texture.read().unwrap().get_order();
+                textures.push((order, texture.clone()));
+            }
+            textures.sort_by(|a, b| a.0.cmp(&b.0));
+            for (_order, texture) in textures.iter() {
                 let texture = texture.read().unwrap();
                 let texture_type = texture.get_type();
                 let texture_name = texture.get_name();
@@ -426,7 +432,7 @@ impl PbrtSaver {
                     )
                     .as_bytes(),
                 )?;
-                writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
+                //writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
                 /*
                 writer.write("\n".as_bytes())?;
                 for (key_type, key_name, init) in texture.props.0.iter() {

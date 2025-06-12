@@ -139,6 +139,14 @@ impl SceneTarget {
             let tex = texture.read().unwrap();
             (tex.get_id(), tex.get_name())
         };
+
+        // Set define order of the texture
+        {
+            let order = self.textures.len();//
+            let mut texture = texture.write().unwrap();
+            texture.set_order(order as i32);
+        }
+
         let attr = self.graphics_states.last_mut().unwrap();
         if let Some(_) = attr.textures.get(&name) {
             log::warn!("Texture {} already exists", name);
