@@ -4,6 +4,7 @@ use super::render_state::RenderState;
 use super::show_render_view::show_render_view;
 //
 use crate::controllers::AppController;
+use crate::models::config::AppConfig;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,20 +25,26 @@ enum RenderCommand {
     NewHistory,
 }
 
+fn create_history(name: &str, config: &Arc<RwLock<AppConfig>>) -> Box<RenderHistory> {
+    let mut history = Box::new(RenderHistory::new(name));
+    let render_output_directory = config.read().unwrap().render_output_directory.clone();
+    let render_output_directory = PathBuf::from(render_output_directory);
+    if !render_output_directory.exists() {
+        std::fs::create_dir_all(&render_output_directory).unwrap();
+    }
+    let filename = format!("render_image_{}.exr", name);//should be configurable
+    let output_image_path = render_output_directory.join(filename); 
+    history.output_image_path = output_image_path.to_str().unwrap().to_string();
+    return history;
+}
+
 impl RenderPanel {
     pub fn new<'a>(
         _cc: &'a eframe::CreationContext<'a>,
         controller: &Arc<RwLock<AppController>>,
     ) -> Self {
         let config = controller.read().unwrap().get_config();
-        let render_output_directory = config.read().unwrap().render_output_directory.clone();
-        let render_output_directory = PathBuf::from(render_output_directory);
-        if !render_output_directory.exists() {
-            std::fs::create_dir_all(&render_output_directory).unwrap();
-        }
-        let output_image_path = render_output_directory.join("render_image.exr"); //should be configurable
-        let mut history = Box::new(RenderHistory::new("1"));
-        history.output_image_path = output_image_path.to_str().unwrap().to_string();
+        let history = create_history("1", &config);
         Self {
             app_controller: controller.clone(),
             histories: vec![history],
@@ -227,11 +234,9 @@ impl RenderPanel {
                     }
                     RenderCommand::NewHistory => {
                         // Create a new history
-                        let new_history =
-                            Box::new(RenderHistory::new(&(self.histories.len() + 1).to_string()));
-                        self.histories.push(new_history);
-                        self.current = self.histories.len() - 1;
-                        log::info!("New render history created: {}", self.current);
+                        let config = self.app_controller.read().unwrap().get_config();
+                        let history = create_history(&format!("{}", self.histories.len() + 1), &config); 
+                        self.histories.push(history);
                     }
                 }
             }

@@ -12,6 +12,7 @@ use std::sync::RwLock;
 
 use crypto::digest::Digest;
 use dirs;
+use eframe::egui::output;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -57,16 +58,19 @@ impl RenderSession {
         node: &Arc<RwLock<Node>>,
         config: &AppConfig,
         session_id: &Uuid,
+        output_image_path: &str,
     ) -> Result<RenderSession, PbrtError> {
         let cache_dir = scene_cache_dir(get_file_path(node));
 
         let execute_path = config.pbrt_executable_path.clone();
         let pbrt_path = cache_dir.join(format!("{}.pbrt", session_id)); //
         let image_path = cache_dir.join(format!("{}.exr", session_id)); //
+        let output_image_path = PathBuf::from(output_image_path);//
 
         let execute_path = execute_path.to_str().unwrap().to_string();
         let pbrt_path = pbrt_path.to_str().unwrap().to_string();
         let image_path = image_path.to_str().unwrap().to_string();
+        let output_image_path = output_image_path.to_str().unwrap().to_string();
 
         let display_server = if config.enable_display_server {
             Some((
@@ -107,7 +111,10 @@ impl RenderSession {
                 )),
             );
             // Finishing phase
-            tasks.insert(RenderState::Finishing, Box::new(FinishingRenderTask::new()));
+            tasks.insert(RenderState::Finishing, Box::new(FinishingRenderTask::new(
+                &image_path,
+                &output_image_path
+            )));
             tasks.insert(RenderState::Finished, Box::new(FinishedRenderTask::new()));
         }
 

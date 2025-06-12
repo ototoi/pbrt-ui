@@ -191,10 +191,16 @@ impl Drop for RenderingRenderTask {
     }
 }
 
-pub struct FinishingRenderTask {}
+pub struct FinishingRenderTask {
+    src_path: String,
+    dst_path: String,
+}
 impl FinishingRenderTask {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(src_path: &str, dst_path: &str) -> Self {
+        Self {
+            src_path: src_path.to_string(),
+            dst_path: dst_path.to_string(),
+        }
     }
 }
 impl RenderTask for FinishingRenderTask {
@@ -203,7 +209,13 @@ impl RenderTask for FinishingRenderTask {
     }
     fn enter(&mut self) -> Result<(), PbrtError> {
         // Here you would finalize the rendering process
-        log::info!("Finalizing rendering process");
+        if self.src_path != self.dst_path {
+            let src_path = std::path::PathBuf::from(&self.src_path);
+            let dst_path = std::path::PathBuf::from(&self.dst_path);
+            if src_path.exists() {
+                std::fs::copy(src_path, dst_path)?;
+            }
+        }
         Ok(())
     }
     fn update(&mut self) -> Result<RenderState, PbrtError> {
