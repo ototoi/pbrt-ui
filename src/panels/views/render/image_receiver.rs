@@ -378,7 +378,7 @@ impl ImageReceiver {
 
         let listener = TcpListener::bind(&hostname)?;
         println!("Starting ImageReceiver on {}", hostname);
-        
+
         let (tx, rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
         let handle = thread::spawn(move || {
             let core = core.clone();
@@ -407,7 +407,9 @@ impl ImageReceiver {
                                             //println!("Received directive: {:?}", directive);
                                             match directive {
                                                 DisplayDirective::CloseServer => {
-                                                    println!("Received CloseServer directive, stopping receiver.");
+                                                    println!(
+                                                        "Received CloseServer directive, stopping receiver."
+                                                    );
                                                     return;
                                                 }
                                                 _ => {

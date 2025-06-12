@@ -56,7 +56,7 @@ impl RenderSession {
     pub fn new(
         node: &Arc<RwLock<Node>>,
         config: &AppConfig,
-        session_id: &Uuid,
+        session_id: Uuid,
         output_image_path: &str,
     ) -> Result<RenderSession, PbrtError> {
         let cache_dir = scene_cache_dir(get_file_path(node));
@@ -64,7 +64,7 @@ impl RenderSession {
         let execute_path = config.pbrt_executable_path.clone();
         let pbrt_path = cache_dir.join(format!("{}.pbrt", session_id)); //
         let image_path = cache_dir.join(format!("{}.exr", session_id)); //
-        let output_image_path = PathBuf::from(output_image_path);//
+        let output_image_path = PathBuf::from(output_image_path); //
 
         let execute_path = execute_path.to_str().unwrap().to_string();
         let pbrt_path = pbrt_path.to_str().unwrap().to_string();
@@ -110,10 +110,10 @@ impl RenderSession {
                 )),
             );
             // Finishing phase
-            tasks.insert(RenderState::Finishing, Box::new(FinishingRenderTask::new(
-                &image_path,
-                &output_image_path
-            )));
+            tasks.insert(
+                RenderState::Finishing,
+                Box::new(FinishingRenderTask::new(&image_path, &output_image_path)),
+            );
             tasks.insert(RenderState::Finished, Box::new(FinishedRenderTask::new()));
         }
 

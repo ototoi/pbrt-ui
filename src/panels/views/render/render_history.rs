@@ -78,7 +78,7 @@ impl RenderHistory {
             return Ok(());
         }
         //println!("Creating new render session for history: {}", self.name);
-        let session = RenderSession::new(node, config, &self.id, &self.output_image_path)?;
+        let session = RenderSession::new(node, config, self.id, &self.output_image_path)?;
         self.state = session.get_state();
         //println!("Render session created for history: {}", self.name);
         self.session = Some(session);

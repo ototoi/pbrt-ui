@@ -187,9 +187,15 @@ impl RenderPanel {
             match state {
                 RenderState::Ready => {
                     let node = self.app_controller.read().unwrap().get_root_node();
-                    show_scene_view(&self.gl, ui, history, &node);
+                    show_scene_view(ui, &self.gl, &node, true);
                 }
                 RenderState::Saving | RenderState::Rendering => {
+                    if history.get_image_data().is_none() {
+                        let node = self.app_controller.read().unwrap().get_root_node();
+                        show_scene_view(ui, &self.gl, &node, false);
+                    } else {
+                        show_render_view(ui, history);
+                    }
                     show_render_view(ui, history);
                 }
                 RenderState::Finishing | RenderState::Finished => {

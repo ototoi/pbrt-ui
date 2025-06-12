@@ -1,3 +1,4 @@
+use super::super::copy_utility;
 use crate::error::PbrtError;
 use crate::models::base::Matrix4x4;
 use crate::models::base::ParamSet;
@@ -26,7 +27,6 @@ use crate::models::scene::ShapeComponent;
 use crate::models::scene::ShapeProperties;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
-use super::super::copy_utility;
 
 use std::fs::File;
 use std::io::Write;
