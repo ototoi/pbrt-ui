@@ -1,6 +1,7 @@
+use super::image_data::ImageData;
 use crate::error::PbrtError;
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -11,12 +12,16 @@ use std::thread;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 enum DisplayDirective {
-    _OpenImage = 7,
     _ReloadImage = 1,
     _CloseImage = 2,
+    _UpdateImage = 3,
     CreateImage = 4,
-    UpdateImage = 6,
+    _UpdateImageV2 = 5,
+    UpdateImageV3 = 6,
+    _OpenImage = 7,
     _VectorGraphics = 8,
+    //
+    CloseServer = 129,
 }
 
 #[derive(Debug, Clone)]
@@ -37,32 +42,6 @@ struct UpdateImageData {
     pub data: Vec<f32>, // Placeholder for image data
 }
 
-#[derive(Debug, Clone)]
-pub struct ImageData {
-    pub name: String,
-    pub width: usize,
-    pub height: usize,
-    pub channel_names: Vec<String>,
-    pub data: Vec<f32>,
-    pub tiles: Vec<(usize, usize, usize, usize)>, // (x0, y0, x1, y1)
-}
-
-impl ImageData {
-    pub fn new(name: String, width: usize, height: usize, channel_names: &Vec<String>) -> Self {
-        let channel_count = channel_names.len();
-        let data_length = width * height * channel_count;
-        let data = vec![0.0; data_length]; // Initialize with zeros
-        Self {
-            name,
-            width,
-            height,
-            channel_names: channel_names.clone(),
-            data: data,        // Initialize with empty data
-            tiles: Vec::new(), // Initialize with empty tiles
-        }
-    }
-}
-
 struct ImageReceiverCore {
     images: HashMap<String, Arc<Mutex<ImageData>>>,
 }
@@ -75,11 +54,6 @@ impl ImageReceiverCore {
     }
 
     fn create_image(&mut self, create_image: CreateImageData) {
-        // Handle the CreateImage directive
-        //println!(
-        //    "CreateImage: name={}, width={}, height={}, channel_names={:?}",
-        //    create_image.name, create_image.width, create_image.height, create_image.channel_names
-        //);
         let image_data = ImageData::new(
             create_image.name.clone(),
             create_image.width as usize,
@@ -124,7 +98,7 @@ impl ImageReceiverCore {
 
 pub struct ImageReceiver {
     core: Arc<Mutex<ImageReceiverCore>>,
-    handle: Option<(Sender<i32>, thread::JoinHandle<()>)>,
+    handle: Option<(String, Sender<i32>, thread::JoinHandle<()>)>,
 }
 
 fn read_bytes(stream: &mut TcpStream) -> Result<Vec<u8>, PbrtError> {
@@ -235,7 +209,7 @@ fn decode_update_image(data: &[u8]) -> Result<UpdateImageData, PbrtError> {
     }
     let directive: u8 = data[4];
     assert!(
-        directive == DisplayDirective::UpdateImage as u8,
+        directive == DisplayDirective::UpdateImageV3 as u8,
         "Expected directive 6 for UpdateImage, got {}",
         directive
     );
@@ -340,12 +314,16 @@ fn decode_update_image(data: &[u8]) -> Result<UpdateImageData, PbrtError> {
     })
 }
 
-fn evaluate_bytes(core: &Arc<Mutex<ImageReceiverCore>>, data: &[u8]) -> Result<(), PbrtError> {
+fn evaluate_bytes(
+    core: &Arc<Mutex<ImageReceiverCore>>,
+    data: &[u8],
+) -> Result<DisplayDirective, PbrtError> {
     let directive: u8 = data[4];
     //println!("Received directive: {:?}", directive);
     let directive = match directive {
         4 => DisplayDirective::CreateImage,
-        6 => DisplayDirective::UpdateImage,
+        6 => DisplayDirective::UpdateImageV3,
+        129 => DisplayDirective::CloseServer,
         _ => {
             println!("Unknown directive: {}", directive);
             return Err(PbrtError::error(&format!(
@@ -362,7 +340,7 @@ fn evaluate_bytes(core: &Arc<Mutex<ImageReceiverCore>>, data: &[u8]) -> Result<(
             let mut core = core.lock().unwrap();
             core.create_image(create_image);
         }
-        DisplayDirective::UpdateImage => {
+        DisplayDirective::UpdateImageV3 => {
             // Handle UpdateImage directive
             let update_image = decode_update_image(data)?;
             let mut core = core.lock().unwrap();
@@ -375,7 +353,17 @@ fn evaluate_bytes(core: &Arc<Mutex<ImageReceiverCore>>, data: &[u8]) -> Result<(
         }
     }
 
-    return Ok(());
+    return Ok(directive);
+}
+
+fn send_close_server(hostname: &str) -> Result<(), PbrtError> {
+    let mut stream = TcpStream::connect(hostname)
+        .map_err(|e| PbrtError::error(&format!("Failed to connect to {}: {}", hostname, e)))?;
+    let directive = DisplayDirective::CloseServer as u8;
+    let mut data = 5u32.to_le_bytes().to_vec();
+    data.push(directive);
+    stream.write_all(&data)?;
+    Ok(())
 }
 
 impl ImageReceiver {
@@ -384,58 +372,58 @@ impl ImageReceiver {
         Self { core, handle: None }
     }
 
-    pub fn start(&mut self, hostname: &str) -> Result<(), PbrtError> {
+    pub fn start(&mut self, port: u16) -> Result<(), PbrtError> {
+        let hostname = format!("0.0.0.0:{}", port);
         let core = self.core.clone();
-        println!("Starting ImageReceiver on {}", hostname);
-        let listener = TcpListener::bind(hostname)?;
-        //listener
-        //    .set_nonblocking(true)
-        //    .map_err(|e| PbrtError::error(&format!("Failed to set non-blocking mode: {}", e)))?;
 
-        println!("ImageReceiver listening on {}", hostname);
+        let listener = TcpListener::bind(&hostname)?;
+        println!("Starting ImageReceiver on {}", hostname);
+
         let (tx, rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
         let handle = thread::spawn(move || {
             let core = core.clone();
-            let mut continue_receiving = true;
             loop {
                 if rx.try_recv().is_ok() {
-                    // Handle the received message (if needed)
-                    println!("Received stop signal, shutting down ImageReceiver thread.");
-                    break;
+                    return;
                 }
-
-                if !continue_receiving {
-                    break;
-                }
+                //match res {
                 match listener.accept() {
                     Ok((mut stream, _addr)) => {
-                        //stream.set_nonblocking(true)
-                        //    .expect("Failed to set stream to non-blocking mode");
-                        // Handle the incoming stream
+                        println!("Accepted connection from {}", stream.peer_addr().unwrap());
                         loop {
                             if rx.try_recv().is_ok() {
-                                // Handle the received message (if needed)
-                                println!(
-                                    "Received stop signal, shutting down ImageReceiver thread."
-                                );
-                                continue_receiving = false;
-                                break;
+                                return; // Exit the loop if a stop signal is received
                             }
+
                             match read_bytes(&mut stream) {
                                 Ok(data) => {
+                                    //println!("Received {} bytes of data", data.len());
                                     if data.is_empty() {
-                                        // If no data is received, break the loop
-                                        thread::sleep(std::time::Duration::from_millis(10));
-                                        continue;
+                                        break; // No data to read, exit the loop
                                     }
                                     // Process the received data
-                                    if let Err(e) = evaluate_bytes(&core, &data) {
-                                        println!("Error evaluating bytes: {}", e);
+                                    match evaluate_bytes(&core, &data) {
+                                        Ok(directive) => {
+                                            //println!("Received directive: {:?}", directive);
+                                            match directive {
+                                                DisplayDirective::CloseServer => {
+                                                    println!(
+                                                        "Received CloseServer directive, stopping receiver."
+                                                    );
+                                                    return;
+                                                }
+                                                _ => {
+                                                    // Handle other directives if needed
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            println!("Error evaluating bytes: {}", e);
+                                        }
                                     }
                                 }
                                 Err(e) => {
                                     println!("Error reading from stream: {}", e);
-                                    continue_receiving = false;
                                     break; // Exit the loop on error
                                 }
                             }
@@ -443,24 +431,25 @@ impl ImageReceiver {
                     }
                     Err(e) => {
                         println!("Error accepting connection: {}", e);
+                        return;
                     }
                 }
             }
-            //listener.
         });
         println!("ImageReceiver thread started.");
-        self.handle = Some((tx, handle));
+        self.handle = Some((hostname, tx, handle));
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<(), PbrtError> {
-        if let Some((tx, handle)) = self.handle.take() {
+        if let Some((hostname, tx, handle)) = self.handle.take() {
             // Send a signal to stop the thread
-            let _ = tx.send(0);
-            // Wait for the thread to finish
-            handle.join().unwrap(); //
+            if !handle.is_finished() {
+                let _ = tx.send(0);
+                send_close_server(&hostname)?;
+                handle.join().unwrap();
+            }
         }
-        self.handle = None;
         Ok(())
     }
 
@@ -478,12 +467,13 @@ impl ImageReceiver {
 
 impl Drop for ImageReceiver {
     fn drop(&mut self) {
-        // The listener will automatically close when it goes out of scope
-        // No explicit action needed here
-        //let _ = self.stop();
-        if let Some((tx, _)) = self.handle.take() {
+        if let Some((hostname, tx, handle)) = self.handle.take() {
             // Send a signal to stop the thread
-            let _ = tx.send(0);
+            if !handle.is_finished() {
+                let _ = tx.send(0);
+                let _ = send_close_server(&hostname);
+                handle.join().unwrap();
+            }
         }
     }
 }

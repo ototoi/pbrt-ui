@@ -1,5 +1,6 @@
-use super::image_receiver::{ImageData, ImageReceiver};
-use super::state::*;
+use super::image_data::ImageData;
+use super::image_receiver::ImageReceiver;
+use super::render_state::*;
 use crate::models::scene::Node;
 use crate::models::scene::SceneComponent;
 use crate::{error::*, models::config::AppConfig};
@@ -45,40 +46,44 @@ fn scene_cache_dir(path: Option<String>) -> PathBuf {
     cache_dir
 }
 
-pub struct RenderContext {
+pub struct RenderSession {
     state: RenderState,
     tasks: HashMap<RenderState, Box<dyn RenderTask>>,
     receiver: Option<ImageReceiver>,
-    session_id: Uuid,
 }
 
-impl RenderContext {
-    pub fn new(node: &Arc<RwLock<Node>>, config: &AppConfig) -> Result<RenderContext, PbrtError> {
-        let session_id = Uuid::new_v4();
-
+impl RenderSession {
+    pub fn new(
+        node: &Arc<RwLock<Node>>,
+        config: &AppConfig,
+        session_id: Uuid,
+        output_image_path: &str,
+    ) -> Result<RenderSession, PbrtError> {
         let cache_dir = scene_cache_dir(get_file_path(node));
 
         let execute_path = config.pbrt_executable_path.clone();
         let pbrt_path = cache_dir.join(format!("{}.pbrt", session_id)); //
         let image_path = cache_dir.join(format!("{}.exr", session_id)); //
+        let output_image_path = PathBuf::from(output_image_path); //
 
         let execute_path = execute_path.to_str().unwrap().to_string();
         let pbrt_path = pbrt_path.to_str().unwrap().to_string();
         let image_path = image_path.to_str().unwrap().to_string();
+        let output_image_path = output_image_path.to_str().unwrap().to_string();
 
         let display_server = if config.enable_display_server {
-            Some(format!(
-                "{}:{}",
-                config.display_server_host, config.display_server_port
+            Some((
+                config.display_server_host.clone(),
+                config.display_server_port,
             ))
         } else {
             None
         };
 
-        let image_receiver = if let Some(display_server) = display_server.as_ref() {
+        let image_receiver = if let Some((_hostname, port)) = display_server.as_ref() {
             //println!("Using display server: {}", display_server);
             let mut image_receiver = ImageReceiver::new();
-            image_receiver.start(display_server)?;
+            image_receiver.start(*port)?;
             Some(image_receiver)
         } else {
             None
@@ -105,7 +110,11 @@ impl RenderContext {
                 )),
             );
             // Finishing phase
-            tasks.insert(RenderState::Finishing, Box::new(FinishingRenderTask::new()));
+            tasks.insert(
+                RenderState::Finishing,
+                Box::new(FinishingRenderTask::new(&image_path, &output_image_path)),
+            );
+            tasks.insert(RenderState::Finished, Box::new(FinishedRenderTask::new()));
         }
 
         // Enter the first task
@@ -116,16 +125,11 @@ impl RenderContext {
             state: RenderState::Saving,
             tasks: tasks,
             receiver: image_receiver,
-            session_id: session_id,
         });
     }
 
     pub fn get_state(&self) -> RenderState {
         self.state
-    }
-
-    pub fn get_uuid(&self) -> Uuid {
-        self.session_id
     }
 
     pub fn update(&mut self) -> Result<RenderState, PbrtError> {
@@ -134,74 +138,33 @@ impl RenderContext {
             let next_state = task.update()?;
             if next_state != before_state {
                 task.exit()?;
+                //println!("Exited state: {:?}", before_state);
                 if let Some(next_task) = self.tasks.get_mut(&next_state) {
+                    //println!("Entering next task: {:?}", next_task.get_state());
                     next_task.enter()?;
-                    self.state = next_state;
+                    //println!("Task entered: {:?}", next_task.get_state())
                 }
+                //println!("Entered state: {:?}", self.state);
             }
+            self.state = next_state;
         }
         Ok(self.state)
     }
-}
-
-pub struct RenderController {
-    context: Option<RenderContext>,
-    config: Arc<RwLock<AppConfig>>,
-}
-
-impl RenderController {
-    pub fn new(config: &Arc<RwLock<AppConfig>>) -> Self {
-        Self {
-            context: None,
-            config: config.clone(),
-        }
-    }
-
-    pub fn get_state(&self) -> RenderState {
-        if let Some(context) = &self.context {
-            return context.get_state();
-        }
-        RenderState::Ready
-    }
-
-    pub fn render(&mut self, node: &Arc<RwLock<Node>>) -> Result<(), PbrtError> {
-        if self.context.is_some() {
-            return Err(PbrtError::error(
-                "Render context already exists. Please wait for the current render to finish.",
-            ));
-        }
-        let context = RenderContext::new(node, &self.config.read().unwrap())?;
-        self.context = Some(context);
-        return Ok(());
-    }
-
-    pub fn update(&mut self) -> Result<(), PbrtError> {
-        if let Some(context) = &mut self.context {
-            let before_state = context.get_state();
-            let state = context.update()?;
-            if before_state == RenderState::Finishing {
-                if state != RenderState::Finishing {
-                    self.context = None; // Clear context after finishing
-                }
-            }
-        }
-        Ok(())
-    }
 
     pub fn cancel(&mut self) -> Result<(), PbrtError> {
-        if let Some(context) = &mut self.context {
-            if let Some(task) = context.tasks.get_mut(&context.state) {
-                task.cancel()?;
+        if let Some(task) = self.tasks.get_mut(&self.state) {
+            task.cancel()?;
+            if let Some(receiver) = self.receiver.as_mut() {
+                let _ = receiver.stop();
             }
+            //self.receiver = None;
         }
         Ok(())
     }
 
     pub fn get_image_data(&self) -> Option<Arc<Mutex<ImageData>>> {
-        if let Some(context) = &self.context {
-            if let Some(receiver) = &context.receiver {
-                return receiver.get_image_data();
-            }
+        if let Some(receiver) = self.receiver.as_ref() {
+            return receiver.get_image_data();
         }
         None
     }

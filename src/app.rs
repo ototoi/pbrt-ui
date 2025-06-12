@@ -1,4 +1,5 @@
 use crate::controllers::AppController;
+use crate::io::export;
 use crate::io::export::pbrt::*;
 use crate::io::import::pbrt::*;
 use crate::models::scene::SceneComponent;
@@ -78,18 +79,27 @@ impl PbrtUIApp {
         let mut commands = Vec::new();
         ui.menu_button("File", |ui| {
             if ui.button("Import").clicked() {
+                let config = self.controller.read().unwrap().get_config();
+                let import_directory = config.read().unwrap().import_file_directory.clone();
+                let import_directory = PathBuf::from(import_directory);
+                if !import_directory.exists() {
+                    let _ = std::fs::create_dir_all(&import_directory);
+                }
+
                 let mut dialog = rfd::FileDialog::new()
                     .set_title("Import PBRT File")
                     .add_filter("PBRT", &["pbrt", "pbrt.gz"]);
-                if let Some(current_path) = self.get_current_scene_path() {
-                    let current_path = PathBuf::from(current_path);
-                    if current_path.exists() {
-                        dialog = dialog.set_directory(current_path.parent().unwrap());
-                    }
+
+                if import_directory.exists() {
+                    dialog = dialog.set_directory(import_directory);
                 }
 
                 if let Some(path) = dialog.pick_file() {
                     if path.exists() {
+                        if let Some(parent) = path.parent() {
+                            let mut config = config.write().unwrap();
+                            config.import_file_directory = parent.to_str().unwrap().to_string();
+                        }
                         let path = path.to_str().unwrap().to_string();
                         commands.push(MenuCommand::Import(path));
                     }
@@ -97,11 +107,30 @@ impl PbrtUIApp {
                 ui.close_menu();
             }
             if ui.button("Export").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
+                let config = self.controller.read().unwrap().get_config();
+                let export_directory = config.read().unwrap().export_file_directory.clone();
+                let export_directory = PathBuf::from(export_directory);
+
+                if !export_directory.exists() {
+                    let _ = std::fs::create_dir_all(&export_directory);
+                }
+
+                let mut dialog = rfd::FileDialog::new()
                     .set_title("Export PBRT File")
-                    .add_filter("PBRT", &["pbrt", "pbrt.gz"])
-                    .save_file()
-                {
+                    .add_filter("PBRT", &["pbrt", "pbrt.gz"]);
+
+                if export_directory.exists() {
+                    dialog = dialog.set_directory(export_directory);
+                }
+
+                if let Some(path) = dialog.save_file() {
+                    if let Some(parent) = path.parent() {
+                        if parent.exists() {
+                            let mut config = config.write().unwrap();
+                            config.export_file_directory = parent.to_str().unwrap().to_string();
+                        }
+                    }
+
                     let path = path.to_str().unwrap().to_string();
                     commands.push(MenuCommand::Export(path));
                 }

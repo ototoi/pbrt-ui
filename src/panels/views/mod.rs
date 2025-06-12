@@ -1,7 +1,6 @@
 //mod custom3d;
 mod panel;
-mod render_panel;
-mod scene_panel;
-mod scene_view;
+mod render;
+mod scene;
 
 pub use panel::ViewsPanel;

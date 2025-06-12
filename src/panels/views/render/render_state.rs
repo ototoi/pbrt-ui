@@ -1,12 +1,7 @@
-use eframe::egui::mutex::Mutex;
-use eframe::egui::output;
-
 use crate::error::PbrtError;
 use crate::io::export::pbrt::*;
 use crate::models::scene::Node;
 
-use std::io::BufReader;
-use std::io::Read;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -16,6 +11,7 @@ pub enum RenderState {
     Saving,
     Rendering,
     Finishing,
+    Finished,
 }
 
 fn save_pbrt_file(node: &Arc<RwLock<Node>>, pbrt_path: &str) -> Result<(), PbrtError> {
@@ -87,7 +83,7 @@ pub struct RenderingRenderTask {
     execute_path: String,
     pbrt_path: String,
     output_path: String,
-    display_server: Option<String>,
+    display_server: Option<(String, u16)>,
     child: Option<std::process::Child>,
 }
 
@@ -96,7 +92,7 @@ impl RenderingRenderTask {
         execute_path: &str,
         pbrt_path: &str,
         output_path: &str,
-        display_server: &Option<String>,
+        display_server: &Option<(String, u16)>,
     ) -> Self {
         let execute_path = execute_path.to_string();
         let pbrt_path = pbrt_path.to_string();
@@ -125,44 +121,15 @@ impl RenderTask for RenderingRenderTask {
         let pbrt_path = self.pbrt_path.clone();
         let output_path = self.output_path.clone();
 
-        //println!("A: execute_path: {}", execute_path);
-        //println!("A: pbrt_path: {}", pbrt_path);
-        //println!("A: output_path: {}", output_path);
-        //let (tx, rx) = std::sync::mpsc::channel();
         let mut command = std::process::Command::new(execute_path);
         //.arg("-v") // Optional: quiet mode
         //.arg("-i")
         command.arg(pbrt_path).arg("--outfile").arg(output_path);
-        if let Some(display_server) = &self.display_server {
+        if let Some((hostname, port)) = &self.display_server {
+            let display_server = format!("{}:{}", hostname, port);
             command.arg("--display-server").arg(display_server);
         }
-
-        //let mut s = std::io::Cursor::new(Vec::new());
-        //command.stdout(std::io::stdout());
-        command.stdout(std::process::Stdio::piped());
-
         let child = command.spawn()?;
-        //if let Some(mut stdout) = child.stdout.as_mut() {
-        //    std::io::copy(&mut stdout, &mut std::io::stdout());
-        //}
-
-        //https://qiita.com/Kumassy/items/3fb3e52729e375efd5ed
-        {
-            /*
-            let stdout = BufReader::new(child.stdout.unwrap());
-            let lines = std::io::BufRead::lines(stdout);
-            for line in lines {
-                match line {
-                    Ok(l) => {
-                        log::info!("PBRT Output: {}", l);
-                    }
-                    Err(e) => {
-                        log::error!("Error reading PBRT output: {}", e);
-                    }
-                }
-            }
-            */
-        }
         self.child = Some(child);
         Ok(())
     }
@@ -207,7 +174,6 @@ impl RenderTask for RenderingRenderTask {
     }
 
     fn exit(&mut self) -> Result<(), PbrtError> {
-        println!("Exiting rendering state");
         log::info!("Exiting rendering state");
         Ok(())
     }
@@ -225,15 +191,49 @@ impl Drop for RenderingRenderTask {
     }
 }
 
-pub struct FinishingRenderTask {}
+pub struct FinishingRenderTask {
+    src_path: String,
+    dst_path: String,
+}
 impl FinishingRenderTask {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(src_path: &str, dst_path: &str) -> Self {
+        Self {
+            src_path: src_path.to_string(),
+            dst_path: dst_path.to_string(),
+        }
     }
 }
 impl RenderTask for FinishingRenderTask {
     fn get_state(&self) -> RenderState {
         RenderState::Finishing
+    }
+    fn enter(&mut self) -> Result<(), PbrtError> {
+        // Here you would finalize the rendering process
+        if self.src_path != self.dst_path {
+            let src_path = std::path::PathBuf::from(&self.src_path);
+            let dst_path = std::path::PathBuf::from(&self.dst_path);
+            if src_path.exists() {
+                std::fs::copy(src_path, dst_path)?;
+            }
+        }
+        Ok(())
+    }
+    fn update(&mut self) -> Result<RenderState, PbrtError> {
+        // Here you would finalize the rendering process
+        // For now, we just simulate it
+        Ok(RenderState::Finished)
+    }
+}
+
+pub struct FinishedRenderTask {}
+impl FinishedRenderTask {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+impl RenderTask for FinishedRenderTask {
+    fn get_state(&self) -> RenderState {
+        RenderState::Finished
     }
     fn enter(&mut self) -> Result<(), PbrtError> {
         // Here you would finalize the rendering process
@@ -243,6 +243,6 @@ impl RenderTask for FinishingRenderTask {
     fn update(&mut self) -> Result<RenderState, PbrtError> {
         // Here you would finalize the rendering process
         // For now, we just simulate it
-        Ok(RenderState::Ready)
+        Ok(RenderState::Finished)
     }
 }

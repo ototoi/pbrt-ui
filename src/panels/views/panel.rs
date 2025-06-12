@@ -1,5 +1,4 @@
-use super::render_panel::RenderPanel;
-use super::scene_panel::ScenePanel;
+use super::render::RenderPanel;
 use crate::controllers::AppController;
 use crate::panels::Panel;
 
@@ -7,16 +6,17 @@ use eframe::egui;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+/*
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ViewsTab {
     Scene,
     Render,
 }
+*/
 
 pub struct ViewsPanel {
     pub is_open: bool,
-    current_tab: ViewsTab,
-    pub scene_panel: ScenePanel,
+    //current_tab: ViewsTab,
     pub render_panel: RenderPanel,
 }
 
@@ -27,8 +27,7 @@ impl ViewsPanel {
     ) -> Self {
         Self {
             is_open: true,
-            current_tab: ViewsTab::Scene,
-            scene_panel: ScenePanel::new(cc, controller),
+            //current_tab: ViewsTab::Render,
             render_panel: RenderPanel::new(cc, controller),
         }
     }
@@ -47,23 +46,10 @@ impl Panel for ViewsPanel {
     }
     fn show(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(&egui::Style::default()).inner_margin(4.0))
+            .frame(egui::Frame::central_panel(&egui::Style::default()).inner_margin(1.0))
             .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.visuals_mut().button_frame = false;
-                    ui.selectable_value(&mut self.current_tab, ViewsTab::Scene, "Scene");
-                    ui.selectable_value(&mut self.current_tab, ViewsTab::Render, "Render");
-                });
-                ui.separator();
-                match self.current_tab {
-                    ViewsTab::Scene => {
-                        self.scene_panel.show(ui);
-                    }
-                    ViewsTab::Render => {
-                        ctx.request_repaint(); //continuously repaint
-                        self.render_panel.show(ui);
-                    }
-                }
+                ctx.request_repaint(); //continuously repaint
+                self.render_panel.show(ctx, ui);
             });
     }
 }
