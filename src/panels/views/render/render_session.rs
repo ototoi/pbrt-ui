@@ -12,7 +12,6 @@ use std::sync::RwLock;
 
 use crypto::digest::Digest;
 use dirs;
-use eframe::egui::output;
 use std::path::PathBuf;
 use uuid::Uuid;
 

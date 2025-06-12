@@ -2,6 +2,7 @@ use super::render_history::RenderHistory;
 use super::render_state::RenderState;
 //
 use super::show_render_view::show_render_view;
+use super::show_scene_view::show_scene_view;
 //
 use crate::controllers::AppController;
 use crate::models::config::AppConfig;
@@ -11,11 +12,16 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::egui;
+use eframe::egui_glow;
+use eframe::glow::HasContext;
+use egui::Vec2;
+use egui_glow::glow;
 
 pub struct RenderPanel {
     app_controller: Arc<RwLock<AppController>>,
     histories: Vec<Box<RenderHistory>>,
     current: usize,
+    gl: Arc<glow::Context>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,15 +38,15 @@ fn create_history(name: &str, config: &Arc<RwLock<AppConfig>>) -> Box<RenderHist
     if !render_output_directory.exists() {
         std::fs::create_dir_all(&render_output_directory).unwrap();
     }
-    let filename = format!("render_image_{}.exr", name);//should be configurable
-    let output_image_path = render_output_directory.join(filename); 
+    let filename = format!("render_image_{}.exr", name); //should be configurable
+    let output_image_path = render_output_directory.join(filename);
     history.output_image_path = output_image_path.to_str().unwrap().to_string();
     return history;
 }
 
 impl RenderPanel {
     pub fn new<'a>(
-        _cc: &'a eframe::CreationContext<'a>,
+        cc: &'a eframe::CreationContext<'a>,
         controller: &Arc<RwLock<AppController>>,
     ) -> Self {
         let config = controller.read().unwrap().get_config();
@@ -49,6 +55,7 @@ impl RenderPanel {
             app_controller: controller.clone(),
             histories: vec![history],
             current: 0,
+            gl: cc.gl.clone().unwrap(),
         }
     }
 
@@ -179,7 +186,8 @@ impl RenderPanel {
                 .rect_filled(available_rect, 0.0, egui::Color32::BLACK);
             match state {
                 RenderState::Ready => {
-                    ui.label("Ready to render.");
+                    let node = self.app_controller.read().unwrap().get_root_node();
+                    show_scene_view(&self.gl, ui, history, &node);
                 }
                 RenderState::Saving | RenderState::Rendering => {
                     show_render_view(ui, history);
@@ -235,7 +243,8 @@ impl RenderPanel {
                     RenderCommand::NewHistory => {
                         // Create a new history
                         let config = self.app_controller.read().unwrap().get_config();
-                        let history = create_history(&format!("{}", self.histories.len() + 1), &config); 
+                        let history =
+                            create_history(&format!("{}", self.histories.len() + 1), &config);
                         self.histories.push(history);
                     }
                 }
