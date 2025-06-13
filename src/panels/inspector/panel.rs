@@ -249,10 +249,11 @@ impl InspectorPanel {
         if let Some(resources_component) = root_node.get_component::<ResourcesComponent>() {
             if let Some(texture) = resources_component.textures.get(&id) {
                 let mut texture = texture.write().unwrap();
-                let name = texture.get_name();
+                let mut name = texture.get_name();
+
                 let props = texture.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
-                let title = format!("Texture: {}", name); //
+
                 let mut keys = Vec::new();
                 if let Some(params) = self.texture_parameters.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
@@ -263,13 +264,27 @@ impl InspectorPanel {
                         keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
                 }
-                show_resource_props(0, &title, ui, props, &keys);
+                //---------------------------------------------------------------------
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    ui.label("Texture");
+                    ui.separator();
+                    ui.text_edit_singleline(&mut name);
+                });
+                ui.separator();
+                show_type(ui, props, &[t.clone()]);
+                ui.separator();
+                self.show_texture_preview(ui, 300.0, props);
+                ui.separator();
+                show_properties(0, ui, props, &keys);
+                ui.add_space(3.0);
             } else if let Some(material) = resources_component.materials.get(&id) {
                 let mut material = material.write().unwrap();
-                let name = material.get_name();
+                let mut name = material.get_name();
+
                 let props = material.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
-                let title = format!("Material: {}", name); //
+
                 let mut keys = Vec::new();
                 if let Some(params) = self.material_parameters.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
@@ -280,13 +295,25 @@ impl InspectorPanel {
                         keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
                 }
-                show_resource_props(0, &title, ui, props, &keys);
+                //---------------------------------------------------------------------
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    ui.label("Material");
+                    ui.separator();
+                    ui.text_edit_singleline(&mut name);
+                });
+                ui.separator();
+                show_type(ui, props, &self.material_parameters.get_types());
+                ui.separator();
+                self.show_material_preview(ui, 300.0, props);
+                ui.separator();
+                show_properties(0, ui, props, &keys);
+                ui.add_space(3.0);
             } else if let Some(mesh) = resources_component.meshes.get(&id) {
                 let mut mesh = mesh.write().unwrap();
-                let name = mesh.get_name();
+                let mut name = mesh.get_name();
                 let props = mesh.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
-                let title = format!("Mesh: {}", name); //
                 let mut keys = Vec::new();
                 if let Some(params) = self.mesh_parameters.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
@@ -297,7 +324,44 @@ impl InspectorPanel {
                         keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
                 }
-                show_resource_props(0, &title, ui, props, &keys);
+                //---------------------------------------------------------------------
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    ui.label("Mesh");
+                    ui.separator();
+                    ui.text_edit_singleline(&mut name);
+                });
+                ui.separator();
+                self.show_mesh_preview(ui, 300.0, props);
+                ui.separator();
+                show_properties(0, ui, props, &keys);
+                ui.add_space(3.0);
+            } else if let Some(res) = resources_component.other_resources.get(&id) {
+                let res = res.write().unwrap();
+                let mut name = res.get_name();
+                let t = res.get_type();
+                let filename = res.get_filename().unwrap_or_default();
+                let mut props = PropertyMap::new();
+                props.add_string("string type", &t);
+                props.add_string("string filename", &filename);
+
+                let mut keys = Vec::new();
+                //keys.push(("string".to_string(), "type".to_string(), None));
+                keys.push(("string".to_string(), "filename".to_string(), None));
+                //---------------------------------------------------------------------
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    ui.label(&t);
+                    ui.separator();
+                    ui.text_edit_singleline(&mut name);
+                });
+                ui.separator();
+                //show_type(ui, &mut props, &[t.clone()]);
+                //ui.separator();
+                show_properties(0, ui, &mut props, &keys);
+                ui.add_space(3.0);
+            } else {
+                ui.label("Resource not found");
             }
         }
     }

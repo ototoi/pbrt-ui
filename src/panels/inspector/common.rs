@@ -199,8 +199,35 @@ fn show_strings(ui: &mut egui::Ui, key_type: &str, key_name: &str, value: &mut V
                         ui.selectable_value(&mut value[0], name.clone(), name.clone());
                     }
                 });
+        } else if key_name == "wrap" {
+            let types = vec!["repeat", "black", "clamp"] //mirror
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
+            egui::ComboBox::from_id_salt("wrap")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for name in types.iter() {
+                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                    }
+                });
+        } else if key_name == "mapping" {
+            let types = vec!["uv", "spherical", "cylindrical", "planar"] //mirror
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
+            egui::ComboBox::from_id_salt("mapping")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for name in types.iter() {
+                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                    }
+                });
+        } else if key_name == "filename" {
+            let mut s = value[0].clone();
+            ui.text_edit_singleline(&mut s);
         } else {
-            //ui.text_edit_singleline(&mut value[0]);
+            ui.text_edit_singleline(&mut value[0]);
         }
     }
 }
@@ -412,6 +439,20 @@ pub fn show_properties(
                 });
             }
         });
+}
+
+pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) {
+    if let Some(v) = props.get_mut("type") {
+        if let Property::Strings(s) = v {
+            egui::ComboBox::from_id_salt("type")
+                .selected_text(s[0].clone())
+                .show_ui(ui, |ui| {
+                    for name in types.iter() {
+                        ui.selectable_value(&mut s[0], name.clone(), name.clone());
+                    }
+                });
+        }
+    }
 }
 
 pub fn show_component_props(
