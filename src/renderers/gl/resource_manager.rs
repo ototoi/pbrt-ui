@@ -6,12 +6,12 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
-pub struct ResourceManager {
+pub struct GLResourceManager {
     pub meshes: HashMap<Uuid, Arc<RenderMesh>>,
     pub programs: HashMap<Uuid, Arc<RenderProgram>>,
 }
 
-impl ResourceManager {
+impl GLResourceManager {
     pub fn new() -> Self {
         Self {
             meshes: HashMap::new(),

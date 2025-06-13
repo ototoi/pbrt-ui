@@ -1,5 +1,5 @@
 use crate::controllers::AppController;
-use crate::models::scene::ResourcesComponent;
+use crate::models::scene::ResourceComponent;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -46,11 +46,13 @@ impl ResourcesPanel {
             let controller = self.app_controller.read().unwrap();
             let root_node = controller.get_root_node();
             let root_node = root_node.read().unwrap();
-            if let Some(resources_component) = root_node.get_component::<ResourcesComponent>() {
+            if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
+                let resource_manager = resources_component.get_resource_manager();
+                let resource_manager = resource_manager.lock().unwrap();
                 if self.resource_type == ResourceType::All
                     || self.resource_type == ResourceType::Texture
                 {
-                    for (id, res) in resources_component.textures.iter() {
+                    for (id, res) in resource_manager.textures.iter() {
                         let res = res.read().unwrap();
                         let name = res.get_name();
                         resources.push((id.clone(), "texture", name));
@@ -59,7 +61,7 @@ impl ResourcesPanel {
                 if self.resource_type == ResourceType::All
                     || self.resource_type == ResourceType::Material
                 {
-                    for (id, res) in resources_component.materials.iter() {
+                    for (id, res) in resource_manager.materials.iter() {
                         let res = res.read().unwrap();
                         let name = res.get_name();
                         resources.push((id.clone(), "material", name));
@@ -68,7 +70,7 @@ impl ResourcesPanel {
                 if self.resource_type == ResourceType::All
                     || self.resource_type == ResourceType::Mesh
                 {
-                    for (id, res) in resources_component.meshes.iter() {
+                    for (id, res) in resource_manager.meshes.iter() {
                         let res = res.read().unwrap();
                         let name = res.get_name();
                         resources.push((id.clone(), "mesh", name));
@@ -78,7 +80,7 @@ impl ResourcesPanel {
                 if self.resource_type == ResourceType::All
                     || self.resource_type == ResourceType::Other
                 {
-                    for (id, res) in resources_component.other_resources.iter() {
+                    for (id, res) in resource_manager.other_resources.iter() {
                         let res = res.read().unwrap();
                         let name = res.get_name();
                         resources.push((id.clone(), "other", name));

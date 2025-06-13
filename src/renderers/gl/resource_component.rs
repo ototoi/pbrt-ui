@@ -1,26 +1,24 @@
-use eframe::glow;
-
-use super::resource_manager::ResourceManager;
+use super::resource_manager::GLResourceManager;
 use crate::models::scene::Component;
 
 use std::sync::Arc;
 use std::sync::Mutex;
 
 #[derive(Debug, Clone)]
-pub struct ResourceComponent {
-    pub resource_manager: Arc<Mutex<ResourceManager>>,
+pub struct GLResourceComponent {
+    pub resource_manager: Arc<Mutex<GLResourceManager>>,
 }
 
-impl ResourceComponent {
+impl GLResourceComponent {
     pub fn new() -> Self {
         Self {
-            resource_manager: Arc::new(Mutex::new(ResourceManager::new())),
+            resource_manager: Arc::new(Mutex::new(GLResourceManager::new())),
         }
     }
 
-    pub fn get_resource_manager(&self) -> Arc<Mutex<ResourceManager>> {
+    pub fn get_resource_manager(&self) -> Arc<Mutex<GLResourceManager>> {
         self.resource_manager.clone()
     }
 }
 
-impl Component for ResourceComponent {}
+impl Component for GLResourceComponent {}

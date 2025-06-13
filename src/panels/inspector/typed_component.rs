@@ -1,5 +1,6 @@
 use super::common::*;
 use super::panel::InspectorPanel;
+use super::resource_selector::ResourceSelector;
 use crate::models::base::*;
 use crate::models::scene::Properties;
 
@@ -13,6 +14,7 @@ impl InspectorPanel {
         title: &str,
         props: &mut PropertyMap,
         properties: &impl Properties,
+        resource_selector: &ResourceSelector,
     ) {
         egui::TopBottomPanel::top(format!("{}_{}", title, index))
             .min_height(MIN_COMPONENT_HEIGHT)
@@ -35,7 +37,7 @@ impl InspectorPanel {
                     }
                     keys.push((key_type.clone(), key_name.clone(), range.clone()));
                 }
-                show_properties(index, ui, props, &keys);
+                show_properties(index, ui, props, &keys, resource_selector);
 
                 ui.add_space(3.0);
             });
