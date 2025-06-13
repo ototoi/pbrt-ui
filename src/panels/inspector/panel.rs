@@ -265,7 +265,9 @@ impl InspectorPanel {
         let root_node = root_node.read().unwrap();
 
         if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
-            if let Some(texture) = resources_component.textures.get(&id) {
+            let resource_manager = resources_component.get_resource_manager();
+            let mut resource_manager = resource_manager.lock().unwrap();
+            if let Some(texture) = resource_manager.textures.get(&id) {
                 let mut texture = texture.write().unwrap();
                 let mut name = texture.get_name();
 
@@ -296,7 +298,7 @@ impl InspectorPanel {
                 ui.separator();
                 show_properties(0, ui, props, &keys);
                 ui.add_space(3.0);
-            } else if let Some(material) = resources_component.materials.get(&id) {
+            } else if let Some(material) = resource_manager.materials.get(&id) {
                 let mut material = material.write().unwrap();
                 let mut name = material.get_name();
 
@@ -327,7 +329,7 @@ impl InspectorPanel {
                 ui.separator();
                 show_properties(0, ui, props, &keys);
                 ui.add_space(3.0);
-            } else if let Some(mesh) = resources_component.meshes.get(&id) {
+            } else if let Some(mesh) = resource_manager.meshes.get(&id) {
                 let mut mesh = mesh.write().unwrap();
                 let mut name = mesh.get_name();
                 let props = mesh.as_property_map_mut();
@@ -354,7 +356,7 @@ impl InspectorPanel {
                 ui.separator();
                 show_properties(0, ui, props, &keys);
                 ui.add_space(3.0);
-            } else if let Some(res) = resources_component.other_resources.get(&id) {
+            } else if let Some(res) = resource_manager.other_resources.get(&id) {
                 let res = res.write().unwrap();
                 let mut name = res.get_name();
                 let t = res.get_type();

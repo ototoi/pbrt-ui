@@ -88,22 +88,23 @@ impl AppController {
     pub fn get_resource_by_id(&self, id: Uuid) -> Option<Arc<RwLock<dyn ResourceObject>>> {
         let root_node = self.root_node.read().unwrap();
         if let Some(c) = root_node.get_component::<ResourceComponent>() {
-            for (material_id, material) in c.materials.iter() {
+            let resource_manager = c.resource_manager.lock().unwrap();
+            for (material_id, material) in resource_manager.materials.iter() {
                 if *material_id == id {
                     return Some(material.clone());
                 }
             }
-            for (texture_id, texture) in c.textures.iter() {
+            for (texture_id, texture) in resource_manager.textures.iter() {
                 if *texture_id == id {
                     return Some(texture.clone());
                 }
             }
-            for (mesh_id, mesh) in c.meshes.iter() {
+            for (mesh_id, mesh) in resource_manager.meshes.iter() {
                 if *mesh_id == id {
                     return Some(mesh.clone());
                 }
             }
-            for (other_id, other) in c.other_resources.iter() {
+            for (other_id, other) in resource_manager.other_resources.iter() {
                 if *other_id == id {
                     return Some(other.clone());
                 }

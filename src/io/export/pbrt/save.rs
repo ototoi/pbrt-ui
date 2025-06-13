@@ -360,13 +360,15 @@ impl PbrtSaver {
         let indent = 1;
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
-            if resouces_component.materials.is_empty() {
+            let resource_manager = resouces_component.get_resource_manager();
+            let resource_manager = resource_manager.lock().unwrap();
+            if resource_manager.materials.is_empty() {
                 return Ok(());
             }
             if self.options.pretty_print {
                 writer.write(format!("{}# Materials\n", make_indent(indent)).as_bytes())?;
             }
-            let mut materials = resouces_component
+            let mut materials = resource_manager
                 .materials
                 .values()
                 .map(|m| (m.read().unwrap().get_name().to_ascii_lowercase(), m))
@@ -401,14 +403,16 @@ impl PbrtSaver {
         let mut indent = 1;
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
-            if resouces_component.textures.is_empty() {
+            let resource_manager = resouces_component.get_resource_manager();
+            let resource_manager = resource_manager.lock().unwrap();
+            if resource_manager.textures.is_empty() {
                 return Ok(());
             }
             if self.options.pretty_print {
                 writer.write(format!("{}# Textures\n", make_indent(indent)).as_bytes())?;
             }
             let mut textures = Vec::new();
-            for texture in resouces_component.textures.values() {
+            for texture in resource_manager.textures.values() {
                 let order = texture.read().unwrap().get_order();
                 textures.push((order, texture.clone()));
             }
@@ -631,13 +635,16 @@ impl PbrtSaver {
         }
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
+            let resource_manager = resouces_component.get_resource_manager();
+            let resource_manager = resource_manager.lock().unwrap();
+
             let out_dir = std::path::Path::new(path)
                 .parent()
                 .ok_or(PbrtError::error("Invalid path!"))?;
             std::fs::create_dir_all(out_dir)?;
             let mut copy_paths = Vec::new();
             //
-            for (_id, texture) in resouces_component.textures.iter() {
+            for (_id, texture) in resource_manager.textures.iter() {
                 let texture = texture.read().unwrap();
                 let texture_type = texture.get_type();
                 if texture_type != "imagemap" {
@@ -659,7 +666,7 @@ impl PbrtSaver {
                 }
             }
             //
-            for (_id, mesh) in resouces_component.meshes.iter() {
+            for (_id, mesh) in resource_manager.meshes.iter() {
                 let mesh = mesh.read().unwrap();
                 let mesh_type = mesh.get_type();
                 if mesh_type != "plymesh" {
@@ -681,7 +688,7 @@ impl PbrtSaver {
                 }
             }
 
-            for (_id, other_resource) in resouces_component.other_resources.iter() {
+            for (_id, other_resource) in resource_manager.other_resources.iter() {
                 let other_resource = other_resource.read().unwrap();
                 let filename = other_resource.get_filename();
                 let fullpath = other_resource.get_fullpath();

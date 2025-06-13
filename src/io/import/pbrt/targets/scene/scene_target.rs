@@ -789,23 +789,27 @@ impl SceneTarget {
         }
 
         {
-            let mut resources = ResourceComponent::new();
-            for (id, material) in self.materials.iter() {
-                resources.materials.insert(id.clone(), material.clone());
-            }
-            for (_path, mesh) in self.meshes.iter() {
-                let id = mesh.read().unwrap().get_id();
-                resources.meshes.insert(id, mesh.clone());
-            }
-            for (id, texture) in self.textures.iter() {
-                resources.textures.insert(id.clone(), texture.clone());
-            }
-            for (_path, resource) in self.resources.iter() {
-                let id = resource.read().unwrap().get_id();
-                resources.other_resources.insert(id, resource.clone());
+            let resource_component = ResourceComponent::new();
+            {
+                let resource_manager = resource_component.get_resource_manager();
+                let mut resource_manager = resource_manager.lock().unwrap();
+                for (id, material) in self.materials.iter() {
+                    resource_manager.materials.insert(id.clone(), material.clone());
+                }
+                for (_path, mesh) in self.meshes.iter() {
+                    let id = mesh.read().unwrap().get_id();
+                    resource_manager.meshes.insert(id, mesh.clone());
+                }
+                for (id, texture) in self.textures.iter() {
+                    resource_manager.textures.insert(id.clone(), texture.clone());
+                }
+                for (_path, resource) in self.resources.iter() {
+                    let id = resource.read().unwrap().get_id();
+                    resource_manager.other_resources.insert(id, resource.clone());
+                }
             }
             let mut root_node = root_node.write().unwrap();
-            root_node.add_component(resources);
+            root_node.add_component(resource_component);
         }
         return root_node;
     }

@@ -25,6 +25,7 @@ pub use light::LightComponent;
 pub use material::MaterialComponent;
 pub use mesh::MeshComponent;
 pub use resource::ResourceComponent;
+pub use resource::ResourceManager;
 pub use sampler::SamplerComponent;
 pub use scene::SceneComponent;
 pub use shape::ShapeComponent;
