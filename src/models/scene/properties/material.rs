@@ -68,8 +68,8 @@ pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 98] = [
     ("metal", "spectrum", "eta", "", ""), //
     ("metal", "spectrum", "k", "", ""),
     ("metal", "float", "roughness", "0.01", "0.0 1.0"),
-    ("metal", "string", "uroughness", "", "0.0 1.0"),
-    ("metal", "string", "vroughness", "", "0.0 1.0"),
+    ("metal", "float", "uroughness", "0.0", "0.0 1.0"),
+    ("metal", "float", "vroughness", "0.0", "0.0 1.0"),
     ("metal", "texture", "bumpmap", "", ""),
     ("metal", "bool", "remaproughness", "true", ""),
     //

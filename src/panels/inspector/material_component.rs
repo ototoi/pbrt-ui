@@ -1,5 +1,6 @@
 use super::common::*;
 use super::panel::InspectorPanel;
+use super::resource_selector::ResourceSelector;
 use crate::models::base::*;
 use crate::models::scene::MaterialComponent;
 
@@ -11,11 +12,12 @@ impl InspectorPanel {
         index: usize,
         ui: &mut egui::Ui,
         component: &mut MaterialComponent,
+        resource_selector: &ResourceSelector,
     ) {
         let material = component.material.clone();
         let mut material = material.write().unwrap();
         let props = material.as_property_map_mut();
-        self.show_material_props(index, "Material", ui, props);
+        self.show_material_props(index, "Material", ui, props, resource_selector);
     }
 
     fn show_material_props(
@@ -24,6 +26,7 @@ impl InspectorPanel {
         title: &str,
         ui: &mut egui::Ui,
         props: &mut PropertyMap,
+        resource_selector: &ResourceSelector,
     ) {
         let material_types = self.material_parameters.get_types();
         let mut name = props
@@ -53,7 +56,7 @@ impl InspectorPanel {
                         }
                         keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
-                    show_properties(index, ui, props, &keys);
+                    show_properties(index, ui, props, &keys, resource_selector);
                 } else {
                     ui.horizontal(|ui| {
                         ui.label("No parameters found for this material type");

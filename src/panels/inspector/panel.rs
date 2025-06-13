@@ -89,13 +89,14 @@ impl InspectorPanel {
         let root_node = controller.get_root_node();
         let root_node = root_node.read().unwrap();
         if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
-            ResourceSelector::new(resources_component)
+            ResourceSelector::new(&resources_component.get_resource_manager())
         } else {
             ResourceSelector::default()
         }
     }
 
     pub fn show_node(&self, ui: &mut egui::Ui, node: &Arc<RwLock<Node>>) {
+        let resource_selector = self.get_resource_selector();
         let mut node = node.write().unwrap();
         {
             let mut enabled = true; //todo
@@ -111,23 +112,28 @@ impl InspectorPanel {
                 node.set_name(&name);
             }
         }
-        self.show_components(ui, &mut node.components);
+        self.show_components(ui, &mut node.components, &resource_selector);
     }
 
-    pub fn show_components(&self, ui: &mut egui::Ui, components: &mut [Box<dyn Any>]) {
+    pub fn show_components(
+        &self,
+        ui: &mut egui::Ui,
+        components: &mut [Box<dyn Any>],
+        resource_selector: &ResourceSelector,
+    ) {
         for (i, component) in components.iter_mut().enumerate() {
             if let Some(component) = component.downcast_mut::<TransformComponent>() {
-                self.show_transform_component(i, ui, component);
+                self.show_transform_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<MeshComponent>() {
                 self.show_mesh_component(i, ui, component);
             } else if let Some(component) = component.downcast_mut::<ShapeComponent>() {
-                self.show_shape_component(i, ui, component);
+                self.show_shape_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<SubdivComponent>() {
-                self.show_subdiv_component(i, ui, component);
+                self.show_subdiv_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<LightComponent>() {
-                self.show_light_component(i, ui, component);
+                self.show_light_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<MaterialComponent>() {
-                self.show_material_component(i, ui, component);
+                self.show_material_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<CameraComponent>() {
                 self.show_typed_component(
                     i,
@@ -135,9 +141,10 @@ impl InspectorPanel {
                     "Camera",
                     &mut component.props,
                     &self.camera_parameters,
+                    resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<FilmComponent>() {
-                self.show_option_component(i, ui, "film", &mut component.props);
+                self.show_option_component(i, ui, "film", &mut component.props, resource_selector);
             } else if let Some(component) = component.downcast_mut::<SamplerComponent>() {
                 self.show_typed_component(
                     i,
@@ -145,6 +152,7 @@ impl InspectorPanel {
                     "Sampler",
                     &mut component.props,
                     &self.sampler_parameters,
+                    &resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<IntegratorComponent>() {
                 self.show_typed_component(
@@ -153,6 +161,7 @@ impl InspectorPanel {
                     "Integrator",
                     &mut component.props,
                     &self.integrator_parameters,
+                    resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<AcceleratorComponent>() {
                 self.show_typed_component(
@@ -161,10 +170,11 @@ impl InspectorPanel {
                     "Accelerator",
                     &mut component.props,
                     &self.accelerator_parameters,
+                    resource_selector,
                 );
             } else if let Some(_component) = component.downcast_mut::<ResourceComponent>() {
                 let mut props = PropertyMap::new();
-                self.show_other_component(i, ui, "Resources", &mut props);
+                self.show_other_component(i, ui, "Resources", &mut props, &resource_selector);
             } else {
                 //log::warn!("Unknown component type");
             }
@@ -176,6 +186,7 @@ impl InspectorPanel {
         index: usize,
         ui: &mut egui::Ui,
         component: &mut ShapeComponent,
+        resource_selector: &ResourceSelector,
     ) {
         if let Some(mesh) = component.mesh.as_ref() {
             let mut mesh = mesh.write().unwrap();
@@ -192,7 +203,7 @@ impl InspectorPanel {
                     keys.push((key_type.clone(), key_name.clone(), range.clone()));
                 }
             }
-            show_component_props(index, &title, ui, props, &keys);
+            show_component_props(index, &title, ui, props, &keys, resource_selector);
             props.add_string("string edition", &Uuid::new_v4().to_string());
         }
     }
@@ -202,6 +213,7 @@ impl InspectorPanel {
         index: usize,
         ui: &mut egui::Ui,
         component: &mut SubdivComponent,
+        resource_selector: &ResourceSelector,
     ) {
         if let Some(mesh) = component.mesh.as_ref() {
             let mut mesh = mesh.write().unwrap();
@@ -218,7 +230,7 @@ impl InspectorPanel {
                     keys.push((key_type.clone(), key_name.clone(), range.clone()));
                 }
             }
-            show_component_props(index, &title, ui, props, &keys);
+            show_component_props(index, &title, ui, props, &keys, resource_selector);
             //props.add_string("string edition", &Uuid::new_v4().to_string());
         }
     }
@@ -229,6 +241,7 @@ impl InspectorPanel {
         ui: &mut egui::Ui,
         option_type: &str,
         props: &mut PropertyMap,
+        resource_selector: &ResourceSelector,
     ) {
         let title = option_type.to_case(Case::Title);
         let mut keys = Vec::new();
@@ -241,7 +254,7 @@ impl InspectorPanel {
                 keys.push((key_type.clone(), key_name.clone(), None)); //todo: add range
             }
         }
-        show_component_props(index, &title, ui, props, &keys);
+        show_component_props(index, &title, ui, props, &keys, resource_selector);
     }
 
     fn show_other_component(
@@ -250,13 +263,14 @@ impl InspectorPanel {
         ui: &mut egui::Ui,
         title: &str,
         props: &mut PropertyMap,
+        resource_selector: &ResourceSelector,
     ) {
         let keys = props.get_keys();
         let keys = keys
             .iter()
             .map(|(key_type, key_name)| (key_type.clone(), key_name.clone(), None))
             .collect::<Vec<_>>();
-        show_component_props(index, title, ui, props, &keys);
+        show_component_props(index, title, ui, props, &keys, resource_selector);
     }
 
     pub fn show_resource(&self, ui: &mut egui::Ui, id: Uuid) {
@@ -266,7 +280,8 @@ impl InspectorPanel {
 
         if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
             let resource_manager = resources_component.get_resource_manager();
-            let mut resource_manager = resource_manager.lock().unwrap();
+            let resource_selector = ResourceSelector::new(&resource_manager);
+            let resource_manager = resource_manager.lock().unwrap();
             if let Some(texture) = resource_manager.textures.get(&id) {
                 let mut texture = texture.write().unwrap();
                 let mut name = texture.get_name();
@@ -296,7 +311,7 @@ impl InspectorPanel {
                 ui.separator();
                 self.show_texture_preview(ui, 300.0, props);
                 ui.separator();
-                show_properties(0, ui, props, &keys);
+                show_properties(0, ui, props, &keys, &resource_selector);
                 ui.add_space(3.0);
             } else if let Some(material) = resource_manager.materials.get(&id) {
                 let mut material = material.write().unwrap();
@@ -327,7 +342,7 @@ impl InspectorPanel {
                 ui.separator();
                 self.show_material_preview(ui, 300.0, props);
                 ui.separator();
-                show_properties(0, ui, props, &keys);
+                show_properties(0, ui, props, &keys, &resource_selector);
                 ui.add_space(3.0);
             } else if let Some(mesh) = resource_manager.meshes.get(&id) {
                 let mut mesh = mesh.write().unwrap();
@@ -354,7 +369,7 @@ impl InspectorPanel {
                 ui.separator();
                 self.show_mesh_preview(ui, 300.0, props);
                 ui.separator();
-                show_properties(0, ui, props, &keys);
+                show_properties(0, ui, props, &keys, &resource_selector);
                 ui.add_space(3.0);
             } else if let Some(res) = resource_manager.other_resources.get(&id) {
                 let res = res.write().unwrap();
@@ -378,7 +393,7 @@ impl InspectorPanel {
                 ui.separator();
                 //show_type(ui, &mut props, &[t.clone()]);
                 //ui.separator();
-                show_properties(0, ui, &mut props, &keys);
+                show_properties(0, ui, &mut props, &keys, &resource_selector);
                 ui.add_space(3.0);
             } else {
                 ui.label("Resource not found");

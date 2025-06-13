@@ -1,5 +1,6 @@
 use super::common::*;
 use super::panel::InspectorPanel;
+use super::resource_selector::ResourceSelector;
 use crate::models::base::*;
 use crate::models::scene::LightComponent;
 use crate::models::scene::Properties;
@@ -12,6 +13,7 @@ impl InspectorPanel {
         index: usize,
         ui: &mut egui::Ui,
         component: &mut LightComponent,
+        resource_selector: &ResourceSelector,
     ) {
         let t = component.get_type();
         let title = LightComponent::get_name_from_type(&t);
@@ -26,6 +28,6 @@ impl InspectorPanel {
             keys.push((key_type.clone(), key_name.clone(), range.clone()));
         }
         //-------------------------------------------------------------------
-        show_component_props(index, &title, ui, props, &keys);
+        show_component_props(index, &title, ui, props, &keys, resource_selector);
     }
 }

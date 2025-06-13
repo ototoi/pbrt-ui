@@ -1,3 +1,6 @@
+use std::vec;
+
+use super::resource_selector::ResourceSelector;
 use crate::models::base::*;
 use crate::models::scene::*;
 
@@ -5,8 +8,7 @@ use eframe::egui;
 use eframe::egui::Checkbox;
 use eframe::egui::Widget;
 use egui_extras;
-
-use convert_case::{Case, Casing};
+use uuid::Uuid;
 
 pub const MIN_COMPONENT_HEIGHT: f32 = 100.0;
 
@@ -161,7 +163,14 @@ fn show_ints(
     }
 }
 
-fn show_strings(ui: &mut egui::Ui, key_type: &str, key_name: &str, value: &mut Vec<String>) {
+fn show_strings(
+    ui: &mut egui::Ui,
+    key_type: &str,
+    key_name: &str,
+    value: &mut Vec<String>,
+    resource_selector: &ResourceSelector,
+    own_id: Option<Uuid>,
+) {
     if value.len() >= 1 {
         if key_name == "splitmethod" {
             let types = vec!["sah", "hlbvh", "middle", "equal"]
@@ -212,7 +221,7 @@ fn show_strings(ui: &mut egui::Ui, key_type: &str, key_name: &str, value: &mut V
                     }
                 });
         } else if key_name == "mapping" {
-            let types = vec!["uv", "spherical", "cylindrical", "planar"] //mirror
+            let types = vec!["uv", "spherical", "cylindrical", "planar"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -221,6 +230,57 @@ fn show_strings(ui: &mut egui::Ui, key_type: &str, key_name: &str, value: &mut V
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
                         ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                    }
+                });
+        } else if key_name == "bumpmap" {
+            let mut items = vec![(Uuid::default(), "".to_string(), "none".to_string())];
+            items.extend(resource_selector.get_texture_items());
+            egui::ComboBox::from_id_salt("bumpmap")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for (_id, name, display_name) in items.iter() {
+                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                    }
+                });
+        } else if key_name == "bsdffile" {
+            let items = resource_selector.get_bsdffile_items();
+            egui::ComboBox::from_id_salt("bsdffile")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for (_id, name, display_name) in items.iter() {
+                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                    }
+                });
+        } else if key_name.starts_with("namedmaterial") {
+            let mut items = resource_selector.get_material_items();
+            if let Some(id) = own_id {
+                items = items
+                    .iter()
+                    .filter(|(item_id, _, _)| *item_id != id)
+                    .cloned()
+                    .collect::<Vec<(Uuid, String, String)>>();
+            }
+            egui::ComboBox::from_id_salt("namedmaterial")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for (_id, name, display_name) in items.iter() {
+                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                    }
+                });
+        } else if key_type == "texture" {
+            let mut items = resource_selector.get_texture_items();
+            if let Some(id) = own_id {
+                items = items
+                    .iter()
+                    .filter(|(item_id, _, _)| *item_id != id)
+                    .cloned()
+                    .collect::<Vec<(Uuid, String, String)>>();
+            }
+            egui::ComboBox::from_id_salt("texture")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for (_id, name, display_name) in items.iter() {
+                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
                     }
                 });
         } else if key_name == "filename" {
@@ -245,7 +305,14 @@ enum ColorType {
     Spd,
 }
 
-fn show_color_like(ui: &mut egui::Ui, key_type: &str, key_name: &str, props: &mut PropertyMap) {
+fn show_color_like(
+    ui: &mut egui::Ui,
+    key_type: &str,
+    key_name: &str,
+    props: &mut PropertyMap,
+    resource_selector: &ResourceSelector,
+    own_id: Option<Uuid>,
+) {
     //let rect = ui.available_rect_before_wrap();
     //ui.painter().rect_filled(rect, 1.0, egui::Color32::RED);
     let mut color_type = ColorType::Value;
@@ -361,14 +428,49 @@ fn show_color_like(ui: &mut egui::Ui, key_type: &str, key_name: &str, props: &mu
                     }
                 } else if key_type == "spectrum" {
                     if let Some(v) = props.get_mut(key_name) {
+                        //if let Property::Strings(value) = v {
+                        //    ui.text_edit_singleline(&mut value[0]);
+                        //}
                         if let Property::Strings(value) = v {
-                            ui.text_edit_singleline(&mut value[0]);
+                            let spd_names = resource_selector.get_spd_items();
+                            egui::ComboBox::from_id_salt("spectrum")
+                                .selected_text(value[0].clone())
+                                .show_ui(ui, |ui| {
+                                    for (_id, name, display_name) in spd_names.iter() {
+                                        ui.selectable_value(
+                                            &mut value[0],
+                                            name.clone(),
+                                            display_name.clone(),
+                                        );
+                                    }
+                                });
                         }
                     }
                 } else if key_type == "texture" {
                     if let Some(v) = props.get_mut(key_name) {
+                        //if let Property::Strings(value) = v {
+                        //    ui.text_edit_singleline(&mut value[0]);
+                        //}
                         if let Property::Strings(value) = v {
-                            ui.text_edit_singleline(&mut value[0]);
+                            let mut items = resource_selector.get_texture_items();
+                            if let Some(id) = own_id {
+                                items = items
+                                    .iter()
+                                    .filter(|(item_id, _, _)| *item_id != id)
+                                    .cloned()
+                                    .collect::<Vec<(Uuid, String, String)>>();
+                            }
+                            egui::ComboBox::from_id_salt("texture")
+                                .selected_text(value[0].clone())
+                                .show_ui(ui, |ui| {
+                                    for (_id, name, display_name) in items.iter() {
+                                        ui.selectable_value(
+                                            &mut value[0],
+                                            name.clone(),
+                                            display_name.clone(),
+                                        );
+                                    }
+                                });
                         }
                     }
                 }
@@ -390,6 +492,9 @@ fn is_color_like(key_type: &str, key_name: &str) -> bool {
             return true;
         }
     }
+    //if key_name.starts_with("tex") {
+    //    return true;
+    //}
     return false;
 }
 
@@ -398,6 +503,7 @@ pub fn show_properties(
     ui: &mut egui::Ui,
     props: &mut PropertyMap,
     keys: &[(String, String, Option<ValueRange>)],
+    resource_selector: &ResourceSelector,
 ) {
     egui_extras::TableBuilder::new(ui)
         .id_salt(index)
@@ -405,6 +511,12 @@ pub fn show_properties(
         .column(egui_extras::Column::remainder())
         .auto_shrink([false, true])
         .body(|mut body| {
+            let own_id = props.find_one_string("string id");
+            let own_id = if let Some(id) = own_id {
+                Some(Uuid::parse_str(&id).unwrap_or(Uuid::default()))
+            } else {
+                None
+            };
             for (key_type, key_name, range) in keys.iter() {
                 //let label_name = key_name.to_case(Case::Title);
                 let label_name = key_name.to_string();
@@ -419,7 +531,14 @@ pub fn show_properties(
                         }
                         let key_type = &key_type;
                         if is_color_like(key_type, key_name) {
-                            show_color_like(ui, key_type, key_name, props);
+                            show_color_like(
+                                ui,
+                                key_type,
+                                key_name,
+                                props,
+                                resource_selector,
+                                own_id,
+                            );
                         } else {
                             if let Some(v) = props.get_mut(key_name) {
                                 if let Property::Floats(value) = v {
@@ -427,7 +546,14 @@ pub fn show_properties(
                                 } else if let Property::Ints(value) = v {
                                     show_ints(ui, key_type, key_name, range, value);
                                 } else if let Property::Strings(value) = v {
-                                    show_strings(ui, key_type, key_name, value);
+                                    show_strings(
+                                        ui,
+                                        key_type,
+                                        key_name,
+                                        value,
+                                        resource_selector,
+                                        own_id,
+                                    );
                                 } else if let Property::Bools(value) = v {
                                     show_bools(ui, key_type, key_name, value);
                                 }
@@ -461,6 +587,7 @@ pub fn show_component_props(
     ui: &mut egui::Ui,
     props: &mut PropertyMap,
     keys: &[(String, String, Option<ValueRange>)],
+    resource_selector: &ResourceSelector,
 ) {
     egui::TopBottomPanel::top(format!("{}_{}", title, index))
         .min_height(MIN_COMPONENT_HEIGHT)
@@ -470,7 +597,7 @@ pub fn show_component_props(
                 ui.label(title);
             });
             ui.separator();
-            show_properties(index, ui, props, &keys);
+            show_properties(index, ui, props, &keys, resource_selector);
             ui.add_space(3.0);
         });
 }

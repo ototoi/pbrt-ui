@@ -6,8 +6,8 @@ use crate::models::scene::Texture;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::RwLock;
 use std::sync::Mutex;
+use std::sync::RwLock;
 
 use uuid::Uuid;
 
@@ -18,7 +18,6 @@ pub struct ResourceManager {
     pub textures: HashMap<Uuid, Arc<RwLock<Texture>>>,
     pub other_resources: HashMap<Uuid, Arc<RwLock<dyn ResourceObject>>>,
 }
-
 
 #[derive(Debug, Clone, Default)]
 pub struct ResourceComponent {
