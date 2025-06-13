@@ -20,8 +20,8 @@ use crate::models::scene::MaterialComponent;
 use crate::models::scene::MeshComponent;
 use crate::models::scene::Node;
 use crate::models::scene::OtherResource;
+use crate::models::scene::ResourceComponent;
 use crate::models::scene::ResourceObject;
-use crate::models::scene::ResourcesComponent;
 use crate::models::scene::SamplerComponent;
 use crate::models::scene::ShapeComponent;
 use crate::models::scene::SubdivComponent;
@@ -789,7 +789,7 @@ impl SceneTarget {
         }
 
         {
-            let mut resources = ResourcesComponent::new();
+            let mut resources = ResourceComponent::new();
             for (id, material) in self.materials.iter() {
                 resources.materials.insert(id.clone(), material.clone());
             }

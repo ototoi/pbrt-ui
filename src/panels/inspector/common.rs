@@ -474,19 +474,3 @@ pub fn show_component_props(
             ui.add_space(3.0);
         });
 }
-
-pub fn show_resource_props(
-    index: usize,
-    title: &str,
-    ui: &mut egui::Ui,
-    props: &mut PropertyMap,
-    keys: &[(String, String, Option<ValueRange>)],
-) {
-    ui.add_space(2.0);
-    ui.horizontal(|ui| {
-        ui.label(title);
-    });
-    ui.separator();
-    show_properties(index, ui, props, &keys);
-    ui.add_space(3.0);
-}

@@ -14,10 +14,10 @@ use crate::models::scene::ShapeComponent;
 use crate::models::scene::SubdivComponent;
 use crate::models::scene::TransformComponent;
 
+use crate::renderers::gl::GLResourceComponent;
+use crate::renderers::gl::GLResourceManager;
 use crate::renderers::gl::RenderMesh;
 use crate::renderers::gl::RenderProgram;
-use crate::renderers::gl::ResourceComponent;
-use crate::renderers::gl::ResourceManager;
 
 use eframe::glow;
 use std::sync::{Arc, RwLock};
@@ -87,7 +87,7 @@ fn get_scene_items(node: &Arc<RwLock<Node>>) -> Vec<SceneItem> {
 }
 
 fn convert_mesh(
-    resource_manager: &mut ResourceManager,
+    resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     mesh: &Mesh,
 ) -> Option<Arc<RenderMesh>> {
@@ -105,7 +105,7 @@ fn convert_mesh(
 }
 
 fn get_render_mesh(
-    resource_manager: &mut ResourceManager,
+    resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     node: &Arc<RwLock<Node>>,
 ) -> Option<Arc<RenderMesh>> {
@@ -144,7 +144,7 @@ fn get_render_mesh(
 }
 
 fn convert_material(
-    resource_manager: &mut ResourceManager,
+    resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     material: &Arc<RwLock<Material>>,
     _mode: RenderMode,
@@ -162,7 +162,7 @@ fn convert_material(
 }
 
 fn get_render_program(
-    resource_manager: &mut ResourceManager,
+    resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     node: &Arc<RwLock<Node>>,
     mode: RenderMode,
@@ -178,11 +178,14 @@ pub fn get_render_items(
 ) -> Vec<RenderItem> {
     let scene_items = get_scene_items(root_node);
     let mut root_node = root_node.write().unwrap();
-    if root_node.get_component_mut::<ResourceComponent>().is_none() {
-        root_node.add_component::<ResourceComponent>(ResourceComponent::new());
+    if root_node
+        .get_component_mut::<GLResourceComponent>()
+        .is_none()
+    {
+        root_node.add_component::<GLResourceComponent>(GLResourceComponent::new());
     }
     let mut render_items = Vec::new();
-    if let Some(component) = root_node.get_component::<ResourceComponent>() {
+    if let Some(component) = root_node.get_component::<GLResourceComponent>() {
         let resource_manager = component.get_resource_manager();
         let mut resource_manager = resource_manager.lock().unwrap();
         for scene_item in scene_items.iter() {

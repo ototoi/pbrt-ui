@@ -1,4 +1,5 @@
 use super::common::*;
+use super::resource_selector::ResourceSelector;
 use crate::controllers::AppController;
 use crate::models::base::PropertyMap;
 use crate::models::scene::AcceleratorComponent;
@@ -14,8 +15,9 @@ use crate::models::scene::MaterialComponent;
 use crate::models::scene::MaterialProperties;
 use crate::models::scene::MeshComponent;
 use crate::models::scene::MeshProperties;
+use crate::models::scene::Node;
 use crate::models::scene::OptionProperties;
-use crate::models::scene::ResourcesComponent;
+use crate::models::scene::ResourceComponent;
 use crate::models::scene::SamplerComponent;
 use crate::models::scene::SamplerProperties;
 use crate::models::scene::ShapeComponent;
@@ -24,6 +26,7 @@ use crate::models::scene::SubdivComponent;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
 use crate::panels::Panel;
+use crate::panels::inspector::resource_selector;
 
 use std::any::Any;
 use std::sync::Arc;
@@ -69,31 +72,46 @@ impl InspectorPanel {
         }
     }
 
-    pub fn show_node(&self, ui: &mut egui::Ui) {
+    pub fn show_inspector(&self, ui: &mut egui::Ui) {
         let controller = self.app_controller.read().unwrap();
-        if let Some(current_node) = controller.get_current_node() {
-            let mut current_node = current_node.write().unwrap();
-            {
-                let mut enabled = true; //todo
-                let mut name = current_node.get_name();
-                egui::TopBottomPanel::top("node").show_inside(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        Checkbox::without_text(&mut enabled).ui(ui);
-                        ui.text_edit_singleline(&mut name);
-                    });
-                    ui.add_space(3.0);
-                });
-                if !name.is_empty() {
-                    current_node.set_name(&name);
-                }
-            }
-            self.show_components(ui, &mut current_node.components);
+        if let Some(node) = controller.get_current_node() {
+            self.show_node(ui, &node);
         } else if let Some(current_resource) = controller.get_current_resource() {
             let id = current_resource.read().unwrap().get_id();
             self.show_resource(ui, id);
         } else {
             //ui.label("No node selected");
         }
+    }
+
+    fn get_resource_selector(&self) -> ResourceSelector {
+        let controller = self.app_controller.read().unwrap();
+        let root_node = controller.get_root_node();
+        let root_node = root_node.read().unwrap();
+        if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
+            ResourceSelector::new(resources_component)
+        } else {
+            ResourceSelector::default()
+        }
+    }
+
+    pub fn show_node(&self, ui: &mut egui::Ui, node: &Arc<RwLock<Node>>) {
+        let mut node = node.write().unwrap();
+        {
+            let mut enabled = true; //todo
+            let mut name = node.get_name();
+            egui::TopBottomPanel::top("node").show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    Checkbox::without_text(&mut enabled).ui(ui);
+                    ui.text_edit_singleline(&mut name);
+                });
+                ui.add_space(3.0);
+            });
+            if !name.is_empty() {
+                node.set_name(&name);
+            }
+        }
+        self.show_components(ui, &mut node.components);
     }
 
     pub fn show_components(&self, ui: &mut egui::Ui, components: &mut [Box<dyn Any>]) {
@@ -144,7 +162,7 @@ impl InspectorPanel {
                     &mut component.props,
                     &self.accelerator_parameters,
                 );
-            } else if let Some(_component) = component.downcast_mut::<ResourcesComponent>() {
+            } else if let Some(_component) = component.downcast_mut::<ResourceComponent>() {
                 let mut props = PropertyMap::new();
                 self.show_other_component(i, ui, "Resources", &mut props);
             } else {
@@ -246,7 +264,7 @@ impl InspectorPanel {
         let root_node = controller.get_root_node();
         let root_node = root_node.read().unwrap();
 
-        if let Some(resources_component) = root_node.get_component::<ResourcesComponent>() {
+        if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
             if let Some(texture) = resources_component.textures.get(&id) {
                 let mut texture = texture.write().unwrap();
                 let mut name = texture.get_name();
@@ -382,7 +400,7 @@ impl Panel for InspectorPanel {
         egui::SidePanel::right("inspector")
             .default_width(450.0)
             .min_width(200.0)
-            .max_width(450.0)
+            .max_width(600.0)
             .resizable(true)
             .show_animated(ctx, self.is_open, |ui| {
                 ui.add_space(5.0);
@@ -392,7 +410,7 @@ impl Panel for InspectorPanel {
                             self.toggle_open();
                         }
                         ui.vertical_centered(|ui| {
-                            ui.label("Hierarchy");
+                            ui.label("Inspector");
                         });
                     });
                 });
@@ -400,7 +418,7 @@ impl Panel for InspectorPanel {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| {
-                        self.show_node(ui);
+                        self.show_inspector(ui);
                     });
             });
     }

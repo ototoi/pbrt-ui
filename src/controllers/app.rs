@@ -1,8 +1,8 @@
 use crate::error::PbrtError;
 use crate::models::scene::CameraComponent;
 use crate::models::scene::Node;
+use crate::models::scene::ResourceComponent;
 use crate::models::scene::ResourceObject;
-use crate::models::scene::ResourcesComponent;
 
 use crate::models::config::AppConfig;
 
@@ -87,7 +87,7 @@ impl AppController {
 
     pub fn get_resource_by_id(&self, id: Uuid) -> Option<Arc<RwLock<dyn ResourceObject>>> {
         let root_node = self.root_node.read().unwrap();
-        if let Some(c) = root_node.get_component::<ResourcesComponent>() {
+        if let Some(c) = root_node.get_component::<ResourceComponent>() {
             for (material_id, material) in c.materials.iter() {
                 if *material_id == id {
                     return Some(material.clone());

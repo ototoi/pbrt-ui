@@ -20,7 +20,7 @@ use crate::models::scene::MeshComponent;
 use crate::models::scene::MeshProperties;
 use crate::models::scene::Node;
 use crate::models::scene::OptionProperties;
-use crate::models::scene::ResourcesComponent;
+use crate::models::scene::ResourceComponent;
 use crate::models::scene::SamplerComponent;
 use crate::models::scene::SamplerProperties;
 use crate::models::scene::ShapeComponent;
@@ -359,7 +359,7 @@ impl PbrtSaver {
     ) -> Result<(), PbrtError> {
         let indent = 1;
         let node = node.read().unwrap();
-        if let Some(resouces_component) = node.get_component::<ResourcesComponent>() {
+        if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             if resouces_component.materials.is_empty() {
                 return Ok(());
             }
@@ -400,7 +400,7 @@ impl PbrtSaver {
     ) -> Result<(), PbrtError> {
         let mut indent = 1;
         let node = node.read().unwrap();
-        if let Some(resouces_component) = node.get_component::<ResourcesComponent>() {
+        if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             if resouces_component.textures.is_empty() {
                 return Ok(());
             }
@@ -630,7 +630,7 @@ impl PbrtSaver {
             return Ok(());
         }
         let node = node.read().unwrap();
-        if let Some(resouces_component) = node.get_component::<ResourcesComponent>() {
+        if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let out_dir = std::path::Path::new(path)
                 .parent()
                 .ok_or(PbrtError::error("Invalid path!"))?;
