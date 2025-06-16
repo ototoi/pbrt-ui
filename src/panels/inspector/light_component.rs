@@ -18,7 +18,7 @@ impl InspectorPanel {
         let t = component.get_type();
         let title = LightComponent::get_name_from_type(&t);
         let mut keys = Vec::new();
-        let entries = self.light_parameters.get_entries(&t);
+        let entries = self.light_properties.get_entries(&t);
         let props = &mut component.props;
         for (key_type, key_name, init, range) in entries.iter() {
             if props.get(key_name).is_none() {

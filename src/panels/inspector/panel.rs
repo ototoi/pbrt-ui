@@ -25,8 +25,8 @@ use crate::models::scene::ShapeProperties;
 use crate::models::scene::SubdivComponent;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
+use crate::models::scene::MappingProperties;
 use crate::panels::Panel;
-use crate::panels::inspector::resource_selector;
 
 use std::any::Any;
 use std::sync::Arc;
@@ -42,16 +42,17 @@ use uuid::Uuid;
 pub struct InspectorPanel {
     pub is_open: bool,
     pub app_controller: Arc<RwLock<AppController>>,
-    pub material_parameters: MaterialProperties,
-    pub shape_parameters: ShapeProperties,
-    pub light_parameters: LightProperties,
-    pub option_parameters: OptionProperties,
-    pub camera_parameters: CameraProperties,
-    pub accelerator_parameters: AcceleratorProperties,
-    pub sampler_parameters: SamplerProperties,
-    pub integrator_parameters: IntegratorProperties,
-    pub texture_parameters: TextureProperties,
-    pub mesh_parameters: MeshProperties,
+    pub material_properties: MaterialProperties,
+    pub shape_properties: ShapeProperties,
+    pub light_properties: LightProperties,
+    pub option_properties: OptionProperties,
+    pub camera_properties: CameraProperties,
+    pub accelerator_properties: AcceleratorProperties,
+    pub sampler_properties: SamplerProperties,
+    pub integrator_properties: IntegratorProperties,
+    pub texture_properties: TextureProperties,
+    pub mesh_properties: MeshProperties,
+    pub mapping_properties: MappingProperties,
 }
 
 impl InspectorPanel {
@@ -59,16 +60,17 @@ impl InspectorPanel {
         Self {
             is_open: true,
             app_controller: controller.clone(),
-            material_parameters: MaterialProperties::new(),
-            shape_parameters: ShapeProperties::new(),
-            light_parameters: LightProperties::new(),
-            option_parameters: OptionProperties::new(),
-            camera_parameters: CameraProperties::new(),
-            accelerator_parameters: AcceleratorProperties::new(),
-            sampler_parameters: SamplerProperties::new(),
-            integrator_parameters: IntegratorProperties::new(),
-            texture_parameters: TextureProperties::new(),
-            mesh_parameters: MeshProperties::new(),
+            material_properties: MaterialProperties::new(),
+            shape_properties: ShapeProperties::new(),
+            light_properties: LightProperties::new(),
+            option_properties: OptionProperties::new(),
+            camera_properties: CameraProperties::new(),
+            accelerator_properties: AcceleratorProperties::new(),
+            sampler_properties: SamplerProperties::new(),
+            integrator_properties: IntegratorProperties::new(),
+            texture_properties: TextureProperties::new(),
+            mesh_properties: MeshProperties::new(),
+            mapping_properties: MappingProperties::new(),
         }
     }
 
@@ -140,7 +142,7 @@ impl InspectorPanel {
                     ui,
                     "Camera",
                     &mut component.props,
-                    &self.camera_parameters,
+                    &self.camera_properties,
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<FilmComponent>() {
@@ -151,7 +153,7 @@ impl InspectorPanel {
                     ui,
                     "Sampler",
                     &mut component.props,
-                    &self.sampler_parameters,
+                    &self.sampler_properties,
                     &resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<IntegratorComponent>() {
@@ -160,7 +162,7 @@ impl InspectorPanel {
                     ui,
                     "Integrator",
                     &mut component.props,
-                    &self.integrator_parameters,
+                    &self.integrator_properties,
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<AcceleratorComponent>() {
@@ -169,7 +171,7 @@ impl InspectorPanel {
                     ui,
                     "Accelerator",
                     &mut component.props,
-                    &self.accelerator_parameters,
+                    &self.accelerator_properties,
                     resource_selector,
                 );
             } else if let Some(_component) = component.downcast_mut::<ResourceComponent>() {
@@ -194,7 +196,7 @@ impl InspectorPanel {
             let shape_type = props.find_one_string("string type").unwrap();
             let title = shape_type.to_case(Case::Title);
             let mut keys = Vec::new();
-            if let Some(params) = self.shape_parameters.get(&shape_type) {
+            if let Some(params) = self.shape_properties.get(&shape_type) {
                 for (key_type, key_name, init, range) in params.iter() {
                     if props.get(key_name).is_none() {
                         let key = PropertyMap::get_key(key_type, key_name);
@@ -221,7 +223,7 @@ impl InspectorPanel {
             let shape_type = props.find_one_string("string type").unwrap();
             let title = "Subdiv"; //
             let mut keys = Vec::new();
-            if let Some(params) = self.shape_parameters.get(&shape_type) {
+            if let Some(params) = self.shape_properties.get(&shape_type) {
                 for (key_type, key_name, init, range) in params.iter() {
                     if props.get(key_name).is_none() {
                         let key = PropertyMap::get_key(key_type, key_name);
@@ -245,7 +247,7 @@ impl InspectorPanel {
     ) {
         let title = option_type.to_case(Case::Title);
         let mut keys = Vec::new();
-        if let Some(params) = self.option_parameters.get(option_type) {
+        if let Some(params) = self.option_properties.get(option_type) {
             for (key_type, key_name, init) in params.iter() {
                 if props.get(key_name).is_none() {
                     let key = PropertyMap::get_key(key_type, key_name);
@@ -288,17 +290,27 @@ impl InspectorPanel {
 
                 let props = texture.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
-
-                let mut keys = Vec::new();
-                if let Some(params) = self.texture_parameters.get(&t) {
+                let mut texture_keys = Vec::new();
+                if let Some(params) = self.texture_properties.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);
                             props.insert(&key, init.clone());
                         }
-                        keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                        texture_keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
                 }
+                let mapping = props.find_one_string("string mapping").unwrap_or("uv".to_string());
+                let mut mapping_keys = Vec::new();
+                if let Some(params) = self.mapping_properties.get(&mapping) {
+                    for (key_type, key_name, init, range) in params.iter() {
+                        if props.get(key_name).is_none() {
+                            let key = PropertyMap::get_key(key_type, key_name);
+                            props.insert(&key, init.clone());
+                        }
+                        mapping_keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                    }
+                } 
                 //---------------------------------------------------------------------
                 ui.add_space(2.0);
                 ui.horizontal(|ui| {
@@ -311,7 +323,8 @@ impl InspectorPanel {
                 ui.separator();
                 self.show_texture_preview(ui, 300.0, props);
                 ui.separator();
-                show_properties(0, ui, props, &keys, &resource_selector);
+                show_properties(0, ui, props, &texture_keys, &resource_selector);
+                show_properties(1, ui, props, &mapping_keys, &resource_selector);
                 ui.add_space(3.0);
             } else if let Some(material) = resource_manager.materials.get(&id) {
                 let mut material = material.write().unwrap();
@@ -321,7 +334,7 @@ impl InspectorPanel {
                 let t = props.find_one_string("string type").unwrap();
 
                 let mut keys = Vec::new();
-                if let Some(params) = self.material_parameters.get(&t) {
+                if let Some(params) = self.material_properties.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);
@@ -338,7 +351,7 @@ impl InspectorPanel {
                     ui.text_edit_singleline(&mut name);
                 });
                 ui.separator();
-                show_type(ui, props, &self.material_parameters.get_types());
+                show_type(ui, props, &self.material_properties.get_types());
                 ui.separator();
                 self.show_material_preview(ui, 300.0, props);
                 ui.separator();
@@ -350,7 +363,7 @@ impl InspectorPanel {
                 let props = mesh.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
                 let mut keys = Vec::new();
-                if let Some(params) = self.mesh_parameters.get(&t) {
+                if let Some(params) = self.mesh_properties.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);
