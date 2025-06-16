@@ -69,11 +69,11 @@ fn create_default_material() -> Arc<RwLock<Material>> {
 fn coordinate_system(d1: &Vector3) -> (Vector3, Vector3, Vector3) {
     let v1 = d1.normalize();
     if f32::abs(v1.x) > f32::abs(v1.y) {
-        let v2 = Vector3::new(-v1.z, f32::default(), v1.x).normalize();
+        let v2 = Vector3::new(-v1.z, 0.0, v1.x).normalize();
         let v3 = Vector3::cross(&v1, &v2).normalize();
         return (v1, v2, v3);
     } else {
-        let v2 = Vector3::new(f32::default(), v1.z, -v1.y).normalize();
+        let v2 = Vector3::new(0.0, v1.z, -v1.y).normalize();
         let v3 = Vector3::cross(&v1, &v2).normalize();
         return (v1, v2, v3);
     }
