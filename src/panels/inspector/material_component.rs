@@ -28,7 +28,7 @@ impl InspectorPanel {
         props: &mut PropertyMap,
         resource_selector: &ResourceSelector,
     ) {
-        let material_types = self.material_parameters.get_types();
+        let material_types = self.material_properties.get_types();
         let mut name = props
             .find_one_string("string name_")
             .unwrap_or("".to_string());
@@ -48,7 +48,7 @@ impl InspectorPanel {
                 ui.separator();
                 let mut keys = Vec::new();
                 let mat_type = props.find_one_string("string type").unwrap();
-                if let Some(params) = self.material_parameters.get(&mat_type) {
+                if let Some(params) = self.material_properties.get(&mat_type) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);

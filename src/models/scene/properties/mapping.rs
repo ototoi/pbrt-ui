@@ -9,8 +9,8 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 8] = [
     ("uv", "float", "vdelta", "0.0", "0.0 100.0"),
     ("planar", "vector", "v1", "1.0 0.0 0.0", ""),
     ("planar", "vector", "v2", "0.0 0.0 0.0", ""),
-    ("uv", "float", "udelta", "0.0", "0.0 100.0"),
-    ("uv", "float", "vdelta", "0.0", "0.0 100.0"),
+    ("planar", "float", "udelta", "0.0", "0.0 100.0"),
+    ("planar", "float", "vdelta", "0.0", "0.0 100.0"),
 ];
 
 fn parse_floats(value: &str) -> Vec<f32> {
