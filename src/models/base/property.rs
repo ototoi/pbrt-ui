@@ -258,4 +258,9 @@ impl ParamSet {
         }
         return None;
     }
+    //--------------------------------------------------//
+    pub fn remove(&mut self, key: &str) {
+        let (_key_type, key_name) = Self::get_param_type(key);
+        self.0.retain(|(_, k, _)| k != key_name);
+    }
 }

@@ -60,10 +60,23 @@ pub struct SceneTarget {
     work_dirs: Vec<String>,
 }
 
-pub fn create_default_material() -> Arc<RwLock<Material>> {
+fn create_default_material() -> Arc<RwLock<Material>> {
     let params = ParamSet::new();
     //params.insert("Kd", Property::Floats(vec![0.5, 0.5, 0.5]));
     Arc::new(RwLock::new(Material::new("Matte", "matte", &params)))
+}
+
+fn coordinate_system(d1: &Vector3) -> (Vector3, Vector3, Vector3) {
+    let v1 = d1.normalize();
+    if f32::abs(v1.x) > f32::abs(v1.y) {
+        let v2 = Vector3::new(-v1.z, f32::default(), v1.x).normalize();
+        let v3 = Vector3::cross(&v1, &v2).normalize();
+        return (v1, v2, v3);
+    } else {
+        let v2 = Vector3::new(f32::default(), v1.z, -v1.y).normalize();
+        let v3 = Vector3::cross(&v1, &v2).normalize();
+        return (v1, v2, v3);
+    }
 }
 
 impl Default for SceneTarget {
@@ -641,9 +654,83 @@ impl ParseTarget for SceneTarget {
         self.register_other_resources(params);
         let title = LightComponent::get_name_from_type(name);
         let node = self.create_child_node(&title);
+        let mut params = params.clone();
+        if name == "point" {
+            let mut has_value = false;
+            if let Some(props) = params.get("point from") {
+                has_value = true;
+                if let Property::Floats(values) = props {
+                    if values.len() == 3 {
+                        let from = Matrix4x4::translate(values[0], values[1], values[2]);
+                        {
+                            let mut node = node.write().unwrap();
+                            if let Some(component) = node.get_component_mut::<TransformComponent>()
+                            {
+                                let local_matrix = self.get_current_local_matrix();
+                                let local_matrix = from * local_matrix;
+                                component.set_local_matrix(local_matrix);
+                            }
+                        }
+                    } else {
+                        log::warn!("Light 'from' parameter should have 3 values");
+                    }
+                }
+            }
+            if has_value {
+                params.remove("point from");
+            }
+        } else if name == "spot" || name == "distant" {
+            let mut remove_keys = Vec::new();
+            let mut matrix = Matrix4x4::identity();
+            {
+                let mut from = Vector3::zero();
+                if let Some(props) = params.get("point from") {
+                    remove_keys.push("point from".to_string());
+                    if let Property::Floats(values) = props {
+                        if values.len() == 3 {
+                            from = Vector3::new(values[0], values[1], values[2]);
+                        } else {
+                            log::warn!("Light 'from' parameter should have 3 values");
+                        }
+                    }
+                }
+                let mut to = Vector3::new(0.0, 0.0, 1.0);
+                if let Some(props) = params.get("point to") {
+                    remove_keys.push("point to".to_string());
+                    if let Property::Floats(values) = props {
+                        if values.len() == 3 {
+                            to = Vector3::new(values[0], values[1], values[2]);
+                        } else {
+                            log::warn!("Light 'to' parameter should have 3 values");
+                        }
+                    }
+                }
+                let dir = to - from;
+                let (dir, du, dv) = coordinate_system(&dir);
+                let dir_to_z = Matrix4x4::new(
+                    du.x, du.y, du.z, 0.0, dv.x, dv.y, dv.z, 0., dir.x, dir.y, dir.z, 0.0, 0.0,
+                    0.0, 0.0, 1.0,
+                );
+                matrix = Matrix4x4::translate(from.x, from.y, from.z) * dir_to_z.transpose();
+            }
+            if !remove_keys.is_empty() {
+                {
+                    let mut node = node.write().unwrap();
+                    if let Some(component) = node.get_component_mut::<TransformComponent>() {
+                        let local_matrix = self.get_current_local_matrix();
+                        let local_matrix = local_matrix * matrix;
+                        component.set_local_matrix(local_matrix);
+                    }
+                }
+                for keys in remove_keys.iter() {
+                    params.remove(keys);
+                }
+            }
+        }
+
         {
             let mut node = node.write().unwrap();
-            let component = LightComponent::new(name, params);
+            let component = LightComponent::new(name, &params);
             node.add_component(component);
         }
     }
