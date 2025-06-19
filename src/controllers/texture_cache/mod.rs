@@ -1,4 +1,5 @@
 pub mod texture_cache_manager;
+pub mod texture_cache_generator;
 pub mod texture_size;
 
 

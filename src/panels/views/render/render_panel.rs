@@ -13,8 +13,6 @@ use std::sync::RwLock;
 
 use eframe::egui;
 use eframe::egui_glow;
-use eframe::glow::HasContext;
-use egui::Vec2;
 use egui_glow::glow;
 
 pub struct RenderPanel {
