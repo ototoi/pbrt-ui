@@ -29,6 +29,7 @@ use crate::models::scene::TransformComponent;
 use crate::panels::Panel;
 
 use std::any::Any;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -53,6 +54,7 @@ pub struct InspectorPanel {
     pub texture_properties: TextureProperties,
     pub mesh_properties: MeshProperties,
     pub mapping_properties: MappingProperties,
+    pub texture_id_map: Arc<RwLock<HashMap<String, egui::TextureId>>>,
 }
 
 impl InspectorPanel {
@@ -71,6 +73,7 @@ impl InspectorPanel {
             texture_properties: TextureProperties::new(),
             mesh_properties: MeshProperties::new(),
             mapping_properties: MappingProperties::new(),
+            texture_id_map: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
