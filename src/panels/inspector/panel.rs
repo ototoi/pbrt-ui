@@ -11,6 +11,7 @@ use crate::models::scene::IntegratorComponent;
 use crate::models::scene::IntegratorProperties;
 use crate::models::scene::LightComponent;
 use crate::models::scene::LightProperties;
+use crate::models::scene::MappingProperties;
 use crate::models::scene::MaterialComponent;
 use crate::models::scene::MaterialProperties;
 use crate::models::scene::MeshComponent;
@@ -25,7 +26,6 @@ use crate::models::scene::ShapeProperties;
 use crate::models::scene::SubdivComponent;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
-use crate::models::scene::MappingProperties;
 use crate::panels::Panel;
 
 use std::any::Any;
@@ -300,7 +300,9 @@ impl InspectorPanel {
                         texture_keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
                 }
-                let mapping = props.find_one_string("string mapping").unwrap_or("uv".to_string());
+                let mapping = props
+                    .find_one_string("string mapping")
+                    .unwrap_or("uv".to_string());
                 let mut mapping_keys = Vec::new();
                 if let Some(params) = self.mapping_properties.get(&mapping) {
                     for (key_type, key_name, init, range) in params.iter() {
@@ -310,7 +312,7 @@ impl InspectorPanel {
                         }
                         mapping_keys.push((key_type.clone(), key_name.clone(), range.clone()));
                     }
-                } 
+                }
                 //---------------------------------------------------------------------
                 ui.add_space(2.0);
                 ui.horizontal(|ui| {

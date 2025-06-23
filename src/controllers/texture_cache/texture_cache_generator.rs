@@ -26,21 +26,26 @@ fn create_texture_cache_path(key: &str, size: TextureSize) -> String {
         .join("cache")
         .join("texture")
         .join(size.to_string());
+    //println!("Creating texture cache path: {:?}", dir);
     std::fs::create_dir_all(&dir).expect("Failed to create cache directory");
     let path = dir.join(format!("{}.png", get_digest(key)));
     return path.to_str().unwrap().to_string();
 }
 
 fn resize_image(img: &image::DynamicImage, size: TextureSize) -> image::DynamicImage {
-    match size {
-        TextureSize::Icon => img.resize(64, 64, image::imageops::FilterType::Lanczos3),
-        TextureSize::Large => img.resize(256, 256, image::imageops::FilterType::Lanczos3),
-        TextureSize::Size((width, height)) => img.resize(
-            width as u32,
-            height as u32,
-            image::imageops::FilterType::Lanczos3,
-        ),
-    }
+    let (width, height) = (img.width(), img.height());
+    let (new_width, new_height) = match size {
+        TextureSize::Icon => {
+            let factor = f32::min(64.0 / width as f32, 64.0 / height as f32);
+            (
+                ((width as f32 * factor).ceil() as u32).min(64),
+                ((height as f32 * factor).ceil() as u32).min(64),
+            )
+        }
+        TextureSize::Full => (width, height),
+        TextureSize::Size((w, h)) => (w as u32, h as u32),
+    };
+    img.resize_exact(new_width, new_height, image::imageops::FilterType::Lanczos3)
 }
 
 fn create_texture_cache(src: &str, dst: &str, size: TextureSize) -> Result<(), PbrtError> {
@@ -115,6 +120,11 @@ impl TextureCacheGenerator {
                 return;
             }
             let cache_path = create_texture_cache_path(key, size);
+            //if std::path::Path::new(&cache_path).exists() {
+            //    let mut textures = textures.write().unwrap();
+            //    textures.insert((key.to_string(), size), cache_path.clone());
+            //    return;
+            //}
             match create_texture_cache_task(key, &cache_path, size, textures) {
                 Ok(handle) => {
                     self.tasks.push(handle);

@@ -1,9 +1,9 @@
-use super::texture_size::TextureSize;
 use super::texture_cache_generator::TextureCacheGenerator;
+use super::texture_size::TextureSize;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct TextureCacheManager {
@@ -24,7 +24,8 @@ impl TextureCacheManager {
         if let Some(path) = textures.get(&(key.to_string(), size)) {
             return Some(path.clone());
         } else {
-            self.generator.require_texture_cache(key, size, &self.textures);
+            self.generator
+                .require_texture_cache(key, size, &self.textures);
             return None;
         }
     }

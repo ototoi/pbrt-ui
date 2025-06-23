@@ -1,6 +1,5 @@
 use crate::controllers::AppController;
 use crate::controllers::texture_cache::TextureSize;
-use crate::controllers::texture_cache::texture_cache_manager;
 use crate::models::scene::ResourceComponent;
 
 use std::collections::HashMap;
@@ -33,6 +32,17 @@ fn short_name(name: &str, len: usize) -> String {
         short_name.push_str("...");
     }
     short_name
+}
+
+fn get_image_data(path: &str) -> Option<egui::ColorImage> {
+    if let Ok(image) = image::open(path) {
+        let rgb_image = image.to_rgb8();
+        let size = [rgb_image.width() as usize, rgb_image.height() as usize];
+        let pixels = rgb_image.into_raw();
+        Some(egui::ColorImage::from_rgb(size, &pixels))
+    } else {
+        None
+    }
 }
 
 impl ResourcesPanel {
@@ -73,19 +83,33 @@ impl ResourcesPanel {
                                 if let Some(cache_path) =
                                     texture_cache_manager.get_texture(&fullpath, TextureSize::Icon)
                                 {
+                                    //println!("Cache path: {}", cache_path);
                                     if let Some(id) = self.texture_id_map.get(&cache_path) {
                                         texure_id = Some(*id);
                                     } else {
-                                        // Allocate a new texture ID
-                                        //let texture_id = texture_manager
-                                        //    .alloc(cache_path.clone(), TextureSize::Icon);
-                                        //self.texture_id_map.insert(cache_path, texture_id);
+                                        if let Some(rgb_image) = get_image_data(&cache_path) {
+                                            // Create a new texture ID
+                                            let color_image =
+                                                egui::ImageData::Color(Arc::new(rgb_image));
+                                            let texture_options = egui::TextureOptions::LINEAR;
+                                            let texture_id = texture_manager.alloc(
+                                                name.clone(),
+                                                color_image,
+                                                texture_options,
+                                            );
+                                            texure_id = Some(texture_id);
+                                            // Store the texture ID in the map
+                                            self.texture_id_map.insert(cache_path, texture_id);
+                                        } else {
+                                            log::error!(
+                                                "Failed to load image data for: {}",
+                                                cache_path
+                                            );
+                                        }
                                     }
-                                    //if let Some(id) = texture_manager
                                 }
                             }
                         }
-
                         resources.push((id.clone(), "texture", name, texure_id));
                     }
                 }
@@ -164,8 +188,20 @@ impl ResourcesPanel {
                                     egui::StrokeKind::Outside
                                 );
                                 */
+
                                 if let Some(texture_id) = texture_id {
-                                    //
+                                    let uv = egui::Rect::from_min_max(
+                                        egui::Pos2::new(0.0, 0.0),
+                                        egui::Pos2::new(1.0, 1.0),
+                                    );
+                                    let icon_rect = rect.shrink(5.0);
+                                    ui.painter().image(
+                                        texture_id,
+                                        icon_rect,
+                                        uv,
+                                        egui::Color32::WHITE,
+                                    );
+                                    //println!("Drawing texture: {:?}", texture_id);
                                 } else {
                                     let icon_color = match resource_type {
                                         "texture" => egui::Color32::YELLOW,
@@ -175,15 +211,15 @@ impl ResourcesPanel {
                                         _ => egui::Color32::WHITE,
                                     };
                                     let icon_rect = rect.shrink(5.0);
-                                    ui.painter().rect_filled(icon_rect, 5.0, icon_color);
-                                    if response.clicked() {
-                                        // Handle click event
-                                        log::info!("Clicked on resource: {}", &resource_name);
-                                        let mut controller = self.app_controller.write().unwrap();
-                                        controller.set_current_resource_by_id(resource_id);
-                                    }
+                                    ui.painter().rect_filled(icon_rect, 0.0, icon_color);
                                 }
-                                
+                                if response.clicked() {
+                                    // Handle click event
+                                    log::info!("Clicked on resource: {}", &resource_name);
+                                    let mut controller = self.app_controller.write().unwrap();
+                                    controller.set_current_resource_by_id(resource_id);
+                                }
+
                                 ui.label(short_name);
                             });
                         });
