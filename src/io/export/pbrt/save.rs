@@ -25,6 +25,8 @@ use crate::models::scene::SamplerComponent;
 use crate::models::scene::SamplerProperties;
 use crate::models::scene::ShapeComponent;
 use crate::models::scene::ShapeProperties;
+use crate::models::scene::SubdivComponent;
+use crate::models::scene::SubdivProperties;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
 
@@ -61,6 +63,7 @@ struct PbrtSaver {
     shape_properties: ShapeProperties,
     light_properties: LightProperties,
     mesh_properties: MeshProperties,
+    subdiv_properties: SubdivProperties,
     mapping_properties: MappingProperties,
 }
 
@@ -136,6 +139,7 @@ impl PbrtSaver {
             shape_properties: ShapeProperties::new(),
             light_properties: LightProperties::new(),
             mesh_properties: MeshProperties::new(),
+            subdiv_properties: SubdivProperties::new(),
             mapping_properties: MappingProperties::new(),
         }
     }
@@ -537,6 +541,18 @@ impl PbrtSaver {
                 let mesh = mesh.read().unwrap();
                 let t = mesh.get_type(); //
                 if let Some(props) = self.shape_properties.get(&t) {
+                    writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
+                    for (key_type, key_name, init, _range) in props.iter() {
+                        self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
+                    }
+                    writer.write("\n".as_bytes())?;
+                }
+            };
+        } else if let Some(c) = node.get_component::<SubdivComponent>() {
+            if let Some(mesh) = c.mesh.as_ref() {
+                let mesh = mesh.read().unwrap();
+                let t = mesh.get_type(); //
+                if let Some(props) = self.subdiv_properties.get(&t) {
                     writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
                     for (key_type, key_name, init, _range) in props.iter() {
                         self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;

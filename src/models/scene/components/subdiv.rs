@@ -18,10 +18,17 @@ fn create_mesh(name: &str, props: &PropertyMap) -> Arc<RwLock<Mesh>> {
     Arc::new(RwLock::new(mesh))
 }
 
+fn replace_properties(props: &mut PropertyMap) {
+    if let Some((_, key_name, _)) = props.entry_mut("levels") {
+        *key_name = "nlevels".to_string();
+    }
+}
+
 impl SubdivComponent {
     pub fn new(t: &str, props: &PropertyMap) -> Self {
         let mut props = props.clone();
-        props.insert("string type", Property::from(t));
+        props.add_string("string type", &t);
+        replace_properties(&mut props);
         //let edition_id = Uuid::new_v4();
         //props.insert("string edition", Property::from(edition_id.to_string()));
         let name = Self::get_name_from_type(t);

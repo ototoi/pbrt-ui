@@ -24,7 +24,8 @@ impl ShapeComponent {
         props.insert("string type", Property::from(shape_type));
         let edition_id = Uuid::new_v4();
         props.insert("string edition", Property::from(edition_id.to_string()));
-        let mesh = create_mesh("Sphere", &props);
+        let name = Self::get_name_from_type(shape_type);
+        let mesh = create_mesh(&name, &props);
         ShapeComponent { mesh: Some(mesh) }
     }
 
