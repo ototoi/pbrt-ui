@@ -1,4 +1,4 @@
-use crate::error::PbrtError;
+use super::texture_cache::TextureCacheManager;
 use crate::models::scene::CameraComponent;
 use crate::models::scene::Node;
 use crate::models::scene::ResourceComponent;
@@ -16,6 +16,7 @@ pub struct AppController {
     root_node: Arc<RwLock<Node>>,
     current_node: Option<Arc<RwLock<Node>>>,
     current_resource: Option<Arc<RwLock<dyn ResourceObject>>>,
+    texture_cache_manager: Arc<RwLock<TextureCacheManager>>,
     config: Arc<RwLock<AppConfig>>,
 }
 
@@ -26,6 +27,7 @@ impl AppController {
             root_node: root_node.clone(),
             current_node: Some(root_node.clone()),
             current_resource: None,
+            texture_cache_manager: Arc::new(RwLock::new(TextureCacheManager::new())),
             config: Arc::new(RwLock::new(AppConfig::default())),
         }
     }
@@ -160,6 +162,10 @@ impl AppController {
 
     pub fn get_camera_node(&self) -> Option<Arc<RwLock<Node>>> {
         return Node::find_node_by_component::<CameraComponent>(&self.root_node);
+    }
+
+    pub fn get_texture_cache_manager(&self) -> Arc<RwLock<TextureCacheManager>> {
+        self.texture_cache_manager.clone()
     }
 }
 
