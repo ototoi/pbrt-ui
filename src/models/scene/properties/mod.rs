@@ -9,6 +9,7 @@ mod mesh;
 mod option;
 mod sampler;
 mod shape;
+mod subdiv;
 mod texture;
 mod value_range;
 
@@ -23,5 +24,6 @@ pub use mesh::*;
 pub use option::*;
 pub use sampler::*;
 pub use shape::*;
+pub use subdiv::*;
 pub use texture::*;
 pub use value_range::*;
