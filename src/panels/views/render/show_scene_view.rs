@@ -1,6 +1,6 @@
-use super::scene_view::RenderItem;
 use super::scene_view::RenderMode;
 use super::scene_view::get_render_items;
+use super::scene_view::{MeshRenderItem, RenderItem};
 use crate::models::base::Quaternion;
 use crate::models::scene::Node;
 
@@ -20,42 +20,63 @@ use crate::models::scene::CameraComponent;
 use crate::models::scene::FilmComponent;
 use crate::models::scene::TransformComponent;
 
-fn render(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[RenderItem]) {
+fn render_mesh(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, item: &MeshRenderItem) {
     unsafe {
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        let program = &item.material.program;
+        let program_handle = program.handle;
 
-        gl.use_program(Some(items[0].program.handle));
+        let local_to_world = item.local_to_world;
+
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        gl.use_program(Some(program_handle));
         gl.enable_vertex_attrib_array(0);
 
         //let loc = gl.get_uniform_location(items[0].program.handle, "world_to_camera").unwrap().0;
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(items[0].program.handle, "world_to_camera")
+            gl.get_uniform_location(program_handle, "world_to_camera")
                 .as_ref(),
             false,
             &w2c.m,
         );
 
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(items[0].program.handle, "camera_to_clip")
+            gl.get_uniform_location(program_handle, "camera_to_clip")
                 .as_ref(),
             false,
             &c2c.m,
         );
 
-        for item in items {
-            gl.uniform_matrix_4_f32_slice(
-                gl.get_uniform_location(item.program.handle, "local_to_world")
-                    .as_ref(),
-                false,
-                &item.local_to_world.m,
-            );
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "local_to_world")
+                .as_ref(),
+            false,
+            &local_to_world.m,
+        );
 
-            gl.bind_vertex_array(Some(item.mesh.vao));
-            gl.draw_elements(glow::TRIANGLES, item.mesh.count, glow::UNSIGNED_INT, 0);
-            gl.bind_vertex_array(None);
-        }
+        gl.bind_vertex_array(Some(item.mesh.vao));
+        gl.draw_elements(glow::TRIANGLES, item.mesh.count, glow::UNSIGNED_INT, 0);
+        gl.bind_vertex_array(None);
+
         gl.use_program(None);
         gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+}
+
+fn render(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[RenderItem]) {
+    for item in items {
+        match item {
+            RenderItem::Mesh(item) => {
+                render_mesh(gl, w2c, c2c, item);
+            }
+            RenderItem::Gizmo(item) => {
+                // For light gizmos, we might not need to bind a VAO or EBO
+                // but we can still set the local_to_world matrix
+            }
+            RenderItem::Manipulator(item) => {
+                // For manipulator gizmos, we might not need to bind a VAO or EBO
+                // but we can still set the local_to_world matrix
+            }
+        }
     }
     //todo!("Implement render");
 }

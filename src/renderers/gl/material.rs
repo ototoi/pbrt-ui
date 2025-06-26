@@ -1,3 +1,4 @@
+use super::program::RenderProgram;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -8,17 +9,13 @@ use eframe::{egui_glow, glow::HasContext};
 use egui_glow::glow;
 
 #[derive(Debug, Clone)]
-pub struct RenderProgram {
+pub struct RenderMaterial {
     pub id: Uuid,
-    pub handle: glow::Program,
-
-    pub vertex_attributes: HashMap<String, u32>, //key, location
+    pub program: Arc<RenderProgram>,
 }
 
-impl RenderProgram {
+impl RenderMaterial {
     pub fn destroy(&self, gl: &Arc<glow::Context>) {
-        unsafe {
-            gl.delete_program(self.handle);
-        }
+        //
     }
 }

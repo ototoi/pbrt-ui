@@ -17,7 +17,6 @@ pub struct RenderMesh {
     pub indices: glow::Buffer,
     pub count: i32,
     pub vao: glow::VertexArray,
-    pub gl: Arc<glow::Context>,
 }
 
 fn get_normals(indices: &[i32], positions: &[f32]) -> Vec<f32> {
@@ -114,7 +113,6 @@ impl RenderMesh {
                 indices: indices_buffer,
                 count: count,
                 vao: vao,
-                gl: gl.clone(),
             };
             return Some(mesh);
         }
@@ -199,10 +197,9 @@ impl RenderMesh {
     }
 }
 
-impl Drop for RenderMesh {
-    fn drop(&mut self) {
+impl RenderMesh {
+    pub fn destroy(&self, gl: &Arc<glow::Context>) {
         unsafe {
-            let gl = self.gl.clone();
             gl.delete_buffer(self.postions);
             //gl.delete_buffer(self.normals);
             //gl.delete_buffer(self.uvs);
