@@ -1,3 +1,4 @@
+use super::gizmo_program::create_gizmo_program;
 use super::render_item::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use super::render_mode::RenderMode;
 use super::wireframe_program::create_wireframe_program;
@@ -19,6 +20,8 @@ use crate::renderers::gl::RenderMaterial;
 use crate::renderers::gl::RenderMesh;
 use crate::renderers::gl::RenderProgram;
 use crate::renderers::gl::{GLResourceComponent, RenderGizmo};
+
+use uuid::Uuid;
 
 use eframe::glow;
 use std::sync::{Arc, RwLock};
@@ -160,7 +163,7 @@ fn get_render_mesh(
     return None;
 }
 
-fn convert_shader(
+fn convert_shader_program(
     resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     material: &Arc<RwLock<Material>>,
@@ -185,7 +188,7 @@ fn convert_material(
     mode: RenderMode,
 ) -> Option<Arc<RenderMaterial>> {
     let id = material.read().unwrap().get_id();
-    if let Some(program) = convert_shader(resource_manager, gl, material, mode) {
+    if let Some(program) = convert_shader_program(resource_manager, gl, material, mode) {
         let render_material = RenderMaterial {
             id,
             program,
@@ -218,14 +221,32 @@ fn convert_light_gizmo(
         return Some(gizmo.clone());
     } else {
         let light = component.light.read().unwrap();
-        if let Some(light_shape) = crate::models::scene::create_light_shape(&light) {
-            //let render_gizmo = RenderGizmo::from_light_shape(gl, id, &light_shape);
-            //let render_gizmo = Arc::new(render_gizmo);
-            //resource_manager.add_gizmo(&render_gizmo);
-            //return Some(render_gizmo);
+        if let Some(gizmo) = RenderGizmo::from_light_shape(gl, &light) {
+            let gizmo = Arc::new(gizmo);
+            resource_manager.add_gizmo(&gizmo);
+            return Some(gizmo);
         }
     }
     return None;
+}
+
+const GIZMO_SHADER_ID: &str = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+fn get_gizmo_shader_program(
+    resource_manager: &mut GLResourceManager,
+    gl: &Arc<glow::Context>,
+    gizmo: &Arc<RenderGizmo>,
+    _mode: RenderMode,
+) -> Option<Arc<RenderProgram>> {
+    let id = Uuid::parse_str(GIZMO_SHADER_ID).unwrap();
+    if let Some(program) = resource_manager.get_program(id) {
+        return Some(program.clone());
+    } else {
+        if let Some(program) = create_gizmo_program(gl, id) {
+            resource_manager.add_program(&program);
+            return Some(program);
+        }
+    }
+    None
 }
 
 fn get_light_render_gizmo(
@@ -234,7 +255,19 @@ fn get_light_render_gizmo(
     component: &LightComponent,
     mode: RenderMode,
 ) -> Option<(Arc<RenderGizmo>, Arc<RenderMaterial>)> {
-    if let Some(gizmo) = convert_light_gizmo(resource_manager, gl, component) {}
+    if let Some(gizmo) = convert_light_gizmo(resource_manager, gl, component) {
+        if let Some(program) = get_gizmo_shader_program(resource_manager, gl, &gizmo, mode) {
+            //
+            let render_material = RenderMaterial {
+                id: gizmo.get_id(),
+                program,
+                gl: gl.clone(),
+            };
+            let render_material = Arc::new(render_material);
+            resource_manager.add_material(&render_material);
+            return Some((gizmo, render_material));
+        }
+    }
     None
 }
 

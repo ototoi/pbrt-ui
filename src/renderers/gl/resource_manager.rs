@@ -1,4 +1,4 @@
-use crate::renderers::gl::lines::RenderLines;
+use crate::renderers::gl::line::RenderLine;
 
 use super::gizmo::RenderGizmo;
 use super::material::RenderMaterial;

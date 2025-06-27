@@ -5,7 +5,7 @@ mod light_shape;
 use super::light::Light;
 use from_point::create_light_shape_from_point;
 use from_spot::create_light_shape_from_spot;
-use light_shape::LightShape;
+pub use light_shape::LightShape;
 
 pub fn create_light_shape(light: &Light) -> Option<LightShape> {
     let props = light.as_property_map();

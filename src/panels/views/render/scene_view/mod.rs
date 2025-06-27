@@ -1,4 +1,5 @@
 mod get_render_items;
+mod gizmo_program;
 mod render_item;
 mod render_mode;
 mod wireframe_program;
