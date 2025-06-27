@@ -20,7 +20,13 @@ use crate::models::scene::CameraComponent;
 use crate::models::scene::FilmComponent;
 use crate::models::scene::TransformComponent;
 
-fn render_mesh(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, item: &MeshRenderItem) {
+fn render_mesh(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    item: &MeshRenderItem,
+    mode: RenderMode,
+) {
     unsafe {
         let program = &item.material.program;
         let program_handle = program.handle;
@@ -62,18 +68,20 @@ fn render_mesh(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, item: &Mesh
     }
 }
 
-fn render(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[RenderItem]) {
+fn render(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    items: &[RenderItem],
+    mode: RenderMode,
+) {
     for item in items {
         match item {
             RenderItem::Mesh(item) => {
-                render_mesh(gl, w2c, c2c, item);
+                render_mesh(gl, w2c, c2c, item, mode);
             }
             RenderItem::Gizmo(item) => {
                 // For light gizmos, we might not need to bind a VAO or EBO
-                // but we can still set the local_to_world matrix
-            }
-            RenderItem::Manipulator(item) => {
-                // For manipulator gizmos, we might not need to bind a VAO or EBO
                 // but we can still set the local_to_world matrix
             }
         }
@@ -182,13 +190,14 @@ pub fn show_scene_view(
         let aspect = rect.width() / rect.height();
         let c2c = Matrix4x4::perspective(fov, aspect, 0.1, 1000.0);
 
-        let render_items = get_render_items(gl, node, RenderMode::Wireframe); //todo
+        let render_mode = RenderMode::Wireframe;
+        let render_items = get_render_items(gl, node, render_mode); //todo
 
         if render_items.len() > 0 {
             let gl = gl.clone();
             let cb = egui_glow::CallbackFn::new(move |_info, _painter| {
                 if render_items.len() > 0 {
-                    render(&gl, &w2c, &c2c, &render_items);
+                    render(&gl, &w2c, &c2c, &render_items, render_mode);
                 }
             });
 

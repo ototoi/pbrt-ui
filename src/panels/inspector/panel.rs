@@ -193,24 +193,23 @@ impl InspectorPanel {
         component: &mut ShapeComponent,
         resource_selector: &ResourceSelector,
     ) {
-        if let Some(mesh) = component.mesh.as_ref() {
-            let mut mesh = mesh.write().unwrap();
-            let props = mesh.as_property_map_mut();
-            let shape_type = props.find_one_string("string type").unwrap();
-            let title = shape_type.to_case(Case::Title);
-            let mut keys = Vec::new();
-            if let Some(params) = self.shape_properties.get(&shape_type) {
-                for (key_type, key_name, init, range) in params.iter() {
-                    if props.get(key_name).is_none() {
-                        let key = PropertyMap::get_key(key_type, key_name);
-                        props.insert(&key, init.clone());
-                    }
-                    keys.push((key_type.clone(), key_name.clone(), range.clone()));
+        let mesh = component.mesh.clone();
+        let mut mesh = mesh.write().unwrap();
+        let props = mesh.as_property_map_mut();
+        let shape_type = props.find_one_string("string type").unwrap();
+        let title = shape_type.to_case(Case::Title);
+        let mut keys = Vec::new();
+        if let Some(params) = self.shape_properties.get(&shape_type) {
+            for (key_type, key_name, init, range) in params.iter() {
+                if props.get(key_name).is_none() {
+                    let key = PropertyMap::get_key(key_type, key_name);
+                    props.insert(&key, init.clone());
                 }
+                keys.push((key_type.clone(), key_name.clone(), range.clone()));
             }
-            show_component_props(index, &title, ui, props, &keys, resource_selector);
-            props.add_string("string edition", &Uuid::new_v4().to_string());
         }
+        show_component_props(index, &title, ui, props, &keys, resource_selector);
+        props.add_string("string edition", &Uuid::new_v4().to_string());
     }
 
     fn show_subdiv_component(
@@ -220,24 +219,23 @@ impl InspectorPanel {
         component: &mut SubdivComponent,
         resource_selector: &ResourceSelector,
     ) {
-        if let Some(mesh) = component.mesh.as_ref() {
-            let mut mesh = mesh.write().unwrap();
-            let props = mesh.as_property_map_mut();
-            let shape_type = props.find_one_string("string type").unwrap();
-            let title = "Subdiv"; //
-            let mut keys = Vec::new();
-            if let Some(params) = self.shape_properties.get(&shape_type) {
-                for (key_type, key_name, init, range) in params.iter() {
-                    if props.get(key_name).is_none() {
-                        let key = PropertyMap::get_key(key_type, key_name);
-                        props.insert(&key, init.clone());
-                    }
-                    keys.push((key_type.clone(), key_name.clone(), range.clone()));
+        let mesh = component.mesh.clone();
+        let mut mesh = mesh.write().unwrap();
+        let props = mesh.as_property_map_mut();
+        let shape_type = props.find_one_string("string type").unwrap();
+        let title = "Subdiv"; //
+        let mut keys = Vec::new();
+        if let Some(params) = self.shape_properties.get(&shape_type) {
+            for (key_type, key_name, init, range) in params.iter() {
+                if props.get(key_name).is_none() {
+                    let key = PropertyMap::get_key(key_type, key_name);
+                    props.insert(&key, init.clone());
                 }
+                keys.push((key_type.clone(), key_name.clone(), range.clone()));
             }
-            show_component_props(index, &title, ui, props, &keys, resource_selector);
-            //props.add_string("string edition", &Uuid::new_v4().to_string());
         }
+        show_component_props(index, &title, ui, props, &keys, resource_selector);
+        //props.add_string("string edition", &Uuid::new_v4().to_string());
     }
 
     fn show_option_component(

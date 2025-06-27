@@ -12,10 +12,11 @@ use egui_glow::glow;
 pub struct RenderMaterial {
     pub id: Uuid,
     pub program: Arc<RenderProgram>,
+    pub gl: Arc<glow::Context>,
 }
 
-impl RenderMaterial {
-    pub fn destroy(&self, gl: &Arc<glow::Context>) {
+impl Drop for RenderMaterial {
+    fn drop(&mut self) {
         //
     }
 }

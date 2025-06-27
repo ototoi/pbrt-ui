@@ -10,7 +10,7 @@ use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct SubdivComponent {
-    pub mesh: Option<Arc<RwLock<Mesh>>>,
+    pub mesh: Arc<RwLock<Mesh>>,
 }
 
 fn create_mesh(name: &str, props: &PropertyMap) -> Arc<RwLock<Mesh>> {
@@ -29,11 +29,9 @@ impl SubdivComponent {
         let mut props = props.clone();
         props.add_string("string type", &t);
         replace_properties(&mut props);
-        //let edition_id = Uuid::new_v4();
-        //props.insert("string edition", Property::from(edition_id.to_string()));
         let name = Self::get_name_from_type(t);
         let mesh = create_mesh(&name, &props);
-        SubdivComponent { mesh: Some(mesh) }
+        SubdivComponent { mesh: mesh }
     }
 
     pub fn get_name_from_type(t: &str) -> String {

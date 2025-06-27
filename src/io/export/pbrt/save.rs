@@ -512,7 +512,8 @@ impl PbrtSaver {
         }
         if let Some(mesh_component) = node.get_component::<MeshComponent>() {
             if let Some(light_component) = node.get_component::<AreaLightComponent>() {
-                let light = &light_component.props;
+                let light = light_component.light.read().unwrap();
+                let light = light.as_property_map();
                 let t = light.find_one_string("string type").unwrap();
                 if let Some(props) = self.light_properties.get(&t) {
                     writer.write(
@@ -525,43 +526,55 @@ impl PbrtSaver {
                 }
             }
             //Shape "plymesh" "string filename" "xxxx.ply"
-            if let Some(mesh) = mesh_component.mesh.as_ref() {
-                let mesh = mesh.read().unwrap();
-                let t = mesh.get_type(); //
-                if let Some(props) = self.mesh_properties.get(&t) {
-                    writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
+            let mesh = mesh_component.mesh.clone();
+            let mesh = mesh.read().unwrap();
+            let t = mesh.get_type(); //
+            if let Some(props) = self.mesh_properties.get(&t) {
+                writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
+                for (key_type, key_name, init, _range) in props.iter() {
+                    self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
+                }
+                writer.write("\n".as_bytes())?;
+            }
+        } else if let Some(component) = node.get_component::<ShapeComponent>() {
+            if let Some(light_component) = node.get_component::<AreaLightComponent>() {
+                let light = light_component.light.read().unwrap();
+                let light = light.as_property_map();
+                let t = light.find_one_string("string type").unwrap();
+                if let Some(props) = self.light_properties.get(&t) {
+                    writer.write(
+                        format!("{}AreaLightSource \"{}\"", make_indent(indent), t).as_bytes(),
+                    )?;
                     for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
+                        self.write_property(indent, key_type, key_name, init, light, writer)?;
                     }
                     writer.write("\n".as_bytes())?;
                 }
-            };
-        } else if let Some(c) = node.get_component::<ShapeComponent>() {
-            if let Some(mesh) = c.mesh.as_ref() {
-                let mesh = mesh.read().unwrap();
-                let t = mesh.get_type(); //
-                if let Some(props) = self.shape_properties.get(&t) {
-                    writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
-                    }
-                    writer.write("\n".as_bytes())?;
+            }
+            let mesh = component.mesh.clone();
+            let mesh = mesh.read().unwrap();
+            let t = mesh.get_type(); //
+            if let Some(props) = self.shape_properties.get(&t) {
+                writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
+                for (key_type, key_name, init, _range) in props.iter() {
+                    self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
                 }
-            };
+                writer.write("\n".as_bytes())?;
+            }
         } else if let Some(c) = node.get_component::<SubdivComponent>() {
-            if let Some(mesh) = c.mesh.as_ref() {
-                let mesh = mesh.read().unwrap();
-                let t = mesh.get_type(); //
-                if let Some(props) = self.subdiv_properties.get(&t) {
-                    writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
-                    }
-                    writer.write("\n".as_bytes())?;
+            let mesh = c.mesh.clone();
+            let mesh = mesh.read().unwrap();
+            let t = mesh.get_type(); //
+            if let Some(props) = self.subdiv_properties.get(&t) {
+                writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
+                for (key_type, key_name, init, _range) in props.iter() {
+                    self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
                 }
-            };
-        } else if let Some(c) = node.get_component::<LightComponent>() {
-            let light = &c.props;
+                writer.write("\n".as_bytes())?;
+            }
+        } else if let Some(light_component) = node.get_component::<LightComponent>() {
+            let light = light_component.light.read().unwrap();
+            let light = light.as_property_map();
             let t = light.find_one_string("string type").unwrap();
             if let Some(props) = self.light_properties.get(&t) {
                 writer.write(format!("{}LightSource \"{}\"", make_indent(indent), t).as_bytes())?;

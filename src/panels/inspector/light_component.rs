@@ -19,7 +19,8 @@ impl InspectorPanel {
         let title = LightComponent::get_name_from_type(&t);
         let mut keys = Vec::new();
         let entries = self.light_properties.get_entries(&t);
-        let props = &mut component.props;
+        let mut light = component.light.write().unwrap();
+        let props = light.as_property_map_mut();
         for (key_type, key_name, init, range) in entries.iter() {
             if props.get(key_name).is_none() {
                 let key = PropertyMap::get_key(key_type, key_name);

@@ -14,11 +14,11 @@ use crate::models::scene::ShapeComponent;
 use crate::models::scene::SubdivComponent;
 use crate::models::scene::TransformComponent;
 
-use crate::renderers::gl::GLResourceComponent;
 use crate::renderers::gl::GLResourceManager;
 use crate::renderers::gl::RenderMaterial;
 use crate::renderers::gl::RenderMesh;
 use crate::renderers::gl::RenderProgram;
+use crate::renderers::gl::{GLResourceComponent, RenderGizmo};
 
 use eframe::glow;
 use std::sync::{Arc, RwLock};
@@ -127,34 +127,32 @@ fn get_render_mesh(
     resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     node: &Arc<RwLock<Node>>,
+    _mode: RenderMode,
 ) -> Option<Arc<RenderMesh>> {
     let node = node.read().unwrap();
     if let Some(component) = node.get_component::<MeshComponent>() {
-        if let Some(mesh) = component.mesh.as_ref() {
-            let mesh = mesh.read().unwrap();
-            return convert_mesh(resource_manager, &gl, &mesh);
-        }
+        let mesh = component.mesh.clone();
+        let mesh = mesh.read().unwrap();
+        return convert_mesh(resource_manager, &gl, &mesh);
     } else if let Some(component) = node.get_component::<SubdivComponent>() {
-        if let Some(mesh) = component.mesh.as_ref() {
-            let mesh = mesh.read().unwrap();
-            return convert_mesh(resource_manager, &gl, &mesh);
-        }
+        let mesh = component.mesh.clone();
+        let mesh = mesh.read().unwrap();
+        return convert_mesh(resource_manager, &gl, &mesh);
     } else if let Some(component) = node.get_component::<ShapeComponent>() {
-        if let Some(mesh) = component.mesh.as_ref() {
-            let mesh = mesh.read().unwrap();
-            let rm = convert_mesh(resource_manager, &gl, &mesh);
-            if let Some(rm) = rm.as_ref() {
-                if rm.edition
-                    != mesh
-                        .as_property_map()
-                        .find_one_string("edition")
-                        .unwrap_or("".to_string())
-                {
-                    if let Some(new_mesh) = RenderMesh::from_mesh(&gl, &mesh) {
-                        let new_mesh = Arc::new(new_mesh);
-                        resource_manager.add_mesh(&new_mesh);
-                        return Some(new_mesh.clone());
-                    }
+        let mesh = component.mesh.clone();
+        let mesh = mesh.read().unwrap();
+        let rm = convert_mesh(resource_manager, &gl, &mesh);
+        if let Some(rm) = rm.as_ref() {
+            if rm.edition
+                != mesh
+                    .as_property_map()
+                    .find_one_string("edition")
+                    .unwrap_or("".to_string())
+            {
+                if let Some(new_mesh) = RenderMesh::from_mesh(&gl, &mesh) {
+                    let new_mesh = Arc::new(new_mesh);
+                    resource_manager.add_mesh(&new_mesh);
+                    return Some(new_mesh.clone());
                 }
             }
         }
@@ -188,7 +186,11 @@ fn convert_material(
 ) -> Option<Arc<RenderMaterial>> {
     let id = material.read().unwrap().get_id();
     if let Some(program) = convert_shader(resource_manager, gl, material, mode) {
-        let render_material = RenderMaterial { id, program };
+        let render_material = RenderMaterial {
+            id,
+            program,
+            gl: gl.clone(),
+        };
         let render_material = Arc::new(render_material);
         resource_manager.add_material(&render_material);
         return Some(render_material);
@@ -204,6 +206,60 @@ fn get_render_material(
 ) -> Option<Arc<RenderMaterial>> {
     let material = get_material(node);
     return convert_material(resource_manager, gl, &material, mode);
+}
+
+fn convert_light_gizmo(
+    resource_manager: &mut GLResourceManager,
+    gl: &Arc<glow::Context>,
+    component: &LightComponent,
+) -> Option<Arc<RenderGizmo>> {
+    let id = component.get_id();
+    if let Some(gizmo) = resource_manager.get_gizmo(id) {
+        return Some(gizmo.clone());
+    } else {
+        let light = component.light.read().unwrap();
+        if let Some(light_shape) = crate::models::scene::create_light_shape(&light) {
+            //let render_gizmo = RenderGizmo::from_light_shape(gl, id, &light_shape);
+            //let render_gizmo = Arc::new(render_gizmo);
+            //resource_manager.add_gizmo(&render_gizmo);
+            //return Some(render_gizmo);
+        }
+    }
+    return None;
+}
+
+fn get_light_render_gizmo(
+    resource_manager: &mut GLResourceManager,
+    gl: &Arc<glow::Context>,
+    component: &LightComponent,
+    mode: RenderMode,
+) -> Option<(Arc<RenderGizmo>, Arc<RenderMaterial>)> {
+    if let Some(gizmo) = convert_light_gizmo(resource_manager, gl, component) {}
+    None
+}
+
+fn get_camera_render_gizmo(
+    resource_manager: &mut GLResourceManager,
+    gl: &Arc<glow::Context>,
+    component: &CameraComponent,
+    mode: RenderMode,
+) -> Option<(Arc<RenderGizmo>, Arc<RenderMaterial>)> {
+    None
+}
+
+fn get_render_gizmo(
+    resource_manager: &mut GLResourceManager,
+    gl: &Arc<glow::Context>,
+    node: &Arc<RwLock<Node>>,
+    mode: RenderMode,
+) -> Option<(Arc<RenderGizmo>, Arc<RenderMaterial>)> {
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        return get_light_render_gizmo(resource_manager, gl, component, mode);
+    } else if let Some(component) = node.get_component::<CameraComponent>() {
+        return get_camera_render_gizmo(resource_manager, gl, component, mode);
+    }
+    None
 }
 
 pub fn get_render_items(
@@ -230,7 +286,7 @@ pub fn get_render_items(
 
             match category {
                 SceneItemType::Mesh => {
-                    if let Some(mesh) = get_render_mesh(&mut resource_manager, gl, &node) {
+                    if let Some(mesh) = get_render_mesh(&mut resource_manager, gl, &node, mode) {
                         if let Some(material) =
                             get_render_material(&mut resource_manager, gl, &node, mode)
                         {
@@ -244,9 +300,29 @@ pub fn get_render_items(
                     }
                 }
                 SceneItemType::Light => {
-                    //
+                    if let Some((gizmo, material)) =
+                        get_render_gizmo(&mut resource_manager, gl, &node, mode)
+                    {
+                        let render_item = GizmoRenderItem {
+                            local_to_world,
+                            gizmo,
+                            material,
+                        };
+                        render_items.push(RenderItem::Gizmo(render_item));
+                    }
                 }
-                SceneItemType::Camera => {}
+                SceneItemType::Camera => {
+                    if let Some((gizmo, material)) =
+                        get_render_gizmo(&mut resource_manager, gl, &node, mode)
+                    {
+                        let render_item = GizmoRenderItem {
+                            local_to_world,
+                            gizmo,
+                            material,
+                        };
+                        render_items.push(RenderItem::Gizmo(render_item));
+                    }
+                }
                 _ => {
                     // Handle other types if needed
                 }

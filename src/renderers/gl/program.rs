@@ -13,12 +13,13 @@ pub struct RenderProgram {
     pub handle: glow::Program,
 
     pub vertex_attributes: HashMap<String, u32>, //key, location
+    pub gl: Arc<glow::Context>,
 }
 
-impl RenderProgram {
-    pub fn destroy(&self, gl: &Arc<glow::Context>) {
+impl Drop for RenderProgram {
+    fn drop(&mut self) {
         unsafe {
-            gl.delete_program(self.handle);
+            self.gl.delete_program(self.handle);
         }
     }
 }

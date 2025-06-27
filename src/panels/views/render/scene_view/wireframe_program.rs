@@ -89,6 +89,7 @@ pub fn create_wireframe_program(gl: &Arc<glow::Context>, id: Uuid) -> Option<Arc
             id: id,
             handle: program,
             vertex_attributes: vertex_attributes,
+            gl: gl.clone(),
         }));
     }
 }
