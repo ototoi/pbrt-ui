@@ -9,7 +9,10 @@ use eframe::egui_glow;
 use eframe::glow;
 
 pub const WIREFRAME_SHADER_ID: &str = "612e32bf-8051-42a7-94af-03e4099025da";
-pub fn create_render_wireframe_program(gl: &Arc<glow::Context>, id: Uuid) -> Option<Arc<RenderProgram>> {
+pub fn create_render_wireframe_program(
+    gl: &Arc<glow::Context>,
+    id: Uuid,
+) -> Option<Arc<RenderProgram>> {
     use glow::HasContext as _;
 
     unsafe {
@@ -81,7 +84,14 @@ pub fn create_render_wireframe_program(gl: &Arc<glow::Context>, id: Uuid) -> Opt
         }
 
         let mut uniform_locations = HashMap::new();
-        for key in ["local_to_world", "world_to_camera", "camera_to_clip", "base_color"].iter() {
+        for key in [
+            "local_to_world",
+            "world_to_camera",
+            "camera_to_clip",
+            "base_color",
+        ]
+        .iter()
+        {
             if let Some(location) = gl.get_uniform_location(program, *key) {
                 let location = location.0 as u32;
                 uniform_locations.insert(key.to_string(), location as u32);

@@ -4,8 +4,8 @@ use super::render_mode::RenderMode;
 use super::render_solid_program::{RENDER_SOLID_SHADER_ID, create_render_solid_program};
 use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wireframe_program};
 
-use crate::models::base::Property;
 use crate::models::base::Matrix4x4;
+use crate::models::base::Property;
 use crate::models::scene::Mesh;
 use crate::models::scene::Node;
 use crate::models::scene::{CameraComponent, LightComponent, Material};
@@ -219,31 +219,37 @@ fn get_render_solid_base_color(material: &Arc<RwLock<Material>>) -> [f32; 4] {
     let mut base_color = [1.0, 1.0, 1.0, 1.0]; // Default white color
     let props = material.as_property_map();
     match material_type.as_str() {
-        "matte" | "plastic" | "translucent" | "uber" => if let Some(v) = props.get("Kd") {
-            base_color = [0.9, 0.0, 0.9, 1.0];
-            if let Property::Floats(v) = v {
-                base_color = [v[0], v[1], v[2], 1.0]; 
+        "matte" | "plastic" | "translucent" | "uber" => {
+            if let Some(v) = props.get("Kd") {
+                base_color = [0.9, 0.0, 0.9, 1.0];
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
             }
-        },
+        }
         "metal" => {
             base_color = [0.0, 0.9, 0.9, 1.0];
             if let Some(v) = props.get("Kr") {
                 if let Property::Floats(v) = v {
-                    base_color = [v[0], v[1], v[2], 1.0]; 
+                    base_color = [v[0], v[1], v[2], 1.0];
                 }
             }
         }
-        "glass" | "mirror" => if let Some(v) = props.get("Kr") {
-            base_color = [0.9, 0.9, 0.0, 1.0];
-            if let Property::Floats(v) = v {
-                base_color = [v[0], v[1], v[2], 1.0]; 
+        "glass" | "mirror" => {
+            if let Some(v) = props.get("Kr") {
+                base_color = [0.9, 0.9, 0.0, 1.0];
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
             }
-        },
-        "disney" => if let Some(v) = props.get("disney") {
-            if let Property::Floats(v) = v {
-                base_color = [v[0], v[1], v[2], 1.0]; 
+        }
+        "disney" => {
+            if let Some(v) = props.get("disney") {
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
             }
-        },
+        }
         _ => {}
     }
     return base_color;

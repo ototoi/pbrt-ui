@@ -197,6 +197,34 @@ impl SceneTarget {
             }
         }
 
+        if let Some(filename) = params.find_one_string("string lensfile") {
+            if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+                match std::path::absolute(fullpath) {
+                    Ok(fullpath) => {
+                        let name = fullpath
+                            .as_path()
+                            .file_stem()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_string();
+                        let fullpath = fullpath.to_str().unwrap().to_string();
+                        let mut new_params = ParamSet::default();
+                        new_params.add_string("string type", "lensfile"); //
+                        new_params.add_string("string filename", &filename);
+                        new_params.add_string("string fullpath", &fullpath);
+                        let resource =
+                            Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                        self.resources
+                            .insert(fullpath.to_string(), resource.clone());
+                    }
+                    Err(e) => {
+                        log::warn!("filename error: {}", e);
+                    }
+                }
+            }
+        }
+
         {
             for (key_type, key_name) in params.get_keys().iter() {
                 if key_type == "spectrum" {
@@ -493,6 +521,7 @@ impl ParseTarget for SceneTarget {
     }
 
     fn camera(&mut self, name: &str, params: &ParamSet) {
+        self.register_other_resources(params);
         let opts = &mut self.render_options;
         opts.camera_name = name.to_string();
         opts.camera_params = params.clone();

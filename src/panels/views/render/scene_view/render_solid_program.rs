@@ -9,7 +9,10 @@ use eframe::egui_glow;
 use eframe::glow;
 
 pub const RENDER_SOLID_SHADER_ID: &str = "812e32bf-8051-42a7-94af-03e4099025da";
-pub fn create_render_solid_program(gl: &Arc<glow::Context>, id: Uuid) -> Option<Arc<RenderProgram>> {
+pub fn create_render_solid_program(
+    gl: &Arc<glow::Context>,
+    id: Uuid,
+) -> Option<Arc<RenderProgram>> {
     use glow::HasContext as _;
 
     unsafe {
@@ -35,6 +38,7 @@ pub fn create_render_solid_program(gl: &Arc<glow::Context>, id: Uuid) -> Option<
                 void main() {
                     //gl_Position = camera_to_clip * world_to_camera * local_to_world * vec4(position, 1);
                     gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
+                    //float z = abs(gl_Position.z / gl_Position.w) * 0.5;
                     vertexColor = base_color;
                 }
             "#,
@@ -81,7 +85,14 @@ pub fn create_render_solid_program(gl: &Arc<glow::Context>, id: Uuid) -> Option<
         }
 
         let mut uniform_locations = HashMap::new();
-        for key in ["local_to_world", "world_to_camera", "camera_to_clip", "base_color"].iter() {
+        for key in [
+            "local_to_world",
+            "world_to_camera",
+            "camera_to_clip",
+            "base_color",
+        ]
+        .iter()
+        {
             if let Some(location) = gl.get_uniform_location(program, *key) {
                 let location = location.0 as u32;
                 uniform_locations.insert(key.to_string(), location as u32);

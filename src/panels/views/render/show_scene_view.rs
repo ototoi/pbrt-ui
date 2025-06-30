@@ -2,6 +2,7 @@ use super::scene_view::RenderMode;
 use super::scene_view::get_render_items;
 use super::scene_view::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use crate::models::base::Quaternion;
+use crate::models::base::Vector3;
 use crate::models::scene::Node;
 use crate::renderers::gl::RenderGizmo;
 use crate::renderers::gl::RenderUniformValue;
@@ -37,6 +38,7 @@ fn render_mesh(
 
         let local_to_world = item.local_to_world;
 
+        //gl.depth_mask(true);
         gl.use_program(Some(program_handle));
         gl.enable_vertex_attrib_array(0);
 
@@ -104,6 +106,7 @@ fn render_gizmo(
 
         let local_to_world = item.local_to_world;
 
+        //gl.depth_mask(false);
         gl.use_program(Some(program_handle));
         gl.enable_vertex_attrib_array(0);
 
@@ -161,7 +164,6 @@ fn render_gizmo(
         }
 
         gl.use_program(None);
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
     }
 }
 
@@ -173,6 +175,7 @@ fn render_wireframe(
 ) {
     unsafe {
         gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
     }
     for item in items.iter() {
         let item = item.as_ref();
@@ -183,9 +186,9 @@ fn render_wireframe(
             _ => {}
         }
     }
-    unsafe {
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
-    }
+    //unsafe {
+    //    gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    //}
     for item in items.iter() {
         let item = item.as_ref();
         match item {
@@ -195,32 +198,69 @@ fn render_wireframe(
             _ => {}
         }
     }
-}
-
-fn render_solid(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[Arc<RenderItem>]) {
     unsafe {
         gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
     }
+}
+
+fn get_position(m: &Matrix4x4) -> [f32; 3] {
+    [
+        m.m[12], // x //4 * 3 + 0
+        m.m[13], // y //4 * 3 + 1
+        m.m[14], // z //4 * 3 + 2
+    ]
+}
+
+fn sort_render_items(items: &[Arc<RenderItem>], w2c: &Matrix4x4) -> Vec<Arc<RenderItem>> {
+    let mut index_depth = items
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let item = item.as_ref();
+            match item {
+                RenderItem::Mesh(item) => (i, get_position(&item.local_to_world)),
+                RenderItem::Gizmo(item) => (i, get_position(&item.local_to_world)),
+            }
+        })
+        .map(|(i, pos)| {
+            let pos = w2c.transform_point(&Vector3::new(pos[0], pos[1], pos[2]));
+            (i, pos.z) // z coordinate in clip space
+        })
+        .collect::<Vec<_>>();
+    index_depth.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let sorted_items: Vec<Arc<RenderItem>> = index_depth
+        .iter()
+        .rev()
+        .map(|(i, _)| items[*i].clone())
+        .collect();
+    return sorted_items;
+}
+
+fn render_solid(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[Arc<RenderItem>]) {
+    let items = sort_render_items(items, w2c);
+    unsafe {
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+        gl.enable(glow::DEPTH_TEST);
+        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+    }
+
     for item in items.iter() {
         let item = item.as_ref();
         match item {
             RenderItem::Mesh(item) => {
                 render_mesh(gl, w2c, c2c, item, RenderMode::Solid);
             }
-            _ => {}
-        }
-    }
-    unsafe {
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
-    }
-    for item in items.iter() {
-        let item = item.as_ref();
-        match item {
             RenderItem::Gizmo(item) => {
                 render_gizmo(gl, w2c, c2c, item, RenderMode::Solid);
             }
             _ => {}
         }
+    }
+
+    unsafe {
+        gl.disable(glow::DEPTH_TEST);
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
     }
 }
 
@@ -318,6 +358,7 @@ pub fn show_scene_view(
                 available_rect.min + (available_size - scaled_size) / 2.0,
                 scaled_size,
             );
+            /*
             ui.painter()
                 .rect_filled(scaled_rect, 0.0, egui::Color32::from_rgb(0, 0, 128));
             ui.painter().rect_stroke(
@@ -326,6 +367,7 @@ pub fn show_scene_view(
                 egui::Stroke::new(1.0, egui::Color32::WHITE),
                 egui::StrokeKind::Inside,
             );
+            */
 
             let vertical_fov = if scaled_size.x < scaled_size.y {
                 // portrait mode

@@ -17,7 +17,6 @@ pub enum RenderUniformValue {
     Bool(bool),
 }
 
-
 #[derive(Debug, Clone)]
 pub struct RenderMaterial {
     pub id: Uuid,

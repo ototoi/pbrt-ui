@@ -16,6 +16,7 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size(window_size),
         renderer: eframe::Renderer::Glow,
+        depth_buffer: 32, // Use a 24-bit depth buffer.
         ..Default::default()
     };
     let uuid = Uuid::new_v4(); // Generate a random UUID for the application.
