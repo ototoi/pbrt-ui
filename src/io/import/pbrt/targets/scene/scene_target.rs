@@ -17,18 +17,16 @@ use crate::models::scene::FilmComponent;
 use crate::models::scene::IntegratorComponent;
 use crate::models::scene::LightComponent;
 use crate::models::scene::MaterialComponent;
-use crate::models::scene::MeshComponent;
 use crate::models::scene::Node;
 use crate::models::scene::OtherResource;
 use crate::models::scene::ResourceComponent;
 use crate::models::scene::ResourceObject;
 use crate::models::scene::SamplerComponent;
 use crate::models::scene::ShapeComponent;
-use crate::models::scene::SubdivComponent;
 use crate::models::scene::TransformComponent;
 
 use crate::models::scene::Material;
-use crate::models::scene::Mesh;
+use crate::models::scene::Shape;
 use crate::models::scene::Texture;
 
 use std::collections::HashMap;
@@ -53,7 +51,7 @@ pub struct SceneTarget {
     graphics_states: Vec<GraphicsState>,
     render_options: RenderOptions,
     named_coordinate_systems: HashMap<String, TransformSet>,
-    meshes: HashMap<String, Arc<RwLock<Mesh>>>,
+    meshes: HashMap<String, Arc<RwLock<Shape>>>,
     textures: HashMap<Uuid, Arc<RwLock<Texture>>>,
     materials: HashMap<Uuid, Arc<RwLock<Material>>>,
     resources: HashMap<String, Arc<RwLock<dyn ResourceObject>>>,
@@ -298,56 +296,35 @@ impl SceneTarget {
     }
 
     fn make_shape(&mut self, name: &str, params: &ParamSet) -> Option<Arc<RwLock<Node>>> {
-        match name {
-            "trianglemesh" => {
-                let node = self.create_child_node("Mesh");
-                {
-                    let mut node = node.write().unwrap();
-                    {
-                        let mesh_name = format!("Mesh_{}", self.meshes.len() + 1);
-                        let component = MeshComponent::new(name, &mesh_name, params);
-                        //if let Some(mesh) = component.mesh.as_ref() {
-                        //    self.meshes
-                        //        .insert(mesh.read().unwrap().get_id(), mesh.clone());
-                        //}
-                        node.add_component(component);
-                    }
-                }
-                return Some(node);
-            }
+        let shape_type = name.to_string();
+        match shape_type.as_str() {
             "plymesh" => {
+                let title = ShapeComponent::get_name_from_type(name);
                 if let Some(filename) = params.find_one_string("filename") {
-                    //println!("PlyMesh filename A: {}", filename);
                     if let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                        //println!("PlyMesh filename B: {}", fullpath);
                         match std::path::absolute(fullpath) {
                             Ok(fullpath) => {
-                                //println!("PlyMesh filename C: {}", filename);
                                 let fullpath = fullpath.to_str().unwrap().to_string();
-                                //println!("PlyMesh filename D: {}", fullpath);
+                                let filename = Path::new(&fullpath)
+                                    .file_stem()
+                                    .unwrap()
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string();
                                 let mut params = params.clone();
                                 params.insert("string fullpath", Property::from(fullpath.clone()));
-                                let node = self.create_child_node("Mesh");
+                                let node = self.create_child_node(&title);
                                 {
                                     let mut node = node.write().unwrap();
-                                    {
-                                        let filename = Path::new(&fullpath)
-                                            .file_stem()
-                                            .unwrap()
-                                            .to_str()
-                                            .unwrap()
-                                            .to_string();
-
-                                        if let Some(mesh) = self.meshes.get(&fullpath) {
-                                            let component = MeshComponent { mesh: mesh.clone() };
-                                            node.add_component(component);
-                                        } else {
-                                            let component =
-                                                MeshComponent::new(name, &filename, &params);
-                                            let mesh = component.mesh.clone();
-                                            self.meshes.insert(fullpath.clone(), mesh);
-                                            node.add_component(component);
-                                        }
+                                    if let Some(mesh) = self.meshes.get(&fullpath) {
+                                        let component = ShapeComponent::with_shape(&mesh);
+                                        node.add_component(component);
+                                    } else {
+                                        let component =
+                                            ShapeComponent::new(&shape_type, &filename, &params);
+                                        let mesh = component.get_shape();
+                                        self.meshes.insert(fullpath.clone(), mesh);
+                                        node.add_component(component);
                                     }
                                 }
                                 return Some(node);
@@ -359,27 +336,14 @@ impl SceneTarget {
                     }
                 }
             }
-            "sphere" | "disk" | "cylinder" | "cone" | "paraboloid" | "hyperboloid" => {
+            "trianglemesh" | "sphere" | "disk" | "cylinder" | "cone" | "paraboloid"
+            | "hyperboloid" | "loopsubdiv" => {
                 let title = ShapeComponent::get_name_from_type(name);
                 let node = self.create_child_node(&title);
                 {
                     let mut node = node.write().unwrap();
-                    {
-                        let component = ShapeComponent::new(name, params);
-                        node.add_component(component);
-                    }
-                }
-                return Some(node);
-            }
-            "loopsubdiv" => {
-                let title = SubdivComponent::get_name_from_type(name);
-                let node = self.create_child_node(&title);
-                {
-                    let mut node = node.write().unwrap();
-                    {
-                        let component = SubdivComponent::new(name, params);
-                        node.add_component(component);
-                    }
+                    let component = ShapeComponent::new(&shape_type, &title, params);
+                    node.add_component(component);
                 }
                 return Some(node);
             }

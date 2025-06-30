@@ -6,16 +6,14 @@ use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wirefra
 
 use crate::models::base::Matrix4x4;
 use crate::models::base::Property;
-use crate::models::scene::Mesh;
 use crate::models::scene::Node;
+use crate::models::scene::Shape;
 use crate::models::scene::{CameraComponent, LightComponent, Material};
 
 use crate::models::scene::Component;
 use crate::models::scene::MaterialComponent;
-use crate::models::scene::MeshComponent;
 
 use crate::models::scene::ShapeComponent;
-use crate::models::scene::SubdivComponent;
 use crate::models::scene::TransformComponent;
 
 use crate::renderers::gl::GLResourceManager;
@@ -74,16 +72,6 @@ fn get_scene_item(parent_matrix: &Matrix4x4, node: &Arc<RwLock<Node>>, items: &m
     let local_matrix = get_local_matrix(node);
     let world_matrix = *parent_matrix * local_matrix;
 
-    if has_component::<MeshComponent>(&node) && has_component::<MaterialComponent>(&node) {
-        let item = SceneItem::new(node.clone(), SceneItemType::Mesh, world_matrix);
-        items.push(item);
-    }
-
-    if has_component::<SubdivComponent>(&node) && has_component::<MaterialComponent>(&node) {
-        let item = SceneItem::new(node.clone(), SceneItemType::Mesh, world_matrix);
-        items.push(item);
-    }
-
     if has_component::<ShapeComponent>(&node) && has_component::<MaterialComponent>(&node) {
         let item = SceneItem::new(node.clone(), SceneItemType::Mesh, world_matrix);
         items.push(item);
@@ -115,13 +103,13 @@ fn get_scene_items(node: &Arc<RwLock<Node>>) -> Vec<SceneItem> {
 fn convert_mesh(
     resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
-    mesh: &Mesh,
+    shape: &Shape,
 ) -> Option<Arc<RenderMesh>> {
-    let id = mesh.get_id();
+    let id = shape.get_id();
     if let Some(render_mesh) = resource_manager.get_mesh(id) {
         return Some(render_mesh.clone());
     } else {
-        if let Some(render_mesh) = RenderMesh::from_mesh(gl, mesh) {
+        if let Some(render_mesh) = RenderMesh::from_mesh(gl, shape) {
             let render_mesh = Arc::new(render_mesh);
             resource_manager.add_mesh(&render_mesh);
             return Some(render_mesh);
@@ -137,31 +125,22 @@ fn get_render_mesh(
     _mode: RenderMode,
 ) -> Option<Arc<RenderMesh>> {
     let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<MeshComponent>() {
-        let mesh = component.mesh.clone();
-        let mesh = mesh.read().unwrap();
-        return convert_mesh(resource_manager, &gl, &mesh);
-    } else if let Some(component) = node.get_component::<SubdivComponent>() {
-        let mesh = component.mesh.clone();
-        let mesh = mesh.read().unwrap();
-        return convert_mesh(resource_manager, &gl, &mesh);
-    } else if let Some(component) = node.get_component::<ShapeComponent>() {
-        let mesh = component.mesh.clone();
-        let mesh = mesh.read().unwrap();
-        let rm = convert_mesh(resource_manager, &gl, &mesh);
+    if let Some(component) = node.get_component::<ShapeComponent>() {
+        let shape = component.get_shape();
+        let shape = shape.read().unwrap();
+        let shape_type = shape.get_type();
+        let rm = convert_mesh(resource_manager, &gl, &shape);
         if let Some(rm) = rm.as_ref() {
-            if rm.edition
-                != mesh
-                    .as_property_map()
-                    .find_one_string("edition")
-                    .unwrap_or("".to_string())
-            {
-                if let Some(new_mesh) = RenderMesh::from_mesh(&gl, &mesh) {
-                    let new_mesh = Arc::new(new_mesh);
-                    resource_manager.add_mesh(&new_mesh);
-                    return Some(new_mesh.clone());
+            if ShapeComponent::is_ediable(&shape_type) {
+                if rm.edition != shape.get_edition() {
+                    if let Some(new_mesh) = RenderMesh::from_mesh(&gl, &shape) {
+                        let new_mesh = Arc::new(new_mesh);
+                        resource_manager.add_mesh(&new_mesh);
+                        return Some(new_mesh.clone());
+                    }
                 }
             }
+            return Some(rm.clone());
         }
     }
     return None;

@@ -2,57 +2,57 @@ mod from_cone;
 mod from_cylinder;
 mod from_disk;
 mod from_loopsubdiv;
-mod from_ply;
+mod from_plymesh;
 mod from_sphere;
 mod mesh_data;
 
-use super::mesh::Mesh;
+use super::shape::Shape;
 use from_cone::create_mesh_data_from_cone;
 use from_cylinder::create_mesh_data_from_cylinder;
 use from_disk::create_mesh_data_from_disk;
 use from_loopsubdiv::create_mesh_data_from_loopsubdiv;
-use from_ply::create_mesh_data_from_ply;
+use from_plymesh::create_mesh_data_from_plymesh;
 use from_sphere::create_mesh_data_from_sphere;
 pub use mesh_data::MeshData;
 
-pub fn create_mesh_data(mesh: &Mesh) -> Option<MeshData> {
-    let mesh_type = mesh.get_type();
+pub fn create_mesh_data(shape: &Shape) -> Option<MeshData> {
+    let mesh_type = shape.get_type();
     match mesh_type.as_str() {
         "trianglemesh" => {
-            // Handle triangle mesh
-            // You can implement the logic for triangle mesh here
+            // Handle triangle shape
+            // You can implement the logic for triangle shape here
             return None;
         }
         "plymesh" => {
-            return create_mesh_data_from_ply(mesh);
+            return create_mesh_data_from_plymesh(shape);
         }
         "sphere" => {
-            return create_mesh_data_from_sphere(mesh);
+            return create_mesh_data_from_sphere(shape);
         }
         "disk" => {
-            return create_mesh_data_from_disk(mesh);
+            return create_mesh_data_from_disk(shape);
         }
         "cone" => {
-            return create_mesh_data_from_cone(mesh);
+            return create_mesh_data_from_cone(shape);
         }
         "cylinder" => {
-            return create_mesh_data_from_cylinder(mesh);
+            return create_mesh_data_from_cylinder(shape);
         }
         "paraboloid" => {
-            // Handle paraboloid mesh
-            // You can implement the logic for paraboloid mesh here
-            return create_mesh_data_from_sphere(mesh);
+            // Handle paraboloid shape
+            // You can implement the logic for paraboloid shape here
+            return create_mesh_data_from_sphere(shape);
         }
         "hyperboloid" => {
-            // Handle hyperboloid mesh
-            // You can implement the logic for hyperboloid mesh here
-            return create_mesh_data_from_sphere(mesh);
+            // Handle hyperboloid shape
+            // You can implement the logic for hyperboloid shape here
+            return create_mesh_data_from_sphere(shape);
         }
         "loopsubdiv" => {
-            return create_mesh_data_from_loopsubdiv(mesh);
+            return create_mesh_data_from_loopsubdiv(shape);
         }
         _ => {
-            println!("Unknown mesh type: {}", mesh_type);
+            println!("Unknown shape type: {}", mesh_type);
         }
     }
     return None;

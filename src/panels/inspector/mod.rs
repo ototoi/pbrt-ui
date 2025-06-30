@@ -1,7 +1,6 @@
 mod common;
 mod light_component;
 mod material_component;
-mod mesh_component;
 mod panel;
 mod preview;
 mod resource_selector;

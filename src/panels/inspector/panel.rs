@@ -14,8 +14,6 @@ use crate::models::scene::LightProperties;
 use crate::models::scene::MappingProperties;
 use crate::models::scene::MaterialComponent;
 use crate::models::scene::MaterialProperties;
-use crate::models::scene::MeshComponent;
-use crate::models::scene::MeshProperties;
 use crate::models::scene::Node;
 use crate::models::scene::OptionProperties;
 use crate::models::scene::ResourceComponent;
@@ -23,7 +21,6 @@ use crate::models::scene::SamplerComponent;
 use crate::models::scene::SamplerProperties;
 use crate::models::scene::ShapeComponent;
 use crate::models::scene::ShapeProperties;
-use crate::models::scene::SubdivComponent;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
 use crate::panels::Panel;
@@ -52,7 +49,6 @@ pub struct InspectorPanel {
     pub sampler_properties: SamplerProperties,
     pub integrator_properties: IntegratorProperties,
     pub texture_properties: TextureProperties,
-    pub mesh_properties: MeshProperties,
     pub mapping_properties: MappingProperties,
     pub texture_id_map: Arc<RwLock<HashMap<String, egui::TextureId>>>,
 }
@@ -71,7 +67,6 @@ impl InspectorPanel {
             sampler_properties: SamplerProperties::new(),
             integrator_properties: IntegratorProperties::new(),
             texture_properties: TextureProperties::new(),
-            mesh_properties: MeshProperties::new(),
             mapping_properties: MappingProperties::new(),
             texture_id_map: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -129,12 +124,8 @@ impl InspectorPanel {
         for (i, component) in components.iter_mut().enumerate() {
             if let Some(component) = component.downcast_mut::<TransformComponent>() {
                 self.show_transform_component(i, ui, component, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<MeshComponent>() {
-                self.show_mesh_component(i, ui, component);
             } else if let Some(component) = component.downcast_mut::<ShapeComponent>() {
                 self.show_shape_component(i, ui, component, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<SubdivComponent>() {
-                self.show_subdiv_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<LightComponent>() {
                 self.show_light_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<MaterialComponent>() {
@@ -193,11 +184,11 @@ impl InspectorPanel {
         component: &mut ShapeComponent,
         resource_selector: &ResourceSelector,
     ) {
-        let mesh = component.mesh.clone();
-        let mut mesh = mesh.write().unwrap();
-        let props = mesh.as_property_map_mut();
+        let shape = component.get_shape();
+        let mut shape = shape.write().unwrap();
+        let props = shape.as_property_map_mut();
         let shape_type = props.find_one_string("string type").unwrap();
-        let title = shape_type.to_case(Case::Title);
+        let name = props.find_one_string("string name").unwrap();
         let mut keys = Vec::new();
         if let Some(params) = self.shape_properties.get(&shape_type) {
             for (key_type, key_name, init, range) in params.iter() {
@@ -208,34 +199,10 @@ impl InspectorPanel {
                 keys.push((key_type.clone(), key_name.clone(), range.clone()));
             }
         }
-        show_component_props(index, &title, ui, props, &keys, resource_selector);
-        props.add_string("string edition", &Uuid::new_v4().to_string());
-    }
-
-    fn show_subdiv_component(
-        &self,
-        index: usize,
-        ui: &mut egui::Ui,
-        component: &mut SubdivComponent,
-        resource_selector: &ResourceSelector,
-    ) {
-        let mesh = component.mesh.clone();
-        let mut mesh = mesh.write().unwrap();
-        let props = mesh.as_property_map_mut();
-        let shape_type = props.find_one_string("string type").unwrap();
-        let title = "Subdiv"; //
-        let mut keys = Vec::new();
-        if let Some(params) = self.shape_properties.get(&shape_type) {
-            for (key_type, key_name, init, range) in params.iter() {
-                if props.get(key_name).is_none() {
-                    let key = PropertyMap::get_key(key_type, key_name);
-                    props.insert(&key, init.clone());
-                }
-                keys.push((key_type.clone(), key_name.clone(), range.clone()));
-            }
+        show_component_props(index, &name, ui, props, &keys, resource_selector);
+        if ShapeComponent::is_ediable(&shape_type) {
+            props.add_string("string edition", &Uuid::new_v4().to_string());
         }
-        show_component_props(index, &title, ui, props, &keys, resource_selector);
-        //props.add_string("string edition", &Uuid::new_v4().to_string());
     }
 
     fn show_option_component(
@@ -366,7 +333,7 @@ impl InspectorPanel {
                 let props = mesh.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
                 let mut keys = Vec::new();
-                if let Some(params) = self.mesh_properties.get(&t) {
+                if let Some(params) = self.shape_properties.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);

@@ -16,8 +16,6 @@ use crate::models::scene::LightProperties;
 use crate::models::scene::MappingProperties;
 use crate::models::scene::MaterialComponent;
 use crate::models::scene::MaterialProperties;
-use crate::models::scene::MeshComponent;
-use crate::models::scene::MeshProperties;
 use crate::models::scene::Node;
 use crate::models::scene::OptionProperties;
 use crate::models::scene::ResourceComponent;
@@ -25,8 +23,6 @@ use crate::models::scene::SamplerComponent;
 use crate::models::scene::SamplerProperties;
 use crate::models::scene::ShapeComponent;
 use crate::models::scene::ShapeProperties;
-use crate::models::scene::SubdivComponent;
-use crate::models::scene::SubdivProperties;
 use crate::models::scene::TextureProperties;
 use crate::models::scene::TransformComponent;
 
@@ -62,8 +58,6 @@ struct PbrtSaver {
     texture_properties: TextureProperties,
     shape_properties: ShapeProperties,
     light_properties: LightProperties,
-    mesh_properties: MeshProperties,
-    subdiv_properties: SubdivProperties,
     mapping_properties: MappingProperties,
 }
 
@@ -138,8 +132,6 @@ impl PbrtSaver {
             texture_properties: TextureProperties::new(),
             shape_properties: ShapeProperties::new(),
             light_properties: LightProperties::new(),
-            mesh_properties: MeshProperties::new(),
-            subdiv_properties: SubdivProperties::new(),
             mapping_properties: MappingProperties::new(),
         }
     }
@@ -510,7 +502,7 @@ impl PbrtSaver {
                 .as_bytes(),
             )?;
         }
-        if let Some(mesh_component) = node.get_component::<MeshComponent>() {
+        if let Some(component) = node.get_component::<ShapeComponent>() {
             if let Some(light_component) = node.get_component::<AreaLightComponent>() {
                 let light = light_component.light.read().unwrap();
                 let light = light.as_property_map();
@@ -525,50 +517,13 @@ impl PbrtSaver {
                     writer.write("\n".as_bytes())?;
                 }
             }
-            //Shape "plymesh" "string filename" "xxxx.ply"
-            let mesh = mesh_component.mesh.clone();
-            let mesh = mesh.read().unwrap();
-            let t = mesh.get_type(); //
-            if let Some(props) = self.mesh_properties.get(&t) {
-                writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
-                    self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
-                }
-                writer.write("\n".as_bytes())?;
-            }
-        } else if let Some(component) = node.get_component::<ShapeComponent>() {
-            if let Some(light_component) = node.get_component::<AreaLightComponent>() {
-                let light = light_component.light.read().unwrap();
-                let light = light.as_property_map();
-                let t = light.find_one_string("string type").unwrap();
-                if let Some(props) = self.light_properties.get(&t) {
-                    writer.write(
-                        format!("{}AreaLightSource \"{}\"", make_indent(indent), t).as_bytes(),
-                    )?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, light, writer)?;
-                    }
-                    writer.write("\n".as_bytes())?;
-                }
-            }
-            let mesh = component.mesh.clone();
-            let mesh = mesh.read().unwrap();
-            let t = mesh.get_type(); //
+            let shape = component.get_shape();
+            let shape = shape.read().unwrap();
+            let t = shape.get_type(); //
             if let Some(props) = self.shape_properties.get(&t) {
                 writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
                 for (key_type, key_name, init, _range) in props.iter() {
-                    self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
-                }
-                writer.write("\n".as_bytes())?;
-            }
-        } else if let Some(c) = node.get_component::<SubdivComponent>() {
-            let mesh = c.mesh.clone();
-            let mesh = mesh.read().unwrap();
-            let t = mesh.get_type(); //
-            if let Some(props) = self.subdiv_properties.get(&t) {
-                writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
-                    self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
+                    self.write_property(indent, key_type, key_name, init, &shape.props, writer)?;
                 }
                 writer.write("\n".as_bytes())?;
             }

@@ -1,4 +1,4 @@
-use super::super::mesh::Mesh;
+use super::super::shape::Shape;
 use super::mesh_data::MeshData;
 
 use std::io::*;
@@ -275,10 +275,10 @@ pub fn load_from_ply(filename: &str) -> Result<MeshData> {
     });
 }
 
-pub fn create_mesh_data_from_ply(mesh: &Mesh) -> Option<MeshData> {
-    let mesh_type = mesh.get_type();
+pub fn create_mesh_data_from_plymesh(shape: &Shape) -> Option<MeshData> {
+    let mesh_type = shape.get_type();
     assert!(mesh_type == "plymesh", "Mesh type is not ply");
-    if let Some(fullpath) = mesh.as_property_map().find_one_string("string fullpath") {
+    if let Some(fullpath) = shape.as_property_map().find_one_string("string fullpath") {
         match load_from_ply(&fullpath) {
             Ok(mesh_data) => {
                 return Some(mesh_data);
