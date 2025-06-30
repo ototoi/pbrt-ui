@@ -6,6 +6,8 @@
 use eframe::egui;
 use pbrt_ui::app::PbrtUIApp;
 
+use uuid::Uuid;
+
 fn main() -> eframe::Result {
     //env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
@@ -14,8 +16,11 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size(window_size),
         renderer: eframe::Renderer::Glow,
+        depth_buffer: 32, // Use a 24-bit depth buffer.
         ..Default::default()
     };
+    let uuid = Uuid::new_v4(); // Generate a random UUID for the application.
+    println!("Starting PBRT UI with UUID: {}", uuid);
 
     eframe::run_native(
         "PBRT UI",

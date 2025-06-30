@@ -1,8 +1,11 @@
-use super::gizmo_program::{GIZMO_SHADER_ID, create_gizmo_program};
+use super::render_gizmo_program::{GIZMO_SHADER_ID, create_render_gizmo_program};
 use super::render_item::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use super::render_mode::RenderMode;
-use super::wireframe_program::create_wireframe_program;
+use super::render_solid_program::{RENDER_SOLID_SHADER_ID, create_render_solid_program};
+use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wireframe_program};
+
 use crate::models::base::Matrix4x4;
+use crate::models::base::Property;
 use crate::models::scene::Mesh;
 use crate::models::scene::Node;
 use crate::models::scene::{CameraComponent, LightComponent, Material};
@@ -19,6 +22,7 @@ use crate::renderers::gl::GLResourceManager;
 use crate::renderers::gl::RenderMaterial;
 use crate::renderers::gl::RenderMesh;
 use crate::renderers::gl::RenderProgram;
+use crate::renderers::gl::RenderUniformValue;
 use crate::renderers::gl::{GLResourceComponent, RenderGizmo};
 
 use uuid::Uuid;
@@ -163,22 +167,92 @@ fn get_render_mesh(
     return None;
 }
 
+fn get_shader_id(material: &Arc<RwLock<Material>>, mode: RenderMode) -> Uuid {
+    match mode {
+        RenderMode::Wireframe => {
+            Uuid::parse_str(WIREFRAME_SHADER_ID).unwrap() // Placeholder for wireframe shader ID
+        }
+        RenderMode::Solid => {
+            Uuid::parse_str(RENDER_SOLID_SHADER_ID).unwrap() // Placeholder for solid shader ID
+        }
+
+        _ => {
+            material.read().unwrap().get_id() // Use the material's ID for solid mode
+        }
+    }
+}
+
 fn convert_shader_program(
     resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     material: &Arc<RwLock<Material>>,
-    _mode: RenderMode,
+    mode: RenderMode,
 ) -> Option<Arc<RenderProgram>> {
-    let id = material.read().unwrap().get_id(); //
+    let id = get_shader_id(material, mode);
     if let Some(render_program) = resource_manager.get_program(id) {
         return Some(render_program.clone());
     } else {
-        if let Some(render_program) = create_wireframe_program(gl, id) {
-            resource_manager.add_program(&render_program);
-            return Some(render_program);
+        match mode {
+            RenderMode::Wireframe => {
+                if let Some(render_program) = create_render_wireframe_program(gl, id) {
+                    resource_manager.add_program(&render_program);
+                    return Some(render_program);
+                }
+            }
+            RenderMode::Solid => {
+                if let Some(render_program) = create_render_solid_program(gl, id) {
+                    resource_manager.add_program(&render_program);
+                    return Some(render_program);
+                }
+            }
+            _ => {
+                // For other modes, use the material's ID to get the shader program
+            }
         }
     }
     return None;
+}
+
+fn get_render_solid_base_color(material: &Arc<RwLock<Material>>) -> [f32; 4] {
+    let material = material.read().unwrap();
+    let material_type = material.get_type();
+    let mut base_color = [1.0, 1.0, 1.0, 1.0]; // Default white color
+    let props = material.as_property_map();
+    match material_type.as_str() {
+        "matte" | "plastic" | "translucent" | "uber" => {
+            if let Some(v) = props.get("Kd") {
+                base_color = [0.9, 0.0, 0.9, 1.0];
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
+            }
+        }
+        "metal" => {
+            base_color = [0.0, 0.9, 0.9, 1.0];
+            if let Some(v) = props.get("Kr") {
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
+            }
+        }
+        "glass" | "mirror" => {
+            if let Some(v) = props.get("Kr") {
+                base_color = [0.9, 0.9, 0.0, 1.0];
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
+            }
+        }
+        "disney" => {
+            if let Some(v) = props.get("disney") {
+                if let Property::Floats(v) = v {
+                    base_color = [v[0], v[1], v[2], 1.0];
+                }
+            }
+        }
+        _ => {}
+    }
+    return base_color;
 }
 
 fn convert_material(
@@ -189,8 +263,28 @@ fn convert_material(
 ) -> Option<Arc<RenderMaterial>> {
     let id = material.read().unwrap().get_id();
     if let Some(program) = convert_shader_program(resource_manager, gl, material, mode) {
+        let mut uniform_values = Vec::new();
+        match mode {
+            RenderMode::Wireframe => {
+                uniform_values.push((
+                    "base_color".to_string(),
+                    RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), //should replace with wireframe color
+                ));
+            }
+            RenderMode::Solid => {
+                let base_color = get_render_solid_base_color(material);
+                uniform_values.push((
+                    "base_color".to_string(),
+                    RenderUniformValue::Vec4(base_color),
+                ));
+            }
+            _ => {
+                //
+            }
+        }
         let render_material = RenderMaterial {
             id,
+            uniform_values,
             program,
             gl: gl.clone(),
         };
@@ -240,7 +334,7 @@ fn get_gizmo_shader_program(
     if let Some(program) = resource_manager.get_program(id) {
         return Some(program.clone());
     } else {
-        if let Some(program) = create_gizmo_program(gl, id) {
+        if let Some(program) = create_render_gizmo_program(gl, id) {
             resource_manager.add_program(&program);
             return Some(program);
         }
@@ -256,8 +350,14 @@ fn get_light_render_gizmo(
 ) -> Option<(Arc<RenderGizmo>, Arc<RenderMaterial>)> {
     if let Some(gizmo) = convert_light_gizmo(resource_manager, gl, component) {
         if let Some(program) = get_gizmo_shader_program(resource_manager, gl, &gizmo, mode) {
+            let mut uniform_values = Vec::new();
+            uniform_values.push((
+                "base_color".to_string(),
+                RenderUniformValue::Vec4([1.0, 1.0, 0.0, 1.0]),
+            ));
             let render_material = RenderMaterial {
                 id: gizmo.get_id(),
+                uniform_values,
                 program,
                 gl: gl.clone(),
             };
@@ -297,7 +397,7 @@ pub fn get_render_items(
     gl: &Arc<glow::Context>,
     root_node: &Arc<RwLock<Node>>,
     mode: RenderMode,
-) -> Vec<RenderItem> {
+) -> Vec<Arc<RenderItem>> {
     let scene_items = get_scene_items(root_node);
     let mut root_node = root_node.write().unwrap();
     if root_node
@@ -306,7 +406,7 @@ pub fn get_render_items(
     {
         root_node.add_component::<GLResourceComponent>(GLResourceComponent::new(gl));
     }
-    let mut render_items: Vec<RenderItem> = Vec::new();
+    let mut render_items: Vec<Arc<RenderItem>> = Vec::new();
     if let Some(component) = root_node.get_component::<GLResourceComponent>() {
         let resource_manager = component.get_resource_manager();
         let mut resource_manager = resource_manager.lock().unwrap();
@@ -326,7 +426,7 @@ pub fn get_render_items(
                                 mesh,
                                 material,
                             };
-                            render_items.push(RenderItem::Mesh(render_item));
+                            render_items.push(Arc::new(RenderItem::Mesh(render_item)));
                         }
                     }
                 }
@@ -339,7 +439,7 @@ pub fn get_render_items(
                             gizmo,
                             material,
                         };
-                        render_items.push(RenderItem::Gizmo(render_item));
+                        render_items.push(Arc::new(RenderItem::Gizmo(render_item)));
                     }
                 }
                 SceneItemType::Camera => {
@@ -351,7 +451,7 @@ pub fn get_render_items(
                             gizmo,
                             material,
                         };
-                        render_items.push(RenderItem::Gizmo(render_item));
+                        render_items.push(Arc::new(RenderItem::Gizmo(render_item)));
                     }
                 }
                 _ => {
