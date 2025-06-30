@@ -1,18 +1,18 @@
 use super::mesh_data::MeshData;
-use crate::models::scene::mesh::Mesh;
+use crate::models::scene::shape::Shape;
 
-pub fn create_mesh_data_from_cylinder(mesh: &Mesh) -> Option<MeshData> {
-    let mesh_type = mesh.get_type();
+pub fn create_mesh_data_from_cylinder(shape: &Shape) -> Option<MeshData> {
+    let mesh_type = shape.get_type();
     assert!(mesh_type == "cylinder", "Mesh type is not cylinder");
-    let radius = mesh
+    let radius = shape
         .as_property_map()
         .find_one_float("radius")
         .unwrap_or(1.0);
-    let height = mesh
+    let height = shape
         .as_property_map()
         .find_one_float("height")
         .unwrap_or(1.0);
-    let udiv = mesh.as_property_map().find_one_int("udiv").unwrap_or(32);
+    let udiv = shape.as_property_map().find_one_int("udiv").unwrap_or(32);
     let vdiv = 1;
 
     let mut indices: Vec<i32> = Vec::new();

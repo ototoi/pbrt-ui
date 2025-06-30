@@ -1,5 +1,5 @@
 use super::mesh_data::MeshData;
-use crate::models::scene::mesh::Mesh;
+use crate::models::scene::shape::Shape;
 
 fn create_disk_plate(
     radius: f32,
@@ -140,12 +140,12 @@ fn merge_mesh_data(meshes: &[MeshData]) -> MeshData {
     let mut normals: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
     let mut index_offset = 0;
-    for mesh in meshes {
-        indices.extend(mesh.indices.iter().map(|i| i + index_offset));
-        positions.extend(mesh.positions.iter());
-        normals.extend(mesh.normals.iter());
-        uvs.extend(mesh.uvs.iter());
-        index_offset += mesh.positions.len() as i32 / 3;
+    for shape in meshes {
+        indices.extend(shape.indices.iter().map(|i| i + index_offset));
+        positions.extend(shape.positions.iter());
+        normals.extend(shape.normals.iter());
+        uvs.extend(shape.uvs.iter());
+        index_offset += shape.positions.len() as i32 / 3;
     }
     let mesh_data = MeshData {
         indices,
@@ -157,23 +157,23 @@ fn merge_mesh_data(meshes: &[MeshData]) -> MeshData {
     return mesh_data;
 }
 
-pub fn create_mesh_data_from_disk(mesh: &Mesh) -> Option<MeshData> {
-    let mesh_type = mesh.get_type();
+pub fn create_mesh_data_from_disk(shape: &Shape) -> Option<MeshData> {
+    let mesh_type = shape.get_type();
     assert!(mesh_type == "disk", "Mesh type is not disk");
-    let radius = mesh
+    let radius = shape
         .as_property_map()
         .find_one_float("radius")
         .unwrap_or(1.0);
-    let height = mesh
+    let height = shape
         .as_property_map()
         .find_one_float("height")
         .unwrap_or(0.0);
-    let innerradius = mesh
+    let innerradius = shape
         .as_property_map()
         .find_one_float("innerradius")
         .unwrap_or(0.0);
-    let udiv = mesh.as_property_map().find_one_int("udiv").unwrap_or(32);
-    //let vdiv = mesh.as_property_map().find_one_int("vdiv").unwrap_or(4);
+    let udiv = shape.as_property_map().find_one_int("udiv").unwrap_or(32);
+    //let vdiv = shape.as_property_map().find_one_int("vdiv").unwrap_or(4);
 
     if height == 0.0 {
         return Some(create_disk_plate(radius, innerradius, 0.0, false, udiv));

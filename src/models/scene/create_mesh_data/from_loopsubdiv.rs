@@ -1,4 +1,4 @@
-use super::super::mesh::Mesh;
+use super::super::shape::Shape;
 use super::mesh_data;
 use super::mesh_data::MeshData;
 
@@ -434,7 +434,7 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
         let mut new_faces = Vec::new();
         let mut new_vertices = Vec::new();
 
-        // Allocate next level of children in mesh tree
+        // Allocate next level of children in shape tree
         for vertex in v.iter() {
             let mut vv = vertex.as_ref().borrow_mut();
             let new_vertex = Arc::new(RefCell::new(SDVertex::new(&vv.p)));
@@ -532,7 +532,7 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
             }
         }
 
-        // Update new mesh topology
+        // Update new shape topology
 
         // Update even vertex face pointers
         for vertex in v.iter() {
@@ -680,7 +680,7 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
         ns.push(n);
     }
 
-    // Create triangle mesh from subdivision mesh
+    // Create triangle shape from subdivision shape
     let ntris = f.len();
     let mut verts: Vec<i32> = Vec::with_capacity(ntris * 3);
     {
@@ -726,20 +726,20 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
     return Some(mesh_data);
 }
 
-pub fn create_mesh_data_from_loopsubdiv(mesh: &Mesh) -> Option<MeshData> {
+pub fn create_mesh_data_from_loopsubdiv(shape: &Shape) -> Option<MeshData> {
     //println!("create_mesh_data_from_loopsubdiv");
-    let mesh_type = mesh.get_type();
+    let mesh_type = shape.get_type();
     assert!(mesh_type == "loopsubdiv", "Mesh type is not loopsubdiv");
 
     let mut levels = 3;
-    if let Some(l) = mesh.as_property_map().find_one_int("nlevels") {
+    if let Some(l) = shape.as_property_map().find_one_int("nlevels") {
         levels = l;
-    } else if let Some(l) = mesh.as_property_map().find_one_int("levels") {
+    } else if let Some(l) = shape.as_property_map().find_one_int("levels") {
         levels = l;
     }
 
-    let indices = mesh.as_property_map().get_ints("indices");
-    let p = mesh.as_property_map().get_floats("P");
+    let indices = shape.as_property_map().get_ints("indices");
+    let p = shape.as_property_map().get_floats("P");
     if indices.len() == 0 || p.len() == 0 {
         return None;
     }

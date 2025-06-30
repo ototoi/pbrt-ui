@@ -1,19 +1,19 @@
 use super::mesh_data::MeshData;
-use crate::models::scene::mesh::Mesh;
+use crate::models::scene::shape::Shape;
 
-pub fn create_mesh_data_from_cone(mesh: &Mesh) -> Option<MeshData> {
-    let mesh_type = mesh.get_type();
+pub fn create_mesh_data_from_cone(shape: &Shape) -> Option<MeshData> {
+    let mesh_type = shape.get_type();
     assert!(mesh_type == "cone", "Mesh type is not cone");
-    let radius = mesh
+    let radius = shape
         .as_property_map()
         .find_one_float("radius")
         .unwrap_or(1.0);
-    let height = mesh
+    let height = shape
         .as_property_map()
         .find_one_float("height")
         .unwrap_or(1.0);
-    let udiv = mesh.as_property_map().find_one_int("udiv").unwrap_or(32);
-    let vdiv = 1; //mesh.as_property_map().find_one_int("vdiv").unwrap_or(16);
+    let udiv = shape.as_property_map().find_one_int("udiv").unwrap_or(32);
+    let vdiv = 1; //shape.as_property_map().find_one_int("vdiv").unwrap_or(16);
 
     let mut indices: Vec<i32> = Vec::new();
     let mut positions: Vec<f32> = Vec::new();

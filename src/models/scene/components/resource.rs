@@ -1,7 +1,7 @@
 use crate::models::scene::Component;
 use crate::models::scene::Material;
-use crate::models::scene::Mesh;
 use crate::models::scene::ResourceObject;
+use crate::models::scene::Shape;
 use crate::models::scene::Texture;
 
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Default)]
 pub struct ResourceManager {
     pub materials: HashMap<Uuid, Arc<RwLock<Material>>>,
-    pub meshes: HashMap<Uuid, Arc<RwLock<Mesh>>>,
+    pub meshes: HashMap<Uuid, Arc<RwLock<Shape>>>,
     pub textures: HashMap<Uuid, Arc<RwLock<Texture>>>,
     pub other_resources: HashMap<Uuid, Arc<RwLock<dyn ResourceObject>>>,
 }

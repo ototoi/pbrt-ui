@@ -2,7 +2,19 @@ use super::value_range::ValueRange;
 use crate::models::base::*;
 use std::collections::HashMap;
 
-const PARAMETERS: [(&str, &str, &str, &str, &str); 22] = [
+const PARAMETERS: [(&str, &str, &str, &str, &str); 38] = [
+    ("trianglemesh", "integer", "indices", "", ""),
+    ("trianglemesh", "point", "P", "", ""),
+    ("trianglemesh", "normal", "N", "", ""),
+    ("trianglemesh", "vector", "S", "", ""),
+    ("trianglemesh", "float", "uv", "", ""),
+    ("trianglemesh", "bool", "twosided", "true", ""),
+    ("trianglemesh", "float", "alpha", "1.0", ""),
+    ("trianglemesh", "float", "shadowalpha", "1.0", ""),
+    ("plymesh", "string", "filename", "", ""),
+    ("plymesh", "float", "alpha", "1.0", ""),
+    ("plymesh", "bool", "twosided", "true", ""),
+    ("plymesh", "float", "shadowalpha", "1.0", ""),
     ("sphere", "float", "radius", "1.0", "0.0 100.0"),
     ("sphere", "float", "zmin", "-1.0", "-100.0 0.0"),
     ("sphere", "float", "zmax", "1.0", "0.0 100.0"),
@@ -25,6 +37,10 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 22] = [
     ("hyperboloid", "point", "p1", "1.0 1.0 1.0", ""),
     ("hyperboloid", "point", "p2", "0.0 0.0 0.0", ""),
     ("hyperboloid", "float", "phimax", "360.0", "0.0 360.0"),
+    ("loopsubdiv", "integer", "nlevels", "3", ""),
+    ("loopsubdiv", "integer", "indices", "", ""),
+    ("loopsubdiv", "point", "P", "", ""),
+    ("loopsubdiv", "string", "scheme", "loop", ""),
 ];
 
 fn parse_floats(value: &str) -> Vec<f32> {
@@ -96,11 +112,11 @@ fn parse_parameter(
     let key_type = key_type.to_string();
     let key_name = key_name.to_string();
     let value = match key_type.as_str() {
-        "point" | "color" | "float" => Property::from(parse_floats(value)),
+        "point" | "vector" | "normal" | "color" | "float" => Property::from(parse_floats(value)),
         "integer" => Property::from(parse_ints(value)),
         "string" | "spectrum" | "texture" => Property::from(parse_strings(value)),
         "bool" => Property::from(parse_bools(value)),
-        _ => panic!("Unknown parameter type"),
+        _ => panic!("Unknown parameter type: {}", key_type),
     };
     let range = parse_range(&key_type, range);
 

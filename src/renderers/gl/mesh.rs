@@ -1,4 +1,4 @@
-use crate::models::scene::Mesh;
+use crate::models::scene::Shape;
 
 use std::sync::Arc;
 use uuid::Uuid;
@@ -44,7 +44,7 @@ impl RenderMesh {
         self.id
     }
 
-    pub fn from_mesh_core(
+    pub fn from_mesh_data(
         gl: &Arc<glow::Context>,
         id: Uuid,
         edition: &str,
@@ -105,7 +105,7 @@ impl RenderMesh {
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
             gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
 
-            let mesh = RenderMesh {
+            let shape = RenderMesh {
                 id,
                 edition: edition.to_string(),
                 postions: positions_buffer,
@@ -116,78 +116,52 @@ impl RenderMesh {
                 vao: vao,
                 gl: gl.clone(),
             };
-            return Some(mesh);
+            return Some(shape);
         }
     }
 
-    pub fn from_mesh(gl: &Arc<glow::Context>, mesh: &Mesh) -> Option<Self> {
-        let mesh_type = mesh.get_type();
+    pub fn from_mesh(gl: &Arc<glow::Context>, shape: &Shape) -> Option<Self> {
+        let mesh_type = shape.get_type();
         match mesh_type.as_str() {
-            "trianglemesh" => Self::from_triangle_mesh(gl, mesh),
-            "plymesh" => Self::from_ply_mesh(gl, mesh),
-            "loopsubdiv" => Self::from_subdiv_mesh(gl, mesh),
-            "sphere" | "disk" | "cone" | "cylinder" | "paraboloid" | "hyperboloid" => {
-                Self::from_shape(gl, mesh)
-            }
+            "trianglemesh" => Self::from_triangle_mesh(gl, shape),
+            "plymesh" | "sphere" | "disk" | "cone" | "cylinder" | "paraboloid" | "hyperboloid"
+            | "loopsubdiv" => Self::from_shape_core(gl, shape),
             _ => None,
         }
     }
 
-    pub fn from_triangle_mesh(gl: &Arc<glow::Context>, mesh: &Mesh) -> Option<Self> {
+    pub fn from_triangle_mesh(gl: &Arc<glow::Context>, shape: &Shape) -> Option<Self> {
         //println!("from_triangle_mesh");
         let gl = gl.clone();
-        let id = mesh.get_id();
-        if let Some(indices) = mesh.get_indices() {
-            if let Some(positions) = mesh.get_positions() {
+        let id = shape.get_id();
+        if let Some(indices) = shape.get_indices() {
+            if let Some(positions) = shape.get_positions() {
                 /*
-                let normals = if let Some(normals) = mesh.get_normals() {
+                let normals = if let Some(normals) = shape.get_normals() {
                     normals.to_vec()
                 } else {
                     get_normals(indices, positions)
                 };
-                let uvs = if let Some(uvs) = mesh.get_uvs() {
+                let uvs = if let Some(uvs) = shape.get_uvs() {
                     uvs.to_vec()
                 } else {
                     get_uvs(indices, positions)
                 };
                 */
-                return Self::from_mesh_core(&gl, id, "", indices, positions);
+                return Self::from_mesh_data(&gl, id, "", indices, positions);
             }
         }
         None
     }
 
-    pub fn from_ply_mesh(gl: &Arc<glow::Context>, mesh: &Mesh) -> Option<Self> {
-        //println!("from_ply_mesh");
-        let gl = gl.clone();
-        let id = mesh.get_id();
-        if let Some(mesh_data) = crate::models::scene::create_mesh_data(mesh) {
-            return Self::from_mesh_core(&gl, id, "", &mesh_data.indices, &mesh_data.positions);
-        }
-        None
-    }
-
-    pub fn from_subdiv_mesh(gl: &Arc<glow::Context>, mesh: &Mesh) -> Option<Self> {
-        //println!("from_ply_mesh");
-        let gl = gl.clone();
-        let id = mesh.get_id();
-        if let Some(mesh_data) = crate::models::scene::create_mesh_data(mesh) {
-            return Self::from_mesh_core(&gl, id, "", &mesh_data.indices, &mesh_data.positions);
-        }
-        None
-    }
-
-    pub fn from_shape(gl: &Arc<glow::Context>, mesh: &Mesh) -> Option<Self> {
+    pub fn from_shape_core(gl: &Arc<glow::Context>, shape: &Shape) -> Option<Self> {
         //println!("from_sphere");
         let gl = gl.clone();
-        let id = mesh.get_id();
-        let edition = mesh
-            .as_property_map()
-            .find_one_string("edition")
-            .unwrap_or("".to_string());
+        let id = shape.get_id();
+        let edition = shape.get_edition();
         //let edition = Uuid::parse_str(&edition).unwrap_or(Uuid::new_v4());
-        if let Some(mesh_data) = crate::models::scene::create_mesh_data(mesh) {
-            return Self::from_mesh_core(
+        if let Some(mesh_data) = crate::models::scene::create_mesh_data(shape) {
+            return Self::from_mesh_data(
                 &gl,
                 id,
                 &edition,

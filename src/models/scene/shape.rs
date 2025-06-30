@@ -4,20 +4,20 @@ use crate::models::base::*;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
-pub struct Mesh {
+pub struct Shape {
     pub id: Uuid,
     pub props: PropertyMap,
 }
 
 //
 
-impl Mesh {
+impl Shape {
     pub fn new(name: &str, props: &PropertyMap) -> Self {
         let id = Uuid::new_v4();
         let mut props = props.clone();
         props.insert("string id", Property::from(id.to_string()));
         props.insert("string name", Property::from(name));
-        Mesh { id, props }
+        Shape { id, props }
     }
 
     pub fn as_property_map(&self) -> &PropertyMap {
@@ -43,6 +43,13 @@ impl Mesh {
         return self
             .props
             .find_one_string("string type")
+            .unwrap_or_default();
+    }
+
+    pub fn get_edition(&self) -> String {
+        return self
+            .props
+            .find_one_string("string edition")
             .unwrap_or_default();
     }
 
@@ -119,7 +126,7 @@ impl Mesh {
     }
 }
 
-impl ResourceObject for Mesh {
+impl ResourceObject for Shape {
     fn get_id(&self) -> Uuid {
         self.id
     }
