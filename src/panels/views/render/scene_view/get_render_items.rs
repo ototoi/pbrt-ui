@@ -1,4 +1,4 @@
-use super::gizmo_program::create_gizmo_program;
+use super::gizmo_program::{GIZMO_SHADER_ID, create_gizmo_program};
 use super::render_item::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use super::render_mode::RenderMode;
 use super::wireframe_program::create_wireframe_program;
@@ -230,7 +230,6 @@ fn convert_light_gizmo(
     return None;
 }
 
-const GIZMO_SHADER_ID: &str = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 fn get_gizmo_shader_program(
     resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
@@ -257,7 +256,6 @@ fn get_light_render_gizmo(
 ) -> Option<(Arc<RenderGizmo>, Arc<RenderMaterial>)> {
     if let Some(gizmo) = convert_light_gizmo(resource_manager, gl, component) {
         if let Some(program) = get_gizmo_shader_program(resource_manager, gl, &gizmo, mode) {
-            //
             let render_material = RenderMaterial {
                 id: gizmo.get_id(),
                 program,

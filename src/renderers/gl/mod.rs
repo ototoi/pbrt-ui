@@ -6,6 +6,7 @@ mod program;
 mod resource_component;
 mod resource_manager;
 
+pub use gizmo::LightRenderGizmo;
 pub use gizmo::RenderGizmo;
 pub use line::RenderLine;
 pub use material::RenderMaterial;

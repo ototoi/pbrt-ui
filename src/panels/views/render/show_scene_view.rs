@@ -1,8 +1,9 @@
 use super::scene_view::RenderMode;
 use super::scene_view::get_render_items;
-use super::scene_view::{MeshRenderItem, RenderItem};
+use super::scene_view::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use crate::models::base::Quaternion;
 use crate::models::scene::Node;
+use crate::renderers::gl::RenderGizmo;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -18,7 +19,8 @@ use crate::models::base::Matrix4x4;
 use crate::models::base::Property;
 use crate::models::scene::CameraComponent;
 use crate::models::scene::FilmComponent;
-use crate::models::scene::TransformComponent;
+
+use crate::models::scene::TransformComponent; // Import LightRenderGizmo
 
 fn render_mesh(
     gl: &glow::Context,
@@ -68,6 +70,60 @@ fn render_mesh(
     }
 }
 
+fn render_gizmo(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    item: &GizmoRenderItem,
+    mode: RenderMode,
+) {
+    unsafe {
+        let program = &item.material.program;
+        let program_handle = program.handle;
+
+        let local_to_world = item.local_to_world;
+
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        gl.use_program(Some(program_handle));
+        gl.enable_vertex_attrib_array(0);
+
+        //let loc = gl.get_uniform_location(items[0].program.handle, "world_to_camera").unwrap().0;
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "world_to_camera")
+                .as_ref(),
+            false,
+            &w2c.m,
+        );
+
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "camera_to_clip")
+                .as_ref(),
+            false,
+            &c2c.m,
+        );
+
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "local_to_world")
+                .as_ref(),
+            false,
+            &local_to_world.m,
+        );
+
+        match item.gizmo.as_ref() {
+            RenderGizmo::Light(gizmo) => {
+                for line in &gizmo.lines {
+                    gl.bind_vertex_array(Some(line.vao));
+                    gl.draw_elements(glow::LINE_STRIP, line.count, glow::UNSIGNED_INT, 0);
+                }
+                gl.bind_vertex_array(None);
+            }
+        }
+
+        gl.use_program(None);
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+}
+
 fn render(
     gl: &glow::Context,
     w2c: &Matrix4x4,
@@ -81,8 +137,7 @@ fn render(
                 render_mesh(gl, w2c, c2c, item, mode);
             }
             RenderItem::Gizmo(item) => {
-                // For light gizmos, we might not need to bind a VAO or EBO
-                // but we can still set the local_to_world matrix
+                render_gizmo(gl, w2c, c2c, item, mode);
             }
         }
     }
@@ -118,11 +173,6 @@ pub fn show_scene_view(
 ) {
     let available_rect = ui.available_rect_before_wrap();
     let available_size = available_rect.size();
-
-    let (rect, response) = ui.allocate_exact_size(available_size, egui::Sense::drag());
-    if is_playing {
-        react_response(&response, node);
-    }
 
     let mut fov = 90.0f32.to_radians();
     let mut w2c = Matrix4x4::identity();
@@ -185,6 +235,11 @@ pub fn show_scene_view(
                 2.0 * f32::atan2(available_size.y, k)
             };
             fov = vertical_fov;
+        }
+
+        let (rect, response) = ui.allocate_exact_size(available_size, egui::Sense::drag());
+        if is_playing {
+            react_response(&response, node);
         }
 
         let aspect = rect.width() / rect.height();
