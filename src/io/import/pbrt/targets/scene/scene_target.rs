@@ -303,23 +303,21 @@ impl SceneTarget {
                                 {
                                     let mut node = node.write().unwrap();
                                     {
+                                        let filename = Path::new(&fullpath)
+                                            .file_stem()
+                                            .unwrap()
+                                            .to_str()
+                                            .unwrap()
+                                            .to_string();
+
                                         if let Some(mesh) = self.meshes.get(&fullpath) {
-                                            let component = MeshComponent {
-                                                mesh: Some(mesh.clone()),
-                                            };
+                                            let component = MeshComponent { mesh: mesh.clone() };
                                             node.add_component(component);
                                         } else {
-                                            let filename = Path::new(&fullpath)
-                                                .file_stem()
-                                                .unwrap()
-                                                .to_str()
-                                                .unwrap()
-                                                .to_string();
                                             let component =
                                                 MeshComponent::new(name, &filename, &params);
-                                            if let Some(mesh) = component.mesh.as_ref() {
-                                                self.meshes.insert(fullpath.clone(), mesh.clone());
-                                            }
+                                            let mesh = component.mesh.clone();
+                                            self.meshes.insert(fullpath.clone(), mesh);
                                             node.add_component(component);
                                         }
                                     }

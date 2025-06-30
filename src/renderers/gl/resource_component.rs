@@ -4,15 +4,18 @@ use crate::models::scene::Component;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use eframe::egui_glow;
+use egui_glow::glow;
+
 #[derive(Debug, Clone)]
 pub struct GLResourceComponent {
     pub resource_manager: Arc<Mutex<GLResourceManager>>,
 }
 
 impl GLResourceComponent {
-    pub fn new() -> Self {
+    pub fn new(gl: &Arc<glow::Context>) -> Self {
         Self {
-            resource_manager: Arc::new(Mutex::new(GLResourceManager::new())),
+            resource_manager: Arc::new(Mutex::new(GLResourceManager::new(gl))),
         }
     }
 

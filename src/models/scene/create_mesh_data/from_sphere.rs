@@ -2,7 +2,7 @@ use super::super::mesh::Mesh;
 use super::mesh_data::MeshData;
 
 pub fn create_mesh_data_from_sphere(mesh: &Mesh) -> Option<MeshData> {
-    let mesh_type = mesh.get_type();
+    //let mesh_type = mesh.get_type();
     //assert!(mesh_type == "sphere", "Mesh type is not sphere");
     let radius = mesh
         .as_property_map()

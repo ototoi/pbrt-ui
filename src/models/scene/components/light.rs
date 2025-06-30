@@ -1,9 +1,14 @@
+use super::super::light::Light;
+use std::sync::Arc;
+use std::sync::RwLock;
+use uuid::Uuid;
+
 use super::component::Component;
 use crate::models::base::*;
 
 #[derive(Debug, Clone)]
 pub struct LightComponent {
-    pub props: PropertyMap,
+    pub light: Arc<RwLock<Light>>,
 }
 
 fn replace_properties(props: &mut PropertyMap) {
@@ -30,19 +35,31 @@ fn replace_properties(props: &mut PropertyMap) {
 }
 
 impl LightComponent {
-    pub fn new(t: &str, props: &PropertyMap) -> Self {
+    pub fn new(light_type: &str, props: &PropertyMap) -> Self {
         let mut props = props.clone();
-        props.add_string("string type", &t);
+        props.insert("string type", Property::from(light_type.to_string()));
         replace_properties(&mut props);
-        LightComponent { props: props }
+        let light = Arc::new(RwLock::new(Light::new(&props)));
+        LightComponent { light }
+    }
+
+    pub fn get_id(&self) -> Uuid {
+        self.light.read().unwrap().get_id()
     }
 
     pub fn get_keys(&self) -> Vec<(String, String)> {
-        return self.props.get_keys();
+        let light = self.light.read().unwrap();
+        let props = light.as_property_map();
+        let keys = props
+            .0
+            .iter()
+            .map(|(key_type, key_value, _prop)| (key_type.clone(), key_value.to_string()))
+            .collect();
+        return keys;
     }
 
     pub fn get_type(&self) -> String {
-        self.props.find_one_string("string type").unwrap()
+        self.light.read().unwrap().get_type()
     }
 
     pub fn get_name_from_type(t: &str) -> String {

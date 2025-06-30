@@ -1,5 +1,7 @@
 mod components;
+mod create_light_shape;
 mod create_mesh_data;
+mod light;
 mod material;
 mod mesh;
 mod node;
@@ -9,7 +11,9 @@ mod resource;
 mod texture;
 
 pub use components::*;
+pub use create_light_shape::*;
 pub use create_mesh_data::*;
+pub use light::*;
 pub use material::*;
 pub use mesh::*;
 pub use node::*;

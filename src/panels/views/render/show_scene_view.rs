@@ -1,8 +1,9 @@
-use super::scene_view::RenderItem;
 use super::scene_view::RenderMode;
 use super::scene_view::get_render_items;
+use super::scene_view::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use crate::models::base::Quaternion;
 use crate::models::scene::Node;
+use crate::renderers::gl::RenderGizmo;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -18,44 +19,127 @@ use crate::models::base::Matrix4x4;
 use crate::models::base::Property;
 use crate::models::scene::CameraComponent;
 use crate::models::scene::FilmComponent;
-use crate::models::scene::TransformComponent;
 
-fn render(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[RenderItem]) {
+use crate::models::scene::TransformComponent; // Import LightRenderGizmo
+
+fn render_mesh(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    item: &MeshRenderItem,
+    mode: RenderMode,
+) {
     unsafe {
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        let program = &item.material.program;
+        let program_handle = program.handle;
 
-        gl.use_program(Some(items[0].program.handle));
+        let local_to_world = item.local_to_world;
+
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        gl.use_program(Some(program_handle));
         gl.enable_vertex_attrib_array(0);
 
         //let loc = gl.get_uniform_location(items[0].program.handle, "world_to_camera").unwrap().0;
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(items[0].program.handle, "world_to_camera")
+            gl.get_uniform_location(program_handle, "world_to_camera")
                 .as_ref(),
             false,
             &w2c.m,
         );
 
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(items[0].program.handle, "camera_to_clip")
+            gl.get_uniform_location(program_handle, "camera_to_clip")
                 .as_ref(),
             false,
             &c2c.m,
         );
 
-        for item in items {
-            gl.uniform_matrix_4_f32_slice(
-                gl.get_uniform_location(item.program.handle, "local_to_world")
-                    .as_ref(),
-                false,
-                &item.local_to_world.m,
-            );
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "local_to_world")
+                .as_ref(),
+            false,
+            &local_to_world.m,
+        );
 
-            gl.bind_vertex_array(Some(item.mesh.vao));
-            gl.draw_elements(glow::TRIANGLES, item.mesh.count, glow::UNSIGNED_INT, 0);
-            gl.bind_vertex_array(None);
-        }
+        gl.bind_vertex_array(Some(item.mesh.vao));
+        gl.draw_elements(glow::TRIANGLES, item.mesh.count, glow::UNSIGNED_INT, 0);
+        gl.bind_vertex_array(None);
+
         gl.use_program(None);
         gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+}
+
+fn render_gizmo(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    item: &GizmoRenderItem,
+    mode: RenderMode,
+) {
+    unsafe {
+        let program = &item.material.program;
+        let program_handle = program.handle;
+
+        let local_to_world = item.local_to_world;
+
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+        gl.use_program(Some(program_handle));
+        gl.enable_vertex_attrib_array(0);
+
+        //let loc = gl.get_uniform_location(items[0].program.handle, "world_to_camera").unwrap().0;
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "world_to_camera")
+                .as_ref(),
+            false,
+            &w2c.m,
+        );
+
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "camera_to_clip")
+                .as_ref(),
+            false,
+            &c2c.m,
+        );
+
+        gl.uniform_matrix_4_f32_slice(
+            gl.get_uniform_location(program_handle, "local_to_world")
+                .as_ref(),
+            false,
+            &local_to_world.m,
+        );
+
+        match item.gizmo.as_ref() {
+            RenderGizmo::Light(gizmo) => {
+                for line in &gizmo.lines {
+                    gl.bind_vertex_array(Some(line.vao));
+                    gl.draw_elements(glow::LINE_STRIP, line.count, glow::UNSIGNED_INT, 0);
+                }
+                gl.bind_vertex_array(None);
+            }
+        }
+
+        gl.use_program(None);
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+}
+
+fn render(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    items: &[RenderItem],
+    mode: RenderMode,
+) {
+    for item in items {
+        match item {
+            RenderItem::Mesh(item) => {
+                render_mesh(gl, w2c, c2c, item, mode);
+            }
+            RenderItem::Gizmo(item) => {
+                render_gizmo(gl, w2c, c2c, item, mode);
+            }
+        }
     }
     //todo!("Implement render");
 }
@@ -89,11 +173,6 @@ pub fn show_scene_view(
 ) {
     let available_rect = ui.available_rect_before_wrap();
     let available_size = available_rect.size();
-
-    let (rect, response) = ui.allocate_exact_size(available_size, egui::Sense::drag());
-    if is_playing {
-        react_response(&response, node);
-    }
 
     let mut fov = 90.0f32.to_radians();
     let mut w2c = Matrix4x4::identity();
@@ -158,16 +237,22 @@ pub fn show_scene_view(
             fov = vertical_fov;
         }
 
+        let (rect, response) = ui.allocate_exact_size(available_size, egui::Sense::drag());
+        if is_playing {
+            react_response(&response, node);
+        }
+
         let aspect = rect.width() / rect.height();
         let c2c = Matrix4x4::perspective(fov, aspect, 0.1, 1000.0);
 
-        let render_items = get_render_items(gl, node, RenderMode::Wireframe); //todo
+        let render_mode = RenderMode::Wireframe;
+        let render_items = get_render_items(gl, node, render_mode); //todo
 
         if render_items.len() > 0 {
             let gl = gl.clone();
             let cb = egui_glow::CallbackFn::new(move |_info, _painter| {
                 if render_items.len() > 0 {
-                    render(&gl, &w2c, &c2c, &render_items);
+                    render(&gl, &w2c, &c2c, &render_items, render_mode);
                 }
             });
 

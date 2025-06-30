@@ -201,8 +201,8 @@ impl RenderMesh {
 
 impl Drop for RenderMesh {
     fn drop(&mut self) {
+        let gl = &self.gl;
         unsafe {
-            let gl = self.gl.clone();
             gl.delete_buffer(self.postions);
             //gl.delete_buffer(self.normals);
             //gl.delete_buffer(self.uvs);

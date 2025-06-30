@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct ShapeComponent {
-    pub mesh: Option<Arc<RwLock<Mesh>>>,
+    pub mesh: Arc<RwLock<Mesh>>,
 }
 
 fn create_mesh(name: &str, props: &PropertyMap) -> Arc<RwLock<Mesh>> {
@@ -26,7 +26,7 @@ impl ShapeComponent {
         props.insert("string edition", Property::from(edition_id.to_string()));
         let name = Self::get_name_from_type(shape_type);
         let mesh = create_mesh(&name, &props);
-        ShapeComponent { mesh: Some(mesh) }
+        ShapeComponent { mesh }
     }
 
     pub fn get_name_from_type(t: &str) -> String {
