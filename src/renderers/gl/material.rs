@@ -9,9 +9,20 @@ use eframe::{egui_glow, glow::HasContext};
 use egui_glow::glow;
 
 #[derive(Debug, Clone)]
+pub enum RenderUniformValue {
+    Float(f32),
+    Vec4([f32; 4]),
+    Mat4([f32; 16]),
+    Int(i32),
+    Bool(bool),
+}
+
+
+#[derive(Debug, Clone)]
 pub struct RenderMaterial {
     pub id: Uuid,
     pub program: Arc<RenderProgram>,
+    pub uniform_values: Vec<(String, RenderUniformValue)>, //key, value
     pub gl: Arc<glow::Context>,
 }
 

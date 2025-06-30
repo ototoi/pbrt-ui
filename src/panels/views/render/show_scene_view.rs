@@ -4,6 +4,7 @@ use super::scene_view::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use crate::models::base::Quaternion;
 use crate::models::scene::Node;
 use crate::renderers::gl::RenderGizmo;
+use crate::renderers::gl::RenderUniformValue;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -30,43 +31,62 @@ fn render_mesh(
     mode: RenderMode,
 ) {
     unsafe {
+        let material = &item.material;
         let program = &item.material.program;
         let program_handle = program.handle;
 
         let local_to_world = item.local_to_world;
 
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
         gl.use_program(Some(program_handle));
         gl.enable_vertex_attrib_array(0);
 
-        //let loc = gl.get_uniform_location(items[0].program.handle, "world_to_camera").unwrap().0;
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(program_handle, "world_to_camera")
+            program
+                .uniform_locations
+                .get("local_to_world")
+                .map(|&loc| glow::NativeUniformLocation(loc))
+                .as_ref(),
+            false,
+            &local_to_world.m,
+        );
+
+        gl.uniform_matrix_4_f32_slice(
+            program
+                .uniform_locations
+                .get("world_to_camera")
+                .map(|&loc| glow::NativeUniformLocation(loc))
                 .as_ref(),
             false,
             &w2c.m,
         );
 
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(program_handle, "camera_to_clip")
+            program
+                .uniform_locations
+                .get("camera_to_clip")
+                .map(|&loc| glow::NativeUniformLocation(loc))
                 .as_ref(),
             false,
             &c2c.m,
         );
 
-        gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(program_handle, "local_to_world")
-                .as_ref(),
-            false,
-            &local_to_world.m,
-        );
+        for (key, value) in material.uniform_values.iter() {
+            match value {
+                RenderUniformValue::Vec4(v) => {
+                    if let Some(location) = program.uniform_locations.get(key) {
+                        let location = glow::NativeUniformLocation(*location);
+                        gl.uniform_4_f32(Some(&location), v[0], v[1], v[2], v[3]);
+                    }
+                }
+                _ => {}
+            }
+        }
 
         gl.bind_vertex_array(Some(item.mesh.vao));
         gl.draw_elements(glow::TRIANGLES, item.mesh.count, glow::UNSIGNED_INT, 0);
         gl.bind_vertex_array(None);
 
         gl.use_program(None);
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
     }
 }
 
@@ -78,36 +98,57 @@ fn render_gizmo(
     mode: RenderMode,
 ) {
     unsafe {
+        let material = &item.material;
         let program = &item.material.program;
         let program_handle = program.handle;
 
         let local_to_world = item.local_to_world;
 
-        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
         gl.use_program(Some(program_handle));
         gl.enable_vertex_attrib_array(0);
 
         //let loc = gl.get_uniform_location(items[0].program.handle, "world_to_camera").unwrap().0;
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(program_handle, "world_to_camera")
+            program
+                .uniform_locations
+                .get("local_to_world")
+                .map(|&loc| glow::NativeUniformLocation(loc))
+                .as_ref(),
+            false,
+            &local_to_world.m,
+        );
+
+        gl.uniform_matrix_4_f32_slice(
+            program
+                .uniform_locations
+                .get("world_to_camera")
+                .map(|&loc| glow::NativeUniformLocation(loc))
                 .as_ref(),
             false,
             &w2c.m,
         );
 
         gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(program_handle, "camera_to_clip")
+            program
+                .uniform_locations
+                .get("camera_to_clip")
+                .map(|&loc| glow::NativeUniformLocation(loc))
                 .as_ref(),
             false,
             &c2c.m,
         );
 
-        gl.uniform_matrix_4_f32_slice(
-            gl.get_uniform_location(program_handle, "local_to_world")
-                .as_ref(),
-            false,
-            &local_to_world.m,
-        );
+        for (key, value) in material.uniform_values.iter() {
+            match value {
+                RenderUniformValue::Vec4(v) => {
+                    if let Some(location) = program.uniform_locations.get(key) {
+                        let location = glow::NativeUniformLocation(*location);
+                        gl.uniform_4_f32(Some(&location), v[0], v[1], v[2], v[3]);
+                    }
+                }
+                _ => {}
+            }
+        }
 
         match item.gizmo.as_ref() {
             RenderGizmo::Light(gizmo) => {
@@ -124,21 +165,81 @@ fn render_gizmo(
     }
 }
 
+fn render_wireframe(
+    gl: &glow::Context,
+    w2c: &Matrix4x4,
+    c2c: &Matrix4x4,
+    items: &[Arc<RenderItem>],
+) {
+    unsafe {
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::LINE);
+    }
+    for item in items.iter() {
+        let item = item.as_ref();
+        match item {
+            RenderItem::Mesh(item) => {
+                render_mesh(gl, w2c, c2c, item, RenderMode::Wireframe);
+            }
+            _ => {}
+        }
+    }
+    unsafe {
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+    for item in items.iter() {
+        let item = item.as_ref();
+        match item {
+            RenderItem::Gizmo(item) => {
+                render_gizmo(gl, w2c, c2c, item, RenderMode::Wireframe);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn render_solid(gl: &glow::Context, w2c: &Matrix4x4, c2c: &Matrix4x4, items: &[Arc<RenderItem>]) {
+    unsafe {
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+    for item in items.iter() {
+        let item = item.as_ref();
+        match item {
+            RenderItem::Mesh(item) => {
+                render_mesh(gl, w2c, c2c, item, RenderMode::Solid);
+            }
+            _ => {}
+        }
+    }
+    unsafe {
+        gl.polygon_mode(glow::FRONT_AND_BACK, glow::FILL);
+    }
+    for item in items.iter() {
+        let item = item.as_ref();
+        match item {
+            RenderItem::Gizmo(item) => {
+                render_gizmo(gl, w2c, c2c, item, RenderMode::Solid);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn render(
     gl: &glow::Context,
     w2c: &Matrix4x4,
     c2c: &Matrix4x4,
-    items: &[RenderItem],
+    items: &[Arc<RenderItem>],
     mode: RenderMode,
 ) {
-    for item in items {
-        match item {
-            RenderItem::Mesh(item) => {
-                render_mesh(gl, w2c, c2c, item, mode);
-            }
-            RenderItem::Gizmo(item) => {
-                render_gizmo(gl, w2c, c2c, item, mode);
-            }
+    match mode {
+        RenderMode::Wireframe => {
+            render_wireframe(gl, w2c, c2c, items);
+        }
+        RenderMode::Solid => {
+            render_solid(gl, w2c, c2c, items);
+        }
+        RenderMode::Lighting => {
+            //todo!("Implement lighting rendering");
         }
     }
     //todo!("Implement render");
@@ -169,6 +270,7 @@ pub fn show_scene_view(
     ui: &mut egui::Ui,
     gl: &Arc<glow::Context>,
     node: &Arc<RwLock<Node>>,
+    render_mode: RenderMode,
     is_playing: bool,
 ) {
     let available_rect = ui.available_rect_before_wrap();
@@ -245,8 +347,7 @@ pub fn show_scene_view(
         let aspect = rect.width() / rect.height();
         let c2c = Matrix4x4::perspective(fov, aspect, 0.1, 1000.0);
 
-        let render_mode = RenderMode::Wireframe;
-        let render_items = get_render_items(gl, node, render_mode); //todo
+        let render_items = get_render_items(gl, node, render_mode);
 
         if render_items.len() > 0 {
             let gl = gl.clone();

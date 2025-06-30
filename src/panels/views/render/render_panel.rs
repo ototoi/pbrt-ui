@@ -6,12 +6,14 @@ use super::show_scene_view::show_scene_view;
 //
 use crate::controllers::AppController;
 use crate::models::config::AppConfig;
+use crate::panels::views::render::scene_view::RenderMode;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::egui;
+use eframe::egui::frame;
 use eframe::egui_glow;
 use egui_glow::glow;
 
@@ -20,6 +22,7 @@ pub struct RenderPanel {
     histories: Vec<Box<RenderHistory>>,
     current: usize,
     gl: Arc<glow::Context>,
+    render_mode: RenderMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +57,7 @@ impl RenderPanel {
             histories: vec![history],
             current: 0,
             gl: cc.gl.clone().unwrap(),
+            render_mode: RenderMode::Wireframe,
         }
     }
 
@@ -84,6 +88,27 @@ impl RenderPanel {
             }
         }
         //---------------------------------------------------------------------------
+        egui::TopBottomPanel::top("render_mode_panel").show_inside(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // selectable buttos
+                    let render_modes = [
+                        ("⬜", RenderMode::Wireframe),
+                        ("⬛", RenderMode::Solid),
+                        //("☀", RenderMode::Lighting),
+                    ];
+                    for (label, mode) in render_modes.iter().rev() {
+                        ui.selectable_value(
+                            &mut self.render_mode,
+                            *mode,
+                            egui::RichText::new(*label).family(egui::FontFamily::Monospace),
+                        );
+                    }
+                    ui.separator();
+                })
+            });
+        });
+
         egui::TopBottomPanel::bottom("buttons").show_inside(ui, |ui| {
             {
                 ui.add_space(3.0);
@@ -176,32 +201,38 @@ impl RenderPanel {
             }
         });
         //---------------------------------------------------------------------------
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            let history = &mut self.histories[current_index];
-            let state = history.get_state();
-            let available_rect = ui.available_rect_before_wrap();
-            ui.painter()
-                .rect_filled(available_rect, 0.0, egui::Color32::BLACK);
-            match state {
-                RenderState::Ready => {
-                    let node = self.app_controller.read().unwrap().get_root_node();
-                    show_scene_view(ui, &self.gl, &node, true);
-                }
-                RenderState::Saving | RenderState::Rendering => {
-                    if history.get_image_data().is_none() {
+        let frame = egui::Frame {
+            inner_margin: egui::Margin::same(0),
+            ..Default::default()
+        };
+        egui::CentralPanel::default()
+            .frame(frame)
+            .show_inside(ui, |ui| {
+                let history = &mut self.histories[current_index];
+                let state = history.get_state();
+                let available_rect = ui.available_rect_before_wrap();
+                ui.painter()
+                    .rect_filled(available_rect, 0.0, egui::Color32::BLACK);
+                match state {
+                    RenderState::Ready => {
                         let node = self.app_controller.read().unwrap().get_root_node();
-                        show_scene_view(ui, &self.gl, &node, false);
-                    } else {
+                        show_scene_view(ui, &self.gl, &node, self.render_mode, true);
+                    }
+                    RenderState::Saving | RenderState::Rendering => {
+                        if history.get_image_data().is_none() {
+                            let node = self.app_controller.read().unwrap().get_root_node();
+                            show_scene_view(ui, &self.gl, &node, self.render_mode, false);
+                        } else {
+                            show_render_view(ui, history);
+                        }
                         show_render_view(ui, history);
                     }
-                    show_render_view(ui, history);
+                    RenderState::Finishing | RenderState::Finished => {
+                        show_render_view(ui, history);
+                    }
                 }
-                RenderState::Finishing | RenderState::Finished => {
-                    show_render_view(ui, history);
-                }
-            }
-            //show renderred image
-        });
+                //show renderred image
+            });
         //---------------------------------------------------------------------------
         {
             for cmd in commamds {

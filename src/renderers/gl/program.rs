@@ -12,7 +12,8 @@ pub struct RenderProgram {
     pub id: Uuid,
     pub handle: glow::Program,
 
-    pub vertex_attributes: HashMap<String, u32>, //key, location
+    pub uniform_locations: HashMap<String, u32>, //key, location
+    pub vertex_locations: HashMap<String, u32>, //key, location
     pub gl: Arc<glow::Context>,
 }
 

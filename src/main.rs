@@ -6,6 +6,8 @@
 use eframe::egui;
 use pbrt_ui::app::PbrtUIApp;
 
+use uuid::Uuid;
+
 fn main() -> eframe::Result {
     //env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
@@ -16,6 +18,8 @@ fn main() -> eframe::Result {
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
+    let uuid = Uuid::new_v4(); // Generate a random UUID for the application.
+    println!("Starting PBRT UI with UUID: {}", uuid);
 
     eframe::run_native(
         "PBRT UI",
