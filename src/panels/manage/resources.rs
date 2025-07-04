@@ -1,6 +1,6 @@
 use crate::controllers::AppController;
 use crate::controllers::texture_cache::TextureSize;
-use crate::models::scene::ResourceComponent;
+use crate::model::scene::ResourceComponent;
 
 use std::collections::HashMap;
 use std::sync::Arc;

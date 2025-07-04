@@ -1,6 +1,6 @@
 use super::super::panel::InspectorPanel;
 //use super::super::common::*;
-use crate::models::base::*;
+use crate::model::base::*;
 
 use eframe::egui;
 

@@ -1,6 +1,6 @@
 use crate::error::PbrtError;
 use crate::io::export::pbrt::*;
-use crate::models::scene::Node;
+use crate::model::scene::Node;
 
 use std::sync::Arc;
 use std::sync::RwLock;

@@ -1,4 +1,4 @@
-use crate::models::base::PropertyMap as ParamSet;
+use crate::model::base::PropertyMap as ParamSet;
 use nom::IResult;
 use nom::bytes;
 use nom::character;

@@ -1,5 +1,5 @@
 use super::resource_manager::GLResourceManager;
-use crate::models::scene::Component;
+use crate::model::scene::Component;
 
 use std::sync::Arc;
 use std::sync::Mutex;

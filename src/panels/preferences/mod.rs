@@ -1,5 +1,5 @@
 use crate::controllers::AppController;
-use crate::models::config::AppConfig;
+use crate::model::config::AppConfig;
 use crate::panels::Panel;
 
 use eframe::egui;

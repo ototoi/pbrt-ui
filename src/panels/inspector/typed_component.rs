@@ -1,8 +1,8 @@
 use super::common::*;
 use super::panel::InspectorPanel;
 use super::resource_selector::ResourceSelector;
-use crate::models::base::*;
-use crate::models::scene::Properties;
+use crate::model::base::*;
+use crate::model::scene::Properties;
 
 use eframe::egui;
 

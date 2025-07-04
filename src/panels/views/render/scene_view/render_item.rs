@@ -1,4 +1,4 @@
-use crate::models::base::Matrix4x4;
+use crate::model::base::Matrix4x4;
 use crate::renderers::gl::RenderGizmo;
 use crate::renderers::gl::RenderMaterial;
 use crate::renderers::gl::RenderMesh;

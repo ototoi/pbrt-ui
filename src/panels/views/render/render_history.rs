@@ -2,8 +2,8 @@ use super::image_data::ImageData;
 use super::render_session::RenderSession;
 use super::render_state::RenderState;
 use crate::error::PbrtError;
-use crate::models::config::AppConfig;
-use crate::models::scene::Node;
+use crate::model::config::AppConfig;
+use crate::model::scene::Node;
 
 use std::sync::Arc;
 use std::sync::Mutex;

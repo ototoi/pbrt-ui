@@ -5,7 +5,7 @@ use super::show_render_view::show_render_view;
 use super::show_scene_view::show_scene_view;
 //
 use crate::controllers::AppController;
-use crate::models::config::AppConfig;
+use crate::model::config::AppConfig;
 use crate::panels::views::render::scene_view::RenderMode;
 
 use std::path::PathBuf;

@@ -3,8 +3,8 @@ use super::targets::MultipleTarget;
 use super::targets::PrintTarget;
 use super::targets::SceneTarget;
 use crate::error::PbrtError;
-use crate::models::scene::Node;
-use crate::models::scene::SceneComponent;
+use crate::model::scene::Node;
+use crate::model::scene::SceneComponent;
 
 use std::sync::Arc;
 use std::sync::RwLock;

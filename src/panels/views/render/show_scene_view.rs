@@ -1,9 +1,9 @@
 use super::scene_view::RenderMode;
 use super::scene_view::get_render_items;
 use super::scene_view::{GizmoRenderItem, MeshRenderItem, RenderItem};
-use crate::models::base::Quaternion;
-use crate::models::base::Vector3;
-use crate::models::scene::Node;
+use crate::model::base::Quaternion;
+use crate::model::base::Vector3;
+use crate::model::scene::Node;
 use crate::renderers::gl::RenderGizmo;
 use crate::renderers::gl::RenderUniformValue;
 
@@ -17,12 +17,12 @@ use egui::Vec2;
 use egui_glow::glow;
 //use egui::Vec2;
 
-use crate::models::base::Matrix4x4;
-use crate::models::base::Property;
-use crate::models::scene::CameraComponent;
-use crate::models::scene::FilmComponent;
+use crate::model::base::Matrix4x4;
+use crate::model::base::Property;
+use crate::model::scene::CameraComponent;
+use crate::model::scene::FilmComponent;
 
-use crate::models::scene::TransformComponent; // Import LightRenderGizmo
+use crate::model::scene::TransformComponent; // Import LightRenderGizmo
 
 fn render_mesh(
     gl: &glow::Context,

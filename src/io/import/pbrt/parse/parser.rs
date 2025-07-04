@@ -3,7 +3,7 @@ use super::parse_target::ParseTarget;
 use super::read_file::{read_file_with_include, read_file_without_include};
 use super::remove_comments::remove_comments;
 use crate::error::*;
-use crate::models::base::ParamSet;
+use crate::model::base::ParamSet;
 
 use nom::IResult;
 use nom::bytes;

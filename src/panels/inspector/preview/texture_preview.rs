@@ -1,7 +1,7 @@
 use super::super::panel::InspectorPanel;
 //use super::super::common::*;
 use crate::controllers::texture_cache::TextureSize;
-use crate::models::base::*;
+use crate::model::base::*;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

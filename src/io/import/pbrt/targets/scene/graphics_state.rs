@@ -1,6 +1,6 @@
-use crate::models::base::ParamSet;
-use crate::models::scene::Material;
-use crate::models::scene::Texture;
+use crate::model::base::ParamSet;
+use crate::model::scene::Material;
+use crate::model::scene::Texture;
 
 use std::collections::HashMap;
 use std::sync::Arc;

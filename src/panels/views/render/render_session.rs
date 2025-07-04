@@ -1,9 +1,9 @@
 use super::image_data::ImageData;
 use super::image_receiver::ImageReceiver;
 use super::render_state::*;
-use crate::models::scene::Node;
-use crate::models::scene::SceneComponent;
-use crate::{error::*, models::config::AppConfig};
+use crate::model::scene::Node;
+use crate::model::scene::SceneComponent;
+use crate::{error::*, model::config::AppConfig};
 
 use std::collections::HashMap;
 use std::sync::Arc;

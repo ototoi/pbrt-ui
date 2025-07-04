@@ -1,5 +1,5 @@
 use crate::controllers::AppController;
-use crate::models::scene::Node as SceneNode;
+use crate::model::scene::Node as SceneNode;
 use crate::panels::Panel;
 
 use std::sync::Arc;

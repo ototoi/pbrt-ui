@@ -1,4 +1,4 @@
-use crate::models::scene::ResourceManager;
+use crate::model::scene::ResourceManager;
 
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;

@@ -1,10 +1,10 @@
 use super::texture_cache::TextureCacheManager;
-use crate::models::scene::CameraComponent;
-use crate::models::scene::Node;
-use crate::models::scene::ResourceComponent;
-use crate::models::scene::ResourceObject;
+use crate::model::scene::CameraComponent;
+use crate::model::scene::Node;
+use crate::model::scene::ResourceComponent;
+use crate::model::scene::ResourceObject;
 
-use crate::models::config::AppConfig;
+use crate::model::config::AppConfig;
 
 use std::sync::Arc;
 use std::sync::RwLock;

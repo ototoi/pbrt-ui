@@ -1,4 +1,4 @@
-use crate::models::base::PropertyMap as ParamSet;
+use crate::model::base::PropertyMap as ParamSet;
 pub type Float = f32;
 
 pub trait ParseTarget {

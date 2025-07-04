@@ -1,4 +1,4 @@
-use crate::renderers::gl::line::RenderLine;
+use crate::renderers::gl::RenderTexture;
 
 use super::gizmo::RenderGizmo;
 use super::material::RenderMaterial;
@@ -18,6 +18,7 @@ pub struct GLResourceManager {
     gizmos: HashMap<Uuid, Arc<RenderGizmo>>, //for gizmos
     materials: HashMap<Uuid, Arc<RenderMaterial>>,
     programs: HashMap<Uuid, Arc<RenderProgram>>, //shader
+    textures: HashMap<Uuid, Arc<RenderTexture>>, //for textures
     gl: Arc<glow::Context>,
 }
 
@@ -28,6 +29,7 @@ impl GLResourceManager {
             gizmos: HashMap::new(), //for gizmos
             materials: HashMap::new(),
             programs: HashMap::new(),
+            textures: HashMap::new(), //for textures
             gl: gl.clone(),
         }
     }

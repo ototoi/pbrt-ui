@@ -2,7 +2,7 @@ use crate::controllers::AppController;
 use crate::io::export;
 use crate::io::export::pbrt::*;
 use crate::io::import::pbrt::*;
-use crate::models::scene::SceneComponent;
+use crate::model::scene::SceneComponent;
 use crate::panels::HierarchyPanel;
 use crate::panels::InspectorPanel;
 use crate::panels::ManagePanel;

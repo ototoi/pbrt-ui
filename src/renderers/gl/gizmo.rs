@@ -1,5 +1,6 @@
 use super::line::RenderLine;
-use crate::models::scene::Light;
+use crate::geometry::light_shape::*;
+use crate::model::scene::Light;
 
 use std::sync::Arc;
 use uuid::Uuid;
@@ -48,7 +49,7 @@ impl RenderGizmo {
             .as_property_map()
             .find_one_string("edition")
             .unwrap_or("".to_string());
-        if let Some(light_shape) = crate::models::scene::create_light_shape(light) {
+        if let Some(light_shape) = create_light_shape(light) {
             let mut lines = Vec::new();
             for line in light_shape.lines {
                 let line: Vec<f32> = line.iter().flat_map(|v| vec![v.x, v.y, v.z]).collect();

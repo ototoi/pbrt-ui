@@ -4,17 +4,17 @@ use super::render_mode::RenderMode;
 use super::render_solid_program::{RENDER_SOLID_SHADER_ID, create_render_solid_program};
 use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wireframe_program};
 
-use crate::models::base::Matrix4x4;
-use crate::models::base::Property;
-use crate::models::scene::Node;
-use crate::models::scene::Shape;
-use crate::models::scene::{CameraComponent, LightComponent, Material};
+use crate::model::base::Matrix4x4;
+use crate::model::base::Property;
+use crate::model::scene::Node;
+use crate::model::scene::Shape;
+use crate::model::scene::{CameraComponent, LightComponent, Material};
 
-use crate::models::scene::Component;
-use crate::models::scene::MaterialComponent;
+use crate::model::scene::Component;
+use crate::model::scene::MaterialComponent;
 
-use crate::models::scene::ShapeComponent;
-use crate::models::scene::TransformComponent;
+use crate::model::scene::ShapeComponent;
+use crate::model::scene::TransformComponent;
 
 use crate::renderers::gl::GLResourceManager;
 use crate::renderers::gl::RenderMaterial;

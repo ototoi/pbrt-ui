@@ -1,8 +1,8 @@
 use std::vec;
 
 use super::resource_selector::ResourceSelector;
-use crate::models::base::*;
-use crate::models::scene::*;
+use crate::model::base::*;
+use crate::model::scene::*;
 
 use eframe::egui;
 use eframe::egui::Checkbox;

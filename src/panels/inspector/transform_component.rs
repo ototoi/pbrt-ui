@@ -1,6 +1,6 @@
 use super::common::*;
 use super::panel::InspectorPanel;
-use crate::models::scene::TransformComponent;
+use crate::model::scene::TransformComponent;
 use crate::panels::inspector::resource_selector::{self, ResourceSelector};
 
 use eframe::egui;

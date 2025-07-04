@@ -1,4 +1,5 @@
-use crate::models::scene::Shape;
+use crate::geometry::mesh_data::*;
+use crate::model::scene::Shape;
 
 use std::sync::Arc;
 use uuid::Uuid;
@@ -121,35 +122,19 @@ impl RenderMesh {
     }
 
     pub fn from_mesh(gl: &Arc<glow::Context>, shape: &Shape) -> Option<Self> {
-        let mesh_type = shape.get_type();
-        match mesh_type.as_str() {
-            "trianglemesh" => Self::from_triangle_mesh(gl, shape),
-            "plymesh" | "sphere" | "disk" | "cone" | "cylinder" | "paraboloid" | "hyperboloid"
-            | "loopsubdiv" => Self::from_shape_core(gl, shape),
-            _ => None,
-        }
-    }
-
-    pub fn from_triangle_mesh(gl: &Arc<glow::Context>, shape: &Shape) -> Option<Self> {
-        //println!("from_triangle_mesh");
+        //println!("from_sphere");
         let gl = gl.clone();
         let id = shape.get_id();
-        if let Some(indices) = shape.get_indices() {
-            if let Some(positions) = shape.get_positions() {
-                /*
-                let normals = if let Some(normals) = shape.get_normals() {
-                    normals.to_vec()
-                } else {
-                    get_normals(indices, positions)
-                };
-                let uvs = if let Some(uvs) = shape.get_uvs() {
-                    uvs.to_vec()
-                } else {
-                    get_uvs(indices, positions)
-                };
-                */
-                return Self::from_mesh_data(&gl, id, "", indices, positions);
-            }
+        let edition = shape.get_edition();
+        //let edition = Uuid::parse_str(&edition).unwrap_or(Uuid::new_v4());
+        if let Some(mesh_data) = create_mesh_data(shape) {
+            return Self::from_mesh_data(
+                &gl,
+                id,
+                &edition,
+                &mesh_data.indices,
+                &mesh_data.positions,
+            );
         }
         None
     }
@@ -160,7 +145,7 @@ impl RenderMesh {
         let id = shape.get_id();
         let edition = shape.get_edition();
         //let edition = Uuid::parse_str(&edition).unwrap_or(Uuid::new_v4());
-        if let Some(mesh_data) = crate::models::scene::create_mesh_data(shape) {
+        if let Some(mesh_data) = create_mesh_data(shape) {
             return Self::from_mesh_data(
                 &gl,
                 id,
