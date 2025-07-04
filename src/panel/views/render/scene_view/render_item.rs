@@ -1,7 +1,7 @@
 use crate::model::base::Matrix4x4;
-use crate::renderers::gl::RenderGizmo;
-use crate::renderers::gl::RenderMaterial;
-use crate::renderers::gl::RenderMesh;
+use crate::renderer::gl::RenderGizmo;
+use crate::renderer::gl::RenderMaterial;
+use crate::renderer::gl::RenderMesh;
 
 use std::sync::Arc;
 

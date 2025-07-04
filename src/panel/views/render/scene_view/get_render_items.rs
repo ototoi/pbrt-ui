@@ -16,12 +16,12 @@ use crate::model::scene::MaterialComponent;
 use crate::model::scene::ShapeComponent;
 use crate::model::scene::TransformComponent;
 
-use crate::renderers::gl::GLResourceManager;
-use crate::renderers::gl::RenderMaterial;
-use crate::renderers::gl::RenderMesh;
-use crate::renderers::gl::RenderProgram;
-use crate::renderers::gl::RenderUniformValue;
-use crate::renderers::gl::{GLResourceComponent, RenderGizmo};
+use crate::renderer::gl::GLResourceManager;
+use crate::renderer::gl::RenderMaterial;
+use crate::renderer::gl::RenderMesh;
+use crate::renderer::gl::RenderProgram;
+use crate::renderer::gl::RenderUniformValue;
+use crate::renderer::gl::{GLResourceComponent, RenderGizmo};
 
 use uuid::Uuid;
 

@@ -1,14 +1,14 @@
-use crate::controllers::AppController;
+use crate::controller::AppController;
 use crate::io::export;
 use crate::io::export::pbrt::*;
 use crate::io::import::pbrt::*;
 use crate::model::scene::SceneComponent;
-use crate::panels::HierarchyPanel;
-use crate::panels::InspectorPanel;
-use crate::panels::ManagePanel;
-use crate::panels::Panel;
-use crate::panels::PreferencesWindow;
-use crate::panels::ViewsPanel;
+use crate::panel::HierarchyPanel;
+use crate::panel::InspectorPanel;
+use crate::panel::ManagePanel;
+use crate::panel::Panel;
+use crate::panel::PreferencesWindow;
+use crate::panel::ViewsPanel;
 
 use eframe::egui;
 use std::path::PathBuf;

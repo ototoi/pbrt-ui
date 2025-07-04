@@ -1,5 +1,5 @@
 use super::scene_view::SceneView;
-use crate::controllers::AppController;
+use crate::controller::AppController;
 use crate::panels::views::scene_view::RenderMode;
 
 use std::sync::Arc;

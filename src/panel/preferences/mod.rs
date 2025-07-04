@@ -1,6 +1,6 @@
-use crate::controllers::AppController;
+use crate::controller::AppController;
 use crate::model::config::AppConfig;
-use crate::panels::Panel;
+use crate::panel::Panel;
 
 use eframe::egui;
 use std::sync::Arc;

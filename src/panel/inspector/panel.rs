@@ -1,6 +1,6 @@
 use super::common::*;
 use super::resource_selector::ResourceSelector;
-use crate::controllers::AppController;
+use crate::controller::AppController;
 use crate::model::base::PropertyMap;
 use crate::model::scene::AcceleratorComponent;
 use crate::model::scene::AcceleratorProperties;
@@ -23,7 +23,7 @@ use crate::model::scene::ShapeComponent;
 use crate::model::scene::ShapeProperties;
 use crate::model::scene::TextureProperties;
 use crate::model::scene::TransformComponent;
-use crate::panels::Panel;
+use crate::panel::Panel;
 
 use std::any::Any;
 use std::collections::HashMap;

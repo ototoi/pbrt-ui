@@ -1,7 +1,7 @@
 use super::log::LogPanel;
 use super::resources::ResourcesPanel;
-use crate::controllers::AppController;
-use crate::panels::Panel;
+use crate::controller::AppController;
+use crate::panel::Panel;
 
 use eframe::egui;
 use std::sync::Arc;

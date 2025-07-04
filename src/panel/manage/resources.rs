@@ -1,5 +1,5 @@
-use crate::controllers::AppController;
-use crate::controllers::texture_cache::TextureSize;
+use crate::controller::AppController;
+use crate::controller::texture_cache::TextureSize;
 use crate::model::scene::ResourceComponent;
 
 use std::collections::HashMap;

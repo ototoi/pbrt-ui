@@ -1,4 +1,4 @@
-use crate::renderers::gl::RenderProgram;
+use crate::renderer::gl::RenderProgram;
 
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -1,6 +1,6 @@
-use crate::controllers::AppController;
+use crate::controller::AppController;
 use crate::model::scene::Node as SceneNode;
-use crate::panels::Panel;
+use crate::panel::Panel;
 
 use std::sync::Arc;
 use std::sync::RwLock;

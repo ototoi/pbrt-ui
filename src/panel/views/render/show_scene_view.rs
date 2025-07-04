@@ -4,8 +4,8 @@ use super::scene_view::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use crate::model::base::Quaternion;
 use crate::model::base::Vector3;
 use crate::model::scene::Node;
-use crate::renderers::gl::RenderGizmo;
-use crate::renderers::gl::RenderUniformValue;
+use crate::renderer::gl::RenderGizmo;
+use crate::renderer::gl::RenderUniformValue;
 
 use std::sync::Arc;
 use std::sync::RwLock;

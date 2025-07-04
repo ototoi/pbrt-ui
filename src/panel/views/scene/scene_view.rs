@@ -9,7 +9,7 @@ use eframe::glow::HasContext;
 use egui::Vec2;
 use egui_glow::glow;
 
-use crate::controllers::AppController;
+use crate::controller::AppController;
 use crate::models::base::Matrix4x4;
 use crate::models::base::Property;
 use crate::models::base::PropertyMap;

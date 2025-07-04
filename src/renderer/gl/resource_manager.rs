@@ -1,4 +1,4 @@
-use crate::renderers::gl::RenderTexture;
+use crate::renderer::gl::RenderTexture;
 
 use super::gizmo::RenderGizmo;
 use super::material::RenderMaterial;

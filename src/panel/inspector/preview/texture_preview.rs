@@ -1,6 +1,6 @@
 use super::super::panel::InspectorPanel;
 //use super::super::common::*;
-use crate::controllers::texture_cache::TextureSize;
+use crate::controller::texture_cache::TextureSize;
 use crate::model::base::*;
 
 use std::collections::HashMap;
