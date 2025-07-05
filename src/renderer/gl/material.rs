@@ -15,14 +15,26 @@ pub enum RenderUniformValue {
     Mat4([f32; 16]),
     Int(i32),
     Bool(bool),
+    Texture(glow::Texture),
 }
 
 #[derive(Debug, Clone)]
 pub struct RenderMaterial {
     pub id: Uuid,
+    pub edition: String,
     pub program: Arc<RenderProgram>,
     pub uniform_values: Vec<(String, RenderUniformValue)>, //key, value
     pub gl: Arc<glow::Context>,
+}
+
+impl RenderMaterial {
+    pub fn get_id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn get_edition(&self) -> String {
+        self.edition.clone()
+    }
 }
 
 impl Drop for RenderMaterial {

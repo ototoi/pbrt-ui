@@ -1,6 +1,7 @@
 use crate::model::scene::ResourceManager;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::RwLock;
 use uuid::Uuid;
 
 pub type ResourceSelectionItem = (Uuid, String, String);
@@ -14,13 +15,13 @@ pub struct ResourceSelector {
 }
 
 impl ResourceSelector {
-    pub fn new(resouce_manager: &Arc<Mutex<ResourceManager>>) -> Self {
+    pub fn new(resouce_manager: &Arc<RwLock<ResourceManager>>) -> Self {
         let mut texture_items = Vec::new();
         let mut material_items = Vec::new();
         let mut spd_items = Vec::new();
         let mut bsdffile_items = Vec::new();
 
-        let manager = resouce_manager.lock().unwrap();
+        let manager = resouce_manager.read().unwrap();
         for (id, texture) in manager.textures.iter() {
             let texture = texture.read().unwrap();
             //let t = texture.get_type();

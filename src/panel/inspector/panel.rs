@@ -251,7 +251,7 @@ impl InspectorPanel {
         if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
             let resource_manager = resources_component.get_resource_manager();
             let resource_selector = ResourceSelector::new(&resource_manager);
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
             if let Some(texture) = resource_manager.textures.get(&id) {
                 let mut texture = texture.write().unwrap();
                 let mut name = texture.get_name();

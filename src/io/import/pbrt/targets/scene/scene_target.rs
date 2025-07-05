@@ -870,7 +870,7 @@ impl SceneTarget {
             let resource_component = ResourceComponent::new();
             {
                 let resource_manager = resource_component.get_resource_manager();
-                let mut resource_manager = resource_manager.lock().unwrap();
+                let mut resource_manager = resource_manager.write().unwrap();
                 for (id, material) in self.materials.iter() {
                     resource_manager
                         .materials

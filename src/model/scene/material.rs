@@ -58,6 +58,13 @@ impl Material {
             .find_one_string("string type")
             .unwrap_or_default();
     }
+
+    pub fn get_edition(&self) -> String {
+        return self
+            .props
+            .find_one_string("string edition")
+            .unwrap_or_default();
+    }
 }
 
 impl ResourceObject for Material {

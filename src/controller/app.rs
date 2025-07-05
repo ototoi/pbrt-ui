@@ -90,7 +90,7 @@ impl AppController {
     pub fn get_resource_by_id(&self, id: Uuid) -> Option<Arc<RwLock<dyn ResourceObject>>> {
         let root_node = self.root_node.read().unwrap();
         if let Some(c) = root_node.get_component::<ResourceComponent>() {
-            let resource_manager = c.resource_manager.lock().unwrap();
+            let resource_manager = c.resource_manager.read().unwrap();
             for (material_id, material) in resource_manager.materials.iter() {
                 if *material_id == id {
                     return Some(material.clone());

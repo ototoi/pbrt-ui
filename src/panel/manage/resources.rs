@@ -65,7 +65,7 @@ impl ResourcesPanel {
             let root_node = root_node.read().unwrap();
             if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
                 let resource_manager = resources_component.get_resource_manager();
-                let resource_manager = resource_manager.lock().unwrap();
+                let resource_manager = resource_manager.write().unwrap();
                 let mut texture_cache_manager = texture_cache_manager.write().unwrap();
                 let texture_manager = ui.ctx().tex_manager();
                 let mut texture_manager = texture_manager.write();

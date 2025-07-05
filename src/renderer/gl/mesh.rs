@@ -45,6 +45,10 @@ impl RenderMesh {
         self.id
     }
 
+    pub fn get_edition(&self) -> String {
+        self.edition.clone()
+    }
+
     pub fn from_mesh_data(
         gl: &Arc<glow::Context>,
         id: Uuid,

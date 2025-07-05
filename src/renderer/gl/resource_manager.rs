@@ -75,4 +75,14 @@ impl GLResourceManager {
     pub fn remove_program(&mut self, id: Uuid) {
         self.programs.remove(&id);
     }
+
+    pub fn add_texture(&mut self, texture: &Arc<RenderTexture>) {
+        self.textures.insert(texture.id, texture.clone());
+    }
+    pub fn get_texture(&self, id: Uuid) -> Option<&Arc<RenderTexture>> {
+        self.textures.get(&id)
+    }
+    pub fn remove_texture(&mut self, id: Uuid) {
+        self.textures.remove(&id);
+    }
 }

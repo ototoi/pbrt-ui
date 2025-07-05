@@ -357,7 +357,7 @@ impl PbrtSaver {
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let resource_manager = resouces_component.get_resource_manager();
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
             if resource_manager.materials.is_empty() {
                 return Ok(());
             }
@@ -400,7 +400,7 @@ impl PbrtSaver {
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let resource_manager = resouces_component.get_resource_manager();
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
             if resource_manager.textures.is_empty() {
                 return Ok(());
             }
@@ -620,7 +620,7 @@ impl PbrtSaver {
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let resource_manager = resouces_component.get_resource_manager();
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
 
             let out_dir = std::path::Path::new(path)
                 .parent()

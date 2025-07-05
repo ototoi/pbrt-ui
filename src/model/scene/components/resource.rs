@@ -6,7 +6,6 @@ use crate::model::scene::Texture;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::RwLock;
 
 use uuid::Uuid;
@@ -19,9 +18,18 @@ pub struct ResourceManager {
     pub other_resources: HashMap<Uuid, Arc<RwLock<dyn ResourceObject>>>,
 }
 
+impl ResourceManager {
+    pub fn find_texture_by_name(&self, name: &str) -> Option<Arc<RwLock<Texture>>> {
+        self.textures
+            .values()
+            .find(|texture| texture.read().unwrap().get_name() == name)
+            .cloned()
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ResourceComponent {
-    pub resource_manager: Arc<Mutex<ResourceManager>>,
+    pub resource_manager: Arc<RwLock<ResourceManager>>,
 }
 
 impl ResourceComponent {
@@ -29,7 +37,7 @@ impl ResourceComponent {
         Self::default()
     }
 
-    pub fn get_resource_manager(&self) -> Arc<Mutex<ResourceManager>> {
+    pub fn get_resource_manager(&self) -> Arc<RwLock<ResourceManager>> {
         self.resource_manager.clone()
     }
 }
