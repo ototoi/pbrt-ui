@@ -1,5 +1,8 @@
 use crate::controller::AppController;
-use crate::controller::texture_cache::TextureSize;
+use crate::geometry::texture_cache::TextureCacheManager;
+use crate::geometry::texture_cache::TextureSize;
+use crate::model::scene::Node;
+use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 
 use std::collections::HashMap;
@@ -45,6 +48,15 @@ fn get_image_data(path: &str) -> Option<egui::ColorImage> {
     }
 }
 
+fn get_texture_cache_manager(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<TextureCacheManager>>> {
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<ResourceCacheComponent>() {
+        let resource_manager = component.get_texture_cache_manager();
+        return Some(resource_manager.clone());
+    }
+    return None;
+}
+
 impl ResourcesPanel {
     pub fn new(controller: &Arc<RwLock<AppController>>) -> Self {
         Self {
@@ -59,26 +71,27 @@ impl ResourcesPanel {
         let mut resources = Vec::new();
         {
             let controller = self.app_controller.read().unwrap();
-            let texture_cache_manager = controller.get_texture_cache_manager();
-
             let root_node = controller.get_root_node();
             let root_node = root_node.read().unwrap();
-            if let Some(resources_component) = root_node.get_component::<ResourceComponent>() {
-                let resource_manager = resources_component.get_resource_manager();
-                let resource_manager = resource_manager.write().unwrap();
-                let mut texture_cache_manager = texture_cache_manager.write().unwrap();
-                let texture_manager = ui.ctx().tex_manager();
-                let mut texture_manager = texture_manager.write();
-
-                if self.resource_type == ResourceType::All
-                    || self.resource_type == ResourceType::Texture
+            if let Some(resource_component) = root_node.get_component::<ResourceComponent>() {
+                if let Some(resource_cache_component) =
+                    root_node.get_component::<ResourceCacheComponent>()
                 {
-                    for (id, res) in resource_manager.textures.iter() {
-                        let res = res.read().unwrap();
-                        let name = res.get_name();
-                        let texture_type = res.get_type();
-                        let mut texure_id: Option<egui::TextureId> = None;
-                        if texture_type == "imagemap" {
+                    let resource_manager = resource_component.get_resource_manager();
+                    let resource_manager = resource_manager.write().unwrap();
+                    let texture_cache_manager =
+                        resource_cache_component.get_texture_cache_manager();
+                    let mut texture_cache_manager = texture_cache_manager.write().unwrap();
+                    let texture_manager = ui.ctx().tex_manager();
+                    let mut texture_manager = texture_manager.write();
+
+                    if self.resource_type == ResourceType::All
+                        || self.resource_type == ResourceType::Texture
+                    {
+                        for (id, res) in resource_manager.textures.iter() {
+                            let res = res.read().unwrap();
+                            let name = res.get_name();
+                            let mut texure_id: Option<egui::TextureId> = None;
                             if let Some(fullpath) = res.get_fullpath() {
                                 if let Some(cache_path) =
                                     texture_cache_manager.get_texture(&fullpath, TextureSize::Icon)
@@ -109,36 +122,37 @@ impl ResourcesPanel {
                                     }
                                 }
                             }
+                            resources.push((id.clone(), "texture", name, texure_id));
                         }
-                        resources.push((id.clone(), "texture", name, texure_id));
                     }
-                }
-                if self.resource_type == ResourceType::All
-                    || self.resource_type == ResourceType::Material
-                {
-                    for (id, res) in resource_manager.materials.iter() {
-                        let res = res.read().unwrap();
-                        let name = res.get_name();
-                        resources.push((id.clone(), "material", name, None));
-                    }
-                }
-                if self.resource_type == ResourceType::All
-                    || self.resource_type == ResourceType::Mesh
-                {
-                    for (id, res) in resource_manager.meshes.iter() {
-                        let res = res.read().unwrap();
-                        let name = res.get_name();
-                        resources.push((id.clone(), "mesh", name, None));
-                    }
-                }
 
-                if self.resource_type == ResourceType::All
-                    || self.resource_type == ResourceType::Other
-                {
-                    for (id, res) in resource_manager.other_resources.iter() {
-                        let res = res.read().unwrap();
-                        let name = res.get_name();
-                        resources.push((id.clone(), "other", name, None));
+                    if self.resource_type == ResourceType::All
+                        || self.resource_type == ResourceType::Material
+                    {
+                        for (id, res) in resource_manager.materials.iter() {
+                            let res = res.read().unwrap();
+                            let name = res.get_name();
+                            resources.push((id.clone(), "material", name, None));
+                        }
+                    }
+                    if self.resource_type == ResourceType::All
+                        || self.resource_type == ResourceType::Mesh
+                    {
+                        for (id, res) in resource_manager.meshes.iter() {
+                            let res = res.read().unwrap();
+                            let name = res.get_name();
+                            resources.push((id.clone(), "mesh", name, None));
+                        }
+                    }
+
+                    if self.resource_type == ResourceType::All
+                        || self.resource_type == ResourceType::Other
+                    {
+                        for (id, res) in resource_manager.other_resources.iter() {
+                            let res = res.read().unwrap();
+                            let name = res.get_name();
+                            resources.push((id.clone(), "other", name, None));
+                        }
                     }
                 }
             }
