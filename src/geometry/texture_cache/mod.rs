@@ -1,6 +1,8 @@
-pub mod texture_cache_generator;
-pub mod texture_cache_manager;
-pub mod texture_size;
+mod texture_cache;
+mod texture_cache_generator;
+mod texture_cache_manager;
+mod texture_cache_map;
+mod texture_cache_size;
 
 pub use texture_cache_manager::TextureCacheManager;
-pub use texture_size::TextureSize;
+pub use texture_cache_size::TextureCacheSize;

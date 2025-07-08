@@ -17,6 +17,15 @@ pub fn create_light_shape(light: &Light) -> Option<LightShape> {
             "spot" => {
                 return create_light_shape_from_spot(props);
             }
+            "diffuse" | "area" => {
+                // Diffuse and area lights do not have a specific shape, return None
+                return None;
+            }
+            "goniometric" | "projection" | "distant" | "infinite" => {
+                // These light types are not implemented yet
+                //log::warn!("Light type '{}' is not implemented yet", light_type);
+                return None;
+            }
             _ => {
                 log::warn!("Unknown light type: {}", light_type);
             }

@@ -1,6 +1,6 @@
 use crate::controller::AppController;
 use crate::geometry::texture_cache::TextureCacheManager;
-use crate::geometry::texture_cache::TextureSize;
+use crate::geometry::texture_cache::TextureCacheSize;
 use crate::model::scene::Node;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
@@ -9,6 +9,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use image::DynamicImage;
+use uuid::Uuid;
+
 use eframe::egui;
 use eframe::egui::Vec2;
 
@@ -16,7 +19,7 @@ use eframe::egui::Vec2;
 pub struct ResourcesPanel {
     pub app_controller: Arc<RwLock<AppController>>,
     pub resource_type: ResourceType,
-    pub texture_id_map: HashMap<String, egui::TextureId>,
+    pub texture_id_map: HashMap<Uuid, egui::TextureId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,15 +40,11 @@ fn short_name(name: &str, len: usize) -> String {
     short_name
 }
 
-fn get_image_data(path: &str) -> Option<egui::ColorImage> {
-    if let Ok(image) = image::open(path) {
-        let rgb_image = image.to_rgb8();
-        let size = [rgb_image.width() as usize, rgb_image.height() as usize];
-        let pixels = rgb_image.into_raw();
-        Some(egui::ColorImage::from_rgb(size, &pixels))
-    } else {
-        None
-    }
+fn get_image_data(image: &DynamicImage) -> Option<egui::ColorImage> {
+    let rgb_image = image.to_rgb8();
+    let size = [rgb_image.width() as usize, rgb_image.height() as usize];
+    let pixels = rgb_image.into_raw();
+    Some(egui::ColorImage::from_rgb(size, &pixels))
 }
 
 fn get_texture_cache_manager(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<TextureCacheManager>>> {
@@ -89,39 +88,35 @@ impl ResourcesPanel {
                         || self.resource_type == ResourceType::Texture
                     {
                         for (id, res) in resource_manager.textures.iter() {
-                            let res = res.read().unwrap();
-                            let name = res.get_name();
+                            let texture = res.read().unwrap();
+                            let name = texture.get_name();
                             let mut texure_id: Option<egui::TextureId> = None;
-                            if let Some(fullpath) = res.get_fullpath() {
-                                if let Some(cache_path) =
-                                    texture_cache_manager.get_texture(&fullpath, TextureSize::Icon)
-                                {
-                                    //println!("Cache path: {}", cache_path);
-                                    if let Some(id) = self.texture_id_map.get(&cache_path) {
-                                        texure_id = Some(*id);
-                                    } else {
-                                        if let Some(rgb_image) = get_image_data(&cache_path) {
-                                            // Create a new texture ID
-                                            let color_image =
-                                                egui::ImageData::Color(Arc::new(rgb_image));
-                                            let texture_options = egui::TextureOptions::LINEAR;
-                                            let texture_id = texture_manager.alloc(
-                                                name.clone(),
-                                                color_image,
-                                                texture_options,
-                                            );
-                                            texure_id = Some(texture_id);
-                                            // Store the texture ID in the map
-                                            self.texture_id_map.insert(cache_path, texture_id);
-                                        } else {
-                                            log::error!(
-                                                "Failed to load image data for: {}",
-                                                cache_path
-                                            );
-                                        }
+                            if let Some(texture_cache) = texture_cache_manager
+                                .get_texture_cache(&texture, TextureCacheSize::Icon)
+                            {
+                                let texture_cache = texture_cache.read().unwrap();
+                                let org_id = texture_cache.id;
+                                //println!("Cache path: {}", cache_path);
+                                if let Some(id) = self.texture_id_map.get(&org_id) {
+                                    texure_id = Some(*id);
+                                } else {
+                                    if let Some(rgb_image) = get_image_data(&texture_cache.image) {
+                                        // Create a new texture ID
+                                        let color_image =
+                                            egui::ImageData::Color(Arc::new(rgb_image));
+                                        let texture_options = egui::TextureOptions::LINEAR;
+                                        let id = texture_manager.alloc(
+                                            name.clone(),
+                                            color_image,
+                                            texture_options,
+                                        );
+                                        texure_id = Some(id);
+                                        // Store the texture ID in the map
+                                        self.texture_id_map.insert(org_id, id);
                                     }
                                 }
                             }
+
                             resources.push((id.clone(), "texture", name, texure_id));
                         }
                     }

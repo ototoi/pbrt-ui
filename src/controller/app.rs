@@ -1,5 +1,8 @@
+use crate::geometry::texture_cache;
+use crate::geometry::texture_cache::TextureCacheSize;
 use crate::model::scene::CameraComponent;
 use crate::model::scene::Node;
+use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceObject;
 
@@ -18,6 +21,31 @@ pub struct AppController {
     config: Arc<RwLock<AppConfig>>,
 }
 
+fn set_node_after_load(node: &Arc<RwLock<Node>>) {
+    let mut node = node.write().unwrap();
+    if node.get_component::<ResourceCacheComponent>().is_none() {
+        node.add_component(ResourceCacheComponent::new());
+    }
+    if let Some(resource_component) = node.get_component::<ResourceComponent>() {
+        let resource_manager = resource_component.resource_manager.clone();
+        let resource_manager = resource_manager.read().unwrap();
+        let textures = resource_manager.textures.values().cloned().collect::<Vec<_>>();
+        let mut textures = textures.iter().map(|t| {
+            (t.read().unwrap().get_order(), t.clone())
+        }).collect::<Vec<_>>();
+        textures.sort_by(|a, b| a.0.cmp(&b.0));
+        if let Some(cache_component) = node.get_component::<ResourceCacheComponent>() {
+            let texture_cache_manager = cache_component.get_texture_cache_manager();
+            let texture_cache_manager = texture_cache_manager.write().unwrap();
+            for (_, texture) in textures {
+                let texture = texture.read().unwrap();
+                let _ = texture_cache_manager.get_texture_cache(&texture, TextureCacheSize::Icon);
+                let _ = texture_cache_manager.get_texture_cache(&texture, TextureCacheSize::Full);
+            }
+        }
+    }
+}
+
 impl AppController {
     pub fn new() -> Self {
         let root_node = Node::root_node("Scene");
@@ -34,6 +62,7 @@ impl AppController {
     }
 
     pub fn set_root_node(&mut self, node: &Arc<RwLock<Node>>) {
+        set_node_after_load(node);
         self.root_node = node.clone();
         self.current_node = Some(node.clone());
     }

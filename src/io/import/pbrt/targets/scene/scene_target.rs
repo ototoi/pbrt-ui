@@ -159,11 +159,12 @@ impl SceneTarget {
         }
 
         let attr = self.graphics_states.last_mut().unwrap();
-        if let Some(_) = attr.textures.get(&name) {
+        if let Some(_existed) = attr.textures.get(&name) {
             log::warn!("Texture {} already exists", name);
+        } else {
+            attr.textures.insert(name.to_string(), texture.clone());
+            self.textures.insert(id, texture.clone());
         }
-        attr.textures.insert(name.to_string(), texture.clone());
-        self.textures.insert(id, texture.clone());
     }
 
     fn register_other_resources(&mut self, params: &ParamSet) {

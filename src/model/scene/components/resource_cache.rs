@@ -6,7 +6,7 @@ use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct ResourceCacheComponent {
-    pub texture_cache_manager: Arc<RwLock<TextureCacheManager>>,
+    texture_cache_manager: Arc<RwLock<TextureCacheManager>>,
 }
 
 impl ResourceCacheComponent {
@@ -17,7 +17,7 @@ impl ResourceCacheComponent {
     }
 
     pub fn get_texture_cache_manager(&self) -> Arc<RwLock<TextureCacheManager>> {
-        self.texture_cache_manager.clone()
+        return self.texture_cache_manager.clone();
     }
 }
 

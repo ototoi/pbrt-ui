@@ -82,6 +82,11 @@ impl Texture {
         self.props.find_one_int("integer order").unwrap_or(-1)
     }
 
+    pub fn set_id(&mut self, id: Uuid) {
+        self.id = id;
+        self.props.insert("string id", Property::from(id.to_string()));
+    }
+
     pub fn set_order(&mut self, order: i32) {
         self.props.insert("integer order", Property::from(order));
     }

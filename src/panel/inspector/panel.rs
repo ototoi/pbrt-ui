@@ -50,7 +50,7 @@ pub struct InspectorPanel {
     pub integrator_properties: IntegratorProperties,
     pub texture_properties: TextureProperties,
     pub mapping_properties: MappingProperties,
-    pub texture_id_map: Arc<RwLock<HashMap<String, egui::TextureId>>>,
+    pub texture_id_map: Arc<RwLock<HashMap<Uuid, egui::TextureId>>>,
 }
 
 impl InspectorPanel {
@@ -253,48 +253,67 @@ impl InspectorPanel {
             let resource_selector = ResourceSelector::new(&resource_manager);
             let resource_manager = resource_manager.read().unwrap();
             if let Some(texture) = resource_manager.textures.get(&id) {
-                let mut texture = texture.write().unwrap();
-                let mut name = texture.get_name();
-
-                let props = texture.as_property_map_mut();
-                let t = props.find_one_string("string type").unwrap();
                 let mut texture_keys = Vec::new();
-                if let Some(params) = self.texture_properties.get(&t) {
-                    for (key_type, key_name, init, range) in params.iter() {
-                        if props.get(key_name).is_none() {
-                            let key = PropertyMap::get_key(key_type, key_name);
-                            props.insert(&key, init.clone());
-                        }
-                        texture_keys.push((key_type.clone(), key_name.clone(), range.clone()));
-                    }
-                }
-                let mapping = props
-                    .find_one_string("string mapping")
-                    .unwrap_or("uv".to_string());
                 let mut mapping_keys = Vec::new();
-                if let Some(params) = self.mapping_properties.get(&mapping) {
-                    for (key_type, key_name, init, range) in params.iter() {
-                        if props.get(key_name).is_none() {
-                            let key = PropertyMap::get_key(key_type, key_name);
-                            props.insert(&key, init.clone());
+                {
+                    let mut texture = texture.write().unwrap();
+
+                    let props = texture.as_property_map_mut();
+                    let t = props.find_one_string("string type").unwrap();
+
+                    if let Some(params) = self.texture_properties.get(&t) {
+                        for (key_type, key_name, init, range) in params.iter() {
+                            if props.get(key_name).is_none() {
+                                let key = PropertyMap::get_key(key_type, key_name);
+                                props.insert(&key, init.clone());
+                            }
+                            texture_keys.push((key_type.clone(), key_name.clone(), range.clone()));
                         }
-                        mapping_keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                    }
+                    let mapping = props
+                        .find_one_string("string mapping")
+                        .unwrap_or("uv".to_string());
+
+                    if let Some(params) = self.mapping_properties.get(&mapping) {
+                        for (key_type, key_name, init, range) in params.iter() {
+                            if props.get(key_name).is_none() {
+                                let key = PropertyMap::get_key(key_type, key_name);
+                                props.insert(&key, init.clone());
+                            }
+                            mapping_keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                        }
                     }
                 }
                 //---------------------------------------------------------------------
                 ui.add_space(2.0);
-                ui.horizontal(|ui| {
-                    ui.label("Texture");
-                    ui.separator();
-                    ui.text_edit_singleline(&mut name);
-                });
+                {
+                    let texture = texture.read().unwrap();
+                    let mut name = texture.get_name();
+                    ui.horizontal(|ui| {
+                        ui.label("Texture");
+                        ui.separator();
+                        ui.text_edit_singleline(&mut name);
+                    });
+                }
                 ui.separator();
-                show_type(ui, props, &[t.clone()]);
+                {
+                    let mut texture = texture.write().unwrap();
+                    let t = texture.get_type();
+                    let props = texture.as_property_map_mut();
+                    show_type(ui, props, &[t.clone()]);
+                }
                 ui.separator();
-                self.show_texture_preview(ui, 300.0, props);
+                {
+                    let texture = texture.read().unwrap();
+                    self.show_texture_preview(ui, 300.0, &texture);
+                }
                 ui.separator();
-                show_properties(0, ui, props, &texture_keys, &resource_selector);
-                show_properties(1, ui, props, &mapping_keys, &resource_selector);
+                {
+                    let mut texture = texture.write().unwrap();
+                    let props = texture.as_property_map_mut();
+                    show_properties(0, ui, props, &texture_keys, &resource_selector);
+                    show_properties(1, ui, props, &mapping_keys, &resource_selector);
+                }
                 ui.add_space(3.0);
             } else if let Some(material) = resource_manager.materials.get(&id) {
                 let mut material = material.write().unwrap();
