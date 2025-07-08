@@ -8,7 +8,6 @@ use crate::model::scene::Texture;
 use crate::error::PbrtError;
 
 use std::sync::{Arc, RwLock};
-use std::thread;
 
 use crypto::digest::Digest;
 use image;
@@ -378,76 +377,3 @@ pub fn create_texture_cache(
     Ok(())
 }
 
-fn create_texture_cache_task(
-    texture: &Texture,
-    size: TextureCacheSize,
-    cache_map: &TextureCacheMap,
-) -> Result<thread::JoinHandle<()>, PbrtError> {
-    let texture = texture.clone();
-    let cache_map = cache_map.clone();
-    let handle = thread::spawn(move || {
-        create_texture_cache(&texture, size, &cache_map)
-            .unwrap_or_else(|e| log::error!("Texture cache task failed: {}", e));
-    });
-    Ok(handle)
-}
-
-#[derive(Debug, Default)]
-pub struct TextureCacheGenerator {
-    // This struct will handle the generation of texture cache entries.
-    tasks: Vec<thread::JoinHandle<()>>,
-}
-
-impl TextureCacheGenerator {
-    pub fn new() -> Self {
-        Self {
-            // Initialize any necessary fields here.
-            tasks: Vec::new(),
-        }
-    }
-
-    pub fn require_texture_cache_imm(
-        &mut self,
-        texture: &Texture,
-        size: TextureCacheSize,
-        cache_map: &TextureCacheMap,
-    ) {
-        match create_texture_cache(texture, size, cache_map) {
-            Ok(()) => {
-                //
-            }
-            Err(e) => {
-                log::error!("Error creating texture cache task: {}", e);
-            }
-        }
-    }
-
-    pub fn require_texture_cache(
-        &mut self,
-        texture: &Texture,
-        size: TextureCacheSize,
-        cache_map: &TextureCacheMap,
-    ) {
-        {
-            let mut new_tasks = Vec::new();
-            for task in self.tasks.drain(..) {
-                if task.is_finished() {
-                    // If the task is finished, we can safely ignore it.
-                    continue;
-                }
-                new_tasks.push(task);
-            }
-            self.tasks = new_tasks;
-        }
-        {
-            match create_texture_cache_task(texture, size, cache_map) {
-                Ok(handle) => {
-                    self.tasks.push(handle);
-                }
-                Err(e) => {
-                    log::error!("Error creating texture cache task: {}", e);
-                }
-            }
-        }
-    }
-}

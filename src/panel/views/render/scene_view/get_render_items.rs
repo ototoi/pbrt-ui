@@ -1,7 +1,7 @@
 use super::render_gizmo_program::{GIZMO_SHADER_ID, create_render_gizmo_program};
 use super::render_item::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use super::render_mode::RenderMode;
-use super::render_solid_program::{RENDER_SOLID_SHADER_ID, create_render_solid_program};
+use super::render_solid_program::{RENDER_SOLID_SHADER_COLOR_ID, RENDER_SOLID_SHADER_TEXTURE_ID, create_render_solid_program};
 use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wireframe_program};
 
 use crate::model::base::Matrix4x4;
@@ -11,7 +11,7 @@ use crate::model::scene::Node;
 use crate::model::scene::Shape;
 use crate::model::scene::{CameraComponent, LightComponent, Material};
 
-use crate::geometry::texture_cache::{TextureCacheManager, TextureCacheSize};
+use crate::geometry::texture_cache::{self, TextureCacheManager, TextureCacheSize};
 use crate::model::scene::Component;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::ResourceCacheComponent;
@@ -148,15 +148,23 @@ fn get_render_mesh(
     return None;
 }
 
-fn get_shader_id(material: &Arc<RwLock<Material>>, mode: RenderMode) -> Uuid {
+fn get_shader_id(material: &Arc<RwLock<Material>>, uniforms: &[(String, RenderUniformValue)], mode: RenderMode) -> Uuid {
     match mode {
         RenderMode::Wireframe => {
             Uuid::parse_str(WIREFRAME_SHADER_ID).unwrap() // Placeholder for wireframe shader ID
         }
         RenderMode::Solid => {
-            Uuid::parse_str(RENDER_SOLID_SHADER_ID).unwrap() // Placeholder for solid shader ID
+            if let Some(base_color) = uniforms.iter().find(|(k, _)| k == "base_color") {
+                if let RenderUniformValue::Vec4(color) = &base_color.1 {
+                    // Use a unique ID based on the base color
+                    return Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap() // Placeholder for solid shader ID
+                } else if let RenderUniformValue::Texture(_) = &base_color.1 {
+                    // Use a unique ID based on the texture
+                    return Uuid::parse_str(RENDER_SOLID_SHADER_TEXTURE_ID).unwrap() // Placeholder for solid shader ID
+                }
+            }
+            Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap() // Placeholder for solid shader ID
         }
-
         _ => {
             material.read().unwrap().get_id() // Use the material's ID for solid mode
         }
@@ -167,9 +175,10 @@ fn convert_shader_program(
     render_resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     material: &Arc<RwLock<Material>>,
+    uniforms: &[(String, RenderUniformValue)],
     mode: RenderMode,
 ) -> Option<Arc<RenderProgram>> {
-    let id = get_shader_id(material, mode);
+    let id = get_shader_id(material, uniforms, mode);
     if let Some(render_program) = render_resource_manager.get_program(id) {
         return Some(render_program.clone());
     } else {
@@ -296,31 +305,31 @@ fn convert_material(
     mode: RenderMode,
 ) -> Option<Arc<RenderMaterial>> {
     let id = material.read().unwrap().get_id();
-    if let Some(program) = convert_shader_program(render_resource_manager, gl, material, mode) {
-        let mut uniform_values = Vec::new();
-        match mode {
-            RenderMode::Wireframe => {
+    let mut uniform_values = Vec::new();
+    match mode {
+        RenderMode::Wireframe => {
+            uniform_values.push((
+                "base_color".to_string(),
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), //should replace with wireframe color
+            ));
+        }
+        RenderMode::Solid => {
+            if let Some(base_color) =
+                get_base_color(resource_manager, render_resource_manager, gl, material)
+            {
+                uniform_values.push(("base_color".to_string(), base_color));
+            } else {
                 uniform_values.push((
                     "base_color".to_string(),
-                    RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), //should replace with wireframe color
+                    RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), // Default white color
                 ));
             }
-            RenderMode::Solid => {
-                if let Some(base_color) =
-                    get_base_color(resource_manager, render_resource_manager, gl, material)
-                {
-                    uniform_values.push(("base_color".to_string(), base_color));
-                } else {
-                    uniform_values.push((
-                        "base_color".to_string(),
-                        RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), // Default white color
-                    ));
-                }
-            }
-            _ => {
-                //
-            }
         }
+        _ => {
+            //
+        }
+    }
+    if let Some(program) = convert_shader_program(render_resource_manager, gl, material, &uniform_values, mode) {
         let edition = material.read().unwrap().get_edition();
         let render_material = RenderMaterial {
             id,
@@ -486,6 +495,41 @@ fn get_texture_cache_manager(
     None
 }
 
+fn build_texture_cache(
+    gl: &Arc<glow::Context>,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut GLResourceManager,
+    texture_cache_manager: &mut TextureCacheManager,
+) {
+    let mut textures = resource_manager
+        .textures
+        .values()
+        .map(|t| {
+            let order = t.read().unwrap().get_order();
+            (order, t.clone())
+        })
+        .collect::<Vec<_>>();
+    textures.sort_by_key(|(order, _)| *order);
+    for (_, texture) in textures.iter() {
+        let texture = texture.read().unwrap();
+        let id = texture.get_id();
+        if let Some(_render_texture) = render_resource_manager.get_texture(id) {
+            // Texture already exists in the render resource manager
+            continue;
+        }
+        if let Some(texture_cache) =
+            texture_cache_manager.get_texture_cache(&texture, TextureCacheSize::Full)
+        {
+            let texture_cache = texture_cache.read().unwrap();
+            let image = texture_cache.image.clone();
+            if let Some(render_texture) = RenderTexture::from_image(gl, &texture, &image) {
+                let render_texture = Arc::new(render_texture);
+                render_resource_manager.add_texture(&render_texture);
+            }
+        }
+    }
+}
+
 fn get_render_items_core(
     gl: &Arc<glow::Context>,
     scene_items: &[SceneItem],
@@ -580,10 +624,14 @@ pub fn get_render_items(
         let resource_manager = resource_manager.read().unwrap();
         let mut gl_resource_manager = gl_resource_manager.write().unwrap();
         let mut texture_cache_manager = texture_cache_manager.write().unwrap();
-        //
+        build_texture_cache(
+            gl,
+            &resource_manager,
+            &mut gl_resource_manager,
+            &mut texture_cache_manager,
+        );
     }
     {
-        
         let resource_manager = resource_manager.read().unwrap();
         let mut gl_resource_manager = gl_resource_manager.write().unwrap();
         let render_items = get_render_items_core(

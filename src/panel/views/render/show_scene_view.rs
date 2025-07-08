@@ -72,12 +72,22 @@ fn render_mesh(
             &c2c.m,
         );
 
+        let mut texture_unit = 0;
         for (key, value) in material.uniform_values.iter() {
             match value {
                 RenderUniformValue::Vec4(v) => {
                     if let Some(location) = program.uniform_locations.get(key) {
                         let location = glow::NativeUniformLocation(*location);
                         gl.uniform_4_f32(Some(&location), v[0], v[1], v[2], v[3]);
+                    }
+                }
+                RenderUniformValue::Texture(texture) => {
+                    if let Some(location) = program.uniform_locations.get(key) {
+                        let location = glow::NativeUniformLocation(*location);
+                        gl.active_texture(glow::TEXTURE0 + texture_unit);
+                        gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
+                        gl.uniform_1_i32(Some(&location), texture_unit as i32);
+                        texture_unit += 1;
                     }
                 }
                 _ => {}

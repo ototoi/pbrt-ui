@@ -25,6 +25,8 @@ impl Texture {
         props.insert("string name", Property::from(name));
         props.insert("string color_type", Property::from(color_type)); //float ot spectrum
         props.insert("string type", Property::from(tex_type)); //
+        let edition = Uuid::new_v4();
+        props.insert("string edition", Property::from(edition.to_string()));
         if let Some(fullpath) = fullpath {
             props.insert("string fullpath", Property::from(fullpath));
         }
@@ -56,6 +58,13 @@ impl Texture {
         return self.props.find_one_string("string type").unwrap();
     }
 
+    pub fn get_edition(&self) -> String {
+        return self
+            .props
+            .find_one_string("string edition")
+            .unwrap_or_default();
+    }
+
     pub fn get_color_type(&self) -> String {
         return self.props.find_one_string("string color_type").unwrap();
     }
@@ -76,6 +85,12 @@ impl Texture {
             return Some(fullpath);
         }
         None
+    }
+
+    pub fn get_wrap(&self) -> String {
+        self.props
+            .find_one_string("string wrap")
+            .unwrap_or_else(|| "repeat".to_string())
     }
 
     pub fn get_order(&self) -> i32 {

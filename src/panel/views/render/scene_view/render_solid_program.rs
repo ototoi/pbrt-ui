@@ -3,12 +3,80 @@ use crate::renderer::gl::RenderProgram;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use eframe::epaint::color;
 use uuid::Uuid;
 
 use eframe::egui_glow;
 use eframe::glow;
 
-pub const RENDER_SOLID_SHADER_ID: &str = "812e32bf-8051-42a7-94af-03e4099025da";
+pub const RENDER_SOLID_SHADER_COLOR_ID: &str = "812e32bf-8051-42a7-94af-03e4099025da";
+pub const RENDER_SOLID_SHADER_TEXTURE_ID: &str = "5af7fcd0-189c-4458-b872-17ed2b60bdbf";
+
+fn get_shader_source(id: Uuid) -> Option<(&'static str, &'static str)> {
+    match id {
+        _ if id == Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap() => Some((
+            r#"
+            layout(location = 0) in vec3 position;
+            layout(location = 2) in vec2 uv;
+
+            out vec2 vertexUV;
+
+            uniform mat4 local_to_world;
+            uniform mat4 world_to_camera;
+            uniform mat4 camera_to_clip;
+
+            void main() {
+                gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
+                vertexUV = uv;
+            }
+        "#,
+        r#"
+            precision highp float;
+            in vec2 vertexUV;
+            uniform vec4 base_color;
+
+            out vec4 outColor;
+
+            void main() {
+                outColor = base_color;
+            }
+        "#,
+        )),
+        _ if id == Uuid::parse_str(RENDER_SOLID_SHADER_TEXTURE_ID).unwrap() => Some((
+            r#"
+                layout(location = 0) in vec3 position;
+                layout(location = 2) in vec2 uv;
+
+                out vec2 vertexUV;
+
+                uniform vec4 base_color;
+                uniform mat4 local_to_world;
+                uniform mat4 world_to_camera;
+                uniform mat4 camera_to_clip;
+
+                void main() {
+                    gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
+                    vertexUV = uv;
+                }
+            "#,
+            r#"
+                precision highp float;
+                in vec2 vertexUV;
+                uniform sampler2D base_color;
+
+                out vec4 outColor;
+
+                void main() {
+                    outColor = texture(base_color, vertexUV);
+                }
+            "#,
+        )),
+        _ => None,
+    }
+}
+
+
+
 pub fn create_render_solid_program(
     gl: &Arc<glow::Context>,
     id: Uuid,
@@ -23,39 +91,7 @@ pub fn create_render_solid_program(
         //todo!("Implement create_dunny_program");
         let program = gl.create_program().ok()?;
 
-        let (vertex_shader_source, fragment_shader_source) = (
-            r#"
-                layout(location = 0) in vec3 position;   //
-                //layout(location = 1) in vec3 normal;     //
-                layout(location = 2) in vec2 uv;         //
-
-                out vec2 vertexUV;
-                out vec4 vertexColor;
-
-                uniform vec4 base_color;
-                uniform mat4 local_to_world;
-                uniform mat4 world_to_camera;
-                uniform mat4 camera_to_clip;
-                void main() {
-                    //gl_Position = camera_to_clip * world_to_camera * local_to_world * vec4(position, 1);
-                    gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
-                    //float z = abs(gl_Position.z / gl_Position.w) * 0.5;
-                    vertexUV = uv;
-                    vertexColor = base_color;
-                }
-            "#,
-            r#"
-                precision highp float;
-                in vec2 vertexUV;
-                in vec4 vertexColor;
-
-                out vec4 outColor;
-                void main() {
-                    //outColor = vec4(vertexUV, 0.0, 1.0);
-                    outColor = vertexColor;
-                }
-            "#,
-        );
+        let (vertex_shader_source, fragment_shader_source) = get_shader_source(id)?;
 
         let shader_sources = [
             (glow::VERTEX_SHADER, vertex_shader_source),
@@ -104,7 +140,7 @@ pub fn create_render_solid_program(
         }
 
         let mut vertex_locations = HashMap::new();
-        for key in ["position"].iter() {
+        for key in ["position", "uv"].iter() {
             if let Some(location) = gl.get_attrib_location(program, *key) {
                 vertex_locations.insert(key.to_string(), location as u32);
             }
