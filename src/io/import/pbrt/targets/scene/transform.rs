@@ -1,4 +1,4 @@
-use crate::models::base::Matrix4x4;
+use crate::model::base::Matrix4x4;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {

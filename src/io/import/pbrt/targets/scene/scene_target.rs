@@ -3,31 +3,31 @@ use super::graphics_state::GraphicsState;
 use super::render_options::RenderOptions;
 use super::transform::Transform;
 use super::transform::TransformSet;
-use crate::models::base::Matrix4x4;
-use crate::models::base::ParamSet;
-use crate::models::base::Property;
-use crate::models::base::Vector3;
-use crate::models::scene;
-use crate::models::scene::AcceleratorComponent;
-use crate::models::scene::AreaLightComponent;
-use crate::models::scene::CameraComponent;
-use crate::models::scene::Component;
-use crate::models::scene::CoordinateSystemComponent;
-use crate::models::scene::FilmComponent;
-use crate::models::scene::IntegratorComponent;
-use crate::models::scene::LightComponent;
-use crate::models::scene::MaterialComponent;
-use crate::models::scene::Node;
-use crate::models::scene::OtherResource;
-use crate::models::scene::ResourceComponent;
-use crate::models::scene::ResourceObject;
-use crate::models::scene::SamplerComponent;
-use crate::models::scene::ShapeComponent;
-use crate::models::scene::TransformComponent;
+use crate::model::base::Matrix4x4;
+use crate::model::base::ParamSet;
+use crate::model::base::Property;
+use crate::model::base::Vector3;
+use crate::model::scene;
+use crate::model::scene::AcceleratorComponent;
+use crate::model::scene::AreaLightComponent;
+use crate::model::scene::CameraComponent;
+use crate::model::scene::Component;
+use crate::model::scene::CoordinateSystemComponent;
+use crate::model::scene::FilmComponent;
+use crate::model::scene::IntegratorComponent;
+use crate::model::scene::LightComponent;
+use crate::model::scene::MaterialComponent;
+use crate::model::scene::Node;
+use crate::model::scene::OtherResource;
+use crate::model::scene::ResourceComponent;
+use crate::model::scene::ResourceObject;
+use crate::model::scene::SamplerComponent;
+use crate::model::scene::ShapeComponent;
+use crate::model::scene::TransformComponent;
 
-use crate::models::scene::Material;
-use crate::models::scene::Shape;
-use crate::models::scene::Texture;
+use crate::model::scene::Material;
+use crate::model::scene::Shape;
+use crate::model::scene::Texture;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -159,11 +159,12 @@ impl SceneTarget {
         }
 
         let attr = self.graphics_states.last_mut().unwrap();
-        if let Some(_) = attr.textures.get(&name) {
+        if let Some(_existed) = attr.textures.get(&name) {
             log::warn!("Texture {} already exists", name);
+        } else {
+            attr.textures.insert(name.to_string(), texture.clone());
+            self.textures.insert(id, texture.clone());
         }
-        attr.textures.insert(name.to_string(), texture.clone());
-        self.textures.insert(id, texture.clone());
     }
 
     fn register_other_resources(&mut self, params: &ParamSet) {
@@ -870,7 +871,7 @@ impl SceneTarget {
             let resource_component = ResourceComponent::new();
             {
                 let resource_manager = resource_component.get_resource_manager();
-                let mut resource_manager = resource_manager.lock().unwrap();
+                let mut resource_manager = resource_manager.write().unwrap();
                 for (id, material) in self.materials.iter() {
                     resource_manager
                         .materials

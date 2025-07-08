@@ -1,4 +1,4 @@
-use crate::models::base::PropertyMap;
+use crate::model::base::PropertyMap;
 
 #[derive(Debug, Clone)]
 pub struct RenderOptions {

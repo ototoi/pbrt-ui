@@ -1,30 +1,30 @@
 use super::super::copy_utility;
 use crate::error::PbrtError;
-use crate::models::base::Matrix4x4;
-use crate::models::base::ParamSet;
-use crate::models::base::Property;
-use crate::models::base::Vector3;
-use crate::models::scene::AcceleratorProperties;
-use crate::models::scene::AreaLightComponent;
-use crate::models::scene::CameraComponent;
-use crate::models::scene::CameraProperties;
-use crate::models::scene::FilmComponent;
-use crate::models::scene::IntegratorComponent;
-use crate::models::scene::IntegratorProperties;
-use crate::models::scene::LightComponent;
-use crate::models::scene::LightProperties;
-use crate::models::scene::MappingProperties;
-use crate::models::scene::MaterialComponent;
-use crate::models::scene::MaterialProperties;
-use crate::models::scene::Node;
-use crate::models::scene::OptionProperties;
-use crate::models::scene::ResourceComponent;
-use crate::models::scene::SamplerComponent;
-use crate::models::scene::SamplerProperties;
-use crate::models::scene::ShapeComponent;
-use crate::models::scene::ShapeProperties;
-use crate::models::scene::TextureProperties;
-use crate::models::scene::TransformComponent;
+use crate::model::base::Matrix4x4;
+use crate::model::base::ParamSet;
+use crate::model::base::Property;
+use crate::model::base::Vector3;
+use crate::model::scene::AcceleratorProperties;
+use crate::model::scene::AreaLightComponent;
+use crate::model::scene::CameraComponent;
+use crate::model::scene::CameraProperties;
+use crate::model::scene::FilmComponent;
+use crate::model::scene::IntegratorComponent;
+use crate::model::scene::IntegratorProperties;
+use crate::model::scene::LightComponent;
+use crate::model::scene::LightProperties;
+use crate::model::scene::MappingProperties;
+use crate::model::scene::MaterialComponent;
+use crate::model::scene::MaterialProperties;
+use crate::model::scene::Node;
+use crate::model::scene::OptionProperties;
+use crate::model::scene::ResourceComponent;
+use crate::model::scene::SamplerComponent;
+use crate::model::scene::SamplerProperties;
+use crate::model::scene::ShapeComponent;
+use crate::model::scene::ShapeProperties;
+use crate::model::scene::TextureProperties;
+use crate::model::scene::TransformComponent;
 
 use std::fs::File;
 use std::io::Write;
@@ -357,7 +357,7 @@ impl PbrtSaver {
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let resource_manager = resouces_component.get_resource_manager();
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
             if resource_manager.materials.is_empty() {
                 return Ok(());
             }
@@ -400,7 +400,7 @@ impl PbrtSaver {
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let resource_manager = resouces_component.get_resource_manager();
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
             if resource_manager.textures.is_empty() {
                 return Ok(());
             }
@@ -620,7 +620,7 @@ impl PbrtSaver {
         let node = node.read().unwrap();
         if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
             let resource_manager = resouces_component.get_resource_manager();
-            let resource_manager = resource_manager.lock().unwrap();
+            let resource_manager = resource_manager.read().unwrap();
 
             let out_dir = std::path::Path::new(path)
                 .parent()
