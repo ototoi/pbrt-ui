@@ -27,8 +27,9 @@ pub fn create_render_solid_program(
             r#"
                 layout(location = 0) in vec3 position;   //
                 //layout(location = 1) in vec3 normal;     //
-                //layout(location = 2) in vec2 uv;         //
+                layout(location = 2) in vec2 uv;         //
 
+                out vec2 vertexUV;
                 out vec4 vertexColor;
 
                 uniform vec4 base_color;
@@ -39,15 +40,18 @@ pub fn create_render_solid_program(
                     //gl_Position = camera_to_clip * world_to_camera * local_to_world * vec4(position, 1);
                     gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
                     //float z = abs(gl_Position.z / gl_Position.w) * 0.5;
+                    vertexUV = uv;
                     vertexColor = base_color;
                 }
             "#,
             r#"
                 precision highp float;
+                in vec2 vertexUV;
                 in vec4 vertexColor;
 
                 out vec4 outColor;
                 void main() {
+                    //outColor = vec4(vertexUV, 0.0, 1.0);
                     outColor = vertexColor;
                 }
             "#,

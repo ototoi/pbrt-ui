@@ -262,6 +262,11 @@ pub fn load_from_ply(filename: &str) -> Result<MeshData> {
             }
         }
     }
+    {
+        if uv.len() / 2 != p.len() / 3 {
+            uv.resize(p.len() / 3 * 2, 0.0);
+        }
+    }
     return Ok(MeshData {
         indices: vertex_indices,
         positions: p,

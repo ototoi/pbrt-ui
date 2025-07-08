@@ -48,7 +48,7 @@ pub fn create_imagemap_texture_cache(
     assert!(texture_type == "imagemap", "Texture type must be imagemap");
     if let Some(src) = texture.get_fullpath() {
         let dst = create_texture_cache_path(&src, size);
-        println!("Creating texture cache for: {} -> {}", src, dst);
+        //println!("Creating texture cache for: {} -> {}", src, dst);
         let src = std::path::PathBuf::from(src);
         let dst = std::path::PathBuf::from(dst);
         if dst.exists() {

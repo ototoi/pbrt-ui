@@ -56,7 +56,7 @@ impl RenderMesh {
         indices: &[i32],
         positions: &[f32],
         //normals: &[f32],
-        //uvs: &[f32],
+        uvs: &[f32],
     ) -> Option<Self> {
         unsafe {
             let indices_buffer = gl.create_buffer().ok()?;
@@ -84,10 +84,11 @@ impl RenderMesh {
             let normals_buffer = gl.create_buffer().ok()?;
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(normals_buffer));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, normals.align_to().1, glow::STATIC_DRAW);
+            */
             let uvs_buffer = gl.create_buffer().ok()?;
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(uvs_buffer));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, uvs.align_to().1, glow::STATIC_DRAW);
-            */
+
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
             gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
 
@@ -103,6 +104,17 @@ impl RenderMesh {
                 glow::FLOAT,
                 false,
                 (std::mem::size_of::<f32>() * 3) as i32,
+                0,
+            );
+
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(uvs_buffer));
+            gl.enable_vertex_attrib_array(2);
+            gl.vertex_attrib_pointer_f32(
+                2, //location
+                2, //element count
+                glow::FLOAT,
+                false,
+                (std::mem::size_of::<f32>() * 2) as i32,
                 0,
             );
 
@@ -138,6 +150,8 @@ impl RenderMesh {
                 &edition,
                 &mesh_data.indices,
                 &mesh_data.positions,
+                //&mesh_data.normals,
+                &mesh_data.uvs,
             );
         }
         None
@@ -156,6 +170,8 @@ impl RenderMesh {
                 &edition,
                 &mesh_data.indices,
                 &mesh_data.positions,
+                //&mesh_data.normals,
+                &mesh_data.uvs,
             );
         }
         None
