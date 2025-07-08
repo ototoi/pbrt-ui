@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
+use image::DynamicImage;
+
 //use eframe::egui;
 use eframe::{egui_glow, glow::HasContext};
 use egui_glow::glow;
@@ -20,8 +22,7 @@ impl RenderTexture {
         gl: &Arc<glow::Context>,
         id: Uuid,
         edition: &str,
-        width: u32,
-        height: u32,
+        image: &DynamicImage
     ) -> Self {
         //
         todo!("Implement RenderTexture2D::new");

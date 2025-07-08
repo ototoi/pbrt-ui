@@ -11,8 +11,10 @@ use crate::model::scene::Node;
 use crate::model::scene::Shape;
 use crate::model::scene::{CameraComponent, LightComponent, Material};
 
+use crate::geometry::texture_cache::{TextureCacheManager, TextureCacheSize};
 use crate::model::scene::Component;
 use crate::model::scene::MaterialComponent;
+use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
 use crate::model::scene::ShapeComponent;
@@ -199,12 +201,6 @@ fn get_texture(
     let id = texture.read().unwrap().get_id();
     if let Some(render_texture) = render_resource_manager.get_texture(id) {
         return Some(render_texture.clone());
-    } else {
-        println!("Converting texture with ID: {}", id);
-        let texture = texture.read().unwrap();
-        if let Some(fullpath) = texture.get_fullpath() {
-            println!("Loading texture from path: {}", fullpath);
-        }
     }
     return None;
 }
@@ -232,6 +228,7 @@ fn get_base_color_value(
                 return None;
             } else if key_type == "spectrum" {
                 //let spectrum
+                return Some(RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]));
             }
             // Handle texture loading if needed
             return None;
@@ -479,6 +476,16 @@ fn get_gl_resource_manager(
     None
 }
 
+fn get_texture_cache_manager(
+    root_node: &Arc<RwLock<Node>>,
+) -> Option<Arc<RwLock<TextureCacheManager>>> {
+    let root_node = root_node.read().unwrap();
+    if let Some(component) = root_node.get_component::<ResourceCacheComponent>() {
+        return Some(component.get_texture_cache_manager());
+    }
+    None
+}
+
 fn get_render_items_core(
     gl: &Arc<glow::Context>,
     scene_items: &[SceneItem],
@@ -559,17 +566,33 @@ pub fn get_render_items(
         {
             root_node.add_component::<GLResourceComponent>(GLResourceComponent::new(gl));
         }
+        if root_node
+            .get_component_mut::<ResourceCacheComponent>()
+            .is_none()
+        {
+            root_node.add_component::<ResourceCacheComponent>(ResourceCacheComponent::new());
+        }
     }
     let resource_manager = get_resource_manager(&root_node).unwrap();
     let gl_resource_manager = get_gl_resource_manager(&root_node).unwrap();
-    let resource_manager = resource_manager.read().unwrap();
-    let mut gl_resource_manager = gl_resource_manager.write().unwrap();
-    let render_items = get_render_items_core(
-        gl,
-        &scene_items,
-        &resource_manager,
-        &mut gl_resource_manager,
-        mode,
-    );
-    return render_items;
+    let texture_cache_manager = get_texture_cache_manager(&root_node).unwrap();
+    {
+        let resource_manager = resource_manager.read().unwrap();
+        let mut gl_resource_manager = gl_resource_manager.write().unwrap();
+        let mut texture_cache_manager = texture_cache_manager.write().unwrap();
+        //
+    }
+    {
+        
+        let resource_manager = resource_manager.read().unwrap();
+        let mut gl_resource_manager = gl_resource_manager.write().unwrap();
+        let render_items = get_render_items_core(
+            gl,
+            &scene_items,
+            &resource_manager,
+            &mut gl_resource_manager,
+            mode,
+        );
+        return render_items;
+    }
 }
