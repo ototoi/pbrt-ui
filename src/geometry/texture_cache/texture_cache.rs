@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use image::DynamicImage;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

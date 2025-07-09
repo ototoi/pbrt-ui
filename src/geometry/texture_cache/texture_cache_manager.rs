@@ -45,11 +45,7 @@ impl TextureCacheManager {
             return Some(cache);
         } else {
             {
-                let _ = create_texture_cache(
-                    texture,
-                    sz,
-                    &self.textures,
-                );
+                let _ = create_texture_cache(texture, sz, &self.textures);
             }
             if let Some(cache) = self.find_texture_cache(texture, sz) {
                 return Some(cache);

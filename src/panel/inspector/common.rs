@@ -69,16 +69,25 @@ fn get_intensity(value: &[f32]) -> (f32, Vec<f32>) {
     return (intensity, new_value);
 }
 
-fn show_rgb(ui: &mut egui::Ui, value: &mut [f32]) {
+fn show_rgb(ui: &mut egui::Ui, value: &mut [f32]) -> bool {
+    let mut is_changed = false;
     if value.len() >= 3 {
         let (mut intensity, new_value) = get_intensity(value);
         let mut new_value: [f32; 3] = new_value.try_into().unwrap();
-        ui.color_edit_button_rgb(&mut new_value);
-        ui.add(egui::widgets::Slider::new(&mut intensity, 1.0..=100.0));
+        if ui.color_edit_button_rgb(&mut new_value).changed() {
+            is_changed = true;
+        }
+        if ui
+            .add(egui::widgets::Slider::new(&mut intensity, 1.0..=100.0))
+            .changed()
+        {
+            is_changed = true;
+        }
         value[0] = new_value[0] * intensity;
         value[1] = new_value[1] * intensity;
         value[2] = new_value[2] * intensity;
     }
+    return is_changed;
 }
 
 fn show_floats(
@@ -87,44 +96,86 @@ fn show_floats(
     _key_name: &str,
     range: &Option<ValueRange>,
     value: &mut Vec<f32>,
-) {
+) -> bool {
+    let mut is_changed = false;
     if value.len() == 3 {
         let (x_label, y_label, z_label) = get_label3(key_type);
         ui.horizontal(|ui| {
             ui.label(&x_label);
-            ui.add(egui::widgets::DragValue::new(&mut value[0]));
+            if ui
+                .add(egui::widgets::DragValue::new(&mut value[0]))
+                .changed()
+            {
+                is_changed = true;
+            }
             ui.label(&y_label);
-            ui.add(egui::widgets::DragValue::new(&mut value[1]));
+            if ui
+                .add(egui::widgets::DragValue::new(&mut value[1]))
+                .changed()
+            {
+                is_changed = true;
+            }
             ui.label(&z_label);
-            ui.add(egui::widgets::DragValue::new(&mut value[2]));
+            if ui
+                .add(egui::widgets::DragValue::new(&mut value[2]))
+                .changed()
+            {
+                is_changed = true;
+            }
         });
     } else if value.len() == 2 {
         let (x_label, y_label, _z_label) = get_label3(key_type);
         ui.horizontal(|ui| {
             ui.label(&x_label);
-            ui.add(egui::widgets::DragValue::new(&mut value[0]));
+            if ui
+                .add(egui::widgets::DragValue::new(&mut value[0]))
+                .changed()
+            {
+                is_changed = true;
+            }
             ui.label(&y_label);
-            ui.add(egui::widgets::DragValue::new(&mut value[1]));
+            if ui
+                .add(egui::widgets::DragValue::new(&mut value[1]))
+                .changed()
+            {
+                is_changed = true;
+            }
         });
     } else if value.len() == 1 {
         if let Some(r) = range {
             if let ValueRange::FloatRange(min, max) = r {
                 ui.horizontal(|ui| {
-                    ui.add(egui::widgets::Slider::new(&mut value[0], *min..=*max).step_by(0.01));
+                    if ui
+                        .add(egui::widgets::Slider::new(&mut value[0], *min..=*max).step_by(0.01))
+                        .changed()
+                    {
+                        is_changed = true;
+                    }
                 });
             }
         } else {
             ui.horizontal(|ui| {
-                ui.add(egui::widgets::DragValue::new(&mut value[0]));
+                if ui
+                    .add(egui::widgets::DragValue::new(&mut value[0]))
+                    .changed()
+                {
+                    is_changed = true;
+                }
             });
         }
     } else if value.len() >= 4 {
         ui.horizontal(|ui| {
             for i in 0..value.len() {
-                ui.add(egui::widgets::DragValue::new(&mut value[i]));
+                if ui
+                    .add(egui::widgets::DragValue::new(&mut value[i]))
+                    .changed()
+                {
+                    is_changed = true;
+                }
             }
         });
     }
+    return is_changed;
 }
 
 fn show_ints(
@@ -133,34 +184,50 @@ fn show_ints(
     key_name: &str,
     range: &Option<ValueRange>,
     value: &mut Vec<i32>,
-) {
+) -> bool {
+    let mut is_changed = false;
     if value.len() == 1 {
         let minus = egui::RichText::new("-").family(egui::FontFamily::Monospace);
         let plus = egui::RichText::new("+").family(egui::FontFamily::Monospace);
         if let Some(r) = range {
             if let ValueRange::IntRange(min, max) = r {
                 ui.horizontal(|ui| {
-                    ui.add(egui::widgets::DragValue::new(&mut value[0]).range(*min..=*max));
+                    if ui
+                        .add(egui::widgets::DragValue::new(&mut value[0]).range(*min..=*max))
+                        .changed()
+                    {
+                        is_changed = true;
+                    }
                     if ui.small_button(minus).clicked() {
                         value[0] -= 1;
+                        is_changed = true;
                     }
                     if ui.small_button(plus).clicked() {
                         value[0] += 1;
+                        is_changed = true;
                     }
                 });
             }
         } else {
             ui.horizontal(|ui| {
-                ui.add(egui::widgets::DragValue::new(&mut value[0]));
+                if ui
+                    .add(egui::widgets::DragValue::new(&mut value[0]))
+                    .changed()
+                {
+                    is_changed = true;
+                }
                 if ui.small_button(minus).clicked() {
                     value[0] -= 1;
+                    is_changed = true;
                 }
                 if ui.small_button(plus).clicked() {
                     value[0] += 1;
+                    is_changed = true;
                 }
             });
         }
     }
+    return is_changed;
 }
 
 fn show_strings(
@@ -170,7 +237,8 @@ fn show_strings(
     value: &mut Vec<String>,
     resource_selector: &ResourceSelector,
     own_id: Option<Uuid>,
-) {
+) -> bool {
+    let mut is_changed = false;
     if value.len() >= 1 {
         if key_name == "splitmethod" {
             let types = vec!["sah", "hlbvh", "middle", "equal"]
@@ -181,7 +249,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "strategy" {
@@ -193,7 +266,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "lightsamplestrategy" {
@@ -205,7 +283,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "wrap" {
@@ -217,7 +300,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "mapping" {
@@ -229,7 +317,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "bumpmap" {
@@ -239,7 +332,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for (_id, name, display_name) in items.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), display_name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "bsdffile" {
@@ -248,7 +346,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for (_id, name, display_name) in items.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), display_name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name.starts_with("namedmaterial") {
@@ -264,7 +367,12 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for (_id, name, display_name) in items.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), display_name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_type == "texture" {
@@ -280,16 +388,24 @@ fn show_strings(
                 .selected_text(value[0].clone())
                 .show_ui(ui, |ui| {
                     for (_id, name, display_name) in items.iter() {
-                        ui.selectable_value(&mut value[0], name.clone(), display_name.clone());
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), display_name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         } else if key_name == "filename" {
             let mut s = value[0].clone();
             ui.text_edit_singleline(&mut s);
         } else {
-            ui.text_edit_singleline(&mut value[0]);
+            if ui.text_edit_singleline(&mut value[0]).changed() {
+                is_changed = true;
+            }
         }
     }
+    return is_changed;
 }
 
 fn show_bools(ui: &mut egui::Ui, key_type: &str, key_name: &str, value: &mut Vec<bool>) {
@@ -312,7 +428,8 @@ fn show_color_like(
     props: &mut PropertyMap,
     resource_selector: &ResourceSelector,
     own_id: Option<Uuid>,
-) {
+) -> bool {
+    let mut is_changed = false;
     //let rect = ui.available_rect_before_wrap();
     //ui.painter().rect_filled(rect, 1.0, egui::Color32::RED);
     let mut color_type = ColorType::Value;
@@ -331,6 +448,7 @@ fn show_color_like(
             ui.horizontal(|ui| {
                 if color_type != ColorType::Spd {
                     if ui.small_button("S").clicked() {
+                        is_changed = true;
                         let search_key = format!("{}_{:?}", key_name, ColorType::Spd);
                         let backup_value = if let Some(p) = props.get(&search_key) {
                             Some(p.clone())
@@ -355,6 +473,7 @@ fn show_color_like(
                 }
                 if color_type != ColorType::Texture {
                     if ui.small_button("T").clicked() {
+                        is_changed = true;
                         let search_key = format!("{}_{:?}", key_name, ColorType::Texture);
                         let backup_value = if let Some(p) = props.get(&search_key) {
                             Some(p.clone())
@@ -379,6 +498,7 @@ fn show_color_like(
                 }
                 if color_type != ColorType::Value {
                     if ui.small_button("V").clicked() {
+                        is_changed = true;
                         let search_key = format!("{}_{:?}", key_name, ColorType::Value);
                         let backup_value = if let Some((t, _, p)) = props.entry(&search_key) {
                             Some((t.clone(), p.clone()))
@@ -409,7 +529,9 @@ fn show_color_like(
                     if let Some(v) = props.get_mut(key_name) {
                         if let Property::Floats(value) = v {
                             ui.horizontal(|ui| {
-                                show_rgb(ui, value);
+                                if show_rgb(ui, value) {
+                                    is_changed = true;
+                                }
                             });
                         }
                     }
@@ -418,7 +540,9 @@ fn show_color_like(
                         if let Property::Floats(value) = v {
                             let mut rgb = xyz_to_rgb(&value);
                             ui.horizontal(|ui| {
-                                show_rgb(ui, &mut rgb);
+                                if show_rgb(ui, &mut rgb) {
+                                    is_changed = true;
+                                }
                             });
                             let xyz = rgb_to_xyz(&rgb);
                             value[0] = xyz[0];
@@ -437,11 +561,16 @@ fn show_color_like(
                                 .selected_text(value[0].clone())
                                 .show_ui(ui, |ui| {
                                     for (_id, name, display_name) in spd_names.iter() {
-                                        ui.selectable_value(
-                                            &mut value[0],
-                                            name.clone(),
-                                            display_name.clone(),
-                                        );
+                                        if ui
+                                            .selectable_value(
+                                                &mut value[0],
+                                                name.clone(),
+                                                display_name.clone(),
+                                            )
+                                            .changed()
+                                        {
+                                            is_changed = true;
+                                        }
                                     }
                                 });
                         }
@@ -464,11 +593,16 @@ fn show_color_like(
                                 .selected_text(value[0].clone())
                                 .show_ui(ui, |ui| {
                                     for (_id, name, display_name) in items.iter() {
-                                        ui.selectable_value(
-                                            &mut value[0],
-                                            name.clone(),
-                                            display_name.clone(),
-                                        );
+                                        if ui
+                                            .selectable_value(
+                                                &mut value[0],
+                                                name.clone(),
+                                                display_name.clone(),
+                                            )
+                                            .changed()
+                                        {
+                                            is_changed = true;
+                                        }
                                     }
                                 });
                         }
@@ -481,6 +615,7 @@ fn show_color_like(
         let key = PropertyMap::get_key(t, n);
         props.insert(&key, p.clone());
     }
+    return is_changed;
 }
 
 fn is_color_like(key_type: &str, key_name: &str) -> bool {
@@ -504,7 +639,8 @@ pub fn show_properties(
     props: &mut PropertyMap,
     keys: &[(String, String, Option<ValueRange>)],
     resource_selector: &ResourceSelector,
-) {
+) -> bool {
+    let mut is_changed = false;
     egui_extras::TableBuilder::new(ui)
         .id_salt(index)
         .column(egui_extras::Column::initial(100.0))
@@ -531,20 +667,26 @@ pub fn show_properties(
                         }
                         let key_type = &key_type;
                         if is_color_like(key_type, key_name) {
-                            show_color_like(
+                            if show_color_like(
                                 ui,
                                 key_type,
                                 key_name,
                                 props,
                                 resource_selector,
                                 own_id,
-                            );
+                            ) {
+                                is_changed = true;
+                            }
                         } else {
                             if let Some(v) = props.get_mut(key_name) {
                                 if let Property::Floats(value) = v {
-                                    show_floats(ui, key_type, key_name, range, value);
+                                    if show_floats(ui, key_type, key_name, range, value) {
+                                        is_changed = true;
+                                    }
                                 } else if let Property::Ints(value) = v {
-                                    show_ints(ui, key_type, key_name, range, value);
+                                    if show_ints(ui, key_type, key_name, range, value) {
+                                        is_changed = true;
+                                    }
                                 } else if let Property::Strings(value) = v {
                                     show_strings(
                                         ui,
@@ -561,24 +703,35 @@ pub fn show_properties(
                                 ui.label("No property found");
                             }
                         }
+                        if is_changed {
+                            props.add_string("string edition", &Uuid::new_v4().to_string());
+                        }
                     });
                 });
             }
         });
+    return is_changed;
 }
 
-pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) {
+pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -> bool {
+    let mut is_changed = false;
     if let Some(v) = props.get_mut("type") {
         if let Property::Strings(s) = v {
             egui::ComboBox::from_id_salt("type")
                 .selected_text(s[0].clone())
                 .show_ui(ui, |ui| {
                     for name in types.iter() {
-                        ui.selectable_value(&mut s[0], name.clone(), name.clone());
+                        if ui
+                            .selectable_value(&mut s[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
                     }
                 });
         }
     }
+    return is_changed;
 }
 
 pub fn show_component_props(
@@ -588,7 +741,8 @@ pub fn show_component_props(
     props: &mut PropertyMap,
     keys: &[(String, String, Option<ValueRange>)],
     resource_selector: &ResourceSelector,
-) {
+) -> bool {
+    let mut is_changed = false;
     egui::TopBottomPanel::top(format!("{}_{}", title, index))
         .min_height(MIN_COMPONENT_HEIGHT)
         .show_inside(ui, |ui| {
@@ -597,7 +751,10 @@ pub fn show_component_props(
                 ui.label(title);
             });
             ui.separator();
-            show_properties(index, ui, props, &keys, resource_selector);
+            if show_properties(index, ui, props, &keys, resource_selector) {
+                is_changed = true;
+            }
             ui.add_space(3.0);
         });
+    return is_changed;
 }

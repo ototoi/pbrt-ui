@@ -1,7 +1,9 @@
 use super::render_gizmo_program::{GIZMO_SHADER_ID, create_render_gizmo_program};
 use super::render_item::{GizmoRenderItem, MeshRenderItem, RenderItem};
 use super::render_mode::RenderMode;
-use super::render_solid_program::{RENDER_SOLID_SHADER_COLOR_ID, RENDER_SOLID_SHADER_TEXTURE_ID, create_render_solid_program};
+use super::render_solid_program::{
+    RENDER_SOLID_SHADER_COLOR_ID, RENDER_SOLID_SHADER_TEXTURE_ID, create_render_solid_program,
+};
 use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wireframe_program};
 
 use crate::model::base::Matrix4x4;
@@ -148,7 +150,11 @@ fn get_render_mesh(
     return None;
 }
 
-fn get_shader_id(material: &Arc<RwLock<Material>>, uniforms: &[(String, RenderUniformValue)], mode: RenderMode) -> Uuid {
+fn get_shader_id(
+    material: &Arc<RwLock<Material>>,
+    uniforms: &[(String, RenderUniformValue)],
+    mode: RenderMode,
+) -> Uuid {
     match mode {
         RenderMode::Wireframe => {
             Uuid::parse_str(WIREFRAME_SHADER_ID).unwrap() // Placeholder for wireframe shader ID
@@ -157,10 +163,10 @@ fn get_shader_id(material: &Arc<RwLock<Material>>, uniforms: &[(String, RenderUn
             if let Some(base_color) = uniforms.iter().find(|(k, _)| k == "base_color") {
                 if let RenderUniformValue::Vec4(color) = &base_color.1 {
                     // Use a unique ID based on the base color
-                    return Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap() // Placeholder for solid shader ID
+                    return Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap(); // Placeholder for solid shader ID
                 } else if let RenderUniformValue::Texture(_) = &base_color.1 {
                     // Use a unique ID based on the texture
-                    return Uuid::parse_str(RENDER_SOLID_SHADER_TEXTURE_ID).unwrap() // Placeholder for solid shader ID
+                    return Uuid::parse_str(RENDER_SOLID_SHADER_TEXTURE_ID).unwrap(); // Placeholder for solid shader ID
                 }
             }
             Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap() // Placeholder for solid shader ID
@@ -329,7 +335,9 @@ fn convert_material(
             //
         }
     }
-    if let Some(program) = convert_shader_program(render_resource_manager, gl, material, &uniform_values, mode) {
+    if let Some(program) =
+        convert_shader_program(render_resource_manager, gl, material, &uniform_values, mode)
+    {
         let edition = material.read().unwrap().get_edition();
         let render_material = RenderMaterial {
             id,
