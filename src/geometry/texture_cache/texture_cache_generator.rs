@@ -63,7 +63,7 @@ pub fn create_imagemap_texture_cache(
                     id: texture.id,
                     image: image,
                 };
-                cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+                cache_map.insert(key, Arc::new(RwLock::new(texture_cache)));
             }
         } else if src.exists() {
             let src_img = image::open(&src)
@@ -99,7 +99,7 @@ pub fn create_imagemap_texture_cache(
                     id: texture.id,
                     image: image,
                 };
-                cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+                cache_map.insert(key, Arc::new(RwLock::new(texture_cache)));
             }
         }
     }
@@ -136,7 +136,7 @@ pub fn create_default_texture_cache(
             id: texture.id,
             image: image,
         };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+        cache_map.insert(key, Arc::new(RwLock::new(texture_cache)));
     }
     Ok(())
 }
@@ -176,7 +176,7 @@ pub fn create_constant_texture_cache(
             id: texture.id,
             image: image,
         };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+        cache_map.insert(key, Arc::new(RwLock::new(texture_cache)));
     }
     Ok(())
 }
@@ -189,12 +189,10 @@ fn find_texture_cache(
     let textures = cache_map.read().unwrap();
     for (cache_key, cache) in textures.iter() {
         if cache_key.0 == name && cache_key.2 == size {
-            if let Some(cache) = cache {
-                return Some(cache.clone());
-            }
+            return Some(cache.clone());
         }
     }
-    None
+    return None;
 }
 
 fn mix_texture(tex1: &DynamicImage, tex2: &DynamicImage, amount: &DynamicImage) -> DynamicImage {
@@ -247,20 +245,14 @@ pub fn create_mix_texture_cache(
 ) -> Result<(), PbrtError> {
     let texture_type = texture.get_type();
     assert!(texture_type == "mix", "Texture type must be constant");
-    let tex1 = get_texture_image(
-        texture, size, cache_map, "tex1"
-    );
-    let tex2 = get_texture_image(
-        texture, size, cache_map, "tex2"
-    );
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
 
     if tex1.is_none() || tex2.is_none() {
         return Err(PbrtError::error("Missing texture images for mix texture"));
     }
 
-    let amount = get_texture_image(
-        texture, size, cache_map, "amount"
-    );
+    let amount = get_texture_image(texture, size, cache_map, "amount");
 
     let amount = match amount {
         Some(img) => img,
@@ -286,7 +278,7 @@ pub fn create_mix_texture_cache(
             id: texture.id,
             image: mixed_image,
         };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+        cache_map.insert(key, Arc::new(RwLock::new(texture_cache)));
     }
     Ok(())
 }
@@ -305,12 +297,8 @@ pub fn create_scale_texture_cache(
 ) -> Result<(), PbrtError> {
     let texture_type = texture.get_type();
     assert!(texture_type == "scale", "Texture type must be constant");
-    let tex1 = get_texture_image(
-        texture, size, cache_map, "tex1"
-    );
-    let tex2 = get_texture_image(
-        texture, size, cache_map, "tex2"
-    );
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
 
     if tex1.is_none() || tex2.is_none() {
         return Err(PbrtError::error("Missing texture images for mix texture"));
@@ -330,7 +318,7 @@ pub fn create_scale_texture_cache(
             id: texture.id,
             image: scaled_image,
         };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+        cache_map.insert(key, Arc::new(RwLock::new(texture_cache)));
     }
     Ok(())
 }
@@ -376,4 +364,3 @@ pub fn create_texture_cache(
     }
     Ok(())
 }
-

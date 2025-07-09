@@ -16,4 +16,4 @@ impl From<(String, Uuid, TextureCacheSize)> for TextureCacheKey {
     }
 }
 
-pub type TextureCacheMap = Arc<RwLock<HashMap<TextureCacheKey, Option<Arc<RwLock<TextureCache>>>>>>;
+pub type TextureCacheMap = Arc<RwLock<HashMap<TextureCacheKey, Arc<RwLock<TextureCache>>>>>;
