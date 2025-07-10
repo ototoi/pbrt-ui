@@ -247,7 +247,7 @@ fn get_base_color_value(
                 return None;
             } else if key_type == "spectrum" {
                 //let spectrum
-                return Some(RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]));
+                return Some(RenderUniformValue::Vec4([1.0, 0.0, 1.0, 1.0]));
             }
             // Handle texture loading if needed
             return None;
@@ -276,13 +276,7 @@ fn get_base_color(
             );
         }
         "metal" => {
-            return get_base_color_value(
-                resource_manager,
-                render_resource_manager,
-                gl,
-                props,
-                "Kr",
-            );
+            return get_base_color_value(resource_manager, render_resource_manager, gl, props, "k");
         }
         "glass" | "mirror" => {
             return get_base_color_value(
@@ -291,6 +285,15 @@ fn get_base_color(
                 gl,
                 props,
                 "Kr",
+            );
+        }
+        "substrate" => {
+            return get_base_color_value(
+                resource_manager,
+                render_resource_manager,
+                gl,
+                props,
+                "Kd",
             );
         }
         "kdsubsurface" => {
