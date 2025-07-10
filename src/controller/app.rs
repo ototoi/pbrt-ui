@@ -1,5 +1,5 @@
-use crate::geometry::texture_cache;
-use crate::geometry::texture_cache::TextureCacheSize;
+use crate::conversion::texture_cache;
+use crate::conversion::texture_cache::TextureCacheSize;
 use crate::model::scene::CameraComponent;
 use crate::model::scene::Node;
 use crate::model::scene::ResourceCacheComponent;

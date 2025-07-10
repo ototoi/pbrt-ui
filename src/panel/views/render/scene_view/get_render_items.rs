@@ -6,6 +6,7 @@ use super::render_solid_program::{
 };
 use super::render_wireframe_program::{WIREFRAME_SHADER_ID, create_render_wireframe_program};
 
+use crate::conversion::spectrum::Spectrum;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
@@ -13,7 +14,7 @@ use crate::model::scene::Node;
 use crate::model::scene::Shape;
 use crate::model::scene::{CameraComponent, LightComponent, Material};
 
-use crate::geometry::texture_cache::{TextureCacheManager, TextureCacheSize};
+use crate::conversion::texture_cache::{TextureCacheManager, TextureCacheSize};
 use crate::model::scene::Component;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::ResourceCacheComponent;
@@ -224,6 +225,14 @@ fn get_texture(
     return None;
 }
 
+fn normalize_rgb(rgb: [f32; 3]) -> [f32; 3] {
+    let max_value = rgb.iter().cloned().fold(0.0, f32::max);
+    if max_value > 0.0 {
+        return [rgb[0] / max_value, rgb[1] / max_value, rgb[2] / max_value];
+    }
+    return rgb;
+}
+
 fn get_base_color_value(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut GLResourceManager,
@@ -246,8 +255,23 @@ fn get_base_color_value(
                     }
                 }
             } else if key_type == "spectrum" {
-                //let spectrum
-                return RenderUniformValue::Vec4([1.0, 0.0, 1.0, 1.0]);
+                let filename = value.get(0).cloned().unwrap_or_default();
+                //println!("Loading spectrum from file: {}", filename);
+                if let Some(resource) = resource_manager.find_spectrum_by_filename(&filename) {
+                    //println!("Found resource for spectrum: {}", resource.read().unwrap().get_name());
+                    if let Some(fullpath) = resource.read().unwrap().get_fullpath() {
+                        //println!("Full path for spectrum: {}", fullpath);
+                        if let Ok(spectrum) = Spectrum::load_from_file(&fullpath) {
+                            //println!("Successfully loaded spectrum from file: {}", fullpath);
+                            let rgb = spectrum.to_rgb();
+                            //let rgb = normalize_rgb(rgb);// Normalize RGB values to [0, 1]
+                            //println!("Converted spectrum to RGB: {:?}", rgb);
+                            return RenderUniformValue::Vec4([rgb[0], rgb[1], rgb[2], 1.0]);
+                        } else {
+                            log::warn!("Failed to load spectrum from file: {}", fullpath);
+                        }
+                    }
+                }
             }
             // Handle texture loading if needed
             return default_value;
@@ -283,7 +307,7 @@ fn get_base_color(
                 gl,
                 props,
                 "k",
-                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),//todo
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), //todo
             );
         }
         "glass" | "mirror" => {

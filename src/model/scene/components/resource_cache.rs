@@ -1,5 +1,5 @@
 use super::component::Component;
-use crate::geometry::texture_cache::TextureCacheManager;
+use crate::conversion::texture_cache::TextureCacheManager;
 
 use std::sync::Arc;
 use std::sync::RwLock;
