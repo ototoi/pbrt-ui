@@ -34,7 +34,6 @@ use crate::renderer::gl::{GLResourceComponent, RenderTexture};
 use uuid::Uuid;
 
 use eframe::glow;
-use std::default;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
