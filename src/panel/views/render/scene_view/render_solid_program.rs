@@ -3,7 +3,6 @@ use crate::renderer::gl::RenderProgram;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use eframe::epaint::color;
 use uuid::Uuid;
 
 use eframe::egui_glow;
@@ -15,61 +14,12 @@ pub const RENDER_SOLID_SHADER_TEXTURE_ID: &str = "5af7fcd0-189c-4458-b872-17ed2b
 fn get_shader_source(id: Uuid) -> Option<(&'static str, &'static str)> {
     match id {
         _ if id == Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap() => Some((
-            r#"
-            layout(location = 0) in vec3 position;
-            layout(location = 2) in vec2 uv;
-
-            out vec2 vertexUV;
-
-            uniform mat4 local_to_world;
-            uniform mat4 world_to_camera;
-            uniform mat4 camera_to_clip;
-
-            void main() {
-                gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
-                vertexUV = uv;
-            }
-        "#,
-            r#"
-            precision highp float;
-            in vec2 vertexUV;
-            uniform vec4 base_color;
-
-            out vec4 outColor;
-
-            void main() {
-                outColor = base_color;
-            }
-        "#,
+            include_str!("shaders/solid/solid_color.vs"),
+            include_str!("shaders/solid/solid_color.fs"),
         )),
         _ if id == Uuid::parse_str(RENDER_SOLID_SHADER_TEXTURE_ID).unwrap() => Some((
-            r#"
-                layout(location = 0) in vec3 position;
-                layout(location = 2) in vec2 uv;
-
-                out vec2 vertexUV;
-
-                uniform vec4 base_color;
-                uniform mat4 local_to_world;
-                uniform mat4 world_to_camera;
-                uniform mat4 camera_to_clip;
-
-                void main() {
-                    gl_Position = vec4(position, 1) * local_to_world * world_to_camera * camera_to_clip;
-                    vertexUV = uv;
-                }
-            "#,
-            r#"
-                precision highp float;
-                in vec2 vertexUV;
-                uniform sampler2D base_color;
-
-                out vec4 outColor;
-
-                void main() {
-                    outColor = texture(base_color, vertexUV);
-                }
-            "#,
+            include_str!("shaders/solid/solid_texture.vs"),
+            include_str!("shaders/solid/solid_texture.fs"),
         )),
         _ => None,
     }
