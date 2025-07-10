@@ -712,13 +712,18 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
         n.push(v.z);
     }
 
-    let _uv = Vec::new();
+    let mut uv = Vec::new();
+    for _ in 0..p_limit.len() {
+        uv.push(0.0);
+        uv.push(0.0);
+    }
+
     let _s = Vec::new();
     let mesh_data = MeshData {
         indices: verts,
         positions: p,
         normals: n,
-        uvs: _uv,
+        uvs: uv,
         tangents: _s,
     };
 
