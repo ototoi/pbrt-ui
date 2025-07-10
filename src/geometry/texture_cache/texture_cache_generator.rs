@@ -12,6 +12,7 @@ use std::sync::{Arc, RwLock};
 use crypto::digest::Digest;
 use image;
 use image::DynamicImage;
+use image::GenericImageView;
 
 fn get_digest(path: &str) -> String {
     let mut hasher = crypto::sha1::Sha1::new();
@@ -41,9 +42,10 @@ fn create_texture_cache_path(src: &str, size: TextureCacheSize) -> String {
 pub fn create_imagemap_texture_cache(
     texture: &Texture,
     size: TextureCacheSize,
-    cache_map: &TextureCacheMap,
-) -> Result<(), PbrtError> {
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
     let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
     assert!(texture_type == "imagemap", "Texture type must be imagemap");
     if let Some(src) = texture.get_fullpath() {
         let dst = create_texture_cache_path(&src, size);
@@ -51,23 +53,12 @@ pub fn create_imagemap_texture_cache(
         let src = std::path::PathBuf::from(src);
         let dst = std::path::PathBuf::from(dst);
         if dst.exists() {
-            let image = image::open(&dst)
-                .map_err(|e| PbrtError::error(&format!("Failed to open cached image: {}", e)))?;
+            let image = image::open(&dst).map_err(|e| PbrtError::error(&format!("{}", e)))?;
             let image = Arc::new(image);
-            {
-                let name = texture.get_name();
-                let id = texture.get_id();
-                let key = TextureCacheKey::from((name, id, size));
-                let mut cache_map = cache_map.write().unwrap();
-                let texture_cache = TextureCache {
-                    id: texture.id,
-                    image: image,
-                };
-                cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
-            }
+            let texture_cache = TextureCache { id, edition, image };
+            return Ok(Arc::new(RwLock::new(texture_cache)));
         } else if src.exists() {
-            let src_img = image::open(&src)
-                .map_err(|e| PbrtError::error(&format!("Failed to open image: {}", e)))?;
+            let src_img = image::open(&src).map_err(|e| PbrtError::error(&format!("{}", e)))?;
             let resized_img = match size {
                 TextureCacheSize::Icon => {
                     let factor = f32::min(
@@ -87,32 +78,25 @@ pub fn create_imagemap_texture_cache(
             };
             resized_img
                 .save(&dst)
-                .map_err(|e| PbrtError::error(&format!("Failed to save image: {}", e)))?;
+                .map_err(|e| PbrtError::error(&format!("{}", e)))?;
 
             let image = Arc::new(resized_img);
-            {
-                let name = texture.get_name();
-                let id = texture.get_id();
-                let key = TextureCacheKey::from((name, id, size));
-                let mut cache_map = cache_map.write().unwrap();
-                let texture_cache = TextureCache {
-                    id: texture.id,
-                    image: image,
-                };
-                cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
-            }
+            let texture_cache = TextureCache { id, edition, image };
+            return Ok(Arc::new(RwLock::new(texture_cache)));
         }
     }
-
-    return Ok(());
+    return Err(PbrtError::error(
+        "Texture does not have a valid source path",
+    ));
 }
 
 pub fn create_default_texture_cache(
     texture: &Texture,
     size: TextureCacheSize,
-    cache_map: &TextureCacheMap,
     color: &image::Rgba<u8>,
-) -> Result<(), PbrtError> {
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let id = texture.get_id();
+    let edition = texture.get_edition();
     let resolution = match size {
         TextureCacheSize::Icon => (64, 64),
         TextureCacheSize::Full => (256, 256),
@@ -126,27 +110,16 @@ pub fn create_default_texture_cache(
 
     let image = image::DynamicImage::ImageRgba8(image_buffer);
     let image = Arc::new(image);
-
-    {
-        let name = texture.get_name();
-        let id = texture.get_id();
-        let key = TextureCacheKey::from((name, id, size));
-        let mut cache_map = cache_map.write().unwrap();
-        let texture_cache = TextureCache {
-            id: texture.id,
-            image: image,
-        };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
-    }
-    Ok(())
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
 }
 
 pub fn create_constant_texture_cache(
     texture: &Texture,
-    size: TextureCacheSize,
-    cache_map: &TextureCacheMap,
-) -> Result<(), PbrtError> {
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
     let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
     assert!(texture_type == "constant", "Texture type must be constant");
     let color = texture.as_property_map().get_floats("color value");
     let color = match color.len() {
@@ -167,18 +140,8 @@ pub fn create_constant_texture_cache(
 
     let image = image::DynamicImage::ImageRgba32F(image_buffer);
     let image = Arc::new(image);
-    {
-        let name = texture.get_name();
-        let id = texture.get_id();
-        let key = TextureCacheKey::from((name, id, size));
-        let mut cache_map = cache_map.write().unwrap();
-        let texture_cache = TextureCache {
-            id: texture.id,
-            image: image,
-        };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
-    }
-    Ok(())
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
 }
 
 fn find_texture_cache(
@@ -189,19 +152,40 @@ fn find_texture_cache(
     let textures = cache_map.read().unwrap();
     for (cache_key, cache) in textures.iter() {
         if cache_key.0 == name && cache_key.2 == size {
-            if let Some(cache) = cache {
-                return Some(cache.clone());
-            }
+            return Some(cache.clone());
         }
     }
-    None
+    return None;
 }
 
 fn mix_texture(tex1: &DynamicImage, tex2: &DynamicImage, amount: &DynamicImage) -> DynamicImage {
-    // This function would implement the logic to mix two textures based on the amount.
-    // For simplicity, we will just return one of the textures here.
-    // In a real implementation, you would blend the two textures based on the amount.
-    return tex1.clone();
+    let dim1 = tex1.dimensions();
+    let dim2 = tex2.dimensions();
+    let dim3 = amount.dimensions();
+    let dimf = (
+        dim1.0.max(dim2.0).max(dim3.0),
+        dim1.1.max(dim2.1).max(dim3.1),
+    );
+
+    let tex1 = tex1.resize_exact(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let tex2 = tex2.resize_exact(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let amount = amount.resize_exact(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+
+    let tex1 = tex1.to_rgba32f();
+    let tex2 = tex2.to_rgba32f();
+    let amount = amount.to_rgba32f();
+    let mut image_buffer = image::ImageBuffer::new(dimf.0, dimf.1);
+    for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
+        let p1 = tex1.get_pixel(x, y);
+        let p2 = tex2.get_pixel(x, y);
+        let a = amount.get_pixel(x, y)[0]; // Assuming amount is a grayscale image
+        let r = p1[0] * (1.0 - a) + p2[0] * a;
+        let g = p1[1] * (1.0 - a) + p2[1] * a;
+        let b = p1[2] * (1.0 - a) + p2[2] * a;
+        let alpha = p1[3] * (1.0 - a) + p2[3] * a;
+        *pixel = image::Rgba([r, g, b, alpha]);
+    }
+    return DynamicImage::ImageRgba32F(image_buffer);
 }
 
 fn get_texture_image(
@@ -234,6 +218,8 @@ fn get_texture_image(
                 if let Some(cache) = find_texture_cache(&cache_map, &texture_name, size) {
                     return Some(cache.read().unwrap().image.clone());
                 }
+            } else if key_type == "spectrum" {
+                //
             }
         }
     }
@@ -244,23 +230,19 @@ pub fn create_mix_texture_cache(
     texture: &Texture,
     size: TextureCacheSize,
     cache_map: &TextureCacheMap,
-) -> Result<(), PbrtError> {
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
     let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
     assert!(texture_type == "mix", "Texture type must be constant");
-    let tex1 = get_texture_image(
-        texture, size, cache_map, "tex1"
-    );
-    let tex2 = get_texture_image(
-        texture, size, cache_map, "tex2"
-    );
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
 
     if tex1.is_none() || tex2.is_none() {
         return Err(PbrtError::error("Missing texture images for mix texture"));
     }
 
-    let amount = get_texture_image(
-        texture, size, cache_map, "amount"
-    );
+    let amount = get_texture_image(texture, size, cache_map, "amount");
 
     let amount = match amount {
         Some(img) => img,
@@ -275,42 +257,44 @@ pub fn create_mix_texture_cache(
     let tex1 = tex1.unwrap();
     let tex2 = tex2.unwrap();
 
-    let mixed_image = mix_texture(&tex1, &tex2, &amount);
-    let mixed_image = Arc::new(mixed_image);
-    {
-        let name = texture.get_name();
-        let id = texture.get_id();
-        let key = TextureCacheKey::from((name, id, size));
-        let mut cache_map = cache_map.write().unwrap();
-        let texture_cache = TextureCache {
-            id: texture.id,
-            image: mixed_image,
-        };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
-    }
-    Ok(())
+    let image = mix_texture(&tex1, &tex2, &amount);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
 }
 
 fn scale_texture(tex1: &DynamicImage, tex2: &DynamicImage) -> DynamicImage {
-    // This function would implement the logic to scale a texture.
-    // For simplicity, we will just return one of the textures here.
-    // In a real implementation, you would scale the texture based on the scale factor.
-    return tex1.clone();
+    let dim1 = tex1.dimensions();
+    let dim2 = tex2.dimensions();
+    let dimf = (dim1.0.max(dim2.0), dim1.1.max(dim2.1));
+    let tex1 = tex1.resize_exact(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let tex2 = tex2.resize_exact(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let tex1 = tex1.to_rgba32f();
+    let tex2 = tex2.to_rgba32f();
+    let mut image_buffer = image::ImageBuffer::new(dimf.0, dimf.1);
+    for (x, y, pixel) in image_buffer.enumerate_pixels_mut() {
+        let p1 = tex1.get_pixel(x, y);
+        let p2 = tex2.get_pixel(x, y);
+        let r = p1[0] * p2[0];
+        let g = p1[1] * p2[1];
+        let b = p1[2] * p2[2];
+        let alpha = p1[3] * p2[3];
+        *pixel = image::Rgba([r, g, b, alpha]);
+    }
+    return DynamicImage::ImageRgba32F(image_buffer);
 }
 
 pub fn create_scale_texture_cache(
     texture: &Texture,
     size: TextureCacheSize,
     cache_map: &TextureCacheMap,
-) -> Result<(), PbrtError> {
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
     let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
     assert!(texture_type == "scale", "Texture type must be constant");
-    let tex1 = get_texture_image(
-        texture, size, cache_map, "tex1"
-    );
-    let tex2 = get_texture_image(
-        texture, size, cache_map, "tex2"
-    );
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
 
     if tex1.is_none() || tex2.is_none() {
         return Err(PbrtError::error("Missing texture images for mix texture"));
@@ -319,61 +303,50 @@ pub fn create_scale_texture_cache(
     let tex1 = tex1.unwrap();
     let tex2 = tex2.unwrap();
 
-    let scaled_image = scale_texture(&tex1, &tex2);
-    let scaled_image = Arc::new(scaled_image);
-    {
-        let name = texture.get_name();
-        let id = texture.get_id();
-        let key = TextureCacheKey::from((name, id, size));
-        let mut cache_map = cache_map.write().unwrap();
-        let texture_cache = TextureCache {
-            id: texture.id,
-            image: scaled_image,
-        };
-        cache_map.insert(key, Some(Arc::new(RwLock::new(texture_cache))));
+    let image = scale_texture(&tex1, &tex2);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
+}
+
+pub fn create_texture_cache_core(
+    texture: &Texture,
+    size: TextureCacheSize,
+    cache_map: &TextureCacheMap,
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let texture_type = texture.get_type();
+    match texture_type.as_str() {
+        "imagemap" => create_imagemap_texture_cache(texture, size),
+        "constant" => create_constant_texture_cache(texture),
+        "mix" => create_mix_texture_cache(texture, size, cache_map),
+        "scale" => create_scale_texture_cache(texture, size, cache_map),
+        "bilerp" => create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255])),
+        "checkerboard" | "dots" | "fbm" | "windy" | "wrinkled" | "marble" => {
+            create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255]))
+        }
+        _ => {
+            return Err(PbrtError::error(&format!(
+                "Unsupported texture type: {}",
+                texture_type
+            )));
+        }
     }
-    Ok(())
 }
 
 pub fn create_texture_cache(
     texture: &Texture,
     size: TextureCacheSize,
     cache_map: &TextureCacheMap,
-) -> Result<(), PbrtError> {
-    let texture_type = texture.get_type();
-    match texture_type.as_str() {
-        "imagemap" => {
-            create_imagemap_texture_cache(texture, size, cache_map)?;
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    match create_texture_cache_core(texture, size, cache_map) {
+        Ok(cache) => {
+            let mut cache_map = cache_map.write().unwrap();
+            let key = TextureCacheKey::from((texture.get_name(), texture.get_id(), size));
+            cache_map.insert(key, cache.clone());
+            return Ok(cache);
         }
-        "constant" => {
-            create_constant_texture_cache(texture, size, cache_map)?;
-        }
-        "mix" => {
-            create_mix_texture_cache(texture, size, cache_map)?;
-        }
-        "scale" => {
-            create_scale_texture_cache(texture, size, cache_map)?;
-        }
-        "bilerp" => {
-            create_default_texture_cache(
-                texture,
-                size,
-                cache_map,
-                &image::Rgba([255, 0, 255, 255]),
-            )?;
-        }
-        "checkerboard" | "dots" | "fbm" | "windy" | "wrinkled" | "marble" => {
-            create_default_texture_cache(
-                texture,
-                size,
-                cache_map,
-                &image::Rgba([255, 0, 255, 255]),
-            )?;
-        }
-        _ => {
-            log::warn!("Unsupported texture type for caching: {}", texture_type);
+        Err(e) => {
+            return Err(e);
         }
     }
-    Ok(())
 }
-

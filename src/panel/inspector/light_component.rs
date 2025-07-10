@@ -6,6 +6,7 @@ use crate::model::scene::LightComponent;
 use crate::model::scene::Properties;
 
 use eframe::egui;
+use uuid::Uuid;
 
 impl InspectorPanel {
     pub fn show_light_component(
@@ -14,7 +15,8 @@ impl InspectorPanel {
         ui: &mut egui::Ui,
         component: &mut LightComponent,
         resource_selector: &ResourceSelector,
-    ) {
+    ) -> bool {
+        let mut is_changed = false;
         let t = component.get_type();
         let title = LightComponent::get_name_from_type(&t);
         let mut keys = Vec::new();
@@ -29,6 +31,10 @@ impl InspectorPanel {
             keys.push((key_type.clone(), key_name.clone(), range.clone()));
         }
         //-------------------------------------------------------------------
-        show_component_props(index, &title, ui, props, &keys, resource_selector);
+        if show_component_props(index, &title, ui, props, &keys, resource_selector) {
+            is_changed = true;
+            props.add_string("string edition", &Uuid::new_v4().to_string());
+        }
+        return is_changed;
     }
 }

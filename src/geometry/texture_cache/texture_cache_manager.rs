@@ -25,13 +25,13 @@ impl TextureCacheManager {
         &self,
         texture: &Texture,
         sz: TextureCacheSize,
-    ) -> Option<(TextureCacheKey, Option<Arc<RwLock<TextureCache>>>)> {
+    ) -> Option<Arc<RwLock<TextureCache>>> {
         let textures = self.textures.read().unwrap();
         let id = texture.get_id();
         let name = texture.get_name();
         let key = TextureCacheKey::from((name, id, sz));
         if let Some(cache) = textures.get(&key) {
-            return Some((key.clone(), cache.clone()));
+            return Some(cache.clone());
         }
         return None;
     }
@@ -41,27 +41,20 @@ impl TextureCacheManager {
         texture: &Texture,
         sz: TextureCacheSize,
     ) -> Option<Arc<RwLock<TextureCache>>> {
-        let id = texture.get_id();
-        let name = texture.get_name();
-        if let Some((_key, cache)) = self.find_texture_cache(texture, sz) {
-            return cache;
-        } else {
-            {
-                let key = TextureCacheKey::from((name, id, sz));
-                let mut textures = self.textures.write().unwrap();
-                textures.insert(key, None);
+        if let Some(cache) = self.find_texture_cache(texture, sz) {
+            let edition = cache.read().unwrap().edition.clone();
+            if edition == texture.get_edition() {
+                return Some(cache);
             }
-            {
-                let _ = create_texture_cache(
-                    texture,
-                    sz,
-                    &self.textures,
-                );
+        }
+        match create_texture_cache(texture, sz, &self.textures) {
+            Ok(cache) => {
+                return Some(cache);
             }
-            if let Some((_key, cache)) = self.find_texture_cache(texture, sz) {
-                return cache;
+            Err(_) => {
+                // Handle error if needed
+                return None;
             }
-            return None;
         }
     }
 }

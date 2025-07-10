@@ -19,7 +19,7 @@ use eframe::egui::Vec2;
 pub struct ResourcesPanel {
     pub app_controller: Arc<RwLock<AppController>>,
     pub resource_type: ResourceType,
-    pub texture_id_map: HashMap<Uuid, egui::TextureId>,
+    pub texture_id_map: HashMap<Uuid, (String, egui::TextureId)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -80,7 +80,7 @@ impl ResourcesPanel {
                     let resource_manager = resource_manager.write().unwrap();
                     let texture_cache_manager =
                         resource_cache_component.get_texture_cache_manager();
-                    let mut texture_cache_manager = texture_cache_manager.write().unwrap();
+                    let texture_cache_manager = texture_cache_manager.write().unwrap();
                     let texture_manager = ui.ctx().tex_manager();
                     let mut texture_manager = texture_manager.write();
 
@@ -97,22 +97,34 @@ impl ResourcesPanel {
                                 let texture_cache = texture_cache.read().unwrap();
                                 let org_id = texture_cache.id;
                                 //println!("Cache path: {}", cache_path);
-                                if let Some(id) = self.texture_id_map.get(&org_id) {
-                                    texure_id = Some(*id);
-                                } else {
+                                if let Some((edition, tex_id)) = self.texture_id_map.get(&org_id) {
+                                    if *edition == texture_cache.edition {
+                                        texure_id = Some(*tex_id);
+                                    }
+                                }
+                                if texure_id.is_none() {
                                     if let Some(rgb_image) = get_image_data(&texture_cache.image) {
+                                        if let Some(old_tex_id) =
+                                            self.texture_id_map.get(&org_id).map(|(_, id)| *id)
+                                        {
+                                            texture_manager.free(old_tex_id);
+                                        }
+
                                         // Create a new texture ID
                                         let color_image =
                                             egui::ImageData::Color(Arc::new(rgb_image));
                                         let texture_options = egui::TextureOptions::LINEAR;
-                                        let id = texture_manager.alloc(
+                                        let new_tex_id = texture_manager.alloc(
                                             name.clone(),
                                             color_image,
                                             texture_options,
                                         );
-                                        texure_id = Some(id);
+                                        texure_id = Some(new_tex_id);
                                         // Store the texture ID in the map
-                                        self.texture_id_map.insert(org_id, id);
+                                        self.texture_id_map.insert(
+                                            org_id,
+                                            (texture_cache.edition.clone(), new_tex_id),
+                                        );
                                     }
                                 }
                             }

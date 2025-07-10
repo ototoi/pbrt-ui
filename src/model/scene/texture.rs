@@ -99,7 +99,8 @@ impl Texture {
 
     pub fn set_id(&mut self, id: Uuid) {
         self.id = id;
-        self.props.insert("string id", Property::from(id.to_string()));
+        self.props
+            .insert("string id", Property::from(id.to_string()));
     }
 
     pub fn set_order(&mut self, order: i32) {

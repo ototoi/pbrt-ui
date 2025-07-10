@@ -3,8 +3,8 @@ use crate::model::scene::Texture;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use image::{DynamicImage, GenericImageView};
 use image::imageops::*;
+use image::{DynamicImage, GenericImageView};
 
 //use eframe::egui;
 use eframe::{
@@ -68,16 +68,8 @@ impl RenderTexture {
                 glow::LINEAR as i32,
             );
 
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_S,
-                wrap_mode as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_T,
-                wrap_mode as i32,
-            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, wrap_mode as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode as i32);
             gl.bind_texture(glow::TEXTURE_2D, None);
             return Some(Self {
                 id,
@@ -88,6 +80,13 @@ impl RenderTexture {
                 gl: gl.clone(),
             });
         }
+    }
+
+    pub fn get_id(&self) -> Uuid {
+        self.id
+    }
+    pub fn get_edition(&self) -> String {
+        self.edition.clone()
     }
 }
 

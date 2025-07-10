@@ -30,7 +30,7 @@ fn get_shader_source(id: Uuid) -> Option<(&'static str, &'static str)> {
                 vertexUV = uv;
             }
         "#,
-        r#"
+            r#"
             precision highp float;
             in vec2 vertexUV;
             uniform vec4 base_color;
@@ -74,8 +74,6 @@ fn get_shader_source(id: Uuid) -> Option<(&'static str, &'static str)> {
         _ => None,
     }
 }
-
-
 
 pub fn create_render_solid_program(
     gl: &Arc<glow::Context>,

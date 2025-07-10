@@ -1,10 +1,11 @@
-use std::sync::Arc;
 use image::DynamicImage;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct TextureCache {
     pub id: Uuid,
+    pub edition: String,
     pub image: Arc<DynamicImage>,
 }
 

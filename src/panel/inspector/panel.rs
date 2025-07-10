@@ -50,7 +50,7 @@ pub struct InspectorPanel {
     pub integrator_properties: IntegratorProperties,
     pub texture_properties: TextureProperties,
     pub mapping_properties: MappingProperties,
-    pub texture_id_map: Arc<RwLock<HashMap<Uuid, egui::TextureId>>>,
+    pub texture_id_map: Arc<RwLock<HashMap<Uuid, (String, egui::TextureId)>>>,
 }
 
 impl InspectorPanel {
@@ -183,7 +183,8 @@ impl InspectorPanel {
         ui: &mut egui::Ui,
         component: &mut ShapeComponent,
         resource_selector: &ResourceSelector,
-    ) {
+    ) -> bool {
+        let mut is_changed = false;
         let shape = component.get_shape();
         let mut shape = shape.write().unwrap();
         let props = shape.as_property_map_mut();
@@ -199,10 +200,13 @@ impl InspectorPanel {
                 keys.push((key_type.clone(), key_name.clone(), range.clone()));
             }
         }
-        show_component_props(index, &name, ui, props, &keys, resource_selector);
-        if ShapeComponent::is_ediable(&shape_type) {
-            props.add_string("string edition", &Uuid::new_v4().to_string());
+        if show_component_props(index, &name, ui, props, &keys, resource_selector) {
+            if ShapeComponent::is_ediable(&shape_type) {
+                is_changed = true;
+                props.add_string("string edition", &Uuid::new_v4().to_string());
+            }
         }
+        return is_changed;
     }
 
     fn show_option_component(
@@ -212,7 +216,8 @@ impl InspectorPanel {
         option_type: &str,
         props: &mut PropertyMap,
         resource_selector: &ResourceSelector,
-    ) {
+    ) -> bool {
+        let mut is_changed = false;
         let title = option_type.to_case(Case::Title);
         let mut keys = Vec::new();
         if let Some(params) = self.option_properties.get(option_type) {
@@ -224,7 +229,11 @@ impl InspectorPanel {
                 keys.push((key_type.clone(), key_name.clone(), None)); //todo: add range
             }
         }
-        show_component_props(index, &title, ui, props, &keys, resource_selector);
+        if show_component_props(index, &title, ui, props, &keys, resource_selector) {
+            is_changed = true;
+            props.add_string("string edition", &Uuid::new_v4().to_string());
+        }
+        return is_changed;
     }
 
     fn show_other_component(
@@ -234,13 +243,18 @@ impl InspectorPanel {
         title: &str,
         props: &mut PropertyMap,
         resource_selector: &ResourceSelector,
-    ) {
+    ) -> bool {
+        let mut is_changed = false;
         let keys = props.get_keys();
         let keys = keys
             .iter()
             .map(|(key_type, key_name)| (key_type.clone(), key_name.clone(), None))
             .collect::<Vec<_>>();
-        show_component_props(index, title, ui, props, &keys, resource_selector);
+        if show_component_props(index, title, ui, props, &keys, resource_selector) {
+            is_changed = true;
+            props.add_string("string edition", &Uuid::new_v4().to_string());
+        }
+        return is_changed;
     }
 
     pub fn show_resource(&self, ui: &mut egui::Ui, id: Uuid) {
