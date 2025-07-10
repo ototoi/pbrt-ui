@@ -77,6 +77,10 @@ fn get_material(node: &Arc<RwLock<Node>>) -> Arc<RwLock<Material>> {
 }
 
 fn get_scene_item(parent_matrix: &Matrix4x4, node: &Arc<RwLock<Node>>, items: &mut Vec<SceneItem>) {
+    if !node.read().unwrap().is_enabled() {
+        return;
+    }
+
     let local_matrix = get_local_matrix(node);
     let world_matrix = *parent_matrix * local_matrix;
 
