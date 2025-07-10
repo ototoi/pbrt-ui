@@ -34,6 +34,7 @@ use crate::renderer::gl::{GLResourceComponent, RenderTexture};
 use uuid::Uuid;
 
 use eframe::glow;
+use std::default;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,30 +231,30 @@ fn get_base_color_value(
     gl: &Arc<glow::Context>,
     props: &PropertyMap,
     key: &str,
-) -> Option<RenderUniformValue> {
+    default_value: RenderUniformValue,
+) -> RenderUniformValue {
     if let Some((key_type, _key_name, value)) = props.entry(key) {
         if let Property::Floats(v) = value {
             if v.len() >= 3 {
-                return Some(RenderUniformValue::Vec4([v[0], v[1], v[2], 1.0]));
+                return RenderUniformValue::Vec4([v[0], v[1], v[2], 1.0]);
             }
         } else if let Property::Strings(value) = value {
             if key_type == "texture" {
                 let texture_name = value.get(0).cloned().unwrap_or_default();
                 if let Some(texture) = resource_manager.find_texture_by_name(&texture_name) {
                     if let Some(render_texture) = get_texture(render_resource_manager, &texture) {
-                        return Some(RenderUniformValue::Texture(render_texture.texture));
+                        return RenderUniformValue::Texture(render_texture.texture);
                     }
                 }
-                return None;
             } else if key_type == "spectrum" {
                 //let spectrum
-                return Some(RenderUniformValue::Vec4([1.0, 0.0, 1.0, 1.0]));
+                return RenderUniformValue::Vec4([1.0, 0.0, 1.0, 1.0]);
             }
             // Handle texture loading if needed
-            return None;
+            return default_value;
         }
     }
-    return None;
+    return default_value;
 }
 
 fn get_base_color(
@@ -261,7 +262,7 @@ fn get_base_color(
     render_resource_manager: &mut GLResourceManager,
     gl: &Arc<glow::Context>,
     material: &Arc<RwLock<Material>>,
-) -> Option<RenderUniformValue> {
+) -> RenderUniformValue {
     let material = material.read().unwrap();
     let material_type = material.get_type();
     let props = material.as_property_map();
@@ -273,10 +274,18 @@ fn get_base_color(
                 gl,
                 props,
                 "Kd",
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), // Default white color
             );
         }
         "metal" => {
-            return get_base_color_value(resource_manager, render_resource_manager, gl, props, "k");
+            return get_base_color_value(
+                resource_manager,
+                render_resource_manager,
+                gl,
+                props,
+                "k",
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),//todo
+            );
         }
         "glass" | "mirror" => {
             return get_base_color_value(
@@ -285,6 +294,7 @@ fn get_base_color(
                 gl,
                 props,
                 "Kr",
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
             );
         }
         "substrate" => {
@@ -294,6 +304,7 @@ fn get_base_color(
                 gl,
                 props,
                 "Kd",
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
             );
         }
         "kdsubsurface" => {
@@ -303,6 +314,7 @@ fn get_base_color(
                 gl,
                 props,
                 "Kd",
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
             );
         }
         "disney" => {
@@ -312,11 +324,12 @@ fn get_base_color(
                 gl,
                 props,
                 "color",
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
             );
         }
         _ => {}
     }
-    return None;
+    return RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]);
 }
 
 fn convert_material(
@@ -336,16 +349,9 @@ fn convert_material(
             ));
         }
         RenderMode::Solid => {
-            if let Some(base_color) =
-                get_base_color(resource_manager, render_resource_manager, gl, material)
-            {
-                uniform_values.push(("base_color".to_string(), base_color));
-            } else {
-                uniform_values.push((
-                    "base_color".to_string(),
-                    RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]), // Default white color
-                ));
-            }
+            let base_color =
+                get_base_color(resource_manager, render_resource_manager, gl, material);
+            uniform_values.push(("base_color".to_string(), base_color));
         }
         _ => {
             //
