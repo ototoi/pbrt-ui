@@ -13,7 +13,7 @@ use crate::model::scene::Node;
 use crate::model::scene::Shape;
 use crate::model::scene::{CameraComponent, LightComponent, Material};
 
-use crate::geometry::texture_cache::{self, TextureCacheManager, TextureCacheSize};
+use crate::geometry::texture_cache::{TextureCacheManager, TextureCacheSize};
 use crate::model::scene::Component;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::ResourceCacheComponent;
@@ -289,6 +289,15 @@ fn get_base_color(
                 "Kr",
             );
         }
+        "kdsubsurface" => {
+            return get_base_color_value(
+                resource_manager,
+                render_resource_manager,
+                gl,
+                props,
+                "Kd",
+            );
+        }
         "disney" => {
             return get_base_color_value(
                 resource_manager,
@@ -521,9 +530,12 @@ fn build_texture_cache(
     for (_, texture) in textures.iter() {
         let texture = texture.read().unwrap();
         let id = texture.get_id();
-        if let Some(_render_texture) = render_resource_manager.get_texture(id) {
+        if let Some(render_texture) = render_resource_manager.get_texture(id) {
             // Texture already exists in the render resource manager
-            continue;
+            if render_texture.get_edition() == texture.get_edition() {
+                // Edition matches, no need to rebuild
+                continue;
+            }
         }
         if let Some(texture_cache) =
             texture_cache_manager.get_texture_cache(&texture, TextureCacheSize::Full)

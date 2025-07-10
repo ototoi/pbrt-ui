@@ -81,6 +81,13 @@ impl RenderTexture {
             });
         }
     }
+
+    pub fn get_id(&self) -> Uuid {
+        self.id
+    }
+    pub fn get_edition(&self) -> String {
+        self.edition.clone()
+    }
 }
 
 impl Drop for RenderTexture {

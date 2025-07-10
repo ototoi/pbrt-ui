@@ -42,15 +42,19 @@ impl TextureCacheManager {
         sz: TextureCacheSize,
     ) -> Option<Arc<RwLock<TextureCache>>> {
         if let Some(cache) = self.find_texture_cache(texture, sz) {
-            return Some(cache);
-        } else {
-            {
-                let _ = create_texture_cache(texture, sz, &self.textures);
-            }
-            if let Some(cache) = self.find_texture_cache(texture, sz) {
+            let edition = cache.read().unwrap().edition.clone();
+            if edition == texture.get_edition() {
                 return Some(cache);
             }
-            return None;
+        }
+        match create_texture_cache(texture, sz, &self.textures) {
+            Ok(cache) => {
+                return Some(cache);
+            }
+            Err(_) => {
+                // Handle error if needed
+                return None;
+            }
         }
     }
 }

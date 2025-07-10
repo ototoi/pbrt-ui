@@ -50,7 +50,7 @@ pub struct InspectorPanel {
     pub integrator_properties: IntegratorProperties,
     pub texture_properties: TextureProperties,
     pub mapping_properties: MappingProperties,
-    pub texture_id_map: Arc<RwLock<HashMap<Uuid, egui::TextureId>>>,
+    pub texture_id_map: Arc<RwLock<HashMap<Uuid, (String, egui::TextureId)>>>,
 }
 
 impl InspectorPanel {

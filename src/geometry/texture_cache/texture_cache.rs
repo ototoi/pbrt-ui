@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct TextureCache {
     pub id: Uuid,
+    pub edition: String,
     pub image: Arc<DynamicImage>,
 }
 

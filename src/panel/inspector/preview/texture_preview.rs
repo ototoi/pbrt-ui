@@ -42,19 +42,29 @@ impl InspectorPanel {
                 let texture_cache = texture_cache.read().unwrap();
                 let org_id = texture_cache.id;
                 let mut texture_id_map = self.texture_id_map.write().unwrap();
-                if let Some(id) = texture_id_map.get(&org_id) {
-                    texture_id = Some(*id);
-                } else {
+                if let Some((edition, tex_id)) = texture_id_map.get(&org_id) {
+                    if *edition == texture_cache.edition {
+                        texture_id = Some(*tex_id);
+                    }
+                }
+                if texture_id.is_none() {
+                    // If the texture ID is not found in the map, create a new one
                     if let Some(rgb_image) = get_image_data(&texture_cache.image) {
                         let texture_manager = ui.ctx().tex_manager();
                         let mut texture_manager = texture_manager.write();
+
+                        if let Some(old_tex_id) = texture_id_map.get(&org_id).map(|(_, id)| *id) {
+                            texture_manager.free(old_tex_id);
+                        }
+
                         // Create a new texture ID
                         let color_image = egui::ImageData::Color(Arc::new(rgb_image));
                         let texture_options = egui::TextureOptions::LINEAR;
-                        let id = texture_manager.alloc(name.clone(), color_image, texture_options);
-                        texture_id = Some(id);
+                        let new_tex_id =
+                            texture_manager.alloc(name.clone(), color_image, texture_options);
+                        texture_id = Some(new_tex_id);
                         // Store the texture ID in the map
-                        texture_id_map.insert(org_id, id);
+                        texture_id_map.insert(org_id, (texture_cache.edition.clone(), new_tex_id));
                     }
                 }
             }
