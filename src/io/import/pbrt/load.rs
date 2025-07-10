@@ -12,10 +12,10 @@ use std::sync::RwLock;
 pub fn load_pbrt(path: &str) -> Result<Arc<RwLock<Node>>, PbrtError> {
     let scene_target = Arc::new(RwLock::new(SceneTarget::default()));
     {
-        let print_target = Arc::new(RwLock::new(PrintTarget::default()));
+        //let print_target = Arc::new(RwLock::new(PrintTarget::default()));
 
         let mut target = MultipleTarget::default();
-        target.add_target(print_target.clone());
+        //target.add_target(print_target.clone());
         target.add_target(scene_target.clone());
         // Parse the PBRT file
         pbrt_parse_file(path, &mut target)?;

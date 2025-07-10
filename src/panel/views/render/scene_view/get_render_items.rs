@@ -34,7 +34,6 @@ use crate::renderer::gl::{GLResourceComponent, RenderTexture};
 use uuid::Uuid;
 
 use eframe::glow;
-use std::default;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,7 +165,7 @@ fn get_shader_id(
         }
         RenderMode::Solid => {
             if let Some(base_color) = uniforms.iter().find(|(k, _)| k == "base_color") {
-                if let RenderUniformValue::Vec4(color) = &base_color.1 {
+                if let RenderUniformValue::Vec4(_) = &base_color.1 {
                     // Use a unique ID based on the base color
                     return Uuid::parse_str(RENDER_SOLID_SHADER_COLOR_ID).unwrap(); // Placeholder for solid shader ID
                 } else if let RenderUniformValue::Texture(_) = &base_color.1 {
