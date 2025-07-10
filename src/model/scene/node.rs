@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Node {
+    pub enable: bool,
     pub id: Uuid,
     pub name: String,
     pub parent: Option<Weak<RwLock<Node>>>,
@@ -20,6 +21,7 @@ impl Node {
     pub fn root_node(name: &str) -> Arc<RwLock<Node>> {
         let components = vec![Box::new(TransformComponent::default()) as Box<dyn Any>];
         let node = Node {
+            enable: true,
             name: name.to_string(),
             id: Uuid::new_v4(),
             parent: None,
@@ -32,6 +34,7 @@ impl Node {
     pub fn child_node(name: &str, parent: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
         let components = vec![Box::new(TransformComponent::default()) as Box<dyn Any>];
         let node = Node {
+            enable: true,
             name: name.to_string(),
             id: Uuid::new_v4(),
             parent: Some(Arc::downgrade(parent)),
@@ -41,6 +44,18 @@ impl Node {
         let c = Arc::new(RwLock::new(node));
         Node::add_child(parent, &c);
         return c;
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enable
+    }
+
+    pub fn get_enable(&self) -> bool {
+        self.enable
+    }
+
+    pub fn set_enable(&mut self, enable: bool) {
+        self.enable = enable;
     }
 
     pub fn get_name(&self) -> String {

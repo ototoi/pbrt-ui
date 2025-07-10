@@ -99,7 +99,7 @@ impl InspectorPanel {
         let resource_selector = self.get_resource_selector();
         let mut node = node.write().unwrap();
         {
-            let mut enabled = true; //todo
+            let mut enabled = node.is_enabled();
             let mut name = node.get_name();
             egui::TopBottomPanel::top("node").show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -108,6 +108,7 @@ impl InspectorPanel {
                 });
                 ui.add_space(3.0);
             });
+            node.set_enable(enabled);
             if !name.is_empty() {
                 node.set_name(&name);
             }
