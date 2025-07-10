@@ -29,7 +29,7 @@ impl Spectrum {
     }
 
     pub fn load_from_file(path: &str) -> Result<Spectrum, PbrtError> {
-        match read_f32_file(path) {
+        match read_float_file(path) {
             Ok(vals) => {
                 if vals.len() % 2 != 0 {
                     log::warn!(

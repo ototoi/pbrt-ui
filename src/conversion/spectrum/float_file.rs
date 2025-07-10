@@ -4,7 +4,7 @@ use std::fs::read_to_string;
 
 use log;
 
-pub fn read_f32_file(path: &str) -> Result<Vec<f32>, PbrtError> {
+pub fn read_float_file(path: &str) -> Result<Vec<f32>, PbrtError> {
     let s = read_to_string(path)
         .map_err(|_| PbrtError::error(&format!("Unable to open file \"{}\".", path)))?;
     let mut values = Vec::new();
