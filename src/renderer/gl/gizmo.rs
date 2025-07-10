@@ -1,5 +1,5 @@
 use super::line::RenderLine;
-use crate::geometry::light_shape::*;
+use crate::conversion::light_shape::*;
 use crate::model::scene::Light;
 
 use std::sync::Arc;

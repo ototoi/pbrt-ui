@@ -1,8 +1,8 @@
 use super::super::panel::InspectorPanel;
-use crate::geometry::texture_cache;
+use crate::conversion::texture_cache;
 //use super::super::common::*;
-use crate::geometry::texture_cache::TextureCacheManager;
-use crate::geometry::texture_cache::TextureCacheSize;
+use crate::conversion::texture_cache::TextureCacheManager;
+use crate::conversion::texture_cache::TextureCacheSize;
 use crate::model::scene::Node;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::Texture;

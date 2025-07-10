@@ -1,6 +1,6 @@
 use super::parse::pbrt_parse_file;
 use super::targets::MultipleTarget;
-use super::targets::PrintTarget;
+// use super::targets::PrintTarget;
 use super::targets::SceneTarget;
 use crate::error::PbrtError;
 use crate::model::scene::Node;

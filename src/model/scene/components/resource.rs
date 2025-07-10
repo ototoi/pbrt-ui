@@ -1,8 +1,10 @@
 use crate::model::scene::Component;
 use crate::model::scene::Material;
+use crate::model::scene::OtherResource;
 use crate::model::scene::ResourceObject;
 use crate::model::scene::Shape;
 use crate::model::scene::Texture;
+use crate::model::scene::components::resource;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -23,6 +25,21 @@ impl ResourceManager {
         self.textures
             .values()
             .find(|texture| texture.read().unwrap().get_name() == name)
+            .cloned()
+    }
+
+    pub fn find_spectrum_by_filename(&self, name: &str) -> Option<Arc<RwLock<dyn ResourceObject>>> {
+        self.other_resources
+            .values()
+            .find(|resource| {
+                let resource = resource.read().unwrap();
+                if let Some(filename) = resource.get_filename() {
+                    if filename == name {
+                        return true;
+                    }
+                }
+                return false;
+            })
             .cloned()
     }
 }
