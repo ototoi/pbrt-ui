@@ -548,23 +548,25 @@ impl PbrtSaver {
         node: &Arc<RwLock<Node>>,
         writer: &mut dyn Write,
     ) -> Result<(), PbrtError> {
-        writer.write(format!("{}AttributeBegin\n", make_indent(indent)).as_bytes())?;
-        {
-            let node = node.read().unwrap();
-            let t = node
-                .get_component::<TransformComponent>()
-                .ok_or(PbrtError::error("Transform is not found!"))?;
-            write_transform(indent + 1, &t.get_local_matrix(), writer)?;
-        }
-        {
-            self.write_geomtry(indent + 1, node, writer)?;
-        }
+        if node.read().unwrap().is_enabled() {
+            writer.write(format!("{}AttributeBegin\n", make_indent(indent)).as_bytes())?;
+            {
+                let node = node.read().unwrap();
+                let t = node
+                    .get_component::<TransformComponent>()
+                    .ok_or(PbrtError::error("Transform is not found!"))?;
+                write_transform(indent + 1, &t.get_local_matrix(), writer)?;
+            }
+            {
+                self.write_geomtry(indent + 1, node, writer)?;
+            }
 
-        let node = node.read().unwrap();
-        for child in node.children.iter() {
-            self.write_node(indent + 1, child, writer)?;
+            let node = node.read().unwrap();
+            for child in node.children.iter() {
+                self.write_node(indent + 1, child, writer)?;
+            }
+            writer.write(format!("{}AttributeEnd\n", make_indent(indent)).as_bytes())?;
         }
-        writer.write(format!("{}AttributeEnd\n", make_indent(indent)).as_bytes())?;
         Ok(())
     }
 
@@ -578,18 +580,20 @@ impl PbrtSaver {
             writer.write(format!("{}# Geometries\n", make_indent(indent)).as_bytes())?;
         }
         let node = node.read().unwrap(); //world
-        let t = node
-            .get_component::<TransformComponent>()
-            .ok_or(PbrtError::error("Transform is not found!"))?;
-        write_transform(0, &t.get_local_matrix(), writer)?;
-        for child in node.children.iter() {
-            {
-                let node = child.read().unwrap();
-                if node.get_component::<CameraComponent>().is_some() {
-                    continue;
+        if node.is_enabled() {
+            let t = node
+                .get_component::<TransformComponent>()
+                .ok_or(PbrtError::error("Transform is not found!"))?;
+            write_transform(0, &t.get_local_matrix(), writer)?;
+            for child in node.children.iter() {
+                {
+                    let node = child.read().unwrap();
+                    if node.get_component::<CameraComponent>().is_some() {
+                        continue;
+                    }
                 }
+                self.write_node(1, child, writer)?;
             }
-            self.write_node(1, child, writer)?;
         }
         Ok(())
     }
