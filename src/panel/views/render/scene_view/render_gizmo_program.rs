@@ -1,3 +1,4 @@
+use super::render_version::get_glsl_version_line;
 use crate::renderer::gl::RenderProgram;
 
 use std::collections::HashMap;
@@ -5,10 +6,10 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use eframe::egui_glow;
 use eframe::glow;
 
 pub const GIZMO_SHADER_ID: &str = "c80398e9-a45b-4783-96a9-03ccd15ced40";
+
 pub fn create_render_gizmo_program(
     gl: &Arc<glow::Context>,
     id: Uuid,
@@ -16,11 +17,7 @@ pub fn create_render_gizmo_program(
     use glow::HasContext as _;
 
     unsafe {
-        // Check if the OpenGL context is current
-        // get gl shader version
-        let _shader_version = egui_glow::ShaderVersion::get(gl);
-
-        //todo!("Implement create_dunny_program");
+        let version_string= get_glsl_version_line(gl)?;
         let program = gl.create_program().ok()?;
 
         let (vertex_shader_source, fragment_shader_source) = (
@@ -38,7 +35,7 @@ pub fn create_render_gizmo_program(
             .map(|(shader_type, shader_source)| {
                 let source = format!(
                     "{}\n{}",
-                    "#version 330", //shader_version.version_declaration(),
+                    version_string,
                     shader_source
                 );
                 let shader = gl.create_shader(*shader_type).ok().unwrap();

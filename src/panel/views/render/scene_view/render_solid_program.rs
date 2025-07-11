@@ -1,3 +1,4 @@
+use super::render_version::get_glsl_version_line;
 use crate::renderer::gl::RenderProgram;
 
 use std::collections::HashMap;
@@ -5,7 +6,6 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use eframe::egui_glow;
 use eframe::glow;
 
 pub const RENDER_SOLID_SHADER_COLOR_ID: &str = "812e32bf-8051-42a7-94af-03e4099025da";
@@ -32,11 +32,7 @@ pub fn create_render_solid_program(
     use glow::HasContext as _;
 
     unsafe {
-        // Check if the OpenGL context is current
-        // get gl shader version
-        let _shader_version = egui_glow::ShaderVersion::get(gl);
-
-        //todo!("Implement create_dunny_program");
+        let version_string= get_glsl_version_line(gl)?;
         let program = gl.create_program().ok()?;
 
         let (vertex_shader_source, fragment_shader_source) = get_shader_source(id)?;
@@ -51,7 +47,7 @@ pub fn create_render_solid_program(
             .map(|(shader_type, shader_source)| {
                 let source = format!(
                     "{}\n{}",
-                    "#version 330", //shader_version.version_declaration(),
+                    version_string,
                     shader_source
                 );
                 let shader = gl.create_shader(*shader_type).ok().unwrap();
