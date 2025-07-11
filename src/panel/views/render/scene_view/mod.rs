@@ -4,6 +4,7 @@ mod render_item;
 mod render_mode;
 mod render_solid_program;
 mod render_wireframe_program;
+mod render_version;
 
 pub use get_render_items::get_render_items;
 pub use render_item::{GizmoRenderItem, MeshRenderItem, RenderItem};
