@@ -2,6 +2,7 @@ use super::super::super::parse::ParseTarget;
 use super::graphics_state::GraphicsState;
 use super::render_options::RenderOptions;
 use super::transform::Transform;
+use super::transform::TransformBit;
 use super::transform::TransformSet;
 use crate::model::base::Matrix4x4;
 use crate::model::base::ParamSet;
@@ -9,6 +10,7 @@ use crate::model::base::Property;
 use crate::model::base::Vector3;
 use crate::model::scene;
 use crate::model::scene::AcceleratorComponent;
+use crate::model::scene::AnimationComponent;
 use crate::model::scene::AreaLightComponent;
 use crate::model::scene::CameraComponent;
 use crate::model::scene::Component;
@@ -450,10 +452,27 @@ impl ParseTarget for SceneTarget {
             log::warn!("Coordinate system {} not found", name);
         }
     }
-    fn active_transform_all(&mut self) {}
-    fn active_transform_end_time(&mut self) {}
-    fn active_transform_start_time(&mut self) {}
-    fn transform_times(&mut self, start: f32, end: f32) {}
+
+    fn active_transform_all(&mut self) {
+        let ts = self.get_current_transform();
+        ts.set_transform_bit(TransformBit::All);
+    }
+
+    fn active_transform_end_time(&mut self) {
+        let ts = self.get_current_transform();
+        ts.set_transform_bit(TransformBit::End);
+    }
+
+    fn active_transform_start_time(&mut self) {
+        let ts = self.get_current_transform();
+        ts.set_transform_bit(TransformBit::Start);
+    }
+
+    fn transform_times(&mut self, start: f32, end: f32) {
+        let opts = &mut self.render_options;
+        opts.transform_start_time = start;
+        opts.transform_end_time = end;
+    }
 
     fn pixel_filter(&mut self, name: &str, params: &ParamSet) {
         let opts = &mut self.render_options;
@@ -734,19 +753,50 @@ impl ParseTarget for SceneTarget {
     }
 
     fn shape(&mut self, name: &str, params: &ParamSet) {
-        if let Some(node) = self.make_shape(name, params) {
-            let mut node = node.write().unwrap();
-            let attr = self.graphics_states.last_mut().unwrap();
-            {
+        let ts = self.get_current_transform().clone();
+        if !ts.is_animated() {
+            if let Some(node) = self.make_shape(name, params) {
+                let mut node = node.write().unwrap();
+                let attr = self.graphics_states.last().unwrap();
                 if let Some(material) = attr.current_material.as_ref() {
                     let component = MaterialComponent::from_material(material);
                     node.add_component(component);
                 }
+                if let Some((light_type, light_params)) = attr.area_light.as_ref() {
+                    node.set_name("AreaLight");
+                    let component = AreaLightComponent::new(&light_type, light_params);
+                    node.add_component(component);
+                }
             }
-            if let Some((light_type, light_params)) = attr.area_light.as_ref() {
-                node.set_name("AreaLight");
-                let component = AreaLightComponent::new(&light_type, light_params);
-                node.add_component(component);
+        } else {
+            {
+                let attr = self.graphics_states.last().unwrap();
+                if let Some(_) = attr.area_light.as_ref() {
+                    log::warn!("Area light source cannot be animated");
+                }
+            }
+            if let Some(node) = self.make_shape(name, params) {
+                let mut node = node.write().unwrap();
+                let attr = self.graphics_states.last().unwrap();
+                if let Some(material) = attr.current_material.as_ref() {
+                    let component = MaterialComponent::from_material(material);
+                    node.add_component(component);
+                }
+                {
+                    let m0 = ts.transforms[0].m;//world todo
+                    let m1 = ts.transforms[1].m;//world todo
+                    //
+
+                    let start_time = self.render_options.transform_start_time;
+                    let end_time = self.render_options.transform_end_time;
+                    let component = AnimationComponent::new(
+                        &m0,
+                        start_time,
+                        &m1,
+                        end_time,
+                    );
+                    node.add_component(component);
+                }
             }
         }
     }

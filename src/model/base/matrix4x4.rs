@@ -1,6 +1,6 @@
 use super::vector3::Vector3;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Matrix4x4 {
     pub m: [f32; 16],
 }

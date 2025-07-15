@@ -1,4 +1,5 @@
 mod accelerator;
+mod animation;
 mod camera;
 mod component;
 mod coordinate_system;
@@ -14,6 +15,7 @@ mod shape;
 mod transform;
 
 pub use accelerator::AcceleratorComponent;
+pub use animation::AnimationComponent;
 pub use camera::CameraComponent;
 pub use component::Component;
 pub use coordinate_system::CoordinateSystemComponent;

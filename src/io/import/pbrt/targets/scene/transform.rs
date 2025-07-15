@@ -73,7 +73,7 @@ impl Transform {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum TransformBit {
     Start = 1,
@@ -95,13 +95,6 @@ impl TransformSet {
         }
     }
 
-    pub fn identity() -> Self {
-        TransformSet {
-            transforms: [Transform::new(), Transform::new()],
-            state: TransformBit::All,
-        }
-    }
-
     //------------------------------------------------------------
     pub fn mul_transform(&mut self, t: &Transform) {
         for i in 0..2 {
@@ -117,6 +110,22 @@ impl TransformSet {
                 self.transforms[i].set_transform(t);
             }
         }
+    }
+
+    pub fn set_transform_bit(&mut self, bit: TransformBit) {
+        self.state = bit;
+    }
+
+    pub fn is_animated(&self) -> bool {
+        if self.state != TransformBit::All {
+            return true;
+        }
+        for i in 0..1 {
+            if self.transforms[i].m != self.transforms[i + 1].m {
+                return true;
+            }
+        }
+        return false;
     }
 
     //------------------------------------------------------------

@@ -2,6 +2,8 @@ use crate::model::base::PropertyMap;
 
 #[derive(Debug, Clone)]
 pub struct RenderOptions {
+    pub transform_start_time: f32,
+    pub transform_end_time: f32,
     pub filter_name: String,
     pub filter_params: PropertyMap,
     pub film_name: String,
@@ -19,6 +21,8 @@ pub struct RenderOptions {
 impl Default for RenderOptions {
     fn default() -> Self {
         RenderOptions {
+            transform_start_time: 0.0,
+            transform_end_time: 1.0,
             filter_name: "box".to_string(),
             filter_params: PropertyMap::new(),
             film_name: "image".to_string(),
