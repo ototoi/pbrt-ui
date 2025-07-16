@@ -2,6 +2,7 @@ use super::texture_cache::TextureCache;
 use super::texture_cache_map::TextureCacheKey;
 use super::texture_cache_map::TextureCacheMap;
 use super::texture_cache_size::TextureCacheSize;
+use crate::conversion::spectrum::Spectrum;
 use crate::model::base::Property;
 use crate::model::scene::Texture;
 
@@ -13,6 +14,7 @@ use crypto::digest::Digest;
 use image;
 use image::DynamicImage;
 use image::GenericImageView;
+use image::Rgba;
 
 fn get_digest(path: &str) -> String {
     let mut hasher = crypto::sha1::Sha1::new();
@@ -121,27 +123,14 @@ pub fn create_constant_texture_cache(
     let id = texture.get_id();
     let edition = texture.get_edition();
     assert!(texture_type == "constant", "Texture type must be constant");
-    let color = texture.as_property_map().get_floats("color value");
-    let color = match color.len() {
-        1 => [color[0], color[0], color[0], 1.0],
-        2 => [color[0], color[1], color[1], 1.0],
-        3 => [color[0], color[1], color[2], 1.0],
-        4 => [color[0], color[1], color[2], color[3]],
-        _ => [1.0, 1.0, 1.0, 1.0], // Default to white if not specified correctly
-    };
-    let color = image::Rgba([
-        (color[0]) as f32,
-        (color[1]) as f32,
-        (color[2]) as f32,
-        (color[3]) as f32,
-    ]);
-
-    let image_buffer = image::ImageBuffer::from_pixel(8, 8, color);
-
-    let image = image::DynamicImage::ImageRgba32F(image_buffer);
-    let image = Arc::new(image);
-    let texture_cache = TextureCache { id, edition, image };
-    return Ok(Arc::new(RwLock::new(texture_cache)));
+    if let Some(image) = get_color_texture_image(texture, "value") {
+        let texture_cache = TextureCache { id, edition, image };
+        return Ok(Arc::new(RwLock::new(texture_cache)));
+    } else {
+        return Err(PbrtError::error(
+            "Constant texture does not have a valid color value",
+        ));
+    }
 }
 
 fn find_texture_cache(
@@ -188,14 +177,9 @@ fn mix_texture(tex1: &DynamicImage, tex2: &DynamicImage, amount: &DynamicImage) 
     return DynamicImage::ImageRgba32F(image_buffer);
 }
 
-fn get_texture_image(
-    texture: &Texture,
-    size: TextureCacheSize,
-    cache_map: &TextureCacheMap,
-    key: &str,
-) -> Option<Arc<DynamicImage>> {
+fn get_color_texture_image(texture: &Texture, key: &str) -> Option<Arc<DynamicImage>> {
     let props = texture.as_property_map();
-    if let Some((key_type, _, value)) = props.entry(key) {
+    if let Some((key_type, key_name, value)) = props.entry(key) {
         if let Property::Floats(color) = value {
             let color = match color.len() {
                 1 => [color[0], color[0], color[0], 1.0],
@@ -212,14 +196,53 @@ fn get_texture_image(
             ]);
             let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
             return Some(Arc::new(DynamicImage::ImageRgba32F(image_buffer)));
-        } else if let Property::Strings(name) = value {
+        } else if let Property::Strings(_name) = value {
+            if key_type == "spectrum" {
+                let fullpath_name = format!("{}_fullpath", key_name);
+                if let Some(src) = props.get(&fullpath_name) {
+                    println!("Found spectrum fullpath: {}", fullpath_name);
+                    if let Property::Strings(v) = src {
+                        assert!(
+                            v.len() == 1,
+                            "Spectrum fullpath must have exactly one value"
+                        );
+                        let fullpath = v[0].clone();
+                        if let Ok(s) = Spectrum::load_from_file(&fullpath) {
+                            let color = s.to_rgb();
+                            let color = image::Rgba([
+                                color[0] as f32,
+                                color[1] as f32,
+                                color[2] as f32,
+                                1.0,
+                            ]);
+                            let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
+                            return Some(Arc::new(DynamicImage::ImageRgba32F(image_buffer)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return None;
+}
+
+fn get_texture_image(
+    texture: &Texture,
+    size: TextureCacheSize,
+    cache_map: &TextureCacheMap,
+    key: &str,
+) -> Option<Arc<DynamicImage>> {
+    if let Some(image) = get_color_texture_image(texture, key) {
+        return Some(image);
+    }
+    let props = texture.as_property_map();
+    if let Some((key_type, _, value)) = props.entry(key) {
+        if let Property::Strings(name) = value {
             if key_type == "texture" {
                 let texture_name = name[0].clone();
                 if let Some(cache) = find_texture_cache(&cache_map, &texture_name, size) {
                     return Some(cache.read().unwrap().image.clone());
                 }
-            } else if key_type == "spectrum" {
-                //
             }
         }
     }
@@ -292,7 +315,7 @@ pub fn create_scale_texture_cache(
     let texture_type = texture.get_type();
     let id = texture.get_id();
     let edition = texture.get_edition();
-    assert!(texture_type == "scale", "Texture type must be constant");
+    assert!(texture_type == "scale", "Texture type must be scale");
     let tex1 = get_texture_image(texture, size, cache_map, "tex1");
     let tex2 = get_texture_image(texture, size, cache_map, "tex2");
 
@@ -304,6 +327,65 @@ pub fn create_scale_texture_cache(
     let tex2 = tex2.unwrap();
 
     let image = scale_texture(&tex1, &tex2);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
+}
+
+pub fn create_checkerboard_texture_cache(
+    texture: &Texture,
+    size: TextureCacheSize,
+    cache_map: &TextureCacheMap,
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
+    assert!(
+        texture_type == "checkerboard",
+        "Texture type must be checkerboard"
+    );
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
+
+    let uscale = texture
+        .as_property_map()
+        .find_one_float("uscale")
+        .unwrap_or(1.0);
+    let vscale = texture
+        .as_property_map()
+        .find_one_float("vscale")
+        .unwrap_or(1.0);
+
+    if tex1.is_none() || tex2.is_none() {
+        return Err(PbrtError::error("Missing texture images for mix texture"));
+    }
+
+    let tex1 = tex1.unwrap();
+    let tex2 = tex2.unwrap();
+
+    let dim = match size {
+        TextureCacheSize::Icon => (64, 64),
+        TextureCacheSize::Full => (256, 256),
+        TextureCacheSize::Size((w, h)) => (w as u32, h as u32),
+    };
+
+    let mut image_buffer = image::ImageBuffer::new(dim.0, dim.1);
+    for y in 0..dim.1 {
+        for x in 0..dim.0 {
+            let u = x as f32 / dim.0 as f32;
+            let v = y as f32 / dim.1 as f32;
+            let xx = (u * uscale) as i32 & 1;
+            let yy = (v * vscale) as i32 & 1;
+            let zz = (xx + yy) & 1; // Checkerboard pattern
+            let pixel = if zz == 0 {
+                Rgba([0.0, 1.0, 0.0, 1.0])
+            } else {
+                Rgba([0.0, 0.0, 1.0, 1.0])
+            };
+            image_buffer.put_pixel(x, y, pixel);
+        }
+    }
+    let image = DynamicImage::ImageRgba32F(image_buffer);
     let image = Arc::new(image);
     let texture_cache = TextureCache { id, edition, image };
     return Ok(Arc::new(RwLock::new(texture_cache)));
@@ -321,7 +403,8 @@ pub fn create_texture_cache_core(
         "mix" => create_mix_texture_cache(texture, size, cache_map),
         "scale" => create_scale_texture_cache(texture, size, cache_map),
         "bilerp" => create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255])),
-        "checkerboard" | "dots" | "fbm" | "windy" | "wrinkled" | "marble" => {
+        "checkerboard" => create_checkerboard_texture_cache(texture, size, cache_map),
+        "dots" | "fbm" | "windy" | "wrinkled" | "marble" => {
             create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255]))
         }
         _ => {
