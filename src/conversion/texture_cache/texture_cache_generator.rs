@@ -1,9 +1,13 @@
+use super::noise::fbm;
+use super::noise::noise;
 use super::texture_cache::TextureCache;
 use super::texture_cache_map::TextureCacheKey;
 use super::texture_cache_map::TextureCacheMap;
 use super::texture_cache_size::TextureCacheSize;
 use crate::conversion::spectrum::Spectrum;
 use crate::model::base::Property;
+use crate::model::base::Quaternion;
+use crate::model::base::Vector3;
 use crate::model::scene::Texture;
 
 use crate::error::PbrtError;
@@ -15,7 +19,6 @@ use image;
 use image::DynamicImage;
 use image::GenericImageView;
 use image::ImageBuffer;
-use image::Rgba;
 
 fn get_digest(path: &str) -> String {
     let mut hasher = crypto::sha1::Sha1::new();
@@ -40,6 +43,14 @@ fn create_texture_cache_path(src: &str, size: TextureCacheSize) -> String {
     std::fs::create_dir_all(&dir).expect("Failed to create cache directory");
     let path = dir.join(format!("{}.{}", get_digest(src), extension));
     return path.to_str().unwrap().to_string();
+}
+
+pub fn create_one_pixel_image(pixel: &image::Rgba<f32>) -> Arc<DynamicImage> {
+    let image_buffer = image::ImageBuffer::from_pixel(
+        1, 1, *pixel, // Magenta color as default
+    );
+    let image = DynamicImage::ImageRgba32F(image_buffer);
+    return Arc::new(image);
 }
 
 pub fn create_imagemap_texture_cache(
@@ -201,7 +212,6 @@ fn get_color_texture_image(texture: &Texture, key: &str) -> Option<Arc<DynamicIm
             if key_type == "spectrum" {
                 let fullpath_name = format!("{}_fullpath", key_name);
                 if let Some(src) = props.get(&fullpath_name) {
-                    println!("Found spectrum fullpath: {}", fullpath_name);
                     if let Property::Strings(v) = src {
                         assert!(
                             v.len() == 1,
@@ -259,27 +269,12 @@ pub fn create_mix_texture_cache(
     let id = texture.get_id();
     let edition = texture.get_edition();
     assert!(texture_type == "mix", "Texture type must be constant");
-    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
-    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
-
-    if tex1.is_none() || tex2.is_none() {
-        return Err(PbrtError::error("Missing texture images for mix texture"));
-    }
-
-    let amount = get_texture_image(texture, size, cache_map, "amount");
-
-    let amount = match amount {
-        Some(img) => img,
-        None => {
-            // If no amount texture is provided, use a default value of 0.5
-            let color = image::Rgba([0.5, 0.5, 0.5, 1.0]);
-            let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
-            Arc::new(DynamicImage::ImageRgba32F(image_buffer))
-        }
-    };
-
-    let tex1 = tex1.unwrap();
-    let tex2 = tex2.unwrap();
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([1.0, 1.0, 1.0, 1.0])));
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([1.0, 1.0, 1.0, 1.0])));
+    let amount = get_texture_image(texture, size, cache_map, "amount")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([0.5, 0.5, 0.5, 1.0])));
 
     let image = mix_texture(&tex1, &tex2, &amount);
     let image = Arc::new(image);
@@ -317,15 +312,10 @@ pub fn create_scale_texture_cache(
     let id = texture.get_id();
     let edition = texture.get_edition();
     assert!(texture_type == "scale", "Texture type must be scale");
-    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
-    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
-
-    if tex1.is_none() || tex2.is_none() {
-        return Err(PbrtError::error("Missing texture images for mix texture"));
-    }
-
-    let tex1 = tex1.unwrap();
-    let tex2 = tex2.unwrap();
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([1.0, 1.0, 1.0, 1.0])));
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([1.0, 1.0, 1.0, 1.0])));
 
     let image = scale_texture(&tex1, &tex2);
     let image = Arc::new(image);
@@ -357,8 +347,10 @@ pub fn create_checkerboard_texture_cache(
         texture_type == "checkerboard",
         "Texture type must be checkerboard"
     );
-    let tex1 = get_texture_image(texture, size, cache_map, "tex1");
-    let tex2 = get_texture_image(texture, size, cache_map, "tex2");
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([1.0, 1.0, 1.0, 1.0])));
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([0.0, 0.0, 0.0, 1.0])));
 
     let uscale = texture
         .as_property_map()
@@ -368,13 +360,6 @@ pub fn create_checkerboard_texture_cache(
         .as_property_map()
         .find_one_float("vscale")
         .unwrap_or(1.0);
-
-    if tex1.is_none() || tex2.is_none() {
-        return Err(PbrtError::error("Missing texture images for mix texture"));
-    }
-
-    let tex1 = tex1.unwrap();
-    let tex2 = tex2.unwrap();
 
     let tex1 = tex1.to_rgba32f();
     let tex2 = tex2.to_rgba32f();
@@ -390,14 +375,140 @@ pub fn create_checkerboard_texture_cache(
         for x in 0..dim.0 {
             let u = x as f32 / dim.0 as f32;
             let v = y as f32 / dim.1 as f32;
-            let xx = (u * uscale) as i32 & 1;
-            let yy = (v * vscale) as i32 & 1;
+            let u = u * uscale;
+            let v = v * vscale;
+            let xx = u as i32 & 1;
+            let yy = v as i32 & 1;
             let zz = (xx + yy) & 1; // Checkerboard pattern
             let pixel = if zz == 0 {
                 fetch_image(&tex1, u, v)
             } else {
                 fetch_image(&tex2, u, v)
             };
+            image_buffer.put_pixel(x, y, pixel);
+        }
+    }
+    let image = DynamicImage::ImageRgba32F(image_buffer);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
+}
+
+pub fn create_dots_texture_cache(
+    texture: &Texture,
+    size: TextureCacheSize,
+    cache_map: &TextureCacheMap,
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
+    assert!(texture_type == "dots", "Texture type must be dots");
+    let tex1 = get_texture_image(texture, size, cache_map, "tex1")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([1.0, 1.0, 1.0, 1.0])));
+    let tex2 = get_texture_image(texture, size, cache_map, "tex2")
+        .unwrap_or(create_one_pixel_image(&image::Rgba([0.0, 0.0, 0.0, 1.0])));
+
+    let uscale = texture
+        .as_property_map()
+        .find_one_float("uscale")
+        .unwrap_or(1.0);
+    let vscale = texture
+        .as_property_map()
+        .find_one_float("vscale")
+        .unwrap_or(1.0);
+
+    let outside = tex1.to_rgba32f();
+    let inside = tex2.to_rgba32f();
+
+    let dim = match size {
+        TextureCacheSize::Icon => (64, 64),
+        TextureCacheSize::Full => (256, 256),
+        TextureCacheSize::Size((w, h)) => (w as u32, h as u32),
+    };
+
+    let mut image_buffer = image::ImageBuffer::new(dim.0, dim.1);
+    for y in 0..dim.1 {
+        for x in 0..dim.0 {
+            let u = x as f32 / dim.0 as f32;
+            let v = y as f32 / dim.1 as f32;
+            let u = u * uscale;
+            let v = v * vscale;
+            let s_cell = (u + 0.5).floor();
+            let t_cell = (v + 0.5).floor();
+            if noise(s_cell + 0.5, t_cell + 0.5, 0.0) > 0.0 {
+                let radius = 0.35;
+                let max_shift = 0.5 - radius;
+                let s_center = s_cell + max_shift * noise(s_cell + 1.5, t_cell + 2.8, 0.0);
+                let t_center = t_cell + max_shift * noise(s_cell + 4.5, t_cell + 9.8, 0.0);
+                let dist2 = (u - s_center).powi(2) + (v - t_center).powi(2);
+                if dist2 < radius * radius {
+                    let pixel = fetch_image(&inside, u, v);
+                    image_buffer.put_pixel(x, y, pixel);
+                } else {
+                    let pixel = fetch_image(&outside, u, v);
+                    image_buffer.put_pixel(x, y, pixel);
+                }
+            } else {
+                let pixel = fetch_image(&outside, u, v);
+                image_buffer.put_pixel(x, y, pixel);
+            }
+        }
+    }
+    let image = DynamicImage::ImageRgba32F(image_buffer);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
+}
+
+pub fn create_fbm_texture_cache(
+    texture: &Texture,
+    size: TextureCacheSize,
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
+    assert!(texture_type == "fbm", "Texture type must be fbm");
+    let octaves = texture
+        .as_property_map()
+        .find_one_int("octaves")
+        .unwrap_or(8);
+    let roughness = texture
+        .as_property_map()
+        .find_one_float("roughness")
+        .unwrap_or(0.5);
+
+    let mat = texture.get_transform();
+    let (t, _r, s) = mat.decompose(0.1).unwrap_or((
+        Vector3::zero(),
+        Quaternion::identity(),
+        Vector3::new(1.0, 1.0, 1.0),
+    ));
+
+    let dim = match size {
+        TextureCacheSize::Icon => (64, 64),
+        TextureCacheSize::Full => (256, 256),
+        TextureCacheSize::Size((w, h)) => (w as u32, h as u32),
+    };
+
+    let octaves = octaves.max(1);
+    let roughness = roughness.clamp(0.0, 1.0);
+
+    let mut image_buffer = image::ImageBuffer::new(dim.0, dim.1);
+    for y in 0..dim.1 {
+        for x in 0..dim.0 {
+            let u = x as f32 / dim.0 as f32;
+            let v = y as f32 / dim.1 as f32;
+            let w = 0.0; // Assuming 2D texture, z-coordinate is not used
+            let u = u * s.x + t.x;
+            let v = v * s.y + t.y;
+            let w = w * s.z + t.z;
+            let p = Vector3::new(u as f32, v as f32, w as f32);
+            let dpdx = Vector3::new(1.0 / dim.0 as f32, 0.0, 0.0);
+            let dpdy = Vector3::new(0.0, 1.0 / dim.1 as f32, 0.0);
+            let f = fbm(&p, &dpdx, &dpdy, roughness, octaves as u32);
+            let pixel = image::Rgba([
+                f as f32, f as f32, f as f32, 1.0, // Alpha channel
+            ]);
             image_buffer.put_pixel(x, y, pixel);
         }
     }
@@ -420,7 +531,9 @@ pub fn create_texture_cache_core(
         "scale" => create_scale_texture_cache(texture, size, cache_map),
         "bilerp" => create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255])),
         "checkerboard" => create_checkerboard_texture_cache(texture, size, cache_map),
-        "dots" | "fbm" | "windy" | "wrinkled" | "marble" => {
+        "dots" => create_dots_texture_cache(texture, size, cache_map),
+        "fbm" => create_fbm_texture_cache(texture, size),
+        "windy" | "wrinkled" | "marble" => {
             create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255]))
         }
         _ => {

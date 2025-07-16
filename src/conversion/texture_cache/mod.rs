@@ -1,3 +1,4 @@
+mod noise;
 mod texture_cache;
 mod texture_cache_generator;
 mod texture_cache_manager;

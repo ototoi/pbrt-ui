@@ -399,6 +399,20 @@ fn show_strings(
         } else if key_name == "filename" {
             let mut s = value[0].clone();
             ui.text_edit_singleline(&mut s);
+        } else if key_name == "name" {
+            let names = SubsurfaceProperties::get_names();
+            egui::ComboBox::from_id_salt("subsurface_names")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for name in names.iter() {
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
+                    }
+                });
         } else {
             if ui.text_edit_singleline(&mut value[0]).changed() {
                 is_changed = true;
