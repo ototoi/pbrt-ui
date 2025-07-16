@@ -2,7 +2,7 @@ use super::component::Component;
 use crate::model::base::*;
 
 #[derive(Debug, Clone)]
-pub struct AnimationComponent { 
+pub struct AnimationComponent {
     pub transforms: [(Matrix4x4, f32); 2],
 }
 
@@ -11,7 +11,7 @@ impl AnimationComponent {
         start_transform: &Matrix4x4,
         start_time: f32,
         end_transform: &Matrix4x4,
-        end_time: f32
+        end_time: f32,
     ) -> Self {
         AnimationComponent {
             transforms: [

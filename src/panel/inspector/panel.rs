@@ -174,7 +174,7 @@ impl InspectorPanel {
                 let mut props = PropertyMap::new();
                 self.show_other_component(i, ui, "Resources", &mut props, &resource_selector);
             } else if let Some(component) = component.downcast_mut::<AnimationComponent>() {
-                let mut props = PropertyMap::new();//todo
+                let mut props = PropertyMap::new(); //todo
                 show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
             } else {
                 //log::warn!("Unknown component type");

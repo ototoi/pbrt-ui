@@ -14,6 +14,7 @@ use crypto::digest::Digest;
 use image;
 use image::DynamicImage;
 use image::GenericImageView;
+use image::ImageBuffer;
 use image::Rgba;
 
 fn get_digest(path: &str) -> String {
@@ -332,6 +333,18 @@ pub fn create_scale_texture_cache(
     return Ok(Arc::new(RwLock::new(texture_cache)));
 }
 
+fn fetch_image(
+    image: &ImageBuffer<image::Rgba<f32>, Vec<f32>>,
+    u: f32,
+    v: f32,
+) -> image::Rgba<f32> {
+    let width = image.width() as f32;
+    let height = image.height() as f32;
+    let x = (u * width).clamp(0.0, width - 1.0) as u32;
+    let y = (v * height).clamp(0.0, height - 1.0) as u32;
+    return image.get_pixel(x, y).clone();
+}
+
 pub fn create_checkerboard_texture_cache(
     texture: &Texture,
     size: TextureCacheSize,
@@ -363,6 +376,9 @@ pub fn create_checkerboard_texture_cache(
     let tex1 = tex1.unwrap();
     let tex2 = tex2.unwrap();
 
+    let tex1 = tex1.to_rgba32f();
+    let tex2 = tex2.to_rgba32f();
+
     let dim = match size {
         TextureCacheSize::Icon => (64, 64),
         TextureCacheSize::Full => (256, 256),
@@ -378,9 +394,9 @@ pub fn create_checkerboard_texture_cache(
             let yy = (v * vscale) as i32 & 1;
             let zz = (xx + yy) & 1; // Checkerboard pattern
             let pixel = if zz == 0 {
-                Rgba([0.0, 1.0, 0.0, 1.0])
+                fetch_image(&tex1, u, v)
             } else {
-                Rgba([0.0, 0.0, 1.0, 1.0])
+                fetch_image(&tex2, u, v)
             };
             image_buffer.put_pixel(x, y, pixel);
         }
