@@ -14,6 +14,7 @@ use crate::model::scene::IntegratorProperties;
 use crate::model::scene::LightComponent;
 use crate::model::scene::LightProperties;
 use crate::model::scene::MappingProperties;
+use crate::model::scene::Material;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
 use crate::model::scene::Node;
@@ -117,6 +118,19 @@ fn write_transform(
         writer.write(format!("{}Scale {} {} {}\n", indent_str, s.x, s.y, s.z).as_bytes())?;
     }
     Ok(())
+}
+
+fn get_material_ignore_keys(material: &Material) -> Vec<String> {
+    let mut ignore_keys = Vec::new();
+    if material.get_type() == "subsurface" {
+        if let Some(name_value) = material.props.find_one_string("string name") {
+            if !name_value.is_empty() {
+                ignore_keys.push("sigma_a".to_string());
+                ignore_keys.push("sigma_s".to_string());
+            }
+        }
+    }
+    ignore_keys
 }
 
 impl PbrtSaver {
@@ -372,9 +386,11 @@ impl PbrtSaver {
             materials.sort_by(|a, b| a.0.cmp(&b.0));
             for (_name, material) in materials.iter() {
                 let material = material.read().unwrap();
-                let id = material.get_id();
+                //let id = material.get_id();
                 let t = material.get_type();
                 let name = material.get_name();
+
+                let ignore_keys = get_material_ignore_keys(&material);
                 if let Some(props) = self.material_properties.get(&t) {
                     writer.write(
                         format!("{}MakeNamedMaterial \"{}\"", make_indent(indent), name).as_bytes(),
@@ -382,6 +398,9 @@ impl PbrtSaver {
                     writer.write(format!(" \"string type\" [\"{}\"]", t).as_bytes())?;
                     //writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
                     for (key_type, key_name, init, _range) in props.iter() {
+                        if ignore_keys.contains(key_name) {
+                            continue;
+                        }
                         self.write_property(0, key_type, key_name, init, &material.props, writer)?;
                     }
                     writer.write("\n".as_bytes())?;
@@ -459,10 +478,11 @@ impl PbrtSaver {
                         )?;
                     }
                 }
-                if let Some(mapping_type) =
-                    texture.as_property_map().find_one_string("string mapping")
+                let mapping_type = texture
+                    .as_property_map()
+                    .find_one_string("string mapping")
+                    .unwrap_or("uv".to_string());
                 {
-                    //println!("mapping_type: {}", mapping_type);
                     if let Some(props) = self.mapping_properties.get(&mapping_type) {
                         for (key_type, key_name, init, _range) in props.iter() {
                             self.write_property(

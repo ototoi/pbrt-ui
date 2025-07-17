@@ -174,7 +174,7 @@ impl InspectorPanel {
                 let mut props = PropertyMap::new();
                 self.show_other_component(i, ui, "Resources", &mut props, &resource_selector);
             } else if let Some(component) = component.downcast_mut::<AnimationComponent>() {
-                let mut props = PropertyMap::new();//todo
+                let mut props = PropertyMap::new(); //todo
                 show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
             } else {
                 //log::warn!("Unknown component type");
@@ -339,11 +339,24 @@ impl InspectorPanel {
                 let mut name = material.get_name();
 
                 let props = material.as_property_map_mut();
-                let t = props.find_one_string("string type").unwrap();
-
+                let mat_type = props.find_one_string("string type").unwrap();
+                let mut hide_sigma = false;
+                if mat_type == "subsurface" {
+                    let name_value = props
+                        .find_one_string("string name")
+                        .unwrap_or("".to_string());
+                    if !name_value.is_empty() {
+                        hide_sigma = true;
+                    }
+                }
                 let mut keys = Vec::new();
-                if let Some(params) = self.material_properties.get(&t) {
+                if let Some(params) = self.material_properties.get(&mat_type) {
                     for (key_type, key_name, init, range) in params.iter() {
+                        if hide_sigma {
+                            if key_name == "sigma_a" || key_name == "sigma_s" {
+                                continue;
+                            }
+                        }
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);
                             props.insert(&key, init.clone());

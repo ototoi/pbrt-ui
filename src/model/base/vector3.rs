@@ -22,6 +22,10 @@ impl Vector3 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
+    pub fn length_squared(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
     pub fn normalize(&self) -> Self {
         let length = self.length();
         if length > 0.0 {

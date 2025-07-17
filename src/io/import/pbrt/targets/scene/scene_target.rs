@@ -55,6 +55,7 @@ pub struct SceneTarget {
     named_coordinate_systems: HashMap<String, TransformSet>,
     meshes: HashMap<String, Arc<RwLock<Shape>>>,
     textures: HashMap<Uuid, Arc<RwLock<Texture>>>,
+    image_textures: HashMap<String, Arc<RwLock<Texture>>>,
     materials: HashMap<Uuid, Arc<RwLock<Material>>>,
     resources: HashMap<String, Arc<RwLock<dyn ResourceObject>>>,
     work_dirs: Vec<String>,
@@ -97,6 +98,7 @@ impl Default for SceneTarget {
             named_coordinate_systems: HashMap::new(),
             meshes: HashMap::new(),
             textures: HashMap::new(),
+            image_textures: HashMap::new(),
             materials: materials,
             resources: HashMap::new(),
             work_dirs: Vec::new(),
@@ -182,14 +184,16 @@ impl SceneTarget {
                             .unwrap()
                             .to_string();
                         let fullpath = fullpath.to_str().unwrap().to_string();
-                        let mut new_params = ParamSet::default();
-                        new_params.add_string("string type", "bsdffile"); //
-                        new_params.add_string("string filename", &filename);
-                        new_params.add_string("string fullpath", &fullpath);
-                        let resource =
-                            Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
-                        self.resources
-                            .insert(fullpath.to_string(), resource.clone());
+                        if !self.resources.contains_key(&fullpath) {
+                            let mut new_params = ParamSet::default();
+                            new_params.add_string("string type", "bsdffile"); //
+                            new_params.add_string("string filename", &filename);
+                            new_params.add_string("string fullpath", &fullpath);
+                            let resource =
+                                Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                            self.resources
+                                .insert(fullpath.to_string(), resource.clone());
+                        }
                     }
                     Err(e) => {
                         log::warn!("filename error: {}", e);
@@ -210,14 +214,16 @@ impl SceneTarget {
                             .unwrap()
                             .to_string();
                         let fullpath = fullpath.to_str().unwrap().to_string();
-                        let mut new_params = ParamSet::default();
-                        new_params.add_string("string type", "lensfile"); //
-                        new_params.add_string("string filename", &filename);
-                        new_params.add_string("string fullpath", &fullpath);
-                        let resource =
-                            Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
-                        self.resources
-                            .insert(fullpath.to_string(), resource.clone());
+                        if !self.resources.contains_key(&fullpath) {
+                            let mut new_params = ParamSet::default();
+                            new_params.add_string("string type", "lensfile"); //
+                            new_params.add_string("string filename", &filename);
+                            new_params.add_string("string fullpath", &fullpath);
+                            let resource =
+                                Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                            self.resources
+                                .insert(fullpath.to_string(), resource.clone());
+                        }
                     }
                     Err(e) => {
                         log::warn!("filename error: {}", e);
@@ -241,16 +247,19 @@ impl SceneTarget {
                                         .unwrap()
                                         .to_string();
                                     let fullpath = fullpath.to_str().unwrap().to_string();
-                                    let mut new_params = ParamSet::default();
-                                    new_params.add_string("string type", "spd"); //
-                                    new_params.add_string("string filename", &filename);
-                                    new_params.add_string("string fullpath", &fullpath);
-                                    let resource = Arc::new(RwLock::new(OtherResource::new(
-                                        &name,
-                                        &new_params,
-                                    )));
-                                    self.resources
-                                        .insert(fullpath.to_string(), resource.clone());
+                                    if !self.resources.contains_key(&fullpath) {
+                                        let mut new_params = ParamSet::default();
+                                        new_params.add_string("string type", "spd"); //
+                                        new_params.add_string("string filename", &filename);
+                                        new_params.add_string("string fullpath", &fullpath);
+
+                                        let resource = Arc::new(RwLock::new(OtherResource::new(
+                                            &name,
+                                            &new_params,
+                                        )));
+                                        self.resources
+                                            .insert(fullpath.to_string(), resource.clone());
+                                    }
                                 }
                                 Err(e) => {
                                     log::warn!("filename error: {}", e);
@@ -275,26 +284,55 @@ impl SceneTarget {
                             .to_string();
                         let fullpath = fullpath.to_str().unwrap().to_string();
 
-                        let transform = Matrix4x4::identity();
-                        let mut new_params = ParamSet::default();
-                        new_params.add_string("string filename", &filename);
-                        new_params.add_string("string fullpath", &fullpath);
-                        let texture = Arc::new(RwLock::new(Texture::new(
-                            &name,
-                            "spectrum",
-                            "imagemap",
-                            Some(&fullpath),
-                            &new_params,
-                            &transform,
-                        )));
-                        self.textures
-                            .insert(texture.read().unwrap().get_id(), texture.clone());
+                        if !self.image_textures.contains_key(&fullpath) {
+                            let transform = Matrix4x4::identity();
+                            let mut new_params = ParamSet::default();
+                            new_params.add_string("string filename", &filename);
+                            new_params.add_string("string fullpath", &fullpath);
+                            let texture = Arc::new(RwLock::new(Texture::new(
+                                &name,
+                                "spectrum",
+                                "imagemap",
+                                Some(&fullpath),
+                                &new_params,
+                                &transform,
+                            )));
+                            self.textures
+                                .insert(texture.read().unwrap().get_id(), texture.clone());
+                            self.image_textures
+                                .insert(fullpath.to_string(), texture.clone());
+                        }
                     }
                     Err(e) => {
                         log::warn!("filename error: {}", e);
                     }
                 }
             }
+        }
+    }
+
+    fn add_fullpath_params(&self, params: &mut ParamSet) {
+        let mut new_props = vec![];
+        for (key_type, key_name) in params.get_keys().iter() {
+            if key_type == "spectrum" {
+                if let Some(filename) = params.find_one_string(&key_name) {
+                    if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+                        match std::path::absolute(fullpath) {
+                            Ok(fullpath) => {
+                                let fullpath = fullpath.to_str().unwrap().to_string();
+                                let new_key = format!("{} {}_fullpath", key_type, key_name);
+                                new_props.push((new_key.clone(), Property::from(fullpath.clone())));
+                            }
+                            Err(_) => {
+                                //
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (key, value) in new_props.iter() {
+            params.insert(key, value.clone());
         }
     }
 
@@ -589,6 +627,9 @@ impl ParseTarget for SceneTarget {
     }
 
     fn texture(&mut self, name: &str, _type: &str, tex_name: &str, params: &ParamSet) {
+        let mut params = params.clone();
+        self.register_other_resources(&params);
+        self.add_fullpath_params(&mut params);
         let t = self.get_current_transform().clone();
         let transform = t.get_world_matrix();
         if tex_name == "imagemap" {
@@ -600,7 +641,7 @@ impl ParseTarget for SceneTarget {
                         Ok(fullpath) => {
                             let fullpath = fullpath.to_str();
                             let texture = Arc::new(RwLock::new(Texture::new(
-                                name, _type, tex_name, fullpath, params, &transform,
+                                name, _type, tex_name, fullpath, &params, &transform,
                             )));
                             self.register_texture(&texture);
                         }
@@ -612,7 +653,7 @@ impl ParseTarget for SceneTarget {
             }
         } else {
             let texture = Arc::new(RwLock::new(Texture::new(
-                name, _type, tex_name, None, params, &transform,
+                name, _type, tex_name, None, &params, &transform,
             )));
             self.register_texture(&texture);
         }
@@ -783,18 +824,13 @@ impl ParseTarget for SceneTarget {
                     node.add_component(component);
                 }
                 {
-                    let m0 = ts.transforms[0].m;//world todo
-                    let m1 = ts.transforms[1].m;//world todo
+                    let m0 = ts.transforms[0].m; //world todo
+                    let m1 = ts.transforms[1].m; //world todo
                     //
 
                     let start_time = self.render_options.transform_start_time;
                     let end_time = self.render_options.transform_end_time;
-                    let component = AnimationComponent::new(
-                        &m0,
-                        start_time,
-                        &m1,
-                        end_time,
-                    );
+                    let component = AnimationComponent::new(&m0, start_time, &m1, end_time);
                     node.add_component(component);
                 }
             }

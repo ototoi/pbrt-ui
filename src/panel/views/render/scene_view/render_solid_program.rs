@@ -32,7 +32,7 @@ pub fn create_render_solid_program(
     use glow::HasContext as _;
 
     unsafe {
-        let version_string= get_glsl_version_line(gl)?;
+        let version_string = get_glsl_version_line(gl)?;
         let program = gl.create_program().ok()?;
 
         let (vertex_shader_source, fragment_shader_source) = get_shader_source(id)?;
@@ -45,11 +45,7 @@ pub fn create_render_solid_program(
         let shaders: Vec<_> = shader_sources
             .iter()
             .map(|(shader_type, shader_source)| {
-                let source = format!(
-                    "{}\n{}",
-                    version_string,
-                    shader_source
-                );
+                let source = format!("{}\n{}", version_string, shader_source);
                 let shader = gl.create_shader(*shader_type).ok().unwrap();
                 gl.shader_source(shader, &source);
                 gl.compile_shader(shader);

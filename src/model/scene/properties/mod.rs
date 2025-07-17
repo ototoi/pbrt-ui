@@ -8,6 +8,7 @@ mod material;
 mod option;
 mod sampler;
 mod shape;
+mod subsurface;
 mod texture;
 mod value_range;
 
@@ -21,5 +22,6 @@ pub use material::*;
 pub use option::*;
 pub use sampler::*;
 pub use shape::*;
+pub use subsurface::*;
 pub use texture::*;
 pub use value_range::*;
