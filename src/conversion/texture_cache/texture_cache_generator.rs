@@ -518,6 +518,190 @@ pub fn create_fbm_texture_cache(
     return Ok(Arc::new(RwLock::new(texture_cache)));
 }
 
+pub fn create_windy_texture_cache(
+    texture: &Texture,
+    size: TextureCacheSize,
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
+    assert!(texture_type == "windy", "Texture type must be windy");
+
+    let uscale = texture
+        .as_property_map()
+        .find_one_float("uscale")
+        .unwrap_or(1.0);
+    let vscale = texture
+        .as_property_map()
+        .find_one_float("vscale")
+        .unwrap_or(1.0);
+
+    let mat = texture.get_transform();
+    let (t, _r, s) = mat.decompose(0.1).unwrap_or((
+        Vector3::zero(),
+        Quaternion::identity(),
+        Vector3::new(1.0, 1.0, 1.0),
+    ));
+
+    let dim = match size {
+        TextureCacheSize::Icon => (64, 64),
+        TextureCacheSize::Full => (256, 256),
+        TextureCacheSize::Size((w, h)) => (w as u32, h as u32),
+    };
+
+    let mut image_buffer = image::ImageBuffer::new(dim.0, dim.1);
+    for y in 0..dim.1 {
+        for x in 0..dim.0 {
+            let u = x as f32 / dim.0 as f32;
+            let v = y as f32 / dim.1 as f32;
+            let w = 0.0; // Assuming 2D texture, z-coordinate is not used
+
+            let u = u * uscale;
+            let v = v * vscale;
+
+            let u = u * s.x + t.x;
+            let v = v * s.y + t.y;
+            let w = w * s.z + t.z;
+            let p = Vector3::new(u as f32, v as f32, w as f32);
+            let dpdx = Vector3::new(1.0 / dim.0 as f32, 0.0, 0.0);
+            let dpdy = Vector3::new(0.0, 1.0 / dim.1 as f32, 0.0);
+            let wind_strength = fbm(&(0.1 * p), &(0.1 * dpdx), &(0.1 * dpdy), 0.5, 3);
+            let wave_height = fbm(&p, &dpdx, &dpdy, 0.5, 6);
+            let f = f32::abs(wind_strength) * wave_height;
+            let pixel = image::Rgba([
+                f as f32, f as f32, f as f32, 1.0, // Alpha channel
+            ]);
+            image_buffer.put_pixel(x, y, pixel);
+        }
+    }
+    let image = DynamicImage::ImageRgba32F(image_buffer);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
+}
+
+const MARBLE_COLORS: [[f32; 3]; 9] = [
+    [0.58, 0.58, 0.6],
+    [0.58, 0.58, 0.6],
+    [0.58, 0.58, 0.6],
+    [0.5, 0.5, 0.5],
+    [0.6, 0.59, 0.58],
+    [0.58, 0.58, 0.6],
+    [0.58, 0.58, 0.6],
+    [0.2, 0.2, 0.33],
+    [0.58, 0.58, 0.6],
+];
+
+#[inline]
+fn lerp(a: &[f32; 3], b: &[f32; 3], t: f32) -> [f32; 3] {
+    let mut result = [0.0; 3];
+    for i in 0..3 {
+        result[i] = a[i] * (1.0 - t) + b[i] * t;
+    }
+    return result;
+}
+
+#[inline]
+fn multiply_scalar(a: &[f32; 3], f: f32) -> [f32; 3] {
+    let mut result = [0.0; 3];
+    for i in 0..3 {
+        result[i] = a[i] * f;
+    }
+    return result;
+}
+
+pub fn create_marble_texture_cache(
+    texture: &Texture,
+    size: TextureCacheSize,
+) -> Result<Arc<RwLock<TextureCache>>, PbrtError> {
+    let texture_type = texture.get_type();
+    let id = texture.get_id();
+    let edition = texture.get_edition();
+    assert!(texture_type == "marble", "Texture type must be marble");
+    let octaves = texture
+        .as_property_map()
+        .find_one_int("octaves")
+        .unwrap_or(8);
+    let roughness = texture
+        .as_property_map()
+        .find_one_float("roughness")
+        .unwrap_or(0.5);
+    let scale = texture
+        .as_property_map()
+        .find_one_float("scale")
+        .unwrap_or(1.0);
+    let variation = texture
+        .as_property_map()
+        .find_one_float("variation")
+        .unwrap_or(0.2);
+
+    let mat = texture.get_transform();
+    let (t, _r, s) = mat.decompose(0.1).unwrap_or((
+        Vector3::zero(),
+        Quaternion::identity(),
+        Vector3::new(1.0, 1.0, 1.0),
+    ));
+
+    let dim = match size {
+        TextureCacheSize::Icon => (64, 64),
+        TextureCacheSize::Full => (256, 256),
+        TextureCacheSize::Size((w, h)) => (w as u32, h as u32),
+    };
+
+    let octaves = octaves.max(1) as u32;
+    let roughness = roughness.clamp(0.0, 1.0);
+    let scale = scale.max(0.001);
+    let variation = variation.max(0.0);
+
+    let omega = roughness;
+
+    let colors = &MARBLE_COLORS; //
+    let mut image_buffer = image::ImageBuffer::new(dim.0, dim.1);
+    for y in 0..dim.1 {
+        for x in 0..dim.0 {
+            let u = x as f32 / dim.0 as f32;
+            let v = y as f32 / dim.1 as f32;
+            let w = 0.0; // Assuming 2D texture, z-coordinate is not used
+            let u = u * s.x + t.x;
+            let v = v * s.y + t.y;
+            let w = w * s.z + t.z;
+            let p = Vector3::new(u as f32, v as f32, w as f32);
+            let dpdx = Vector3::new(1.0 / dim.0 as f32, 0.0, 0.0);
+            let dpdy = Vector3::new(0.0, 1.0 / dim.1 as f32, 0.0);
+            let p = scale * p;
+            let marble =
+                p.y + variation * fbm(&p, &(scale * dpdx), &(scale * dpdy), omega, octaves);
+            let t = 0.5 + 0.5 * f32::sin(marble);
+            // Evaluate marble spline at _t_
+            let nc = colors.len();
+            let nseg = nc - 3;
+            let first = usize::min(1, f32::floor(t * nseg as f32) as usize);
+            let t = t * nseg as f32 - first as f32;
+            let c0 = colors[first + 0];
+            let c1 = colors[first + 1];
+            let c2 = colors[first + 2];
+            let c3 = colors[first + 3];
+            // Bezier spline evaluated with de Castilejau's algorithm
+            let s0 = lerp(&c0, &c1, t);
+            let s1 = lerp(&c1, &c2, t);
+            let s2 = lerp(&c2, &c3, t);
+            let s0 = lerp(&s0, &s1, t);
+            let s1 = lerp(&s1, &s2, t);
+
+            let f = lerp(&s0, &s1, t);
+            let f = multiply_scalar(&f, 1.5);
+            let pixel = image::Rgba([
+                f[0], f[1], f[2], 1.0, // Alpha channel
+            ]);
+            image_buffer.put_pixel(x, y, pixel);
+        }
+    }
+    let image = DynamicImage::ImageRgba32F(image_buffer);
+    let image = Arc::new(image);
+    let texture_cache = TextureCache { id, edition, image };
+    return Ok(Arc::new(RwLock::new(texture_cache)));
+}
+
 pub fn create_texture_cache_core(
     texture: &Texture,
     size: TextureCacheSize,
@@ -533,9 +717,9 @@ pub fn create_texture_cache_core(
         "checkerboard" => create_checkerboard_texture_cache(texture, size, cache_map),
         "dots" => create_dots_texture_cache(texture, size, cache_map),
         "fbm" => create_fbm_texture_cache(texture, size),
-        "windy" | "wrinkled" | "marble" => {
-            create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255]))
-        }
+        "windy" => create_windy_texture_cache(texture, size),
+        "wrinkled" => create_default_texture_cache(texture, size, &image::Rgba([255, 0, 255, 255])),
+        "marble" => create_marble_texture_cache(texture, size),
         _ => {
             return Err(PbrtError::error(&format!(
                 "Unsupported texture type: {}",
