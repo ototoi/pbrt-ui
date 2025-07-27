@@ -20,14 +20,14 @@ use eframe::{
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Vertex {
-    position: [f32; 4],
-    color: [f32; 4],
+    position: [f32; 3],
+    color: [f32; 3],
 }
 
 fn vertex(pos: [f32; 3], col: [f32; 3]) -> Vertex {
     Vertex {
-        position: [pos[0], pos[1], pos[2], 1.0], // Homogeneous coordinates
-        color: [col[0], col[1], col[2], 1.0],    // RGBA color
+        position: [pos[0], pos[1], pos[2]], // Homogeneous coordinates
+        color: [col[0], col[1], col[2]],    // RGBA color
     }
 }
 
@@ -40,6 +40,11 @@ fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
 
     let indices = vec![0, 1, 2];
     return (vertices, indices);
+}
+
+fn generate_matrix(angle: f32) -> glam::Mat4 {
+    let q = glam::Quat::from_axis_angle(glam::vec3(0.0, 1.0, 0.0), angle);
+    return glam::Mat4::from_quat(q);
 }
 
 pub struct Custom3dv {
@@ -79,13 +84,13 @@ impl Custom3dv {
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Float32x3,
                     offset: 0,
                     shader_location: 0,
                 },
                 wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x4,
-                    offset: 4 * 4,
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 3,
                     shader_location: 1,
                 },
             ],
@@ -99,7 +104,7 @@ impl Custom3dv {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(16),
+                    min_binding_size: NonZeroU64::new(64),//matrix 4x4 is 64 bytes
                 },
                 count: None,
             }],
@@ -112,6 +117,7 @@ impl Custom3dv {
         });
 
         let primitive = wgpu::PrimitiveState {
+            cull_mode: None,
             topology: wgpu::PrimitiveTopology::TriangleList,
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
@@ -139,16 +145,16 @@ impl Custom3dv {
             cache: None,
         });
 
+        let m = generate_matrix(0.0);
+        let m_ref: &[f32; 16] = m.as_ref(); // Convert Mat4 to a slice of f32
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("custom3d"),
-            contents: bytemuck::cast_slice(&[0.0_f32; 4]), // 16 bytes aligned!
-            // Mapping at creation (as done by the create_buffer_init utility) doesn't require us to to add the MAP_WRITE usage
-            // (this *happens* to workaround this bug )
+            label: Some("Uniform Buffer for Matrix"),
+            contents: bytemuck::cast_slice(m_ref), // 16 bytes aligned!
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("custom3d"),
+            label: Some("Bind Group for Custom3D"),
             layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -252,10 +258,12 @@ struct TriangleRenderResources {
 impl TriangleRenderResources {
     fn prepare(&self, _device: &wgpu::Device, queue: &wgpu::Queue, angle: f32) {
         // Update our uniform buffer with the angle from the UI
+        let m = generate_matrix(angle);
+        let m_ref: &[f32; 16] = m.as_ref(); // Convert Mat4 to a slice of f32
         queue.write_buffer(
             &self.uniform_buffer,
             0,
-            bytemuck::cast_slice(&[angle, 0.0, 0.0, 0.0]),
+            bytemuck::cast_slice(m_ref), // 16 bytes aligned!
         );
     }
 

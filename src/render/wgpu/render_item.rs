@@ -42,7 +42,7 @@ pub fn get_mesh(
     queue: &wgpu::Queue,
     node: &Arc<RwLock<Node>>,
     render_resource_manager: &mut RenderResourceManager,
-) -> Option<(Arc<RenderMesh>)> {
+) -> Option<Arc<RenderMesh>> {
     let node = node.read().unwrap();
     if let Some(component) = node.get_component::<ShapeComponent>() {
         let shape = component.get_shape();
@@ -51,7 +51,7 @@ pub fn get_mesh(
         if let Some(mesh) = render_resource_manager.get_mesh(mesh_id) {
             return Some(mesh.clone());
         } else {
-            if let Some(mesh) = RenderMesh::from_shape(device,  queue, &shape) {
+            if let Some(mesh) = RenderMesh::from_shape(device, queue, &shape) {
                 let mesh = Arc::new(mesh);
                 render_resource_manager.add_mesh(&mesh);
                 return Some(mesh);

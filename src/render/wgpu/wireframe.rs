@@ -118,7 +118,7 @@ impl WireframeRenderer {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("custom3d"),
             source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/custom3d_wgpu_shader.wgsl").into(),
+                include_str!("shaders/custom3dv_wgpu_shader.wgsl").into(),
             ),
         });
 
