@@ -1,5 +1,3 @@
-use std::vec;
-
 use super::component::Component;
 use crate::model::base::*;
 
