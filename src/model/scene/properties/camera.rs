@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 const TYPES: [&str; 4] = ["perspective", "realistic", "orthographic", "environment"];
 
-const PARAMETERS: [(&str, &str, &str, &str, &str); 17] = [
+const PARAMETERS: [(&str, &str, &str, &str, &str); 19] = [
     ("perspective", "float", "fov", "35.0", "0.0 90.0"), //halffov
     (
         "perspective",
@@ -19,6 +19,9 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 17] = [
     //("perspective", "float", "screenwindow", "0.0", ""),
     ("perspective", "float", "shutteropen", "0.0", "0.0 1.0"),
     ("perspective", "float", "shutterclose", "1.0", "0.0 1.0"),
+    //
+    ("perspective", "float", "znear", "0.001", ""),
+    ("perspective", "float", "zfar", "1000.0", ""),
     //
     ("realistic", "string", "lensfile", "", ""),
     ("realistic", "float", "aperturediameter", "1.0", ""),

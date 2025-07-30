@@ -16,7 +16,6 @@ use eframe::wgpu;
 pub struct MeshRenderItem {
     pub mesh: Arc<RenderMesh>,
     pub matrix: glam::Mat4,
-    //pub material: Option<Arc<RenderMesh>>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,10 +39,6 @@ impl RenderItem {
             // Handle other render item types here
         }
     }
-}
-
-pub fn convert_matrix(m: &Matrix4x4) -> glam::Mat4 {
-    return glam::Mat4::from_cols_array(&m.m);
 }
 
 pub fn get_mesh(
@@ -94,7 +89,7 @@ pub fn get_render_items(
         match item.category {
             SceneItemType::Mesh => {
                 if let Some(mesh) = get_mesh(device, queue, &item.node, &mut resource_manager) {
-                    let matrix = convert_matrix(&item.matrix);
+                    let matrix = glam::Mat4::from(item.matrix);
                     let render_item = MeshRenderItem { mesh, matrix };
                     render_items.push(Arc::new(RenderItem::Mesh(render_item)));
                 }

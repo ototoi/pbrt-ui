@@ -1,5 +1,6 @@
-pub mod custom3dv;
+pub mod matrix;
 pub mod mesh;
 pub mod render_item;
 pub mod render_resource;
-pub mod wireframe;
+pub mod solid_renderer;
+pub mod wireframe_renderer;

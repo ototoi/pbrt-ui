@@ -2,11 +2,7 @@ use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::render_item::get_render_items;
 use crate::model::base::Matrix4x4;
-use crate::model::base::Property;
-use crate::model::scene::CameraComponent;
-use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
-use crate::model::scene::TransformComponent;
 use crate::render::render_mode::RenderMode;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -15,16 +11,11 @@ use eframe::egui;
 use eframe::egui_wgpu;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use egui::Vec2;
 use wgpu::util::align_to;
 
 use bytemuck::{Pod, Zeroable};
 
-const MIN_LOCAL_BUFFER_NUM: usize = 512;
-
-pub fn convert_matrix(m: &Matrix4x4) -> glam::Mat4 {
-    return glam::Mat4::from_cols_array(&m.m);
-}
+const MIN_LOCAL_BUFFER_NUM: usize = 64;
 
 pub struct WireframeRenderer {}
 
@@ -77,11 +68,6 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         //let alignment = 64;
         align_to(local_uniform_size, alignment)
     };
-    //let alignment = device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-    //println!(
-    //    "Local uniform size: {}, alignment; {}, uniform_alignment: {}, num_items: {}",
-    //    local_uniform_size, alignment, uniform_alignment, num_items
-    //);
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
@@ -355,76 +341,23 @@ impl WireframeRenderer {
         return Some(renderer);
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, node: &Arc<RwLock<Node>>, is_playing: bool) {
-        let available_rect = ui.available_rect_before_wrap();
-        let available_size = available_rect.size();
-
-        let mut fov = 90.0f32.to_radians();
-        let mut w2c = Matrix4x4::identity();
-        let mut render_size = Vec2::new(1280.0, 720.0);
-        {
-            let root_node = node.clone();
-            if let Some(camera_node) = Node::find_node_by_component::<CameraComponent>(&root_node) {
-                let camera_node = camera_node.read().unwrap();
-                if let Some(t) = camera_node.get_component::<TransformComponent>() {
-                    let local_to_world = t.get_local_matrix();
-                    w2c = local_to_world.inverse().unwrap();
-                }
-                if let Some(camera) = camera_node.get_component::<CameraComponent>() {
-                    if let Some(prop) = camera.props.get("fov") {
-                        if let Property::Floats(f) = prop {
-                            if f.len() > 0 {
-                                fov = f[0].to_radians();
-                            }
-                        }
-                    }
-                }
-                if let Some(film) = camera_node.get_component::<FilmComponent>() {
-                    let width = film
-                        .props
-                        .find_one_int("integer xresolution")
-                        .unwrap_or(1280);
-                    let height = film
-                        .props
-                        .find_one_int("integer yresolution")
-                        .unwrap_or(720);
-                    render_size = Vec2::new(width as f32, height as f32);
-                }
-            }
-
-            {
-                let scale_x = available_size.x / render_size.x;
-                let scale_y = available_size.y / render_size.y;
-                let scale = scale_x.min(scale_y);
-                let scaled_size = Vec2::new(render_size.x * scale, render_size.y * scale);
-
-                let vertical_fov = if scaled_size.x < scaled_size.y {
-                    // portrait mode
-                    let k = scaled_size.x / (fov / 2.0).tan(); //tan = y / x
-                    2.0 * f32::atan2(available_size.y, k)
-                } else {
-                    // landscape mode
-                    let k = scaled_size.y / (fov / 2.0).tan(); //tan = y / x
-                    2.0 * f32::atan2(available_size.y, k)
-                };
-                fov = vertical_fov;
-            }
-
-            let (rect, response) = ui.allocate_exact_size(available_size, egui::Sense::drag());
-            if is_playing {}
-
-            let aspect = rect.width() / rect.height();
-            let c2c = Matrix4x4::perspective(fov, aspect, 0.1, 1000.0);
-
-            ui.painter().rect_filled(rect, 0.0, egui::Color32::RED);
-            ui.painter().add(egui_wgpu::Callback::new_paint_callback(
-                rect,
-                PerFrameCallback {
-                    node: node.clone(),
-                    world_to_camera: convert_matrix(&w2c),
-                    camera_to_clip: convert_matrix(&c2c),
-                },
-            ));
-        }
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        rect: egui::Rect,
+        node: &Arc<RwLock<Node>>,
+        w2c: &Matrix4x4,
+        c2c: &Matrix4x4,
+    ) {
+        let c2c = *c2c;
+        let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * c2c; // Convert to WGPU clip space
+        ui.painter().add(egui_wgpu::Callback::new_paint_callback(
+            rect,
+            PerFrameCallback {
+                node: node.clone(),
+                world_to_camera: glam::Mat4::from(w2c),
+                camera_to_clip: glam::Mat4::from(c2c),
+            },
+        ));
     }
 }

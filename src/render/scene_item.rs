@@ -84,5 +84,5 @@ pub fn get_scene_items(node: &Arc<RwLock<Node>>) -> Vec<SceneItem> {
     let mut items = Vec::new();
     let parent_matrix = Matrix4x4::identity();
     get_scene_item(&parent_matrix, node, &mut items);
-    items
+    return items;
 }

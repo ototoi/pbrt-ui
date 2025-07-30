@@ -30,10 +30,9 @@ fn vs_main(
 ) -> VertexOut {
     var out: VertexOut;
     // local_to_world * world_to_camera * camera_to_clip
-    //let transform = global_uniforms.camera_to_clip * global_uniforms.world_to_camera * local_uniforms.local_to_world;
-    let transform = local_uniforms.local_to_world * global_uniforms.world_to_camera * global_uniforms.camera_to_clip;
+    let transform = global_uniforms.camera_to_clip * global_uniforms.world_to_camera * local_uniforms.local_to_world;
 
-    out.position = vec4<f32>(position, 1.0) * transform;
+    out.position = transform * vec4<f32>(position, 1.0);
     out.color = local_uniforms.base_color;
 
     return out;
