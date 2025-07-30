@@ -2718,6 +2718,7 @@ dependencies = [
  "tar",
  "tempfile",
  "uuid",
+ "wgpu-types 26.0.0",
 ]
 
 [[package]]
@@ -4247,7 +4248,7 @@ dependencies = [
  "web-sys",
  "wgpu-core",
  "wgpu-hal",
- "wgpu-types",
+ "wgpu-types 25.0.0",
 ]
 
 [[package]]
@@ -4277,7 +4278,7 @@ dependencies = [
  "wgpu-core-deps-apple",
  "wgpu-core-deps-windows-linux-android",
  "wgpu-hal",
- "wgpu-types",
+ "wgpu-types 25.0.0",
 ]
 
 [[package]]
@@ -4322,7 +4323,7 @@ dependencies = [
  "raw-window-handle",
  "renderdoc-sys",
  "thiserror 2.0.12",
- "wgpu-types",
+ "wgpu-types 25.0.0",
 ]
 
 [[package]]
@@ -4330,6 +4331,20 @@ name = "wgpu-types"
 version = "25.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2aa49460c2a8ee8edba3fca54325540d904dd85b2e086ada762767e17d06e8bc"
+dependencies = [
+ "bitflags 2.9.1",
+ "bytemuck",
+ "js-sys",
+ "log",
+ "thiserror 2.0.12",
+ "web-sys",
+]
+
+[[package]]
+name = "wgpu-types"
+version = "26.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eca7a8d8af57c18f57d393601a1fb159ace8b2328f1b6b5f80893f7d672c9ae2"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",

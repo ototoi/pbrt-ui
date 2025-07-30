@@ -104,7 +104,7 @@ impl Custom3dv {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(64),//matrix 4x4 is 64 bytes
+                    min_binding_size: NonZeroU64::new(64), //matrix 4x4 is 64 bytes
                 },
                 count: None,
             }],

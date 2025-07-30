@@ -23,3 +23,4 @@ image = "0.25.6"
 egui_extras = "0.32.0"
 bytemuck = "1.23.1"
 glam = { version = "0.30.4", features = ["bytemuck", "serde"] }
+wgpu-types = "26.0.0"

@@ -2,12 +2,12 @@ use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::collections::HashMap;
 
-const PARAMETERS: [(&str, &str, &str, &str, &str); 38] = [
-    ("trianglemesh", "integer", "indices", "", ""),
-    ("trianglemesh", "point", "P", "", ""),
-    ("trianglemesh", "normal", "N", "", ""),
-    ("trianglemesh", "vector", "S", "", ""),
-    ("trianglemesh", "float", "uv", "", ""),
+const PARAMETERS: [(&str, &str, &str, &str, &str); 33] = [
+    //("trianglemesh", "integer", "indices", "", ""),
+    //("trianglemesh", "point", "P", "", ""),
+    //("trianglemesh", "normal", "N", "", ""),
+    //("trianglemesh", "vector", "S", "", ""),
+    //("trianglemesh", "float", "uv", "", ""),
     ("trianglemesh", "bool", "twosided", "true", ""),
     ("trianglemesh", "float", "alpha", "1.0", ""),
     ("trianglemesh", "float", "shadowalpha", "1.0", ""),

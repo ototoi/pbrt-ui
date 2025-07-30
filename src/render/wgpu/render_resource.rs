@@ -7,6 +7,8 @@ use std::sync::RwLock;
 
 use uuid::Uuid;
 
+use eframe::wgpu;
+
 #[derive(Debug, Clone, Default)]
 pub struct RenderResourceManager {
     pub meshes: HashMap<Uuid, Arc<RenderMesh>>,
@@ -40,9 +42,7 @@ pub struct RenderResourceComponent {
 impl RenderResourceComponent {
     pub fn new() -> Self {
         Self {
-            resource_manager: Arc::new(RwLock::new(RenderResourceManager {
-                meshes: HashMap::new(),
-            })),
+            resource_manager: Arc::new(RwLock::new(RenderResourceManager::new())),
         }
     }
 

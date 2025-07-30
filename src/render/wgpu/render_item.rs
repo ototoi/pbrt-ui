@@ -6,13 +6,11 @@ use crate::model::scene::Node;
 use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
-use crate::render::wgpu::render_resource;
 
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
-use eframe::wgpu::wgc::device::queue;
 
 #[derive(Debug, Clone)]
 pub struct MeshRenderItem {
@@ -27,10 +25,21 @@ pub struct LineGizmoItem {
     pub matrix: glam::Mat4,
 }
 
+#[derive(Debug, Clone)]
 pub enum RenderItem {
     Mesh(MeshRenderItem),
     LineGizmo(LineGizmoItem),
     // Add other render item types here as needed
+}
+
+impl RenderItem {
+    pub fn get_matrix(&self) -> glam::Mat4 {
+        match self {
+            RenderItem::Mesh(item) => item.matrix,
+            RenderItem::LineGizmo(item) => item.matrix,
+            // Handle other render item types here
+        }
+    }
 }
 
 pub fn convert_matrix(m: &Matrix4x4) -> glam::Mat4 {
@@ -49,16 +58,17 @@ pub fn get_mesh(
         let shape = shape.read().unwrap();
         let mesh_id = shape.get_id();
         if let Some(mesh) = render_resource_manager.get_mesh(mesh_id) {
-            return Some(mesh.clone());
-        } else {
-            if let Some(mesh) = RenderMesh::from_shape(device, queue, &shape) {
-                let mesh = Arc::new(mesh);
-                render_resource_manager.add_mesh(&mesh);
-                return Some(mesh);
+            if mesh.edition == shape.get_edition() {
+                return Some(mesh.clone());
             }
         }
+        if let Some(mesh) = RenderMesh::from_shape(device, queue, &shape) {
+            let mesh = Arc::new(mesh);
+            render_resource_manager.add_mesh(&mesh);
+            return Some(mesh);
+        }
     }
-    None
+    return None;
 }
 
 fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderResourceManager>> {
