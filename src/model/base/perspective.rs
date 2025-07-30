@@ -23,6 +23,13 @@ impl Matrix4x4 {
         return m;
     }
 
+    // hint:
+    // https://www.khronos.org/opengl/wiki/Clip_Space
+    // OpenGL clip space is defined as:
+    // (-1..+1), (-1..+1), (-1..+1)
+    // WGPU clip space is defined as:
+    // (-1..+1), (-1..+1), (0..+1)
+    // so we need to convert OpenGL clip space to WGPU clip space
     pub fn perspective(angle: f32, aspect: f32, n: f32, f: f32) -> Matrix4x4 {
         //(-1..+1), (-1..+1), (-1..+1)
         let h = f32::tan(angle / 2.0);
