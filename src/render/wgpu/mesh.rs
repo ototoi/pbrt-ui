@@ -1,6 +1,7 @@
 use crate::conversion::mesh_data::MeshData;
 use crate::conversion::mesh_data::create_mesh_data;
 use crate::model::scene::Shape;
+use bytemuck::{Pod, Zeroable};
 use eframe::wgpu;
 use uuid::Uuid;
 use wgpu::util::DeviceExt;
@@ -16,7 +17,7 @@ pub struct RenderMesh {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 pub struct RenderVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],

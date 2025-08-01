@@ -1,58 +1,26 @@
-use super::mesh::RenderVertex;
-use super::render_item::RenderItem;
 use super::render_item::get_render_items;
+use super::wireframe_mesh_render::WireframeMeshRenderer;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
+use crate::render::wgpu::render_item::RenderItem;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::RwLock;
 
 use eframe::egui;
 use eframe::egui_wgpu;
 use eframe::wgpu;
-use eframe::wgpu::util::DeviceExt;
-use wgpu::util::align_to;
 
-use bytemuck::{Pod, Zeroable};
-
-const MIN_LOCAL_BUFFER_NUM: usize = 64;
-
-pub struct WireframeRenderer {}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct GlobalUniforms {
-    world_to_camera: [[f32; 4]; 4],
-    camera_to_clip: [[f32; 4]; 4],
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct LocalUniforms {
-    local_to_world: [[f32; 4]; 4],
-    base_color: [f32; 4], // RGBA
-}
-
-#[derive(Debug, Clone)]
-struct InitResources {
-    pipeline: wgpu::RenderPipeline,
-    #[allow(dead_code)]
-    global_bind_group_layout: wgpu::BindGroupLayout,
-    global_bind_group: wgpu::BindGroup,
-    global_uniform_buffer: wgpu::Buffer,
-    local_bind_group_layout: wgpu::BindGroupLayout,
-    local_bind_group: wgpu::BindGroup,
-    local_uniform_buffer: wgpu::Buffer,
-    local_uniform_alignment: wgpu::BufferAddress,
-}
-
-#[derive(Debug, Clone)]
-struct PerFrameResources {
-    render_items: Vec<Arc<RenderItem>>,
+pub struct WireframeRenderer {
+    mesh_renderer: Arc<Mutex<WireframeMeshRenderer>>,
+    lines_renderer: Arc<Mutex<WireframeMeshRenderer>>,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
+    mesh_renderer: Arc<Mutex<WireframeMeshRenderer>>,
+    lines_renderer: Arc<Mutex<WireframeMeshRenderer>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
     camera_to_clip: glam::Mat4,
@@ -61,30 +29,13 @@ struct PerFrameCallback {
 unsafe impl Send for PerFrameCallback {}
 unsafe impl Sync for PerFrameCallback {}
 
-fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
-    let local_uniform_size = std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress; // 4x4 matrix
-    let uniform_alignment = {
-        let alignment = device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-        //let alignment = 64;
-        align_to(local_uniform_size, alignment)
-    };
-    let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Item Matrices Buffer"),
-        size: required_size,
-        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-        mapped_at_creation: false,
-    });
-    return buffer;
-}
-
 impl egui_wgpu::CallbackTrait for PerFrameCallback {
     fn prepare(
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _encoder: &mut wgpu::CommandEncoder,
+        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        encoder: &mut wgpu::CommandEncoder,
         resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
         let render_items = get_render_items(device, queue, &self.node, RenderMode::Wireframe);
@@ -92,253 +43,88 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         if num_items == 0 {
             return vec![];
         }
-
-        // Local uniforms buffer
+        let mut command_buffers = vec![];
         {
-            let init_resources: &mut InitResources = resources.get_mut().unwrap();
-            let local_uniform_alignment = init_resources.local_uniform_alignment;
-            if init_resources.local_uniform_buffer.size()
-                < (num_items as wgpu::BufferAddress * local_uniform_alignment)
-            {
-                let new_buffer = create_local_uniform_buffer(device, num_items);
-                let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Wireframe Local Bind Group"),
-                    layout: &init_resources.local_bind_group_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                            buffer: &new_buffer,
-                            offset: 0,
-                            size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                        }),
-                    }],
-                });
-                init_resources.local_uniform_buffer = new_buffer;
-                init_resources.local_bind_group = new_bind_group;
-            }
-            for (i, item) in render_items.iter().enumerate() {
-                let matrix = item.get_matrix();
-                let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for wireframe
-                let uniform = LocalUniforms {
-                    local_to_world: matrix.to_cols_array_2d(),
-                    base_color,
-                };
-                let offset = i as wgpu::BufferAddress * local_uniform_alignment;
-                queue.write_buffer(
-                    &init_resources.local_uniform_buffer,
-                    offset,
-                    bytemuck::bytes_of(&uniform),
+            let render_items = render_items
+                .clone()
+                .into_iter()
+                .filter(|item| {
+                    if let RenderItem::Mesh(_) = item.as_ref() {
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .collect::<Vec<_>>();
+            if !render_items.is_empty() {
+                let mut renderer = self.mesh_renderer.lock().unwrap();
+                let cmds = renderer.prepare(
+                    device,
+                    queue,
+                    screen_descriptor,
+                    encoder,
+                    resources,
+                    &render_items,
+                    &self.world_to_camera,
+                    &self.camera_to_clip,
                 );
+                command_buffers.extend(cmds);
             }
         }
-
         {
-            let init_resources: &InitResources = resources.get().unwrap();
-            let global_uniforms = GlobalUniforms {
-                world_to_camera: self.world_to_camera.to_cols_array_2d(), // Identity matrix for now
-                camera_to_clip: self.camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-            };
-            let global_unifrom_buffer = &init_resources.global_uniform_buffer;
-            queue.write_buffer(
-                global_unifrom_buffer,
-                0,
-                bytemuck::bytes_of(&global_uniforms),
-            );
+            let render_items = render_items
+                .clone()
+                .into_iter()
+                .filter(|item| {
+                    if let RenderItem::Lines(_) = item.as_ref() {
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .collect::<Vec<_>>();
+            if !render_items.is_empty() {
+                let mut renderer = self.lines_renderer.lock().unwrap();
+                let cmds = renderer.prepare(
+                    device,
+                    queue,
+                    screen_descriptor,
+                    encoder,
+                    resources,
+                    &render_items,
+                    &self.world_to_camera,
+                    &self.camera_to_clip,
+                );
+                command_buffers.extend(cmds);
+            }
         }
-
-        let per_frame_resources = PerFrameResources { render_items };
-        resources.insert(per_frame_resources);
-
-        return vec![];
+        return command_buffers;
     }
 
     fn paint(
         &self,
-        _info: egui::PaintCallbackInfo,
+        info: egui::PaintCallbackInfo,
         render_pass: &mut wgpu::RenderPass<'static>,
         resources: &egui_wgpu::CallbackResources,
     ) {
-        let init_resources: &InitResources = resources.get().unwrap();
-        if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            let local_uniform_alignment = init_resources.local_uniform_alignment;
-            render_pass.set_pipeline(&init_resources.pipeline); //
-            render_pass.set_bind_group(0, &init_resources.global_bind_group, &[]);
-            for (i, item) in per_frame_resources.render_items.iter().enumerate() {
-                let i = i as wgpu::DynamicOffset;
-                if let RenderItem::Mesh(mesh_item) = item.as_ref() {
-                    let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
-                    render_pass.set_bind_group(
-                        1,
-                        &init_resources.local_bind_group,
-                        &[local_uniform_offset],
-                    );
-                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(
-                        mesh_item.mesh.index_buffer.slice(..),
-                        wgpu::IndexFormat::Uint32,
-                    );
-                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
-                }
-            }
+        {
+            let renderer = self.mesh_renderer.lock().unwrap();
+            renderer.paint(info, render_pass, resources);
         }
     }
 }
 
 impl WireframeRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
-        let device = &wgpu_render_state.device;
-        //let queue = &wgpu_render_state.queue;
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Wireframe Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/wireframe_mesh_shader.wgsl").into(),
-            ),
-        });
-
-        let vertex_buffer_layout = [wgpu::VertexBufferLayout {
-            array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: std::mem::size_of::<f32>() as u64 * 3,
-                    shader_location: 1,
-                },
-            ],
-        }];
-
-        let global_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Global Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(size_of::<GlobalUniforms>() as _),
-                    },
-                    count: None,
-                }],
-            });
-
-        let local_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Local Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                    },
-                    count: None,
-                }],
-            });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Wireframe Pipeline Layout"),
-            bind_group_layouts: &[&global_bind_group_layout, &local_bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let primitive = wgpu::PrimitiveState {
-            cull_mode: None,
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            polygon_mode: wgpu::PolygonMode::Line,
-            ..Default::default()
-        };
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Wireframe Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &vertex_buffer_layout,
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu_render_state.target_format.into())],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: primitive,
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
-
-        let global_unifroms = GlobalUniforms {
-            world_to_camera: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
-            camera_to_clip: glam::Mat4::IDENTITY.to_cols_array_2d(),  // Identity matrix for now
-        };
-        let global_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer for Matrix"),
-            contents: bytemuck::bytes_of(&global_unifroms),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-        });
-
-        let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Wireframe Global Bind Group"),
-            layout: &global_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: global_uniform_buffer.as_entire_binding(),
-            }],
-        });
-
-        let local_uniform_size = size_of::<LocalUniforms>() as wgpu::BufferAddress;
-        let local_uniform_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            //let alignment = 64;
-            align_to(local_uniform_size, alignment)
-        };
-
-        let local_uniform_buffer = create_local_uniform_buffer(device, MIN_LOCAL_BUFFER_NUM);
-        let local_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Wireframe Local Bind Group"),
-            layout: &local_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &local_uniform_buffer,
-                    offset: 0,
-                    size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                }),
-            }],
-        });
-
-        {
-            wgpu_render_state
-                .renderer
-                .write()
-                .callback_resources
-                .insert(InitResources {
-                    pipeline,
-                    global_bind_group_layout,
-                    global_bind_group,
-                    global_uniform_buffer,
-                    local_bind_group_layout,
-                    local_bind_group,
-                    local_uniform_buffer,
-                    local_uniform_alignment,
+        if let Some(mesh_renderer) = WireframeMeshRenderer::new(cc) {
+            if let Some(lines_renderer) = WireframeMeshRenderer::new(cc) {
+                return Some(WireframeRenderer {
+                    mesh_renderer: Arc::new(Mutex::new(mesh_renderer)),
+                    lines_renderer: Arc::new(Mutex::new(lines_renderer)),
                 });
+            }
         }
-
-        let renderer = WireframeRenderer {};
-        return Some(renderer);
+        return None;
     }
 
     pub fn render(
@@ -354,6 +140,8 @@ impl WireframeRenderer {
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             PerFrameCallback {
+                mesh_renderer: self.mesh_renderer.clone(),
+                lines_renderer: self.lines_renderer.clone(),
                 node: node.clone(),
                 world_to_camera: glam::Mat4::from(w2c),
                 camera_to_clip: glam::Mat4::from(c2c),

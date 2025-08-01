@@ -524,7 +524,8 @@ impl PbrtSaver {
         }
         if let Some(component) = node.get_component::<ShapeComponent>() {
             if let Some(light_component) = node.get_component::<AreaLightComponent>() {
-                let light = light_component.light.read().unwrap();
+                let light = light_component.get_light();
+                let light = light.read().unwrap();
                 let light = light.as_property_map();
                 let t = light.find_one_string("string type").unwrap();
                 if let Some(props) = self.light_properties.get(&t) {
@@ -548,7 +549,8 @@ impl PbrtSaver {
                 writer.write("\n".as_bytes())?;
             }
         } else if let Some(light_component) = node.get_component::<LightComponent>() {
-            let light = light_component.light.read().unwrap();
+            let light = light_component.get_light();
+            let light = light.read().unwrap();
             let light = light.as_property_map();
             let t = light.find_one_string("string type").unwrap();
             if let Some(props) = self.light_properties.get(&t) {

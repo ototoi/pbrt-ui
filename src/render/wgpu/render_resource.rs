@@ -1,3 +1,4 @@
+use super::lines::RenderLines;
 use super::mesh::RenderMesh;
 use crate::model::scene::Component;
 
@@ -7,17 +8,17 @@ use std::sync::RwLock;
 
 use uuid::Uuid;
 
-use eframe::wgpu;
-
 #[derive(Debug, Clone, Default)]
 pub struct RenderResourceManager {
     pub meshes: HashMap<Uuid, Arc<RenderMesh>>,
+    pub lines: HashMap<Uuid, Arc<RenderLines>>,
 }
 
 impl RenderResourceManager {
     pub fn new() -> Self {
         Self {
             meshes: HashMap::new(),
+            lines: HashMap::new(),
         }
     }
     pub fn add_mesh(&mut self, mesh: &Arc<RenderMesh>) {
@@ -31,6 +32,19 @@ impl RenderResourceManager {
 
     pub fn remove_mesh(&mut self, id: Uuid) {
         self.meshes.remove(&id);
+    }
+
+    pub fn add_lines(&mut self, lines: &Arc<RenderLines>) {
+        let id = lines.get_id();
+        self.lines.insert(id, lines.clone());
+    }
+
+    pub fn get_lines(&self, id: Uuid) -> Option<&Arc<RenderLines>> {
+        self.lines.get(&id)
+    }
+
+    pub fn remove_lines(&mut self, id: Uuid) {
+        self.lines.remove(&id);
     }
 }
 
