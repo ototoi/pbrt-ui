@@ -1,8 +1,6 @@
-use super::mesh::RenderVertex;
+use super::lines::RenderLinesVertex;
 use super::render_item::RenderItem;
-use crate::model::scene::Node;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 use eframe::egui;
 use eframe::egui_wgpu;
@@ -14,7 +12,7 @@ use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 
-//pub struct WireframeMeshRenderer {}
+//pub struct LinesMeshRenderer {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -31,7 +29,7 @@ struct LocalUniforms {
 }
 
 #[derive(Debug, Clone)]
-pub struct WireframeMeshRenderer {
+pub struct LinesRenderer {
     pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
     global_bind_group_layout: wgpu::BindGroupLayout,
@@ -65,7 +63,7 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-impl WireframeMeshRenderer {
+impl LinesRenderer {
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -85,7 +83,7 @@ impl WireframeMeshRenderer {
             {
                 let new_buffer = create_local_uniform_buffer(device, num_items);
                 let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Wireframe Local Bind Group"),
+                    label: Some("Lines Local Bind Group"),
                     layout: &self.local_bind_group_layout,
                     entries: &[wgpu::BindGroupEntry {
                         binding: 0,
@@ -101,7 +99,7 @@ impl WireframeMeshRenderer {
             }
             for (i, item) in render_items.iter().enumerate() {
                 let matrix = item.get_matrix();
-                let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for wireframe
+                let base_color = [1.0, 1.0, 0.0, 1.0]; // Default color for Lines
                 let uniform = LocalUniforms {
                     local_to_world: matrix.to_cols_array_2d(),
                     base_color,
@@ -138,7 +136,7 @@ impl WireframeMeshRenderer {
 
     pub fn paint(
         &self,
-        _info: egui::PaintCallbackInfo,
+        _info: &egui::PaintCallbackInfo,
         render_pass: &mut wgpu::RenderPass<'static>,
         resources: &egui_wgpu::CallbackResources,
     ) {
@@ -148,49 +146,36 @@ impl WireframeMeshRenderer {
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
             for (i, item) in per_frame_resources.render_items.iter().enumerate() {
                 let i = i as wgpu::DynamicOffset;
-                if let RenderItem::Mesh(mesh_item) = item.as_ref() {
+                if let RenderItem::Lines(line_item) = item.as_ref() {
                     let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
                     render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
-                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(
-                        mesh_item.mesh.index_buffer.slice(..),
-                        wgpu::IndexFormat::Uint32,
-                    );
-                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+                    render_pass.set_vertex_buffer(0, line_item.lines.vertex_buffer.slice(..));
+                    render_pass.draw(0..line_item.lines.vertex_count, 0..1);
                 }
             }
         }
     }
 }
 
-impl WireframeMeshRenderer {
+impl LinesRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
         //let queue = &wgpu_render_state.queue;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Wireframe Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/wireframe_mesh_shader.wgsl").into(),
-            ),
+            label: Some("Lines Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/lines_shader.wgsl").into()),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
-            array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
+            array_stride: size_of::<RenderLinesVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: std::mem::size_of::<f32>() as u64 * 3,
-                    shader_location: 1,
-                },
-            ],
+            attributes: &[wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x3,
+                offset: 0,
+                shader_location: 0,
+            }],
         }];
 
         let global_bind_group_layout =
@@ -224,20 +209,20 @@ impl WireframeMeshRenderer {
             });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Wireframe Pipeline Layout"),
+            label: Some("Lines Pipeline Layout"),
             bind_group_layouts: &[&global_bind_group_layout, &local_bind_group_layout],
             push_constant_ranges: &[],
         });
 
         let primitive = wgpu::PrimitiveState {
             cull_mode: None,
-            topology: wgpu::PrimitiveTopology::TriangleList,
+            topology: wgpu::PrimitiveTopology::LineList,
             polygon_mode: wgpu::PolygonMode::Line,
             ..Default::default()
         };
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Wireframe Pipeline"),
+            label: Some("Lines Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -269,7 +254,7 @@ impl WireframeMeshRenderer {
         });
 
         let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Wireframe Global Bind Group"),
+            label: Some("Lines Global Bind Group"),
             layout: &global_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -287,7 +272,7 @@ impl WireframeMeshRenderer {
 
         let local_uniform_buffer = create_local_uniform_buffer(device, MIN_LOCAL_BUFFER_NUM);
         let local_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Wireframe Local Bind Group"),
+            label: Some("Lines Local Bind Group"),
             layout: &local_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -299,7 +284,7 @@ impl WireframeMeshRenderer {
             }],
         });
 
-        return Some(WireframeMeshRenderer {
+        return Some(LinesRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,

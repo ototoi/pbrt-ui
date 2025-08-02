@@ -15,7 +15,7 @@ pub struct RenderLines {
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
-pub struct RenderLineVertex {
+pub struct RenderLinesVertex {
     pub position: [f32; 3],
 }
 
@@ -31,9 +31,12 @@ impl RenderLines {
     ) -> Option<RenderLines> {
         let id = light.get_id();
         let edition = light.get_edition();
+        let t = light.get_type();
+        //println!("Creating RenderLines for light: {} (type: {})", id, t);
 
-        let mut vertices: Vec<RenderLineVertex> = Vec::new();
+        let mut vertices: Vec<RenderLinesVertex> = Vec::new();
         if let Some(light_shape) = create_light_shape(light) {
+            //println!("Creating RenderLines for light: {}", id);
             let lines = &light_shape.lines;
             for line in lines {
                 if line.len() < 2 {
@@ -42,15 +45,16 @@ impl RenderLines {
                 for i in 0..line.len() - 1 {
                     let start = line[i];
                     let end = line[i + 1];
-                    vertices.push(RenderLineVertex {
+                    vertices.push(RenderLinesVertex {
                         position: [start.x, start.y, start.z],
                     });
-                    vertices.push(RenderLineVertex {
+                    vertices.push(RenderLinesVertex {
                         position: [end.x, end.y, end.z],
                     });
                 }
             }
         }
+        //println!("RenderLines: {} vertices", vertices.len());
         let vertex_count = vertices.len() as u32;
         if vertex_count == 0 {
             return None; // No vertices to render
