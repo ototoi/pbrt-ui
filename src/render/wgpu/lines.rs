@@ -1,4 +1,4 @@
-use crate::conversion::light_shape::{self, create_light_shape};
+use crate::conversion::light_shape::create_light_shape;
 use crate::model::scene::Light;
 use bytemuck::{Pod, Zeroable};
 use eframe::wgpu;
