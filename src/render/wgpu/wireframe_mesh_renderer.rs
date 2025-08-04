@@ -170,7 +170,7 @@ impl WireframeMeshRenderer {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Wireframe Shader"),
             source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/wireframe_mesh_shader.wgsl").into(),
+                include_str!("shaders/render_wireframe_mesh.wgsl").into(),
             ),
         });
 

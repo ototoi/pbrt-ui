@@ -45,8 +45,7 @@ fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
 fn main() -> eframe::Result {
     //env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-    //let window_size = [1920.0, 1080.0];
-    let window_size = [1280.0, 720.0];
+    let window_size = [1920.0, 1080.0];
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size(window_size),
         renderer: eframe::Renderer::Wgpu,
