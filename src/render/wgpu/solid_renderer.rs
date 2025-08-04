@@ -71,7 +71,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 command_buffers.extend(cmds);
             }
         }
-        {
+        if true {
             let render_items = render_items
                 .iter()
                 .filter(|item| {
@@ -112,7 +112,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
             let renderer = self.mesh_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }
-        {
+        if true {
             let renderer = self.lines_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }

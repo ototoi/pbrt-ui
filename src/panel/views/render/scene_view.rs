@@ -29,6 +29,9 @@ pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) 
                     let upper = m.transform_vector(&Vector3::new(0.0, 1.0, 0.0)).normalize();
                     let right = m.transform_vector(&Vector3::new(1.0, 0.0, 0.0)).normalize();
 
+                    //let upper = Vector3::new(0.0, 1.0, 0.0);
+                    //let right = Vector3::new(1.0, 0.0, 0.0);
+
                     let rotation_y = if s.x < 0.0 { -rotation_y } else { rotation_y };
                     let rotation_x = if s.y < 0.0 { -rotation_x } else { rotation_x };
 
@@ -143,6 +146,8 @@ impl SceneView {
         let c2c = Matrix4x4::perspective(fov, aspect, znear, zfar);
 
         ui.painter().rect_filled(rect, 0.0, egui::Color32::BLACK);
+
+        //let render_mode = RenderMode::Solid;
         match render_mode {
             RenderMode::Wireframe => {
                 if let Some(renderer) = &mut self.wireframe {
