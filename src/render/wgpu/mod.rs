@@ -1,5 +1,6 @@
 pub mod lines;
 pub mod lines_renderer;
+pub mod material;
 pub mod matrix;
 pub mod mesh;
 pub mod render_item;

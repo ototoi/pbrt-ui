@@ -15,7 +15,7 @@ impl InspectorPanel {
         component: &mut MaterialComponent,
         resource_selector: &ResourceSelector,
     ) -> bool {
-        let material = component.material.clone();
+        let material = component.get_material();
         let mut material = material.write().unwrap();
         let props = material.as_property_map_mut();
         return self.show_material_props(index, "Material", ui, props, resource_selector);

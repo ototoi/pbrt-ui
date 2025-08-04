@@ -45,11 +45,13 @@ fn get_local_matrix(node: &Arc<RwLock<Node>>) -> Matrix4x4 {
     return t.get_local_matrix();
 }
 
+/*
 fn get_material(node: &Arc<RwLock<Node>>) -> Arc<RwLock<Material>> {
     let node = node.read().unwrap();
     let m = node.get_component::<MaterialComponent>().unwrap();
-    return m.material.clone();
+    return m.get_material();
 }
+*/
 
 fn get_scene_item(parent_matrix: &Matrix4x4, node: &Arc<RwLock<Node>>, items: &mut Vec<SceneItem>) {
     if !node.read().unwrap().is_enabled() {

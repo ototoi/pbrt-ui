@@ -1,4 +1,5 @@
 use super::lines::RenderLines;
+use super::material::RenderMaterial;
 use super::mesh::RenderMesh;
 use crate::model::scene::Component;
 
@@ -12,6 +13,7 @@ use uuid::Uuid;
 pub struct RenderResourceManager {
     pub meshes: HashMap<Uuid, Arc<RenderMesh>>,
     pub lines: HashMap<Uuid, Arc<RenderLines>>,
+    pub materials: HashMap<Uuid, Arc<RenderMaterial>>,
 }
 
 impl RenderResourceManager {
@@ -19,6 +21,7 @@ impl RenderResourceManager {
         Self {
             meshes: HashMap::new(),
             lines: HashMap::new(),
+            materials: HashMap::new(),
         }
     }
     pub fn add_mesh(&mut self, mesh: &Arc<RenderMesh>) {
@@ -45,6 +48,19 @@ impl RenderResourceManager {
 
     pub fn remove_lines(&mut self, id: Uuid) {
         self.lines.remove(&id);
+    }
+
+    pub fn add_material(&mut self, material: &Arc<RenderMaterial>) {
+        let id = material.get_id();
+        self.materials.insert(id, material.clone());
+    }
+
+    pub fn get_material(&self, id: Uuid) -> Option<&Arc<RenderMaterial>> {
+        self.materials.get(&id)
+    }
+
+    pub fn remove_material(&mut self, id: Uuid) {
+        self.materials.remove(&id);
     }
 }
 

@@ -77,53 +77,55 @@ impl WireframeMeshRenderer {
     ) -> Vec<wgpu::CommandBuffer> {
         let num_items = render_items.len();
         if num_items != 0 {
-            let local_uniform_alignment = self.local_uniform_alignment;
-            if self.local_uniform_buffer.size()
-                < (num_items as wgpu::BufferAddress * local_uniform_alignment)
             {
-                let new_buffer = create_local_uniform_buffer(device, num_items);
-                let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Wireframe Local Bind Group"),
-                    layout: &self.local_bind_group_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                            buffer: &new_buffer,
-                            offset: 0,
-                            size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                        }),
-                    }],
-                });
-                self.local_uniform_buffer = new_buffer;
-                self.local_bind_group = new_bind_group;
+                let local_uniform_alignment = self.local_uniform_alignment;
+                if self.local_uniform_buffer.size()
+                    < (num_items as wgpu::BufferAddress * local_uniform_alignment)
+                {
+                    let new_buffer = create_local_uniform_buffer(device, num_items);
+                    let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("Wireframe Local Bind Group"),
+                        layout: &self.local_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                buffer: &new_buffer,
+                                offset: 0,
+                                size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
+                            }),
+                        }],
+                    });
+                    self.local_uniform_buffer = new_buffer;
+                    self.local_bind_group = new_bind_group;
+                }
+                for (i, item) in render_items.iter().enumerate() {
+                    let matrix = item.get_matrix();
+                    let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for wireframe
+                    let uniform = LocalUniforms {
+                        local_to_world: matrix.to_cols_array_2d(),
+                        base_color,
+                    };
+                    let offset = i as wgpu::BufferAddress * local_uniform_alignment;
+                    queue.write_buffer(
+                        &self.local_uniform_buffer,
+                        offset,
+                        bytemuck::bytes_of(&uniform),
+                    );
+                }
             }
-            for (i, item) in render_items.iter().enumerate() {
-                let matrix = item.get_matrix();
-                let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for wireframe
-                let uniform = LocalUniforms {
-                    local_to_world: matrix.to_cols_array_2d(),
-                    base_color,
+
+            {
+                let global_uniforms = GlobalUniforms {
+                    world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
+                    camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
                 };
-                let offset = i as wgpu::BufferAddress * local_uniform_alignment;
+                let global_unifrom_buffer = &self.global_uniform_buffer;
                 queue.write_buffer(
-                    &self.local_uniform_buffer,
-                    offset,
-                    bytemuck::bytes_of(&uniform),
+                    global_unifrom_buffer,
+                    0,
+                    bytemuck::bytes_of(&global_uniforms),
                 );
             }
-        }
-
-        {
-            let global_uniforms = GlobalUniforms {
-                world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
-                camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-            };
-            let global_unifrom_buffer = &self.global_uniform_buffer;
-            queue.write_buffer(
-                global_unifrom_buffer,
-                0,
-                bytemuck::bytes_of(&global_uniforms),
-            );
         }
 
         let per_frame_resources = PerFrameResources {

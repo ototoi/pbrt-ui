@@ -1,3 +1,4 @@
+use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use std::sync::Arc;
@@ -63,6 +64,23 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
+fn get_base_color(item: &RenderItem) -> [f32; 4] {
+    match item {
+        RenderItem::Mesh(mesh_item) => {
+            if let Some(material) = &mesh_item.material {
+                // Assuming the material has a base color property
+                if let Some(value) = material.get_uniform_value("base_color") {
+                    if let RenderUniformValue::Vec4(color) = value {
+                        return *color;
+                    }
+                }
+            }
+        }
+        _ => {} // Default color for other items
+    }
+    return [1.0, 0.0, 1.0, 1.0]; // Default color for Solid
+}
+
 impl SolidMeshRenderer {
     pub fn prepare(
         &mut self,
@@ -100,7 +118,7 @@ impl SolidMeshRenderer {
                 }
                 for (i, item) in render_items.iter().enumerate() {
                     let matrix = item.get_matrix();
-                    let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for Solid
+                    let base_color = get_base_color(item);
                     let uniform = LocalUniforms {
                         local_to_world: matrix.to_cols_array_2d(),
                         base_color,
