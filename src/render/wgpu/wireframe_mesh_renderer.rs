@@ -76,7 +76,7 @@ impl WireframeMeshRenderer {
         camera_to_clip: &glam::Mat4,
     ) -> Vec<wgpu::CommandBuffer> {
         let num_items = render_items.len();
-        {
+        if num_items != 0 {
             let local_uniform_alignment = self.local_uniform_alignment;
             if self.local_uniform_buffer.size()
                 < (num_items as wgpu::BufferAddress * local_uniform_alignment)
@@ -141,20 +141,27 @@ impl WireframeMeshRenderer {
         resources: &egui_wgpu::CallbackResources,
     ) {
         if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            let local_uniform_alignment = self.local_uniform_alignment;
-            render_pass.set_pipeline(&self.pipeline); //
-            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-            for (i, item) in per_frame_resources.render_items.iter().enumerate() {
-                let i = i as wgpu::DynamicOffset;
-                if let RenderItem::Mesh(mesh_item) = item.as_ref() {
-                    let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
-                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
-                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(
-                        mesh_item.mesh.index_buffer.slice(..),
-                        wgpu::IndexFormat::Uint32,
-                    );
-                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+            if !per_frame_resources.render_items.is_empty() {
+                let local_uniform_alignment = self.local_uniform_alignment;
+                render_pass.set_pipeline(&self.pipeline); //
+                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+                for (i, item) in per_frame_resources.render_items.iter().enumerate() {
+                    let i = i as wgpu::DynamicOffset;
+                    if let RenderItem::Mesh(mesh_item) = item.as_ref() {
+                        let local_uniform_offset =
+                            i * local_uniform_alignment as wgpu::DynamicOffset;
+                        render_pass.set_bind_group(
+                            1,
+                            &self.local_bind_group,
+                            &[local_uniform_offset],
+                        );
+                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                        render_pass.set_index_buffer(
+                            mesh_item.mesh.index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
+                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+                    }
                 }
             }
         }

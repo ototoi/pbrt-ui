@@ -53,22 +53,24 @@ impl RenderLines {
                     });
                 }
             }
+
+            //println!("RenderLines: {} vertices", vertices.len());
+            let vertex_count = vertices.len() as u32;
+            if vertex_count == 0 {
+                return None; // No vertices to render
+            }
+            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("RenderLines Vertex Buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+            return Some(RenderLines {
+                id,
+                edition,
+                vertex_buffer,
+                vertex_count,
+            });
         }
-        //println!("RenderLines: {} vertices", vertices.len());
-        let vertex_count = vertices.len() as u32;
-        if vertex_count == 0 {
-            return None; // No vertices to render
-        }
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("RenderLines Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        return Some(RenderLines {
-            id,
-            edition,
-            vertex_buffer,
-            vertex_count,
-        });
+        return None;
     }
 }

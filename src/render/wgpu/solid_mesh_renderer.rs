@@ -29,7 +29,7 @@ struct LocalUniforms {
 }
 
 #[derive(Debug, Clone)]
-pub struct SolidframeMeshRenderer {
+pub struct SolidMeshRenderer {
     pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
     global_bind_group_layout: wgpu::BindGroupLayout,
@@ -63,7 +63,7 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-impl SolidframeMeshRenderer {
+impl SolidMeshRenderer {
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -76,54 +76,56 @@ impl SolidframeMeshRenderer {
         camera_to_clip: &glam::Mat4,
     ) -> Vec<wgpu::CommandBuffer> {
         let num_items = render_items.len();
-        {
-            let local_uniform_alignment = self.local_uniform_alignment;
-            if self.local_uniform_buffer.size()
-                < (num_items as wgpu::BufferAddress * local_uniform_alignment)
+        if num_items != 0 {
             {
-                let new_buffer = create_local_uniform_buffer(device, num_items);
-                let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Solid Local Bind Group"),
-                    layout: &self.local_bind_group_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                            buffer: &new_buffer,
-                            offset: 0,
-                            size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                        }),
-                    }],
-                });
-                self.local_uniform_buffer = new_buffer;
-                self.local_bind_group = new_bind_group;
+                let local_uniform_alignment = self.local_uniform_alignment;
+                if self.local_uniform_buffer.size()
+                    < (num_items as wgpu::BufferAddress * local_uniform_alignment)
+                {
+                    let new_buffer = create_local_uniform_buffer(device, num_items);
+                    let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("Solid Local Bind Group"),
+                        layout: &self.local_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                buffer: &new_buffer,
+                                offset: 0,
+                                size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
+                            }),
+                        }],
+                    });
+                    self.local_uniform_buffer = new_buffer;
+                    self.local_bind_group = new_bind_group;
+                }
+                for (i, item) in render_items.iter().enumerate() {
+                    let matrix = item.get_matrix();
+                    let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for Solid
+                    let uniform = LocalUniforms {
+                        local_to_world: matrix.to_cols_array_2d(),
+                        base_color,
+                    };
+                    let offset = i as wgpu::BufferAddress * local_uniform_alignment;
+                    queue.write_buffer(
+                        &self.local_uniform_buffer,
+                        offset,
+                        bytemuck::bytes_of(&uniform),
+                    );
+                }
             }
-            for (i, item) in render_items.iter().enumerate() {
-                let matrix = item.get_matrix();
-                let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for Solid
-                let uniform = LocalUniforms {
-                    local_to_world: matrix.to_cols_array_2d(),
-                    base_color,
+
+            {
+                let global_uniforms = GlobalUniforms {
+                    world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
+                    camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
                 };
-                let offset = i as wgpu::BufferAddress * local_uniform_alignment;
+                let global_unifrom_buffer = &self.global_uniform_buffer;
                 queue.write_buffer(
-                    &self.local_uniform_buffer,
-                    offset,
-                    bytemuck::bytes_of(&uniform),
+                    global_unifrom_buffer,
+                    0,
+                    bytemuck::bytes_of(&global_uniforms),
                 );
             }
-        }
-
-        {
-            let global_uniforms = GlobalUniforms {
-                world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
-                camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-            };
-            let global_unifrom_buffer = &self.global_uniform_buffer;
-            queue.write_buffer(
-                global_unifrom_buffer,
-                0,
-                bytemuck::bytes_of(&global_uniforms),
-            );
         }
 
         let per_frame_resources = PerFrameResources {
@@ -141,27 +143,34 @@ impl SolidframeMeshRenderer {
         resources: &egui_wgpu::CallbackResources,
     ) {
         if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            let local_uniform_alignment = self.local_uniform_alignment;
-            render_pass.set_pipeline(&self.pipeline); //
-            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-            for (i, item) in per_frame_resources.render_items.iter().enumerate() {
-                let i = i as wgpu::DynamicOffset;
-                if let RenderItem::Mesh(mesh_item) = item.as_ref() {
-                    let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
-                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
-                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(
-                        mesh_item.mesh.index_buffer.slice(..),
-                        wgpu::IndexFormat::Uint32,
-                    );
-                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+            if !per_frame_resources.render_items.is_empty() {
+                let local_uniform_alignment = self.local_uniform_alignment;
+                render_pass.set_pipeline(&self.pipeline); //
+                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+                for (i, item) in per_frame_resources.render_items.iter().enumerate() {
+                    let i = i as wgpu::DynamicOffset;
+                    if let RenderItem::Mesh(mesh_item) = item.as_ref() {
+                        let local_uniform_offset =
+                            i * local_uniform_alignment as wgpu::DynamicOffset;
+                        render_pass.set_bind_group(
+                            1,
+                            &self.local_bind_group,
+                            &[local_uniform_offset],
+                        );
+                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                        render_pass.set_index_buffer(
+                            mesh_item.mesh.index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
+                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+                    }
                 }
             }
         }
     }
 }
 
-impl SolidframeMeshRenderer {
+impl SolidMeshRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
@@ -169,9 +178,7 @@ impl SolidframeMeshRenderer {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Solid Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/render_solid_mesh.wgsl").into(),
-            ),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_solid_mesh.wgsl").into()),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -297,7 +304,7 @@ impl SolidframeMeshRenderer {
             }],
         });
 
-        return Some(SolidframeMeshRenderer {
+        return Some(SolidMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,

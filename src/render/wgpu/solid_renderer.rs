@@ -1,12 +1,11 @@
 use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
-use super::solid_mesh_renderer::SolidframeMeshRenderer;
+use super::solid_mesh_renderer::SolidMeshRenderer;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
 use crate::render::wgpu::render_item::RenderItem;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::RwLock;
 
 use eframe::egui;
@@ -14,14 +13,14 @@ use eframe::egui_wgpu;
 use eframe::wgpu;
 
 pub struct SolidRenderer {
-    mesh_renderer: Arc<Mutex<SolidframeMeshRenderer>>,
-    lines_renderer: Arc<Mutex<LinesRenderer>>,
+    mesh_renderer: Arc<RwLock<SolidMeshRenderer>>,
+    lines_renderer: Arc<RwLock<LinesRenderer>>,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
-    mesh_renderer: Arc<Mutex<SolidframeMeshRenderer>>,
-    lines_renderer: Arc<Mutex<LinesRenderer>>,
+    mesh_renderer: Arc<RwLock<SolidMeshRenderer>>,
+    lines_renderer: Arc<RwLock<LinesRenderer>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
     camera_to_clip: glam::Mat4,
@@ -39,7 +38,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         encoder: &mut wgpu::CommandEncoder,
         resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        let render_items = get_render_items(device, queue, &self.node, RenderMode::Wireframe);
+        let render_items = get_render_items(device, queue, &self.node, RenderMode::Solid);
         let num_items = render_items.len();
         if num_items == 0 {
             return vec![];
@@ -58,7 +57,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 .cloned()
                 .collect::<Vec<_>>();
             if !render_items.is_empty() {
-                let mut renderer = self.mesh_renderer.lock().unwrap();
+                let mut renderer = self.mesh_renderer.write().unwrap();
                 let cmds = renderer.prepare(
                     device,
                     queue,
@@ -86,7 +85,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 .collect::<Vec<_>>();
             if !render_items.is_empty() {
                 //println!("Preparing lines renderer with {} items", render_items.len());
-                let mut renderer = self.lines_renderer.lock().unwrap();
+                let mut renderer = self.lines_renderer.write().unwrap();
                 let cmds = renderer.prepare(
                     device,
                     queue,
@@ -110,11 +109,11 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         resources: &egui_wgpu::CallbackResources,
     ) {
         {
-            let renderer = self.mesh_renderer.lock().unwrap();
+            let renderer = self.mesh_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }
         {
-            let renderer = self.lines_renderer.lock().unwrap();
+            let renderer = self.lines_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }
     }
@@ -122,11 +121,11 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
 
 impl SolidRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        if let Some(mesh_renderer) = SolidframeMeshRenderer::new(cc) {
+        if let Some(mesh_renderer) = SolidMeshRenderer::new(cc) {
             if let Some(lines_renderer) = LinesRenderer::new(cc) {
                 return Some(SolidRenderer {
-                    mesh_renderer: Arc::new(Mutex::new(mesh_renderer)),
-                    lines_renderer: Arc::new(Mutex::new(lines_renderer)),
+                    mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
+                    lines_renderer: Arc::new(RwLock::new(lines_renderer)),
                 });
             }
         }

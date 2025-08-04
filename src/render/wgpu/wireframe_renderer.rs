@@ -6,7 +6,6 @@ use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
 use crate::render::wgpu::render_item::RenderItem;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::RwLock;
 
 use eframe::egui;
@@ -14,14 +13,14 @@ use eframe::egui_wgpu;
 use eframe::wgpu;
 
 pub struct WireframeRenderer {
-    mesh_renderer: Arc<Mutex<WireframeMeshRenderer>>,
-    lines_renderer: Arc<Mutex<LinesRenderer>>,
+    mesh_renderer: Arc<RwLock<WireframeMeshRenderer>>,
+    lines_renderer: Arc<RwLock<LinesRenderer>>,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
-    mesh_renderer: Arc<Mutex<WireframeMeshRenderer>>,
-    lines_renderer: Arc<Mutex<LinesRenderer>>,
+    mesh_renderer: Arc<RwLock<WireframeMeshRenderer>>,
+    lines_renderer: Arc<RwLock<LinesRenderer>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
     camera_to_clip: glam::Mat4,
@@ -58,7 +57,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 .cloned()
                 .collect::<Vec<_>>();
             if !render_items.is_empty() {
-                let mut renderer = self.mesh_renderer.lock().unwrap();
+                let mut renderer = self.mesh_renderer.write().unwrap();
                 let cmds = renderer.prepare(
                     device,
                     queue,
@@ -84,9 +83,9 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            if !render_items.is_empty() {
+            {
                 //println!("Preparing lines renderer with {} items", render_items.len());
-                let mut renderer = self.lines_renderer.lock().unwrap();
+                let mut renderer = self.lines_renderer.write().unwrap();
                 let cmds = renderer.prepare(
                     device,
                     queue,
@@ -110,11 +109,11 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         resources: &egui_wgpu::CallbackResources,
     ) {
         {
-            let renderer = self.mesh_renderer.lock().unwrap();
+            let renderer = self.mesh_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }
         {
-            let renderer = self.lines_renderer.lock().unwrap();
+            let renderer = self.lines_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }
     }
@@ -125,8 +124,8 @@ impl WireframeRenderer {
         if let Some(mesh_renderer) = WireframeMeshRenderer::new(cc) {
             if let Some(lines_renderer) = LinesRenderer::new(cc) {
                 return Some(WireframeRenderer {
-                    mesh_renderer: Arc::new(Mutex::new(mesh_renderer)),
-                    lines_renderer: Arc::new(Mutex::new(lines_renderer)),
+                    mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
+                    lines_renderer: Arc::new(RwLock::new(lines_renderer)),
                 });
             }
         }
