@@ -39,6 +39,13 @@ impl Light {
             .unwrap_or_default();
     }
 
+    pub fn get_edition(&self) -> String {
+        return self
+            .props
+            .find_one_string("string edition")
+            .unwrap_or_default();
+    }
+
     pub fn get_floats(&self, key: &str) -> Option<&[f32]> {
         if let Some(prop) = self.props.get(key) {
             if let Property::Floats(arr) = prop {

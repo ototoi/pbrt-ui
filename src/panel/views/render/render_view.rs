@@ -44,6 +44,7 @@ fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
     }
     let image = egui::ColorImage {
         size: [width, height],
+        source_size: egui::Vec2::new(width as f32, height as f32),
         pixels,
     };
     let image = egui::ImageData::Color(Arc::new(image));
@@ -56,7 +57,7 @@ fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
     return delta;
 }
 
-pub fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {
+fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {
     let available_rect = ui.available_rect_before_wrap();
     let available_size = available_rect.size();
     if let Some(image) = history.get_image_data() {
@@ -75,7 +76,7 @@ pub fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {
             let mut tex_manager = tex_manager.write();
             if history.texture_id.is_none() {
                 let image_size = [render_size.x as usize, render_size.y as usize];
-                let color_image = egui::ColorImage::new(image_size, egui::Color32::BLACK);
+                let color_image = egui::ColorImage::filled(image_size, egui::Color32::BLACK);
                 let image_data = egui::ImageData::Color(Arc::new(color_image));
                 let options = egui::TextureOptions::LINEAR;
                 history.texture_id =
@@ -104,5 +105,17 @@ pub fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {
             egui::Stroke::new(1.0, egui::Color32::WHITE),
             egui::StrokeKind::Inside,
         );
+    }
+}
+
+pub struct RenderView {}
+
+impl RenderView {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        Self {}
+    }
+
+    pub fn show(&mut self, ui: &mut egui::Ui, history: &mut RenderHistory) {
+        show_render_view(ui, history);
     }
 }

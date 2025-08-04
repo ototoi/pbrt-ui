@@ -25,6 +25,8 @@ pub struct PbrtUIApp {
 
 impl PbrtUIApp {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Self {
+        //let max_storage_buffer_binding_size = cc.wgpu_render_state.as_ref().unwrap().device.limits().max_storage_buffer_binding_size;
+        //println!("Max storage buffer binding size: {}", max_storage_buffer_binding_size);
         let mut controller = AppController::new();
         controller.load_config();
         let controller = Arc::new(RwLock::new(controller));

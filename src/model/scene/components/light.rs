@@ -8,7 +8,7 @@ use crate::model::base::*;
 
 #[derive(Debug, Clone)]
 pub struct LightComponent {
-    pub light: Arc<RwLock<Light>>,
+    light: Arc<RwLock<Light>>,
 }
 
 fn replace_properties(props: &mut PropertyMap) {
@@ -74,6 +74,10 @@ impl LightComponent {
             _ => "Light",
         };
         name.to_string()
+    }
+
+    pub fn get_light(&self) -> Arc<RwLock<Light>> {
+        self.light.clone()
     }
 }
 

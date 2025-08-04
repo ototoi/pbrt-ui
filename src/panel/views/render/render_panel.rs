@@ -1,27 +1,25 @@
 use super::render_history::RenderHistory;
 use super::render_state::RenderState;
 //
-use super::show_render_view::show_render_view;
-use super::show_scene_view::show_scene_view;
+use super::render_view::RenderView;
+use super::scene_view::SceneView;
+use crate::render::render_mode::RenderMode;
 //
 use crate::controller::AppController;
 use crate::model::config::AppConfig;
-use crate::panel::views::render::scene_view::RenderMode;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::egui;
-use eframe::egui::frame;
-use eframe::egui_glow;
-use egui_glow::glow;
 
 pub struct RenderPanel {
     app_controller: Arc<RwLock<AppController>>,
     histories: Vec<Box<RenderHistory>>,
     current: usize,
-    gl: Arc<glow::Context>,
+    render_view: RenderView,
+    scene_view: SceneView,
     render_mode: RenderMode,
 }
 
@@ -52,11 +50,14 @@ impl RenderPanel {
     ) -> Self {
         let config = controller.read().unwrap().get_config();
         let history = create_history("1", &config);
+        let render_view = RenderView::new(cc);
+        let scene_view = SceneView::new(cc);
         Self {
             app_controller: controller.clone(),
             histories: vec![history],
             current: 0,
-            gl: cc.gl.clone().unwrap(),
+            render_view: render_view,
+            scene_view: scene_view,
             render_mode: RenderMode::Wireframe,
         }
     }
@@ -216,19 +217,19 @@ impl RenderPanel {
                 match state {
                     RenderState::Ready => {
                         let node = self.app_controller.read().unwrap().get_root_node();
-                        show_scene_view(ui, &self.gl, &node, self.render_mode, true);
+                        self.scene_view.show(ui, &node, self.render_mode, true);
                     }
                     RenderState::Saving | RenderState::Rendering => {
                         if history.get_image_data().is_none() {
                             let node = self.app_controller.read().unwrap().get_root_node();
-                            show_scene_view(ui, &self.gl, &node, self.render_mode, false);
+                            self.scene_view.show(ui, &node, self.render_mode, false);
                         } else {
-                            show_render_view(ui, history);
+                            self.render_view.show(ui, history);
                         }
-                        show_render_view(ui, history);
+                        self.render_view.show(ui, history);
                     }
                     RenderState::Finishing | RenderState::Finished => {
-                        show_render_view(ui, history);
+                        self.render_view.show(ui, history);
                     }
                 }
                 //show renderred image

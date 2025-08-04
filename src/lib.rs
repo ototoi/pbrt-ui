@@ -6,4 +6,4 @@ pub mod error;
 pub mod io;
 pub mod model;
 pub mod panel;
-pub mod renderer;
+pub mod render;

@@ -1,5 +1,4 @@
 use super::super::panel::InspectorPanel;
-use crate::conversion::texture_cache;
 //use super::super::common::*;
 use crate::conversion::texture_cache::TextureCacheManager;
 use crate::conversion::texture_cache::TextureCacheSize;
@@ -88,14 +87,20 @@ impl InspectorPanel {
                                         egui::Pos2::ZERO,
                                         egui::Pos2::new(1.0, 1.0),
                                     );
-                                    ui.painter()
-                                        .image(texture_id, rect, uv, egui::Color32::WHITE);
+                                    ui.painter().image(
+                                        texture_id,
+                                        rect,
+                                        uv,
+                                        egui::Color32::WHITE.into(),
+                                    );
                                 } else {
+                                    /*
                                     ui.painter().rect_filled(
                                         rect,
                                         0.0,
                                         egui::Color32::from_rgb(128, 128, 0),
                                     );
+                                    */
                                 }
                             });
                             strip.empty();

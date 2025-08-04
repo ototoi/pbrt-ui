@@ -6,7 +6,7 @@ use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct MaterialComponent {
-    pub material: Arc<RwLock<Material>>,
+    material: Arc<RwLock<Material>>,
 }
 
 impl MaterialComponent {
@@ -35,6 +35,10 @@ impl MaterialComponent {
     pub fn get_name(&self) -> String {
         let material = self.material.read().unwrap();
         material.get_name()
+    }
+
+    pub fn get_material(&self) -> Arc<RwLock<Material>> {
+        self.material.clone()
     }
 }
 

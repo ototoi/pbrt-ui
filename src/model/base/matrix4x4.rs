@@ -37,32 +37,50 @@ impl Matrix4x4 {
         e15: f32,
     ) -> Self {
         Matrix4x4 {
+            #[rustfmt::skip]
             m: [
-                e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15,
+                e0, e1, e2, e3,
+                e4, e5, e6, e7,
+                e8, e9, e10, e11,
+                e12, e13, e14, e15,
             ],
         }
     }
 
     pub fn identity() -> Self {
         Self {
+            #[rustfmt::skip]
             m: [
-                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
             ],
         }
     }
 
     pub fn translate(x: f32, y: f32, z: f32) -> Self {
-        return Matrix4x4::new(
-            1.0, 0.0, 0.0, x, 0.0, 1.0, 0.0, y, 0.0, 0.0, 1.0, z, 0.0, 0.0, 0.0, 1.0,
-        );
+        Self {
+            #[rustfmt::skip]
+            m: [
+                1.0, 0.0, 0.0, x,
+                0.0, 1.0, 0.0, y,
+                0.0, 0.0, 1.0, z,
+                0.0, 0.0, 0.0, 1.0
+            ],
+        }
     }
 
     pub fn rotate_x(theta: f32) -> Self {
         let s = f32::sin(f32::to_radians(theta));
         let c = f32::cos(f32::to_radians(theta));
-        Matrix4x4 {
+        Self {
+            #[rustfmt::skip]
             m: [
-                1.0, 0.0, 0.0, 0.0, 0.0, c, -s, 0.0, 0.0, s, c, 0.0, 0.0, 0.0, 0.0, 1.0,
+                1.0, 0.0, 0.0, 0.0,
+                0.0,   c,  -s, 0.0,
+                0.0,   s,   c, 0.0,
+                0.0, 0.0, 0.0, 1.0,
             ],
         }
     }
@@ -114,8 +132,12 @@ impl Matrix4x4 {
 
     pub fn scale(x: f32, y: f32, z: f32) -> Self {
         Matrix4x4 {
+            #[rustfmt::skip]
             m: [
-                x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0,
+                  x, 0.0, 0.0, 0.0,
+                0.0,   y, 0.0, 0.0,
+                0.0, 0.0,   z, 0.0,
+                0.0, 0.0, 0.0, 1.0,
             ],
         }
     }
@@ -158,6 +180,7 @@ impl Matrix4x4 {
         assert!(right.length() != 0.0);
         right = right.normalize();
         let new_up = Vector3::cross(&dir, &right).normalize();
+        #[rustfmt::skip]
         let m: [f32; 16] = [
             right.x, new_up.x, dir.x, pos.x, //
             right.y, new_up.y, dir.y, pos.y, //
