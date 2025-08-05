@@ -20,6 +20,7 @@ pub struct RenderMesh {
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct RenderVertex {
     pub position: [f32; 3],
+    pub normal: [f32; 3], // Assuming normals are also needed
     pub uv: [f32; 2],
 }
 
@@ -32,6 +33,11 @@ fn get_vertices(mesh: &MeshData) -> Vec<RenderVertex> {
                 mesh.positions[i * 3],
                 mesh.positions[i * 3 + 1],
                 mesh.positions[i * 3 + 2],
+            ],
+            normal: [
+                mesh.normals[i * 3],
+                mesh.normals[i * 3 + 1],
+                mesh.normals[i * 3 + 2],
             ],
             uv: [mesh.uvs[i * 2], mesh.uvs[i * 2 + 1]],
         });
@@ -57,6 +63,10 @@ impl RenderMesh {
         let edition = shape.get_edition();
         if let Some(mut mesh_data) = create_mesh_data(shape) {
             let num_vertices = mesh_data.positions.len() / 3;
+            if mesh_data.normals.len() < num_vertices * 3 {
+                // If positions are not provided, create a default position
+                mesh_data.normals.resize(num_vertices * 3, 0.0);
+            }
             if mesh_data.uvs.len() < num_vertices * 2 {
                 // If UVs are not provided, create a default UV mapping
                 mesh_data.uvs.resize(num_vertices * 2, 0.0);

@@ -1,3 +1,4 @@
+use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use std::sync::Arc;
@@ -12,7 +13,7 @@ use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 
-//pub struct WireframeMeshRenderer {}
+//pub struct ShadedMeshRenderer {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -29,7 +30,7 @@ struct LocalUniforms {
 }
 
 #[derive(Debug, Clone)]
-pub struct WireframeMeshRenderer {
+pub struct ShadedMeshRenderer {
     pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
     global_bind_group_layout: wgpu::BindGroupLayout,
@@ -63,7 +64,24 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-impl WireframeMeshRenderer {
+fn get_base_color(item: &RenderItem) -> [f32; 4] {
+    match item {
+        RenderItem::Mesh(mesh_item) => {
+            if let Some(material) = &mesh_item.material {
+                // Assuming the material has a base color property
+                if let Some(value) = material.get_uniform_value("base_color") {
+                    if let RenderUniformValue::Vec4(color) = value {
+                        return *color;
+                    }
+                }
+            }
+        }
+        _ => {} // Default color for other items
+    }
+    return [1.0, 0.0, 1.0, 1.0]; // Default color for Solid
+}
+
+impl ShadedMeshRenderer {
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -84,7 +102,7 @@ impl WireframeMeshRenderer {
                 {
                     let new_buffer = create_local_uniform_buffer(device, num_items);
                     let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("Wireframe Local Bind Group"),
+                        label: Some("Shaded Local Bind Group"),
                         layout: &self.local_bind_group_layout,
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
@@ -100,7 +118,7 @@ impl WireframeMeshRenderer {
                 }
                 for (i, item) in render_items.iter().enumerate() {
                     let matrix = item.get_matrix();
-                    let base_color = [1.0, 1.0, 1.0, 1.0]; // Default color for wireframe
+                    let base_color = get_base_color(item);
                     let uniform = LocalUniforms {
                         local_to_world: matrix.to_cols_array_2d(),
                         base_color,
@@ -170,17 +188,15 @@ impl WireframeMeshRenderer {
     }
 }
 
-impl WireframeMeshRenderer {
+impl ShadedMeshRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
         //let queue = &wgpu_render_state.queue;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Wireframe Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/render_wireframe_mesh.wgsl").into(),
-            ),
+            label: Some("Shaded Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_shaded_mesh.wgsl").into()),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -193,7 +209,7 @@ impl WireframeMeshRenderer {
                     shader_location: 0,
                 },
                 wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Float32x3,
                     offset: std::mem::size_of::<f32>() as u64 * 3,
                     shader_location: 1,
                 },
@@ -231,7 +247,7 @@ impl WireframeMeshRenderer {
             });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Wireframe Pipeline Layout"),
+            label: Some("Shaded Pipeline Layout"),
             bind_group_layouts: &[&global_bind_group_layout, &local_bind_group_layout],
             push_constant_ranges: &[],
         });
@@ -239,12 +255,12 @@ impl WireframeMeshRenderer {
         let primitive = wgpu::PrimitiveState {
             cull_mode: None,
             topology: wgpu::PrimitiveTopology::TriangleList,
-            polygon_mode: wgpu::PolygonMode::Line,
+            polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Wireframe Pipeline"),
+            label: Some("Shaded Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -255,7 +271,12 @@ impl WireframeMeshRenderer {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
-                targets: &[Some(wgpu_render_state.target_format.into())],
+                //targets: &[Some(wgpu_render_state.target_format.into())],
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu_render_state.target_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: primitive,
@@ -282,7 +303,7 @@ impl WireframeMeshRenderer {
         });
 
         let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Wireframe Global Bind Group"),
+            label: Some("Shaded Global Bind Group"),
             layout: &global_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -300,7 +321,7 @@ impl WireframeMeshRenderer {
 
         let local_uniform_buffer = create_local_uniform_buffer(device, MIN_LOCAL_BUFFER_NUM);
         let local_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Wireframe Local Bind Group"),
+            label: Some("Shaded Local Bind Group"),
             layout: &local_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -312,7 +333,7 @@ impl WireframeMeshRenderer {
             }],
         });
 
-        return Some(WireframeMeshRenderer {
+        return Some(ShadedMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,

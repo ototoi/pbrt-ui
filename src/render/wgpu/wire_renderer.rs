@@ -1,6 +1,6 @@
 use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
-use super::wireframe_mesh_renderer::WireframeMeshRenderer;
+use super::wire_mesh_renderer::WireMeshRenderer;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
@@ -12,14 +12,14 @@ use eframe::egui;
 use eframe::egui_wgpu;
 use eframe::wgpu;
 
-pub struct WireframeRenderer {
-    mesh_renderer: Arc<RwLock<WireframeMeshRenderer>>,
+pub struct WireRenderer {
+    mesh_renderer: Arc<RwLock<WireMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
-    mesh_renderer: Arc<RwLock<WireframeMeshRenderer>>,
+    mesh_renderer: Arc<RwLock<WireMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
@@ -38,7 +38,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         encoder: &mut wgpu::CommandEncoder,
         resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        let render_items = get_render_items(device, queue, &self.node, RenderMode::Wireframe);
+        let render_items = get_render_items(device, queue, &self.node, RenderMode::Wire);
         let num_items = render_items.len();
         if num_items == 0 {
             return vec![];
@@ -119,11 +119,11 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
     }
 }
 
-impl WireframeRenderer {
+impl WireRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        if let Some(mesh_renderer) = WireframeMeshRenderer::new(cc) {
+        if let Some(mesh_renderer) = WireMeshRenderer::new(cc) {
             if let Some(lines_renderer) = LinesRenderer::new(cc) {
-                return Some(WireframeRenderer {
+                return Some(WireRenderer {
                     mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
                     lines_renderer: Arc::new(RwLock::new(lines_renderer)),
                 });

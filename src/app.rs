@@ -11,6 +11,7 @@ use crate::panel::PreferencesWindow;
 use crate::panel::ViewsPanel;
 
 use eframe::egui;
+use eframe::egui::UiKind;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -69,9 +70,9 @@ enum MenuCommand {
 impl PbrtUIApp {
     pub fn show_top_menu(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 self.show_top_menu_file(ctx, ui);
-                //self.show_top_menu_edit(ui);
+                self.show_top_menu_edit(ui);
                 self.show_top_menu_panels(ui);
             });
         });
@@ -106,7 +107,7 @@ impl PbrtUIApp {
                         commands.push(MenuCommand::Import(path));
                     }
                 }
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
             if ui.button("Export").clicked() {
                 let config = self.controller.read().unwrap().get_config();
@@ -136,13 +137,13 @@ impl PbrtUIApp {
                     let path = path.to_str().unwrap().to_string();
                     commands.push(MenuCommand::Export(path));
                 }
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
             //
             ui.separator();
             if ui.button("Preferences").clicked() {
                 // Open preferences window
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
                 if let Some(preferences) =
                     self.windows.iter_mut().find(|w| w.name() == "Preferences")
                 {
@@ -153,7 +154,7 @@ impl PbrtUIApp {
             ui.separator();
             if ui.button("Quit").clicked() {
                 commands.push(MenuCommand::Quit);
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
         });
 
@@ -235,10 +236,38 @@ impl PbrtUIApp {
 
     pub fn show_top_menu_edit(&mut self, ui: &mut egui::Ui) {
         ui.menu_button("Edit", |ui| {
-            //if ui.button("Dummy").clicked() {
-            // Open a file
-            //    ui.close_menu();
-            //}
+            if ui.button("Undo").clicked() {
+                // Handle undo action
+                ui.close_kind(UiKind::Menu);
+            }
+            if ui.button("Redo").clicked() {
+                // Handle redo action
+                ui.close_kind(UiKind::Menu);
+            }
+            ui.separator();
+            ui.menu_button("Add...", |ui| {
+                ui.menu_button("Geometry", |ui| {
+                    if ui.button("Sphere").clicked() {
+                        // Handle adding a sphere
+                        ui.close_kind(UiKind::Menu);
+                    }
+                    if ui.button("Cube").clicked() {
+                        // Handle adding a cube
+                        ui.close_kind(UiKind::Menu);
+                    }
+                    if ui.button("Plane").clicked() {
+                        // Handle adding a plane
+                        ui.close_kind(UiKind::Menu);
+                    }
+                });
+                ui.menu_button("Light", |ui| {
+                    if ui.button("Point Light").clicked() {
+                        // Handle adding a point light
+                        ui.close_kind(UiKind::Menu);
+                    }
+                    
+                });
+            });
         });
     }
 
