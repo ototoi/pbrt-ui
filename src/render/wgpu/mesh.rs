@@ -21,7 +21,7 @@ pub struct RenderMesh {
 pub struct RenderVertex {
     pub position: [f32; 3],
     pub normal: [f32; 3], // Assuming normals are also needed
-    pub uv: [f32; 2],
+    pub uv: [f32; 2],     // Assuming UVs are needed
 }
 
 fn get_vertices(mesh: &MeshData) -> Vec<RenderVertex> {

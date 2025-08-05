@@ -11,6 +11,8 @@ pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
     let udiv = shape.as_property_map().find_one_int("udiv").unwrap_or(32);
     let vdiv = shape.as_property_map().find_one_int("vdiv").unwrap_or(16);
 
+    let radius = radius.max(0.0001); // Ensure radius is not zero to avoid division by zero
+
     let mut indices: Vec<i32> = Vec::new();
     let mut positions: Vec<f32> = Vec::new();
     let mut normals: Vec<f32> = Vec::new();

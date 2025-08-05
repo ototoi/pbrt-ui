@@ -23,6 +23,7 @@ var<uniform> local_uniforms: LocalUniforms;
 struct VertexOut {
     @location(0) world_position: vec3<f32>,
     @location(1) world_normal:   vec3<f32>,
+    @location(2) uv: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -30,12 +31,12 @@ struct VertexOut {
 fn vs_main(
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
 ) -> VertexOut {
     var out: VertexOut;
     // local_to_world * world_to_camera * camera_to_clip
     var local_normal = normalize(normal);
     let m_world = local_uniforms.local_to_world;
-    let m_camera = global_uniforms.world_to_camera * m_world;
     let m_clip = global_uniforms.camera_to_clip * global_uniforms.world_to_camera * m_world;
     let m_world_it = transpose(local_uniforms.local_to_world_inverse);
     var world_position = (m_world * vec4<f32>(position, 1.0)).xyz;
@@ -44,6 +45,7 @@ fn vs_main(
     out.position = m_clip * vec4<f32>(position, 1.0);
     out.world_position = world_position;
     out.world_normal = world_normal;
+    out.uv = uv;
 
     return out;
 }
@@ -57,5 +59,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         normal = -normal;
     }
     let color = 0.5 * (normal + vec3<f32>(1.0, 1.0, 1.0));
+    //return vec4<f32>(in.uv, 0.0, 1.0);
     return vec4<f32>(color, 1.0);
 }

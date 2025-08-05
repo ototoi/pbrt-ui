@@ -36,9 +36,14 @@ pub fn create_mesh_data_from_cone(shape: &Shape) -> Option<MeshData> {
             positions.push(y);
             positions.push(z);
 
-            normals.push(x); //
-            normals.push(y); //
-            normals.push(z); //
+            let length = (x * x + y * y + z * z).sqrt();
+            let nx = x / length;
+            let ny = y / length;
+            let nz = z / length;
+
+            normals.push(nx); //
+            normals.push(ny); //
+            normals.push(nz); //
 
             uvs.push(u);
             uvs.push(v);

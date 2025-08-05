@@ -219,6 +219,11 @@ impl SolidMeshRenderer {
                     offset: std::mem::size_of::<f32>() as u64 * 3,
                     shader_location: 1,
                 },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x2,
+                    offset: std::mem::size_of::<f32>() as u64 * 6,
+                    shader_location: 2,
+                },
             ],
         }];
 
