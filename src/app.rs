@@ -265,7 +265,6 @@ impl PbrtUIApp {
                         // Handle adding a point light
                         ui.close_kind(UiKind::Menu);
                     }
-                    
                 });
             });
         });

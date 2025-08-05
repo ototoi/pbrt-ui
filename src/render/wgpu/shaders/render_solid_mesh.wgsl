@@ -6,6 +6,7 @@ struct GlobalUniforms {
 
 struct LocalUniforms {
     local_to_world: mat4x4<f32>,
+    local_to_world_inverse: mat4x4<f32>, // inverse of world to camera
     base_color: vec4<f32>,
 }
 
@@ -36,9 +37,9 @@ fn vs_main(
     let m_world = local_uniforms.local_to_world;
     let m_camera = global_uniforms.world_to_camera * m_world;
     let m_clip = global_uniforms.camera_to_clip * global_uniforms.world_to_camera * m_world;
-    let m_world_transpose = transpose(m_world);
+    let m_world_it = transpose(local_uniforms.local_to_world_inverse);
     var world_position = (m_world * vec4<f32>(position, 1.0)).xyz;
-    var world_normal = normalize((m_world_transpose * vec4<f32>(local_normal, 0.0)).xyz);
+    var world_normal = normalize((m_world_it * vec4<f32>(local_normal, 0.0)).xyz);
     
     out.position = m_clip * vec4<f32>(position, 1.0);
     out.world_position = world_position;
@@ -51,7 +52,7 @@ fn vs_main(
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let camera_position = global_uniforms.camera_position.xyz;//world position
     let camera_to_object = normalize(in.world_position - camera_position);
-    var normal = normalize(in.world_normal);
+    var normal = normalize(in.world_normal + 0.01);
     if dot(normal, camera_to_object) > 0.0 {
         normal = -normal;
     }

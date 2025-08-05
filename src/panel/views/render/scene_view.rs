@@ -7,9 +7,9 @@ use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
 use crate::model::scene::TransformComponent;
 use crate::render::RenderMode;
+use crate::render::ShadedRenderer;
 use crate::render::SolidRenderer;
 use crate::render::WireRenderer;
-use crate::render::ShadedRenderer;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -57,7 +57,11 @@ impl SceneView {
         let wireframe = WireRenderer::new(cc);
         let solid = SolidRenderer::new(cc);
         let shaded = ShadedRenderer::new(cc);
-        Self { wireframe, solid, shaded }
+        Self {
+            wireframe,
+            solid,
+            shaded,
+        }
     }
 
     pub fn show(

@@ -219,7 +219,9 @@ pub fn get_render_items(
                     let material = match mode {
                         RenderMode::Wire => None,
                         RenderMode::Solid => None,
-                        RenderMode::Shaded => get_shaded_material(&item.node, &mut resource_manager),
+                        RenderMode::Shaded => {
+                            get_shaded_material(&item.node, &mut resource_manager)
+                        }
                     };
                     let render_item = MeshRenderItem {
                         mesh,

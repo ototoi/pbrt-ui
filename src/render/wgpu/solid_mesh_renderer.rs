@@ -27,7 +27,8 @@ struct GlobalUniforms {
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct LocalUniforms {
     local_to_world: [[f32; 4]; 4],
-    base_color: [f32; 4], // RGBA
+    local_to_world_inverse: [[f32; 4]; 4], // Optional, if needed
+    base_color: [f32; 4],                  // RGBA
 }
 
 #[derive(Debug, Clone)]
@@ -118,10 +119,12 @@ impl SolidMeshRenderer {
                     self.local_bind_group = new_bind_group;
                 }
                 for (i, item) in render_items.iter().enumerate() {
-                    let matrix = item.get_matrix();
+                    let local_to_world = item.get_matrix();
+                    let local_to_world_inverse = local_to_world.inverse();
                     let base_color = get_base_color(item);
                     let uniform = LocalUniforms {
-                        local_to_world: matrix.to_cols_array_2d(),
+                        local_to_world: local_to_world.to_cols_array_2d(),
+                        local_to_world_inverse: local_to_world_inverse.to_cols_array_2d(),
                         base_color,
                     };
                     let offset = i as wgpu::BufferAddress * local_uniform_alignment;
@@ -299,7 +302,7 @@ impl SolidMeshRenderer {
         let global_unifroms = GlobalUniforms {
             world_to_camera: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
             camera_to_clip: glam::Mat4::IDENTITY.to_cols_array_2d(),  // Identity matrix for now
-            camera_position: glam::Vec4::ZERO.to_array(), 
+            camera_position: glam::Vec4::ZERO.to_array(),
         };
         let global_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer for Matrix"),

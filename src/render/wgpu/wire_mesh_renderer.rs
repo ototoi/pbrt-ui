@@ -178,21 +178,17 @@ impl WireMeshRenderer {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Wireframe Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/render_wire_mesh.wgsl").into(),
-            ),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_wire_mesh.wgsl").into()),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex ,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-            ],
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x3,
+                offset: 0,
+                shader_location: 0,
+            }],
         }];
 
         let global_bind_group_layout =
