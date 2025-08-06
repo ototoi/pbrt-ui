@@ -189,6 +189,7 @@ impl InspectorPanel {
         component: &mut ShapeComponent,
         resource_selector: &ResourceSelector,
     ) -> bool {
+        const IGNORE_KEYS: [&str; 5] = ["indices", "P", "N", "S", "uv"];
         let mut is_changed = false;
         let shape = component.get_shape();
         let mut shape = shape.write().unwrap();
@@ -198,6 +199,9 @@ impl InspectorPanel {
         let mut keys = Vec::new();
         if let Some(params) = self.shape_properties.get(&shape_type) {
             for (key_type, key_name, init, range) in params.iter() {
+                if IGNORE_KEYS.contains(&key_name.as_str()) {
+                    continue; // Skip keys that should not be shown
+                }
                 if props.get(key_name).is_none() {
                     let key = PropertyMap::get_key(key_type, key_name);
                     props.insert(&key, init.clone());

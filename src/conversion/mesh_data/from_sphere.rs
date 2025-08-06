@@ -17,6 +17,7 @@ pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
     let mut positions: Vec<f32> = Vec::new();
     let mut normals: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
+    let mut tangents: Vec<f32> = Vec::new();
     for iu in 0..=udiv {
         for iv in 0..=vdiv {
             let u = iu as f32 / udiv as f32;
@@ -36,6 +37,8 @@ pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
             normals.push(x);
             normals.push(y);
             normals.push(z);
+
+            // Tangents are not calculated for spheres, but we can push a placeholder
 
             uvs.push(u);
             uvs.push(v);
@@ -66,7 +69,7 @@ pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
         normals,
         uvs,
         indices,
-        tangents: vec![],
+        tangents,
     };
     return Some(mesh_data);
 }

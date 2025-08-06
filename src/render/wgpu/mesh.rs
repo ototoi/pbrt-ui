@@ -20,8 +20,9 @@ pub struct RenderMesh {
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct RenderVertex {
     pub position: [f32; 3],
-    pub normal: [f32; 3], // Assuming normals are also needed
-    pub uv: [f32; 2],     // Assuming UVs are needed
+    pub uv: [f32; 3],      // Assuming UVs are needed
+    pub normal: [f32; 3],  // Assuming normals are also needed
+    pub tangent: [f32; 3], // Assuming tangents are needed
 }
 
 fn get_vertices(mesh: &MeshData) -> Vec<RenderVertex> {
@@ -34,12 +35,17 @@ fn get_vertices(mesh: &MeshData) -> Vec<RenderVertex> {
                 mesh.positions[i * 3 + 1],
                 mesh.positions[i * 3 + 2],
             ],
+            uv: [mesh.uvs[i * 2], mesh.uvs[i * 2 + 1], 0.0], // Assuming UVs are 2D, adding a dummy Z value
             normal: [
                 mesh.normals[i * 3],
                 mesh.normals[i * 3 + 1],
                 mesh.normals[i * 3 + 2],
             ],
-            uv: [mesh.uvs[i * 2], mesh.uvs[i * 2 + 1]],
+            tangent: [
+                mesh.tangents[i * 3],
+                mesh.tangents[i * 3 + 1],
+                mesh.tangents[i * 3 + 2],
+            ],
         });
     }
     vertices
