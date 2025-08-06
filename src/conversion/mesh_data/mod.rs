@@ -5,6 +5,7 @@ mod from_loopsubdiv;
 mod from_plymesh;
 mod from_sphere;
 mod from_trianglemesh;
+mod heal_mesh_data;
 mod mesh_data;
 
 use crate::model::scene::Shape;
@@ -15,9 +16,11 @@ use from_loopsubdiv::create_mesh_data_from_loopsubdiv;
 use from_plymesh::create_mesh_data_from_plymesh;
 use from_sphere::create_mesh_data_from_sphere;
 use from_trianglemesh::create_mesh_data_from_trianglemesh;
+use heal_mesh_data::heal_mesh_data;
+
 pub use mesh_data::MeshData;
 
-pub fn create_mesh_data(shape: &Shape) -> Option<MeshData> {
+fn create_mesh_data_core(shape: &Shape) -> Option<MeshData> {
     let mesh_type = shape.get_type();
     match mesh_type.as_str() {
         "trianglemesh" => {
@@ -54,6 +57,14 @@ pub fn create_mesh_data(shape: &Shape) -> Option<MeshData> {
         _ => {
             println!("Unknown shape type: {}", mesh_type);
         }
+    }
+    return None;
+}
+
+pub fn create_mesh_data(shape: &Shape) -> Option<MeshData> {
+    if let Some(mut mesh_data) = create_mesh_data_core(shape) {
+        heal_mesh_data(&mut mesh_data);
+        return Some(mesh_data);
     }
     return None;
 }

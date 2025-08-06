@@ -20,7 +20,7 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 19] = [
     ("perspective", "float", "shutteropen", "0.0", "0.0 1.0"),
     ("perspective", "float", "shutterclose", "1.0", "0.0 1.0"),
     //
-    ("perspective", "float", "znear", "0.001", ""),
+    ("perspective", "float", "znear", "0.01", ""),
     ("perspective", "float", "zfar", "1000.0", ""),
     //
     ("realistic", "string", "lensfile", "", ""),

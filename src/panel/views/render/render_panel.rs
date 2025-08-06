@@ -58,7 +58,7 @@ impl RenderPanel {
             current: 0,
             render_view: render_view,
             scene_view: scene_view,
-            render_mode: RenderMode::Wireframe,
+            render_mode: RenderMode::Wire,
         }
     }
 
@@ -93,10 +93,15 @@ impl RenderPanel {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     // selectable buttos
+                    //let render_modes = [
+                    //    ("⬜", RenderMode::Wireframe),
+                    //    ("⬛", RenderMode::Solid),
+                    //    ("☀", RenderMode::Lighting),
+                    //];
                     let render_modes = [
-                        ("⬜", RenderMode::Wireframe),
-                        ("⬛", RenderMode::Solid),
-                        //("☀", RenderMode::Lighting),
+                        (" W ", RenderMode::Wire),
+                        (" S ", RenderMode::Solid),
+                        (" L ", RenderMode::Shaded),
                     ];
                     for (label, mode) in render_modes.iter().rev() {
                         ui.selectable_value(

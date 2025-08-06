@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RenderMode {
-    Wireframe,
+    Wire,
     Solid,
-    Lighting,
+    Shaded,
 }

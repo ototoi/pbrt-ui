@@ -13,14 +13,7 @@ pub fn create_mesh_data_from_trianglemesh(shape: &Shape) -> Option<MeshData> {
             let s = Vec::new();
             if let Some(v) = shape.get_uvs() {
                 uvs = v.to_vec();
-            } else {
-                // If no UVs are provided, create a default UV mapping
-                for _i in 0..positions.len() / 3 {
-                    uvs.push(0.0);
-                    uvs.push(0.0);
-                }
             }
-
             let mesh_data = MeshData {
                 indices: indices,
                 positions: positions,

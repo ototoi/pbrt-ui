@@ -13,26 +13,24 @@ use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 
-//pub struct SolidMeshRenderer {}
+//pub struct ShadedMeshRenderer {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct GlobalUniforms {
     world_to_camera: [[f32; 4]; 4],
     camera_to_clip: [[f32; 4]; 4],
-    camera_position: [f32; 4], // Identity matrix for now
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct LocalUniforms {
     local_to_world: [[f32; 4]; 4],
-    local_to_world_inverse: [[f32; 4]; 4], // Optional, if needed
-    base_color: [f32; 4],                  // RGBA
+    base_color: [f32; 4], // RGBA
 }
 
 #[derive(Debug, Clone)]
-pub struct SolidMeshRenderer {
+pub struct ShadedMeshRenderer {
     pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
     global_bind_group_layout: wgpu::BindGroupLayout,
@@ -83,7 +81,7 @@ fn get_base_color(item: &RenderItem) -> [f32; 4] {
     return [1.0, 0.0, 1.0, 1.0]; // Default color for Solid
 }
 
-impl SolidMeshRenderer {
+impl ShadedMeshRenderer {
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -104,7 +102,7 @@ impl SolidMeshRenderer {
                 {
                     let new_buffer = create_local_uniform_buffer(device, num_items);
                     let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("Solid Local Bind Group"),
+                        label: Some("Shaded Local Bind Group"),
                         layout: &self.local_bind_group_layout,
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
@@ -119,12 +117,10 @@ impl SolidMeshRenderer {
                     self.local_bind_group = new_bind_group;
                 }
                 for (i, item) in render_items.iter().enumerate() {
-                    let local_to_world = item.get_matrix();
-                    let local_to_world_inverse = local_to_world.inverse();
+                    let matrix = item.get_matrix();
                     let base_color = get_base_color(item);
                     let uniform = LocalUniforms {
-                        local_to_world: local_to_world.to_cols_array_2d(),
-                        local_to_world_inverse: local_to_world_inverse.to_cols_array_2d(),
+                        local_to_world: matrix.to_cols_array_2d(),
                         base_color,
                     };
                     let offset = i as wgpu::BufferAddress * local_uniform_alignment;
@@ -137,11 +133,9 @@ impl SolidMeshRenderer {
             }
 
             {
-                let camera_position = world_to_camera.inverse().transform_point3(glam::Vec3::ZERO);
                 let global_uniforms = GlobalUniforms {
                     world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
                     camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-                    camera_position: [camera_position.x, camera_position.y, camera_position.z, 0.0], // Identity matrix for now
                 };
                 let global_unifrom_buffer = &self.global_uniform_buffer;
                 queue.write_buffer(
@@ -194,15 +188,17 @@ impl SolidMeshRenderer {
     }
 }
 
-impl SolidMeshRenderer {
+impl ShadedMeshRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
         //let queue = &wgpu_render_state.queue;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Solid Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_solid_mesh.wgsl").into()),
+            label: Some("Shaded Shader"),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("shaders/render_shaded_mesh.wgsl").into(),
+            ),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -218,16 +214,6 @@ impl SolidMeshRenderer {
                     format: wgpu::VertexFormat::Float32x3,
                     offset: std::mem::size_of::<f32>() as u64 * 3,
                     shader_location: 1,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: std::mem::size_of::<f32>() as u64 * 6,
-                    shader_location: 2,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: std::mem::size_of::<f32>() as u64 * 9,
-                    shader_location: 3,
                 },
             ],
         }];
@@ -263,21 +249,20 @@ impl SolidMeshRenderer {
             });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Solid Pipeline Layout"),
+            label: Some("Shaded Pipeline Layout"),
             bind_group_layouts: &[&global_bind_group_layout, &local_bind_group_layout],
             push_constant_ranges: &[],
         });
 
         let primitive = wgpu::PrimitiveState {
-            //front_face: wgpu::FrontFace::Ccw,
-            //cull_mode: Some(wgpu::Face::Back),
+            cull_mode: None,
             topology: wgpu::PrimitiveTopology::TriangleList,
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         };
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Solid Pipeline"),
+            label: Some("Shaded Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -312,7 +297,6 @@ impl SolidMeshRenderer {
         let global_unifroms = GlobalUniforms {
             world_to_camera: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
             camera_to_clip: glam::Mat4::IDENTITY.to_cols_array_2d(),  // Identity matrix for now
-            camera_position: glam::Vec4::ZERO.to_array(),
         };
         let global_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer for Matrix"),
@@ -321,7 +305,7 @@ impl SolidMeshRenderer {
         });
 
         let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Solid Global Bind Group"),
+            label: Some("Shaded Global Bind Group"),
             layout: &global_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -339,7 +323,7 @@ impl SolidMeshRenderer {
 
         let local_uniform_buffer = create_local_uniform_buffer(device, MIN_LOCAL_BUFFER_NUM);
         let local_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Solid Local Bind Group"),
+            label: Some("Shaded Local Bind Group"),
             layout: &local_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -351,7 +335,7 @@ impl SolidMeshRenderer {
             }],
         });
 
-        return Some(SolidMeshRenderer {
+        return Some(ShadedMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,

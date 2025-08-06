@@ -53,9 +53,6 @@ fn main() -> eframe::Result {
         depth_buffer: 32, // Use a 32-bit depth buffer for better precision.
         ..Default::default()
     };
-    let uuid = Uuid::new_v4(); // Generate a random UUID for the application.
-    println!("Starting PBRT UI with UUID: {}", uuid);
-
     eframe::run_native(
         "PBRT UI",
         options,

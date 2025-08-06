@@ -111,7 +111,7 @@ fn get_base_color_value(material: &Material, key: &str) -> Option<RenderUniformV
     return None;
 }
 
-fn create_solid_material(material: &Material) -> RenderMaterial {
+fn create_shaded_material(material: &Material) -> RenderMaterial {
     if let Some(base_color_key) = get_base_color_key(material) {
         if let Some(value) = get_base_color_value(material, &base_color_key) {
             let mut uniform_values = Vec::new();
@@ -145,7 +145,7 @@ fn create_solid_material(material: &Material) -> RenderMaterial {
     }
 }
 
-pub fn get_solid_material(
+pub fn get_shaded_material(
     node: &Arc<RwLock<Node>>,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderMaterial>> {
@@ -159,7 +159,7 @@ pub fn get_solid_material(
                 return Some(mat.clone());
             }
         }
-        let render_material = create_solid_material(&material);
+        let render_material = create_shaded_material(&material);
         let render_material = Arc::new(render_material);
         render_resource_manager.add_material(&render_material);
         return Some(render_material);
@@ -217,9 +217,11 @@ pub fn get_render_items(
                 if let Some(mesh) = get_mesh(device, queue, &item.node, &mut resource_manager) {
                     let matrix = glam::Mat4::from(item.matrix);
                     let material = match mode {
-                        RenderMode::Wireframe => None,
-                        RenderMode::Solid => get_solid_material(&item.node, &mut resource_manager),
-                        RenderMode::Lighting => None,
+                        RenderMode::Wire => None,
+                        RenderMode::Solid => None,
+                        RenderMode::Shaded => {
+                            get_shaded_material(&item.node, &mut resource_manager)
+                        }
                     };
                     let render_item = MeshRenderItem {
                         mesh,

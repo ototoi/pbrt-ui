@@ -7,8 +7,9 @@ use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
 use crate::model::scene::TransformComponent;
 use crate::render::RenderMode;
+use crate::render::ShadedRenderer;
 use crate::render::SolidRenderer;
-use crate::render::WireframeRenderer;
+use crate::render::WireRenderer;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -46,15 +47,21 @@ pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) 
 }
 
 pub struct SceneView {
-    wireframe: Option<WireframeRenderer>,
+    wireframe: Option<WireRenderer>,
     solid: Option<SolidRenderer>,
+    shaded: Option<ShadedRenderer>,
 }
 
 impl SceneView {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let wireframe = WireframeRenderer::new(cc);
+        let wireframe = WireRenderer::new(cc);
         let solid = SolidRenderer::new(cc);
-        Self { wireframe, solid }
+        let shaded = ShadedRenderer::new(cc);
+        Self {
+            wireframe,
+            solid,
+            shaded,
+        }
     }
 
     pub fn show(
@@ -67,7 +74,7 @@ impl SceneView {
         let available_rect = ui.available_rect_before_wrap();
         let available_size = available_rect.size();
 
-        let mut znear = 0.001f32;
+        let mut znear = 0.01f32;
         let mut zfar = 1000.0f32;
         let mut fov = 90.0f32.to_radians();
         let mut w2c = Matrix4x4::identity();
@@ -149,13 +156,18 @@ impl SceneView {
 
         //let render_mode = RenderMode::Solid;
         match render_mode {
-            RenderMode::Wireframe => {
+            RenderMode::Wire => {
                 if let Some(renderer) = &mut self.wireframe {
                     renderer.render(ui, rect, node, &w2c, &c2c);
                 }
             }
             RenderMode::Solid => {
                 if let Some(renderer) = &mut self.solid {
+                    renderer.render(ui, rect, node, &w2c, &c2c);
+                }
+            }
+            RenderMode::Shaded => {
+                if let Some(renderer) = &mut self.shaded {
                     renderer.render(ui, rect, node, &w2c, &c2c);
                 }
             }

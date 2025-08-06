@@ -29,7 +29,7 @@ struct LocalUniforms {
 }
 
 #[derive(Debug, Clone)]
-pub struct WireframeMeshRenderer {
+pub struct WireMeshRenderer {
     pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
     global_bind_group_layout: wgpu::BindGroupLayout,
@@ -63,7 +63,7 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-impl WireframeMeshRenderer {
+impl WireMeshRenderer {
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -170,7 +170,7 @@ impl WireframeMeshRenderer {
     }
 }
 
-impl WireframeMeshRenderer {
+impl WireMeshRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
@@ -178,26 +178,17 @@ impl WireframeMeshRenderer {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Wireframe Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/render_wireframe_mesh.wgsl").into(),
-            ),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_wire_mesh.wgsl").into()),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: std::mem::size_of::<f32>() as u64 * 3,
-                    shader_location: 1,
-                },
-            ],
+            attributes: &[wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x3,
+                offset: 0,
+                shader_location: 0,
+            }],
         }];
 
         let global_bind_group_layout =
@@ -220,7 +211,7 @@ impl WireframeMeshRenderer {
                 label: Some("Local Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -312,7 +303,7 @@ impl WireframeMeshRenderer {
             }],
         });
 
-        return Some(WireframeMeshRenderer {
+        return Some(WireMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
