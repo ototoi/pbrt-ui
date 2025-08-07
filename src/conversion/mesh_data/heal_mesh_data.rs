@@ -177,6 +177,9 @@ fn difference_of_products_v3(a: f32, b: Vector3, c: f32, d: Vector3) -> Vector3 
 }
 
 fn heal_tangents(mesh_data: &mut MeshData) {
+    assert!(!mesh_data.positions.is_empty(), "Positions cannot be empty");
+    assert!(!mesh_data.indices.is_empty(), "Indices cannot be empty");
+    assert!(!mesh_data.normals.is_empty(), "Normals cannot be empty");
     // Ensure tangents are valid, if not, set them to default values
     let num_vertices = mesh_data.positions.len() / 3;
     if mesh_data.tangents.len() != num_vertices * 3 {
@@ -209,8 +212,10 @@ fn heal_tangents(mesh_data: &mut MeshData) {
             }
         } else {
             // Calculate tangents based on positions and UVs
-            let mut tangents = vec![Vector3::zero(); num_vertices];
-            for i in 0..mesh_data.indices.len() / 3 {
+            let num_faces = mesh_data.indices.len() / 3;
+            let mut face_tangents = vec![Vector3::zero(); num_faces];
+            let mut ref_indices = vec![Vec::new(); num_vertices];
+            for i in 0..num_faces {
                 let idx0 = mesh_data.indices[3 * i + 0] as usize;
                 let idx1 = mesh_data.indices[3 * i + 1] as usize;
                 let idx2 = mesh_data.indices[3 * i + 2] as usize;
@@ -249,27 +254,161 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                     let nn = Vector3::cross(&dpdu, &dpdv);
                     if nn.length_squared() > 0.0 {
                         let tangent = dpdu;
-                        tangents[idx0] += tangent;
-                        tangents[idx1] += tangent;
-                        tangents[idx2] += tangent;
+                        face_tangents[i] = tangent;
+                        ref_indices[idx0].push(i);
+                        ref_indices[idx1].push(i);
+                        ref_indices[idx2].push(i);
                     }
                 }
             }
-            mesh_data.tangents.resize(num_vertices * 3, 0.0);
-            for i in 0..num_vertices {
-                if tangents[i].length() == 0.0 {
-                    // If the tangent is zero, set it to a default value
-                    tangents[i] = Vector3::new(1.0, 0.0, 0.0);
-                    // println!("Warning: Tangent for vertex {} is zero, setting to default (1.0, 0.0, 0.0)", i);
-                } else {
-                    tangents[i] = tangents[i].normalize();
+
+            let mut should_split = false;
+            let mut vertex_tangents = vec![None; num_vertices];
+            {
+                for i in 0..num_vertices {
+                    let indices = &ref_indices[i];
+                    if indices.len() < 2 {
+                        continue; // No need to check if there are less than 2 faces
+                    }
+                    let mut vertex_should_split = false;
+                    for j in 0..indices.len() {
+                        for k in j + 1..indices.len() {
+                            let j_tangent = face_tangents[indices[j]];
+                            let k_tangent = face_tangents[indices[k]];
+                            if Vector3::dot(&j_tangent, &k_tangent) <= 0.25 {
+                                vertex_should_split = true;
+                                should_split = true;
+                                break;
+                            }
+                        }
+                    }
+                    if vertex_should_split {
+                        vertex_tangents[i] = None;
+                    } else {
+                        let mut tangent = Vector3::zero();
+                        for &face_idx in indices {
+                            tangent += face_tangents[face_idx];
+                        }
+                        tangent = tangent.normalize();
+                        if tangent.length() == 0.0 {
+                            should_split = true;
+                            vertex_tangents[i] = None;
+                        } else {
+                            vertex_tangents[i] = Some(tangent);
+                        }
+                    }
                 }
-                let idx = 3 * i;
-                mesh_data.tangents[idx + 0] = tangents[i].x;
-                mesh_data.tangents[idx + 1] = tangents[i].y;
-                mesh_data.tangents[idx + 2] = tangents[i].z;
             }
-            mesh_data.tangents.resize(num_vertices * 3, 0.0);
+            if should_split {
+                let mut tangents = vec![Vector3::zero(); num_faces * 3];
+                for i in 0..num_faces {
+                    let idx0 = 3 * i as usize;
+                    let idx1 = 3 * i + 1 as usize;
+                    let idx2 = 3 * i + 2 as usize;
+                    if let Some(t) = vertex_tangents[mesh_data.indices[idx0] as usize] {
+                        tangents[idx0] = t;
+                    } else {
+                        tangents[idx0] = face_tangents[i];
+                    }
+                    if let Some(t) = vertex_tangents[mesh_data.indices[idx1] as usize] {
+                        tangents[idx1] = t;
+                    } else {
+                        tangents[idx1] = face_tangents[i];
+                    }
+                    if let Some(t) = vertex_tangents[mesh_data.indices[idx2] as usize] {
+                        tangents[idx2] = t;
+                    } else {
+                        tangents[idx2] = face_tangents[i];
+                    }
+                }
+                mesh_data.tangents.resize(num_faces * 3 * 3, 0.0);
+                for i in 0..num_faces * 3 {
+                    let idx = i * 3;
+                    mesh_data.tangents[idx + 0] = tangents[i].x;
+                    mesh_data.tangents[idx + 1] = tangents[i].y;
+                    mesh_data.tangents[idx + 2] = tangents[i].z;
+                }
+                let mut new_positions = vec![0.0; num_faces * 3 * 3];
+                let mut new_normals = vec![0.0; num_faces * 3 * 3];
+                let mut new_uvs = if !mesh_data.uvs.is_empty() {
+                    Some(vec![0.0; num_faces * 3 * 2])
+                } else {
+                    None
+                };
+                for i in 0..num_faces {
+                    let idx0 = mesh_data.indices[3 * i + 0] as usize;
+                    let idx1 = mesh_data.indices[3 * i + 1] as usize;
+                    let idx2 = mesh_data.indices[3 * i + 2] as usize;
+                    new_positions[9 * i + 0] = mesh_data.positions[3 * idx0 + 0];
+                    new_positions[9 * i + 1] = mesh_data.positions[3 * idx0 + 1];
+                    new_positions[9 * i + 2] = mesh_data.positions[3 * idx0 + 2];
+                    new_positions[9 * i + 3] = mesh_data.positions[3 * idx1 + 0];
+                    new_positions[9 * i + 4] = mesh_data.positions[3 * idx1 + 1];
+                    new_positions[9 * i + 5] = mesh_data.positions[3 * idx1 + 2];
+                    new_positions[9 * i + 6] = mesh_data.positions[3 * idx2 + 0];
+                    new_positions[9 * i + 7] = mesh_data.positions[3 * idx2 + 1];
+                    new_positions[9 * i + 8] = mesh_data.positions[3 * idx2 + 2];
+
+                    new_normals[9 * i + 0] = mesh_data.normals[3 * idx0 + 0];
+                    new_normals[9 * i + 1] = mesh_data.normals[3 * idx0 + 1];
+                    new_normals[9 * i + 2] = mesh_data.normals[3 * idx0 + 2];
+                    new_normals[9 * i + 3] = mesh_data.normals[3 * idx1 + 0];
+                    new_normals[9 * i + 4] = mesh_data.normals[3 * idx1 + 1];
+                    new_normals[9 * i + 5] = mesh_data.normals[3 * idx1 + 2];
+                    new_normals[9 * i + 6] = mesh_data.normals[3 * idx2 + 0];
+                    new_normals[9 * i + 7] = mesh_data.normals[3 * idx2 + 1];
+                    new_normals[9 * i + 8] = mesh_data.normals[3 * idx2 + 2];
+
+                    if let Some(ref mut uvs) = new_uvs {
+                        uvs[6 * i + 0] = mesh_data.uvs[2 * idx0 + 0];
+                        uvs[6 * i + 1] = mesh_data.uvs[2 * idx0 + 1];
+                        uvs[6 * i + 2] = mesh_data.uvs[2 * idx1 + 0];
+                        uvs[6 * i + 3] = mesh_data.uvs[2 * idx1 + 1];
+                        uvs[6 * i + 4] = mesh_data.uvs[2 * idx2 + 0];
+                        uvs[6 * i + 5] = mesh_data.uvs[2 * idx2 + 1];
+                    }
+                }
+
+                mesh_data.positions = new_positions;
+                mesh_data.normals = new_normals;
+                if let Some(ref uvs) = new_uvs {
+                    mesh_data.uvs = uvs.clone();
+                }
+                // Rebuild indices for the new mesh
+                let mut indices = vec![0; num_faces * 3];
+                for i in 0..num_faces {
+                    indices[3 * i + 0] = 3 * i as i32;
+                    indices[3 * i + 1] = 3 * i as i32 + 1;
+                    indices[3 * i + 2] = 3 * i as i32 + 2;
+                }
+                mesh_data.indices = indices;
+            } else {
+                let mut tangents = vec![Vector3::zero(); num_vertices];
+                for i in 0..num_faces {
+                    let idx0 = mesh_data.indices[3 * i + 0] as usize;
+                    let idx1 = mesh_data.indices[3 * i + 1] as usize;
+                    let idx2 = mesh_data.indices[3 * i + 2] as usize;
+                    let tangent = face_tangents[i];
+                    tangents[idx0] += tangent;
+                    tangents[idx1] += tangent;
+                    tangents[idx2] += tangent;
+                }
+                mesh_data.tangents.resize(num_vertices * 3, 0.0);
+                for i in 0..num_vertices {
+                    if tangents[i].length() == 0.0 {
+                        // If the tangent is zero, set it to a default value
+                        tangents[i] = Vector3::new(1.0, 0.0, 0.0);
+                        // println!("Warning: Tangent for vertex {} is zero, setting to default (1.0, 0.0, 0.0)", i);
+                    } else {
+                        tangents[i] = tangents[i].normalize();
+                    }
+                    let idx = 3 * i;
+                    mesh_data.tangents[idx + 0] = tangents[i].x;
+                    mesh_data.tangents[idx + 1] = tangents[i].y;
+                    mesh_data.tangents[idx + 2] = tangents[i].z;
+                }
+                mesh_data.tangents.resize(num_vertices * 3, 0.0);
+            }
         }
     }
 }
@@ -278,8 +417,7 @@ pub fn heal_mesh_data(mesh_data: &mut MeshData) {
     // Ensure positions are not empty
     assert!(!mesh_data.positions.is_empty(), "Positions cannot be empty");
     assert!(!mesh_data.indices.is_empty(), "Indices cannot be empty");
-
-    //remove_microfaces(mesh_data);
+    remove_microfaces(mesh_data);
     heal_normals(mesh_data);
     heal_tangents(mesh_data);
     heal_uvs(mesh_data);
