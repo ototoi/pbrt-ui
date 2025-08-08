@@ -154,6 +154,7 @@ fn heal_uvs(mesh_data: &mut MeshData) {
     }
 }
 
+/* 
 #[inline]
 fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
     let v2 = if f32::abs(v1.x) > f32::abs(v1.y) {
@@ -164,6 +165,38 @@ fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
     let v3 = Vector3::cross(v1, &v2).normalize();
     return (v2, v3);
 }
+*/
+#[inline]
+fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
+    let v1 = [v1.x, v1.y, v1.z];
+    let mut axis1 = 0;
+    if v1[1].abs() > v1[axis1].abs() {
+        axis1 = 1;
+    }
+    if v1[2].abs() > v1[axis1].abs() {
+        axis1 = 2;
+    }
+    let mut axis2 = (axis1 + 1) % 3;
+    let mut axis3 = (axis1 + 2) % 3;
+    if v1[axis2].abs() > v1[axis3].abs() {
+        // Swap axis2 and axis3 if axis2 is larger
+        std::mem::swap(&mut axis2, &mut axis3);
+    }
+    //let axis2 = if axis1 == 0 { 1 } else { 0 };
+    //let axis3 = (axis1 + 2) % 3;
+    let mut v2 = [0.0; 3];
+    v2[axis2] = 1.0;//f32::signum(v1[axis2]);
+    let v2 = Vector3::new(
+        v2[0],
+        v2[1],
+        v2[2],
+    );
+    let v1 = Vector3::new(v1[0], v1[1], v1[2]);
+    let v3 = Vector3::cross(&v1, &v2).normalize();
+    let v2 = Vector3::cross(&v3, &v1).normalize();
+    return (v2, v3);
+}
+
 
 fn difference_of_products_f32(a: f32, b: f32, c: f32, d: f32) -> f32 {
     //X =  a * b - cd
@@ -196,7 +229,7 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                     mesh_data.normals[3 * i + 1],
                     mesh_data.normals[3 * i + 2],
                 );
-                let (tangent, _bitangent) = coordinate_system(&-n);
+                let (tangent, _bitangent) = coordinate_system(&n);
                 tangents[i] = tangent;
             }
             mesh_data.tangents.resize(num_vertices * 3, 0.0);
