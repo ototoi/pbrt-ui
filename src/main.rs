@@ -9,8 +9,6 @@ use eframe::egui;
 use eframe::wgpu;
 use pbrt_ui::app::PbrtUIApp;
 
-use uuid::Uuid;
-
 fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
     let mut wgpu_setup = eframe::egui_wgpu::WgpuSetup::default();
     if let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = &mut wgpu_setup {
@@ -29,6 +27,7 @@ fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
                     max_texture_dimension_2d: 8192,
                     max_uniform_buffer_binding_size: 4_294_967_292, // 4 GB
                     max_storage_buffer_binding_size: 4_294_967_292, // 4 GB
+                    max_buffer_size: 4_294_967_292,                 // 4 GB
                     ..base_limits
                 },
                 ..Default::default()

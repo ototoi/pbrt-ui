@@ -1,4 +1,5 @@
 use super::mesh_data::MeshData;
+use crate::model::base::Vector3;
 use crate::model::scene::Shape;
 
 pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
@@ -34,11 +35,17 @@ pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
             positions.push(radius * y);
             positions.push(radius * z);
 
+            let n = Vector3::new(theta.sin(), theta.cos(), 0.0).normalize();
+            let tangent = Vector3::cross(&Vector3::new(0.0, 0.0, -1.0), &n).normalize();
+
             normals.push(x);
             normals.push(y);
             normals.push(z);
 
             // Tangents are not calculated for spheres, but we can push a placeholder
+            tangents.push(tangent.x);
+            tangents.push(tangent.y);
+            tangents.push(tangent.z);
 
             uvs.push(u);
             uvs.push(v);
