@@ -154,7 +154,6 @@ fn heal_uvs(mesh_data: &mut MeshData) {
     }
 }
 
-
 #[inline]
 fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
     let v2 = if f32::abs(v1.x) > f32::abs(v1.y) {
@@ -165,7 +164,7 @@ fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
     let v3 = Vector3::cross(v1, &v2).normalize();
     return (v2, v3);
 }
-/* 
+/*
 #[inline]
 fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
     let v1 = [v1.x, v1.y, v1.z];
@@ -197,7 +196,6 @@ fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
     return (v2, v3);
 }
 */
-
 
 fn difference_of_products_f32(a: f32, b: f32, c: f32, d: f32) -> f32 {
     //X =  a * b - cd

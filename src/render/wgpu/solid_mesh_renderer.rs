@@ -18,17 +18,19 @@ const MIN_LOCAL_BUFFER_NUM: usize = 64;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct GlobalUniforms {
-    world_to_camera: [[f32; 4]; 4],
-    camera_to_clip: [[f32; 4]; 4],
-    camera_position: [f32; 4], // Identity matrix for now
+    world_to_camera: [[f32; 4]; 4], // 4 * 4 * 4 = 64
+    camera_to_clip: [[f32; 4]; 4],  // 4 * 4 * 4 = 64
+    camera_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
+    light_direction: [f32; 4],
+    light_intensity: [f32; 4],
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct LocalUniforms {
-    local_to_world: [[f32; 4]; 4],
-    local_to_world_inverse: [[f32; 4]; 4], // Optional, if needed
-    base_color: [f32; 4],                  // RGBA
+    local_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
+    world_to_local: [[f32; 4]; 4], // 4 * 4 * 4 = 64
+    pad1: [f32; 16],               // Padding to ensure alignment
 }
 
 #[derive(Debug, Clone)]
@@ -120,12 +122,11 @@ impl SolidMeshRenderer {
                 }
                 for (i, item) in render_items.iter().enumerate() {
                     let local_to_world = item.get_matrix();
-                    let local_to_world_inverse = local_to_world.inverse();
-                    let base_color = get_base_color(item);
+                    let world_to_local = local_to_world.inverse();
                     let uniform = LocalUniforms {
                         local_to_world: local_to_world.to_cols_array_2d(),
-                        local_to_world_inverse: local_to_world_inverse.to_cols_array_2d(),
-                        base_color,
+                        world_to_local: world_to_local.to_cols_array_2d(),
+                        pad1: [0.0; 16], // Padding to ensure alignment
                     };
                     let offset = i as wgpu::BufferAddress * local_uniform_alignment;
                     queue.write_buffer(
@@ -137,11 +138,13 @@ impl SolidMeshRenderer {
             }
 
             {
-                let camera_position = world_to_camera.inverse().transform_point3(glam::Vec3::ZERO);
+                let camera_to_world = world_to_camera.inverse();
                 let global_uniforms = GlobalUniforms {
                     world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
                     camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-                    camera_position: [camera_position.x, camera_position.y, camera_position.z, 0.0], // Identity matrix for now
+                    camera_to_world: camera_to_world.to_cols_array_2d(), // Identity matrix for now
+                    light_direction: [0.0, 0.0, -1.0, 0.0],              // Default light direction
+                    light_intensity: [1.0, 1.0, 1.0, 1.0],               // Default light intensity
                 };
                 let global_unifrom_buffer = &self.global_uniform_buffer;
                 queue.write_buffer(
@@ -252,7 +255,7 @@ impl SolidMeshRenderer {
                 label: Some("Local Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -312,7 +315,9 @@ impl SolidMeshRenderer {
         let global_unifroms = GlobalUniforms {
             world_to_camera: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
             camera_to_clip: glam::Mat4::IDENTITY.to_cols_array_2d(),  // Identity matrix for now
-            camera_position: glam::Vec4::ZERO.to_array(),
+            camera_to_world: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
+            light_direction: [0.0, 0.0, -1.0, 0.0],                   // Default light direction
+            light_intensity: [1.0, 1.0, 1.0, 1.0],                    // Default light intensity
         };
         let global_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer for Matrix"),
