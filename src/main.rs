@@ -25,9 +25,9 @@ fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
                     // When using a depth buffer, we have to be able to create a texture
                     // large enough for the entire surface, and we want to support 4k+ displays.
                     max_texture_dimension_2d: 8192,
-                    max_uniform_buffer_binding_size: 4_294_967_292, // 4 GB
-                    max_storage_buffer_binding_size: 4_294_967_292, // 4 GB
-                    max_buffer_size: 4_294_967_292,                 // 4 GB
+                    max_uniform_buffer_binding_size: 65536, // 64 KB
+                    max_storage_buffer_binding_size: 2147483647, // 2 GB
+                    max_buffer_size: 4294967292,            // 4 GB
                     ..base_limits
                 },
                 ..Default::default()
