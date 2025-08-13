@@ -1,5 +1,3 @@
-use crate::conversion::light_shape::create_light_shape;
-use crate::model::scene::Light;
 use bytemuck::{Pod, Zeroable};
 use eframe::wgpu;
 use uuid::Uuid;
@@ -24,53 +22,44 @@ impl RenderLines {
         self.id
     }
 
-    pub fn from_light(
+    pub fn from_lines(
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
-        light: &Light,
+        id: Uuid,
+        edition: &str,
+        lines: &[Vec<[f32; 3]>],
     ) -> Option<RenderLines> {
-        let id = light.get_id();
-        let edition = light.get_edition();
-        let t = light.get_type();
-        //println!("Creating RenderLines for light: {} (type: {})", id, t);
-
         let mut vertices: Vec<RenderLinesVertex> = Vec::new();
-        if let Some(light_shape) = create_light_shape(light) {
-            //println!("Creating RenderLines for light: {}", id);
-            let lines = &light_shape.lines;
-            for line in lines {
-                if line.len() < 2 {
-                    continue; // Skip lines with less than 2 points
-                }
-                for i in 0..line.len() - 1 {
-                    let start = line[i];
-                    let end = line[i + 1];
-                    vertices.push(RenderLinesVertex {
-                        position: [start.x, start.y, start.z],
-                    });
-                    vertices.push(RenderLinesVertex {
-                        position: [end.x, end.y, end.z],
-                    });
-                }
+        for line in lines {
+            if line.len() < 2 {
+                continue; // Skip lines with less than 2 points
             }
-
-            //println!("RenderLines: {} vertices", vertices.len());
-            let vertex_count = vertices.len() as u32;
-            if vertex_count == 0 {
-                return None; // No vertices to render
+            for i in 0..line.len() - 1 {
+                let start = line[i];
+                let end = line[i + 1];
+                vertices.push(RenderLinesVertex {
+                    position: [start[0], start[1], start[2]],
+                });
+                vertices.push(RenderLinesVertex {
+                    position: [end[0], end[1], end[2]],
+                });
             }
-            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("RenderLines Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            return Some(RenderLines {
-                id,
-                edition,
-                vertex_buffer,
-                vertex_count,
-            });
         }
-        return None;
+
+        let vertex_count = vertices.len() as u32;
+        if vertex_count == 0 {
+            return None; // No vertices to render
+        }
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("RenderLines Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        return Some(RenderLines {
+            id,
+            edition: edition.to_string(),
+            vertex_buffer,
+            vertex_count,
+        });
     }
 }

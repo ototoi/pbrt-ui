@@ -38,7 +38,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         encoder: &mut wgpu::CommandEncoder,
         resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        let render_items = get_render_items(device, queue, &self.node, RenderMode::Shaded);
+        let render_items = get_render_items(device, queue, &self.node, RenderMode::Lighting);
         let num_items = render_items.len();
         if num_items == 0 {
             return vec![];

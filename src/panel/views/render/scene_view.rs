@@ -3,6 +3,7 @@ use crate::model::base::Property;
 use crate::model::base::Quaternion;
 use crate::model::base::Vector3;
 use crate::model::scene::CameraComponent;
+use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
 use crate::model::scene::TransformComponent;
@@ -27,9 +28,17 @@ pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) 
                 {
                     let (t, r, s) = component.get_local_trs();
                     let m = r.to_matrix();
-                    let upper = m.transform_vector(&Vector3::new(0.0, 1.0, 0.0)).normalize();
-                    let right = m.transform_vector(&Vector3::new(1.0, 0.0, 0.0)).normalize();
+                    let mut upper = m.transform_vector(&Vector3::new(0.0, 1.0, 0.0)).normalize();
+                    let mut right = m.transform_vector(&Vector3::new(1.0, 0.0, 0.0)).normalize();
 
+                    {
+                        let root_node = root_node.read().unwrap();
+                        if let Some(cs) = root_node.get_component::<CoordinateSystemComponent>() {
+                            upper = cs.get_up_vector();
+                            let forward = Vector3::cross(&right, &upper).normalize(); //xy->z
+                            right = Vector3::cross(&upper, &forward).normalize(); //yz->x
+                        }
+                    }
                     //let upper = Vector3::new(0.0, 1.0, 0.0);
                     //let right = Vector3::new(1.0, 0.0, 0.0);
 
@@ -166,7 +175,7 @@ impl SceneView {
                     renderer.render(ui, rect, node, &w2c, &c2c);
                 }
             }
-            RenderMode::Shaded => {
+            RenderMode::Lighting => {
                 if let Some(renderer) = &mut self.shaded {
                     renderer.render(ui, rect, node, &w2c, &c2c);
                 }

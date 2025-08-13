@@ -2,5 +2,5 @@
 pub enum RenderMode {
     Wire,
     Solid,
-    Shaded,
+    Lighting,
 }
