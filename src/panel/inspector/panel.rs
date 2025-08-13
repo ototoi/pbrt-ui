@@ -7,6 +7,7 @@ use crate::model::scene::AcceleratorProperties;
 use crate::model::scene::AnimationComponent;
 use crate::model::scene::CameraComponent;
 use crate::model::scene::CameraProperties;
+use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::FilmComponent;
 use crate::model::scene::IntegratorComponent;
 use crate::model::scene::IntegratorProperties;
@@ -170,10 +171,18 @@ impl InspectorPanel {
                     &self.accelerator_properties,
                     resource_selector,
                 );
-            } else if let Some(_component) = component.downcast_mut::<ResourceComponent>() {
+            } else if let Some(component) = component.downcast_mut::<CoordinateSystemComponent>() {
                 let mut props = PropertyMap::new();
-                self.show_other_component(i, ui, "Resources", &mut props, &resource_selector);
-            } else if let Some(component) = component.downcast_mut::<AnimationComponent>() {
+                let up = component.get_up_vector();
+                props.add_floats("float up", &[up.x, up.y, up.z]);
+                self.show_other_component(
+                    i,
+                    ui,
+                    "CoordinateSystem",
+                    &mut props,
+                    &resource_selector,
+                );
+            } else if let Some(_component) = component.downcast_mut::<AnimationComponent>() {
                 let mut props = PropertyMap::new(); //todo
                 show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
             } else {

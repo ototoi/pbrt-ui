@@ -119,7 +119,7 @@ impl LinesRenderer {
                             }
                         }
                     }
-                    
+
                     let uniform = LocalUniforms {
                         local_to_world: matrix.to_cols_array_2d(),
                         base_color,
