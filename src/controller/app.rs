@@ -1,10 +1,15 @@
-use crate::conversion::texture_cache;
 use crate::conversion::texture_cache::TextureCacheSize;
+use crate::model::base::Matrix4x4;
+use crate::model::base::Property;
+use crate::model::base::PropertyMap;
+use crate::model::base::Vector3;
 use crate::model::scene::CameraComponent;
+use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::Node;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceObject;
+use crate::model::scene::TransformComponent;
 
 use crate::model::config::AppConfig;
 
@@ -51,9 +56,37 @@ fn set_node_after_load(node: &Arc<RwLock<Node>>) {
     }
 }
 
+fn get_default_root_node() -> Arc<RwLock<Node>> {
+    let root_node = Node::root_node("Scene");
+    {
+        let camera_node = Node::child_node("Camera", &root_node);
+        let mut camera_node = camera_node.write().unwrap();
+        let mut camrea_props = PropertyMap::new();
+        camrea_props.add_floats("float fov", &[35.0]); // field of view in degrees
+        camera_node
+            .add_component::<CameraComponent>(CameraComponent::new("perspective", &camrea_props));
+
+        let e = Vector3::new(15.0, 8.0, -15.0); // eye position
+        let l = Vector3::new(0.0, 0.0, 0.0); // look at positionå
+        let u = Vector3::new(0.0, 1.0, 0.0); // up vector
+        let lookat = Matrix4x4::look_at(e.x, e.y, e.z, l.x, l.y, l.z, u.x, u.y, u.z);
+        let camera_to_world = Matrix4x4::inverse(&lookat).unwrap();
+        if let Some(transform_component) = camera_node.get_component_mut::<TransformComponent>() {
+            transform_component.set_local_matrix(camera_to_world);
+        }
+    }
+    {
+        let mut root_node = root_node.write().unwrap();
+        root_node.add_component::<CoordinateSystemComponent>(CoordinateSystemComponent::new(
+            &Vector3::new(0.0, 1.0, 0.0),
+        ));
+    }
+    return root_node;
+}
+
 impl AppController {
     pub fn new() -> Self {
-        let root_node = Node::root_node("Scene");
+        let root_node = get_default_root_node();
         Self {
             root_node: root_node.clone(),
             current_node: Some(root_node.clone()),
