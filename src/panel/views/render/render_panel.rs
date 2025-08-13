@@ -101,7 +101,7 @@ impl RenderPanel {
                     let render_modes = [
                         (" W ", RenderMode::Wire),
                         (" S ", RenderMode::Solid),
-                        (" L ", RenderMode::Shaded),
+                        (" L ", RenderMode::Lighting),
                     ];
                     for (label, mode) in render_modes.iter().rev() {
                         ui.selectable_value(

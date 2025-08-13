@@ -31,7 +31,7 @@ impl RenderLines {
     ) -> Option<RenderLines> {
         let id = light.get_id();
         let edition = light.get_edition();
-        let t = light.get_type();
+        // let t = light.get_type();
         //println!("Creating RenderLines for light: {} (type: {})", id, t);
 
         let mut vertices: Vec<RenderLinesVertex> = Vec::new();
@@ -72,5 +72,63 @@ impl RenderLines {
             });
         }
         return None;
+    }
+
+    pub fn from_axis(
+        device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        id: Uuid,
+        edition: &str,
+        axis: u32, // 0: X, 1: Y, 2: Z
+    ) -> Option<RenderLines> {
+        assert!(axis < 3, "Axis must be 0 (X), 1 (Y), or 2 (Z)");
+        let mut vertices: Vec<RenderLinesVertex> = Vec::new();
+        let scale = 10000.0; // Scale factor for the axis lines
+        match axis {
+            0 => {
+                // X axis
+                vertices.push(RenderLinesVertex {
+                    position: [-scale, 0.0, 0.0],
+                });
+                vertices.push(RenderLinesVertex {
+                    position: [scale, 0.0, 0.0],
+                });
+            }
+            1 => {
+                // Y axis
+                vertices.push(RenderLinesVertex {
+                    position: [0.0, -scale, 0.0],
+                });
+                vertices.push(RenderLinesVertex {
+                    position: [0.0, scale, 0.0],
+                });
+            }
+            2 => {
+                // Z axis
+                vertices.push(RenderLinesVertex {
+                    position: [0.0, 0.0, -scale],
+                });
+                vertices.push(RenderLinesVertex {
+                    position: [0.0, 0.0, scale],
+                });
+            }
+            _ => return None, // Invalid axis
+        }
+        assert!(
+            vertices.len() == 2,
+            "RenderLines from_axis should always create exactly 2 vertices"
+        );
+        let vertex_count = 2 as u32;
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("RenderLines Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        return Some(RenderLines {
+            id,
+            edition: edition.to_string(),
+            vertex_buffer,
+            vertex_count,
+        });
     }
 }

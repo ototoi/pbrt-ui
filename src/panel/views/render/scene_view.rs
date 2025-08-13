@@ -166,7 +166,7 @@ impl SceneView {
                     renderer.render(ui, rect, node, &w2c, &c2c);
                 }
             }
-            RenderMode::Shaded => {
+            RenderMode::Lighting => {
                 if let Some(renderer) = &mut self.shaded {
                     renderer.render(ui, rect, node, &w2c, &c2c);
                 }
