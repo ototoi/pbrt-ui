@@ -1,6 +1,6 @@
+use super::lighting_mesh_renderer::LightingMeshRenderer;
 use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
-use super::shaded_mesh_renderer::ShadedMeshRenderer;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
@@ -12,14 +12,14 @@ use eframe::egui;
 use eframe::egui_wgpu;
 use eframe::wgpu;
 
-pub struct ShadedRenderer {
-    mesh_renderer: Arc<RwLock<ShadedMeshRenderer>>,
+pub struct LightingRenderer {
+    mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
-    mesh_renderer: Arc<RwLock<ShadedMeshRenderer>>,
+    mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
@@ -50,26 +50,27 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 .filter(|item| {
                     if let RenderItem::Mesh(_) = item.as_ref() {
                         true
+                    } else if let RenderItem::Light(_) = item.as_ref() {
+                        true
                     } else {
                         false
                     }
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            if !render_items.is_empty() {
-                let mut renderer = self.mesh_renderer.write().unwrap();
-                let cmds = renderer.prepare(
-                    device,
-                    queue,
-                    screen_descriptor,
-                    encoder,
-                    resources,
-                    &render_items,
-                    &self.world_to_camera,
-                    &self.camera_to_clip,
-                );
-                command_buffers.extend(cmds);
-            }
+
+            let mut renderer = self.mesh_renderer.write().unwrap();
+            let cmds = renderer.prepare(
+                device,
+                queue,
+                screen_descriptor,
+                encoder,
+                resources,
+                &render_items,
+                &self.world_to_camera,
+                &self.camera_to_clip,
+            );
+            command_buffers.extend(cmds);
         }
         if true {
             let render_items = render_items
@@ -83,21 +84,20 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            if !render_items.is_empty() {
-                //println!("Preparing lines renderer with {} items", render_items.len());
-                let mut renderer = self.lines_renderer.write().unwrap();
-                let cmds = renderer.prepare(
-                    device,
-                    queue,
-                    screen_descriptor,
-                    encoder,
-                    resources,
-                    &render_items,
-                    &self.world_to_camera,
-                    &self.camera_to_clip,
-                );
-                command_buffers.extend(cmds);
-            }
+
+            //println!("Preparing lines renderer with {} items", render_items.len());
+            let mut renderer = self.lines_renderer.write().unwrap();
+            let cmds = renderer.prepare(
+                device,
+                queue,
+                screen_descriptor,
+                encoder,
+                resources,
+                &render_items,
+                &self.world_to_camera,
+                &self.camera_to_clip,
+            );
+            command_buffers.extend(cmds);
         }
         return command_buffers;
     }
@@ -119,11 +119,11 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
     }
 }
 
-impl ShadedRenderer {
+impl LightingRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        if let Some(mesh_renderer) = ShadedMeshRenderer::new(cc) {
+        if let Some(mesh_renderer) = LightingMeshRenderer::new(cc) {
             if let Some(lines_renderer) = LinesRenderer::new(cc) {
-                return Some(ShadedRenderer {
+                return Some(LightingRenderer {
                     mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
                     lines_renderer: Arc::new(RwLock::new(lines_renderer)),
                 });

@@ -1,3 +1,6 @@
+use crate::render::wgpu::light::RenderLightType;
+use crate::render::wgpu::matrix;
+
 use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
@@ -12,21 +15,21 @@ use wgpu::util::align_to;
 use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
+const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lights
 
 //pub struct SolidMeshRenderer {}
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct GlobalUniforms {
     world_to_camera: [[f32; 4]; 4], // 4 * 4 * 4 = 64
     camera_to_clip: [[f32; 4]; 4],  // 4 * 4 * 4 = 64
     camera_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
-    light_direction: [f32; 4],
-    light_intensity: [f32; 4],
+    camera_position: [f32; 4],      // Camera position in world space // 4 * 4 = 16
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct LocalUniforms {
     local_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
     world_to_local: [[f32; 4]; 4], // 4 * 4 * 4 = 64
@@ -36,30 +39,55 @@ struct LocalUniforms {
     _pad3: [f32; 4],               // Padding to ensure alignment
 }
 
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct DirectionalLight {
+    direction: [f32; 4], // Direction of the light // 4 * 4 = 16
+    intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct DirectionalLightUniforms {
+    lights: [DirectionalLight; MAX_DIRECTIONAL_LIGHT_NUM], // 8 * 16 = 256
+    count: u32,                                            // Number of directional lights
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
+}
+
 #[derive(Debug, Clone)]
-pub struct SolidMeshRenderer {
+pub struct LightingMeshRenderer {
     pipeline: wgpu::RenderPipeline,
+    // Global bind group layout and buffer
+    min_uniform_buffer_offset_alignment: wgpu::BufferAddress,
     #[allow(dead_code)]
     global_bind_group_layout: wgpu::BindGroupLayout,
     global_bind_group: wgpu::BindGroup,
     global_uniform_buffer: wgpu::Buffer,
+    // Local bind group layout and buffer
     local_bind_group_layout: wgpu::BindGroupLayout,
     local_bind_group: wgpu::BindGroup,
     local_uniform_buffer: wgpu::Buffer,
-    local_uniform_alignment: wgpu::BufferAddress,
+    // Light bind group layout and buffer
+    #[allow(dead_code)]
+    light_bind_group_layout: wgpu::BindGroupLayout,
+    light_bind_group: wgpu::BindGroup,
+    light_uniform_buffer: wgpu::Buffer,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameResources {
-    render_items: Vec<Arc<RenderItem>>,
+    mesh_items: Vec<Arc<RenderItem>>,
 }
 
 fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
-    let local_uniform_size = std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress; // 4x4 matrix
     let uniform_alignment = {
         let alignment = device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-        //let alignment = 64;
-        align_to(local_uniform_size, alignment)
+        align_to(
+            std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
+            alignment,
+        )
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -85,10 +113,10 @@ fn get_base_color(item: &RenderItem) -> [f32; 4] {
         }
         _ => {} // Default color for other items
     }
-    return [1.0, 0.0, 1.0, 1.0]; // Default color for Solid
+    return [1.0, 1.0, 1.0, 1.0]; // Default color for 
 }
 
-impl SolidMeshRenderer {
+impl LightingMeshRenderer {
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -100,72 +128,126 @@ impl SolidMeshRenderer {
         world_to_camera: &glam::Mat4,
         camera_to_clip: &glam::Mat4,
     ) -> Vec<wgpu::CommandBuffer> {
-        let num_items = render_items.len();
-        if num_items != 0 {
+        {
+            let mesh_items = render_items
+                .iter()
+                .filter(|item| matches!(item.as_ref(), RenderItem::Mesh(_)))
+                .cloned()
+                .collect::<Vec<_>>();
+            let num_mesh_items = mesh_items.len();
+            let local_uniform_alignment = {
+                let alignment = self.min_uniform_buffer_offset_alignment;
+                align_to(
+                    std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
+                    alignment,
+                )
+            };
+            if self.local_uniform_buffer.size()
+                < (num_mesh_items as wgpu::BufferAddress * local_uniform_alignment)
             {
-                let local_uniform_alignment = self.local_uniform_alignment;
-                if self.local_uniform_buffer.size()
-                    < (num_items as wgpu::BufferAddress * local_uniform_alignment)
-                {
-                    let new_buffer = create_local_uniform_buffer(device, num_items);
-                    let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("Solid Local Bind Group"),
-                        layout: &self.local_bind_group_layout,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                buffer: &new_buffer,
-                                offset: 0,
-                                size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                            }),
-                        }],
-                    });
-                    self.local_uniform_buffer = new_buffer;
-                    self.local_bind_group = new_bind_group;
-                }
-                for (i, item) in render_items.iter().enumerate() {
-                    let local_to_world = item.get_matrix();
-                    let world_to_local = local_to_world.inverse();
-                    let uniform = LocalUniforms {
-                        local_to_world: local_to_world.to_cols_array_2d(),
-                        world_to_local: world_to_local.to_cols_array_2d(),
-                        base_color: get_base_color(item),
-                        _pad1: [0.0; 4], // Padding to ensure alignment
-                        _pad2: [0.0; 4], // Padding to ensure alignment
-                        _pad3: [0.0; 4], // Padding to ensure alignment
-                    };
-                    let offset = i as wgpu::BufferAddress * local_uniform_alignment;
-                    queue.write_buffer(
-                        &self.local_uniform_buffer,
-                        offset,
-                        bytemuck::bytes_of(&uniform),
-                    );
-                }
+                let new_buffer = create_local_uniform_buffer(device, num_mesh_items);
+                let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Lighting Local Bind Group"),
+                    layout: &self.local_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &new_buffer,
+                            offset: 0,
+                            size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
+                        }),
+                    }],
+                });
+                self.local_uniform_buffer = new_buffer;
+                self.local_bind_group = new_bind_group;
             }
-
-            {
-                let camera_to_world = world_to_camera.inverse();
-                let global_uniforms = GlobalUniforms {
-                    world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
-                    camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-                    camera_to_world: camera_to_world.to_cols_array_2d(), // Identity matrix for now
-                    light_direction: [0.0, 0.0, -1.0, 0.0],              // Default light direction
-                    light_intensity: [1.0, 1.0, 1.0, 1.0],               // Default light intensity
+            for (i, item) in mesh_items.iter().enumerate() {
+                let local_to_world = item.get_matrix();
+                let world_to_local = local_to_world.inverse();
+                let uniform = LocalUniforms {
+                    local_to_world: local_to_world.to_cols_array_2d(),
+                    world_to_local: world_to_local.to_cols_array_2d(),
+                    base_color: get_base_color(item),
+                    _pad1: [0.0; 4],
+                    _pad2: [0.0; 4],
+                    _pad3: [0.0; 4],
                 };
-                let global_unifrom_buffer = &self.global_uniform_buffer;
+                let offset = i as wgpu::BufferAddress * local_uniform_alignment;
                 queue.write_buffer(
-                    global_unifrom_buffer,
-                    0,
-                    bytemuck::bytes_of(&global_uniforms),
+                    &self.local_uniform_buffer,
+                    offset,
+                    bytemuck::bytes_of(&uniform),
                 );
             }
+
+            let per_frame_resources = PerFrameResources {
+                mesh_items: mesh_items.to_vec(),
+            };
+            resources.insert(per_frame_resources);
         }
 
-        let per_frame_resources = PerFrameResources {
-            render_items: render_items.to_vec(),
-        };
-        resources.insert(per_frame_resources);
+        {
+            let light_items = render_items
+                .iter()
+                .filter(|item| {
+                    if let RenderItem::Light(item) = item.as_ref() {
+                        if item.light.light_type == RenderLightType::Directional {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            let num_light_items = light_items.len();
+            let mut light_uniforms = DirectionalLightUniforms {
+                lights: [DirectionalLight::default(); MAX_DIRECTIONAL_LIGHT_NUM],
+                count: num_light_items as u32,
+                _pad1: 0,
+                _pad2: 0,
+                _pad3: 0,
+            };
+            for (i, item) in light_items.iter().enumerate() {
+                if let RenderItem::Light(light_item) = item.as_ref() {
+                    if i < MAX_DIRECTIONAL_LIGHT_NUM {
+                        let matrix = light_item.matrix; //local_to_world
+                        let direction = light_item.light.direction;
+                        let direction = matrix.transform_vector3(glam::vec3(
+                            direction[0],
+                            direction[1],
+                            direction[2],
+                        ));
+                        let intensity = light_item.light.intensity;
+                        light_uniforms.lights[i] = DirectionalLight {
+                            direction: [direction[0], direction[1], direction[2], 0.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        };
+                    }
+                }
+            }
+            queue.write_buffer(
+                &self.light_uniform_buffer,
+                0,
+                bytemuck::bytes_of(&light_uniforms),
+            );
+        }
 
+        {
+            let camera_to_world = world_to_camera.inverse();
+            let camera_position = camera_to_world.transform_point3(glam::vec3(0.0, 0.0, 0.0));
+            let global_uniforms = GlobalUniforms {
+                world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
+                camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
+                camera_to_world: camera_to_world.to_cols_array_2d(), // Identity matrix for now
+                camera_position: [camera_position.x, camera_position.y, camera_position.z, 1.0],
+            };
+            let global_unifrom_buffer = &self.global_uniform_buffer;
+            queue.write_buffer(
+                global_unifrom_buffer,
+                0,
+                bytemuck::bytes_of(&global_uniforms),
+            );
+        }
         return vec![];
     }
 
@@ -176,11 +258,18 @@ impl SolidMeshRenderer {
         resources: &egui_wgpu::CallbackResources,
     ) {
         if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            if !per_frame_resources.render_items.is_empty() {
-                let local_uniform_alignment = self.local_uniform_alignment;
+            if !per_frame_resources.mesh_items.is_empty() {
+                let local_uniform_alignment = {
+                    let alignment = self.min_uniform_buffer_offset_alignment;
+                    align_to(
+                        std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
+                        alignment,
+                    )
+                };
                 render_pass.set_pipeline(&self.pipeline); //
                 render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                for (i, item) in per_frame_resources.render_items.iter().enumerate() {
+                render_pass.set_bind_group(2, &self.light_bind_group, &[]);
+                for (i, item) in per_frame_resources.mesh_items.iter().enumerate() {
                     let i = i as wgpu::DynamicOffset;
                     if let RenderItem::Mesh(mesh_item) = item.as_ref() {
                         let local_uniform_offset =
@@ -203,7 +292,7 @@ impl SolidMeshRenderer {
     }
 }
 
-impl SolidMeshRenderer {
+impl LightingMeshRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
         let device = &wgpu_render_state.device;
@@ -211,7 +300,9 @@ impl SolidMeshRenderer {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Solid Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_solid_mesh.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("shaders/render_lighting_mesh.wgsl").into(),
+            ),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -271,9 +362,30 @@ impl SolidMeshRenderer {
                 }],
             });
 
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Light Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            size_of::<DirectionalLightUniforms>() as _,
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Solid Pipeline Layout"),
-            bind_group_layouts: &[&global_bind_group_layout, &local_bind_group_layout],
+            label: Some("Lighting Pipeline Layout"),
+            bind_group_layouts: &[
+                &global_bind_group_layout,
+                &local_bind_group_layout,
+                &light_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -322,9 +434,9 @@ impl SolidMeshRenderer {
             world_to_camera: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
             camera_to_clip: glam::Mat4::IDENTITY.to_cols_array_2d(),  // Identity matrix for now
             camera_to_world: glam::Mat4::IDENTITY.to_cols_array_2d(), // Identity matrix for now
-            light_direction: [0.0, 0.0, -1.0, 0.0],                   // Default light direction
-            light_intensity: [1.0, 1.0, 1.0, 1.0],                    // Default light intensity
+            camera_position: [0.0, 0.0, 0.0, 1.0], // Camera position in world space
         };
+
         let global_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer for Matrix"),
             contents: bytemuck::bytes_of(&global_unifroms),
@@ -332,7 +444,7 @@ impl SolidMeshRenderer {
         });
 
         let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Solid Global Bind Group"),
+            label: Some("Lighting Global Bind Group"),
             layout: &global_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -340,17 +452,9 @@ impl SolidMeshRenderer {
             }],
         });
 
-        let local_uniform_size = size_of::<LocalUniforms>() as wgpu::BufferAddress;
-        let local_uniform_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            //let alignment = 64;
-            align_to(local_uniform_size, alignment)
-        };
-
         let local_uniform_buffer = create_local_uniform_buffer(device, MIN_LOCAL_BUFFER_NUM);
         let local_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Solid Local Bind Group"),
+            label: Some("Lighting Local Bind Group"),
             layout: &local_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -362,15 +466,42 @@ impl SolidMeshRenderer {
             }],
         });
 
-        return Some(SolidMeshRenderer {
+        let light_uniforms = DirectionalLightUniforms {
+            lights: [DirectionalLight::default(); MAX_DIRECTIONAL_LIGHT_NUM],
+            count: 0,
+            _pad1: 0,
+            _pad2: 0,
+            _pad3: 0,
+        };
+        let light_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer for Lights"),
+            contents: bytemuck::bytes_of(&light_uniforms),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+        });
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Lighting Light Bind Group"),
+            layout: &light_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_uniform_buffer.as_entire_binding(),
+            }],
+        });
+
+        let min_uniform_buffer_offset_alignment =
+            device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+
+        return Some(LightingMeshRenderer {
             pipeline,
+            min_uniform_buffer_offset_alignment,
             global_bind_group_layout,
             global_bind_group,
             global_uniform_buffer,
             local_bind_group_layout,
             local_bind_group,
             local_uniform_buffer,
-            local_uniform_alignment,
+            light_bind_group_layout,
+            light_bind_group,
+            light_uniform_buffer,
         });
     }
 }

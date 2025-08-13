@@ -7,8 +7,8 @@ use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
 use crate::model::scene::TransformComponent;
+use crate::render::LightingRenderer;
 use crate::render::RenderMode;
-use crate::render::ShadedRenderer;
 use crate::render::SolidRenderer;
 use crate::render::WireRenderer;
 
@@ -58,14 +58,14 @@ pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) 
 pub struct SceneView {
     wireframe: Option<WireRenderer>,
     solid: Option<SolidRenderer>,
-    shaded: Option<ShadedRenderer>,
+    shaded: Option<LightingRenderer>,
 }
 
 impl SceneView {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let wireframe = WireRenderer::new(cc);
         let solid = SolidRenderer::new(cc);
-        let shaded = ShadedRenderer::new(cc);
+        let shaded = LightingRenderer::new(cc);
         Self {
             wireframe,
             solid,
