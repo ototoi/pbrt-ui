@@ -56,20 +56,19 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            if !render_items.is_empty() {
-                let mut renderer = self.mesh_renderer.write().unwrap();
-                let cmds = renderer.prepare(
-                    device,
-                    queue,
-                    screen_descriptor,
-                    encoder,
-                    resources,
-                    &render_items,
-                    &self.world_to_camera,
-                    &self.camera_to_clip,
-                );
-                command_buffers.extend(cmds);
-            }
+
+            let mut renderer = self.mesh_renderer.write().unwrap();
+            let cmds = renderer.prepare(
+                device,
+                queue,
+                screen_descriptor,
+                encoder,
+                resources,
+                &render_items,
+                &self.world_to_camera,
+                &self.camera_to_clip,
+            );
+            command_buffers.extend(cmds);
         }
         if true {
             let render_items = render_items
@@ -83,21 +82,20 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            if !render_items.is_empty() {
-                //println!("Preparing lines renderer with {} items", render_items.len());
-                let mut renderer = self.lines_renderer.write().unwrap();
-                let cmds = renderer.prepare(
-                    device,
-                    queue,
-                    screen_descriptor,
-                    encoder,
-                    resources,
-                    &render_items,
-                    &self.world_to_camera,
-                    &self.camera_to_clip,
-                );
-                command_buffers.extend(cmds);
-            }
+
+            //println!("Preparing lines renderer with {} items", render_items.len());
+            let mut renderer = self.lines_renderer.write().unwrap();
+            let cmds = renderer.prepare(
+                device,
+                queue,
+                screen_descriptor,
+                encoder,
+                resources,
+                &render_items,
+                &self.world_to_camera,
+                &self.camera_to_clip,
+            );
+            command_buffers.extend(cmds);
         }
         return command_buffers;
     }

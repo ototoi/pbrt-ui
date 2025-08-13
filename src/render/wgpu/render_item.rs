@@ -1,3 +1,5 @@
+use super::light::RenderLight;
+use super::light::RenderLightType;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
@@ -6,6 +8,7 @@ use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use crate::conversion::light_shape::create_light_shape;
 use crate::model::base::Property;
+use crate::model::base::Vector3;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::LightComponent;
 use crate::model::scene::Material;
@@ -14,7 +17,6 @@ use crate::model::scene::Node;
 use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
-use crate::render::wgpu::lines;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -37,8 +39,15 @@ pub struct LinesRenderItem {
 }
 
 #[derive(Debug, Clone)]
+pub struct RenderLightItem {
+    pub light: Arc<RenderLight>,
+    pub matrix: glam::Mat4,
+}
+
+#[derive(Debug, Clone)]
 pub enum RenderItem {
     Mesh(MeshRenderItem),
+    Light(RenderLightItem),
     Lines(LinesRenderItem),
     // Add other render item types here as needed
 }
@@ -47,6 +56,7 @@ impl RenderItem {
     pub fn get_matrix(&self) -> glam::Mat4 {
         match self {
             RenderItem::Mesh(item) => item.matrix,
+            RenderItem::Light(item) => item.matrix,
             RenderItem::Lines(item) => item.matrix,
             // Handle other render item types here
         }
@@ -137,7 +147,7 @@ fn create_shaded_material(material: &Material) -> RenderMaterial {
         let mut uniform_values = Vec::new();
         uniform_values.push((
             "base_color".to_string(),
-            RenderUniformValue::Vec4([1.0, 0.0, 1.0, 1.0]),
+            RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
         ));
         let edition = material.get_edition();
         let id = material.get_id();
@@ -213,6 +223,97 @@ fn get_light_gizmo_material(
         return get_lines_material(light_id, &edition, render_resource_manager, &base_color);
     }
     return None;
+}
+
+fn get_light(
+    _device: &wgpu::Device,
+    _queue: &wgpu::Queue,
+    node: &Arc<RwLock<Node>>,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<Arc<RenderLight>> {
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+        let light_id = light.get_id();
+        let edition = light.get_edition();
+        if let Some(render_light) = render_resource_manager.get_light(light_id) {
+            if render_light.edition == edition {
+                return Some(render_light.clone());
+            }
+        }
+        let t = light.get_type();
+        #[allow(unused_mut)]
+        let mut light_type = RenderLightType::Directional; // Default to Point light
+        #[allow(unused_mut)]
+        let mut position = [0.0, 0.0, 0.0];
+        #[allow(unused_mut)]
+        let mut direction = [0.0, 0.0, -1.0]; // Default direction for directional lights
+        #[allow(unused_mut)]
+        let mut intensity = [1.0, 1.0, 1.0]; // Default white light
+        #[allow(unused_mut)]
+        let mut range = [0.0, 1.0]; // Default range for point and spot lights
+
+        match t.as_str() {
+            "distant" => {
+                //println!("Distant light is not supported yet");
+                light_type = RenderLightType::Directional;
+                let props = light.as_property_map();
+
+                let mut from = props.get_floats("from");
+                if from.len() != 3 {
+                    from = vec![0.0, 0.0, 0.0];
+                }
+                let mut to = props.get_floats("to");
+                if to.len() != 3 {
+                    to = vec![0.0, 0.0, 1.0];
+                }
+                let from = Vector3::new(from[0], from[1], from[2]);
+                let to = Vector3::new(to[0], to[1], to[2]);
+                let dir = to - from;
+                direction = [dir.x, dir.y, dir.z];
+
+                let mut l = props.get_floats("L"); //should
+                if l.len() != 3 {
+                    l = vec![1.0, 1.0, 1.0]; // Default white light
+                }
+
+                let mut scale = props.get_floats("scale");
+                if scale.len() != 3 {
+                    scale = vec![1.0, 1.0, 1.0]; // Default scale
+                }
+
+                intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+            }
+            "point" => {
+                light_type = RenderLightType::Point;
+                //
+                return None; // Spot lights are not yet supported
+            }
+            "spot" => {
+                light_type = RenderLightType::Spot;
+                //
+                return None; // Spot lights are not yet supported
+            }
+            _ => {
+                // Handle unknown or unsupported light types
+                return None;
+            }
+        }
+        let render_light = RenderLight {
+            id: light_id,
+            edition: edition.clone(),
+            light_type: light_type,
+            position: position,
+            direction: direction,
+            intensity: intensity,
+            range: range,
+        };
+        let render_light = Arc::new(render_light);
+        render_resource_manager.add_light(&render_light);
+        return Some(render_light);
+    }
+    return None; // Placeholder for light retrieval logic
 }
 
 fn get_light_gizmo(
@@ -294,6 +395,14 @@ pub fn get_render_items(
                 }
             }
             SceneItemType::Light => {
+                if mode == RenderMode::Lighting {
+                    if let Some(light) = get_light(device, queue, &item.node, &mut resource_manager)
+                    {
+                        let matrix = glam::Mat4::from(item.matrix);
+                        let render_item = RenderLightItem { light, matrix };
+                        render_items.push(Arc::new(RenderItem::Light(render_item)));
+                    }
+                }
                 if let Some(lines) =
                     get_light_gizmo(device, queue, &item.node, &mut resource_manager)
                 {

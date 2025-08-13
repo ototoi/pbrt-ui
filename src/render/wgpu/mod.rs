@@ -1,3 +1,6 @@
+pub mod light;
+pub mod lighting_mesh_renderer;
+pub mod lighting_renderer;
 pub mod lines;
 pub mod lines_renderer;
 pub mod material;
@@ -5,8 +8,6 @@ pub mod matrix;
 pub mod mesh;
 pub mod render_item;
 pub mod render_resource;
-pub mod shaded_mesh_renderer;
-pub mod shaded_renderer;
 pub mod solid_mesh_renderer;
 pub mod solid_renderer;
 pub mod wire_mesh_renderer;
