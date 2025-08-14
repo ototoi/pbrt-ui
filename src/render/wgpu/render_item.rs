@@ -7,13 +7,18 @@ use super::mesh::RenderMesh;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use crate::conversion::light_shape::create_light_shape;
+use crate::conversion::spectrum;
+use crate::conversion::spectrum::Spectrum;
 use crate::model::base::Property;
+use crate::model::base::PropertyMap;
 use crate::model::base::Vector3;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::LightComponent;
 use crate::model::scene::Material;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::Node;
+use crate::model::scene::ResourceComponent;
+use crate::model::scene::ResourceManager;
 use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
@@ -22,6 +27,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
+use eframe::wgpu::wgc::device::resource;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -114,21 +120,76 @@ fn get_base_color_key(material: &Material) -> Option<String> {
     return None;
 }
 
-fn get_base_color_value(material: &Material, key: &str) -> Option<RenderUniformValue> {
-    let props = material.as_property_map();
-    if let Some((_key_type, _key_name, value)) = props.entry(key) {
-        if let Property::Floats(v) = value {
-            if v.len() >= 3 {
-                return Some(RenderUniformValue::Vec4([v[0], v[1], v[2], 1.0]));
+fn get_color(
+    props: &PropertyMap,
+    key: &str,
+    resource_manager: &ResourceManager,
+) -> Option<[f32; 4]> {
+    if let Some((key_type, _key_name, value)) = props.entry(key) {
+        if key_type == "blackbody" {
+            if let Property::Floats(v) = value {
+                if v.len() >= 2 {
+                    let s = Spectrum::from_blackbody(&v);
+                    let rgb = s.to_rgb();
+                    return Some([rgb[0], rgb[1], rgb[2], 1.0]);
+                }
+            }
+        } else if key_type == "spectrum" {
+            if let Property::Strings(v) = value {
+                if v.len() >= 1 {
+                    let name = v[0].clone();
+                    if let Some(resource) = resource_manager.find_spectrum_by_filename(&name) {
+                        let resource = resource.read().unwrap();
+                        if let Some(fullpath) = resource.get_fullpath() {
+                            if let Ok(spectrum) = Spectrum::load_from_file(&fullpath) {
+                                let rgb = spectrum.to_rgb();
+                                return Some([rgb[0], rgb[1], rgb[2], 1.0]);
+                            }
+                        }
+                    }
+                    log::warn!(
+                        "Spectrum resource not found for key: {} with value: {}",
+                        key,
+                        name
+                    );
+                }
+            }
+        } else if key_type == "float" {
+            if let Property::Floats(v) = value {
+                if v.len() >= 1 {
+                    // Assuming the first three values are RGB
+                    return Some([v[0], v[0], v[0], 1.0]);
+                }
+            }
+        } else {
+            if let Property::Floats(v) = value {
+                if v.len() >= 3 {
+                    return Some([v[0], v[1], v[2], 1.0]);
+                }
             }
         }
     }
     return None;
 }
 
-fn create_shaded_material(material: &Material) -> RenderMaterial {
+fn get_base_color_value(
+    material: &Material,
+    key: &str,
+    resource_manager: &ResourceManager,
+) -> Option<RenderUniformValue> {
+    let props = material.as_property_map();
+    if let Some(color) = get_color(props, key, resource_manager) {
+        return Some(RenderUniformValue::Vec4(color));
+    }
+    return None;
+}
+
+fn create_surface_material(
+    material: &Material,
+    resource_manager: &ResourceManager,
+) -> RenderMaterial {
     if let Some(base_color_key) = get_base_color_key(material) {
-        if let Some(value) = get_base_color_value(material, &base_color_key) {
+        if let Some(value) = get_base_color_value(material, &base_color_key, resource_manager) {
             let mut uniform_values = Vec::new();
             uniform_values.push(("base_color".to_string(), value.clone()));
             uniform_values.push((base_color_key.to_string(), value.clone()));
@@ -162,6 +223,7 @@ fn create_shaded_material(material: &Material) -> RenderMaterial {
 
 pub fn get_surface_material(
     node: &Arc<RwLock<Node>>,
+    resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderMaterial>> {
     let node = node.read().unwrap();
@@ -174,7 +236,7 @@ pub fn get_surface_material(
                 return Some(mat.clone());
             }
         }
-        let render_material = create_shaded_material(&material);
+        let render_material = create_surface_material(&material, resource_manager);
         let render_material = Arc::new(render_material);
         render_resource_manager.add_material(&render_material);
         return Some(render_material);
@@ -229,6 +291,7 @@ fn get_light(
     _device: &wgpu::Device,
     _queue: &wgpu::Queue,
     node: &Arc<RwLock<Node>>,
+    resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderLight>> {
     let node = node.read().unwrap();
@@ -273,15 +336,9 @@ fn get_light(
                 let dir = to - from;
                 direction = [dir.x, dir.y, dir.z];
 
-                let mut l = props.get_floats("L"); //should
-                if l.len() != 3 {
-                    l = vec![1.0, 1.0, 1.0]; // Default white light
-                }
-
-                let mut scale = props.get_floats("scale");
-                if scale.len() != 3 {
-                    scale = vec![1.0, 1.0, 1.0]; // Default scale
-                }
+                let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+                let scale =
+                    get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
                 intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
             }
@@ -355,6 +412,15 @@ fn get_light_gizmo(
     return None;
 }
 
+fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {
+    let mut node = node.write().unwrap();
+    if node.get_component::<ResourceComponent>().is_none() {
+        node.add_component::<ResourceComponent>(ResourceComponent::new());
+    }
+    let component = node.get_component::<ResourceComponent>().unwrap();
+    return component.get_resource_manager();
+}
+
 fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderResourceManager>> {
     let mut node = node.write().unwrap();
     if node.get_component::<RenderResourceComponent>().is_none() {
@@ -372,19 +438,25 @@ pub fn get_render_items(
 ) -> Vec<Arc<RenderItem>> {
     let scene_items = get_scene_items(node);
     let mut render_items = Vec::new();
-    let resource_manager = get_render_resource_manager(node);
-    let mut resource_manager = resource_manager.write().unwrap();
+    let resource_manager = get_resource_manager(node);
+    let resource_manager = resource_manager.read().unwrap();
+    let render_resource_manager = get_render_resource_manager(node);
+    let mut render_resource_manager = render_resource_manager.write().unwrap();
     for item in scene_items {
         match item.category {
             SceneItemType::Mesh => {
-                if let Some(mesh) = get_mesh(device, queue, &item.node, &mut resource_manager) {
+                if let Some(mesh) =
+                    get_mesh(device, queue, &item.node, &mut render_resource_manager)
+                {
                     let matrix = glam::Mat4::from(item.matrix);
-                    let material = match mode {
-                        RenderMode::Wire => None,
-                        RenderMode::Solid => None,
-                        RenderMode::Lighting => {
-                            get_surface_material(&item.node, &mut resource_manager)
-                        }
+                    let material = if mode == RenderMode::Lighting {
+                        get_surface_material(
+                            &item.node,
+                            &resource_manager,
+                            &mut render_resource_manager,
+                        )
+                    } else {
+                        None
                     };
                     let render_item = MeshRenderItem {
                         mesh,
@@ -396,18 +468,24 @@ pub fn get_render_items(
             }
             SceneItemType::Light => {
                 if mode == RenderMode::Lighting {
-                    if let Some(light) = get_light(device, queue, &item.node, &mut resource_manager)
-                    {
+                    if let Some(light) = get_light(
+                        device,
+                        queue,
+                        &item.node,
+                        &resource_manager,
+                        &mut render_resource_manager,
+                    ) {
                         let matrix = glam::Mat4::from(item.matrix);
                         let render_item = RenderLightItem { light, matrix };
                         render_items.push(Arc::new(RenderItem::Light(render_item)));
                     }
                 }
                 if let Some(lines) =
-                    get_light_gizmo(device, queue, &item.node, &mut resource_manager)
+                    get_light_gizmo(device, queue, &item.node, &mut render_resource_manager)
                 {
                     let matrix = glam::Mat4::from(item.matrix);
-                    let material = get_light_gizmo_material(&item.node, &mut resource_manager);
+                    let material =
+                        get_light_gizmo_material(&item.node, &mut render_resource_manager);
                     let render_item = LinesRenderItem {
                         lines,
                         material,
@@ -433,7 +511,7 @@ pub fn get_render_items(
                 let id = IDS[i];
                 let edition = "world_axes".to_string();
                 let mut render_lines = None;
-                if let Some(lines) = resource_manager.get_lines(id) {
+                if let Some(lines) = render_resource_manager.get_lines(id) {
                     render_lines = Some(lines.clone());
                 } else {
                     let mut line = vec![];
@@ -461,7 +539,7 @@ pub fn get_render_items(
                         RenderLines::from_lines(device, queue, id, &edition, &lines)
                     {
                         let lines = Arc::new(lines);
-                        resource_manager.add_lines(&lines);
+                        render_resource_manager.add_lines(&lines);
                         render_lines = Some(lines);
                     }
                 }
@@ -473,7 +551,8 @@ pub fn get_render_items(
                         _ => continue,
                     };
                     let matrix = glam::Mat4::IDENTITY; // World axes are at the origin
-                    let material = get_lines_material(id, &edition, &mut resource_manager, &color);
+                    let material =
+                        get_lines_material(id, &edition, &mut render_resource_manager, &color);
                     let render_item = LinesRenderItem {
                         lines,
                         material,
@@ -517,7 +596,7 @@ pub fn get_render_items(
             let id = ID;
             let edition = "grid".to_string();
             let mut render_lines = None;
-            if let Some(lines) = resource_manager.get_lines(id) {
+            if let Some(lines) = render_resource_manager.get_lines(id) {
                 render_lines = Some(lines.clone());
             } else {
                 let mut lines = vec![];
@@ -565,13 +644,14 @@ pub fn get_render_items(
 
                 if let Some(lines) = RenderLines::from_lines(device, queue, id, &edition, &lines) {
                     let lines = Arc::new(lines);
-                    resource_manager.add_lines(&lines);
+                    render_resource_manager.add_lines(&lines);
                     render_lines = Some(lines);
                 }
             }
             if let Some(lines) = render_lines {
                 let color = [0.5, 0.5, 0.5, 1.0]; // Gray color for the grid
-                let material = get_lines_material(id, &edition, &mut resource_manager, &color);
+                let material =
+                    get_lines_material(id, &edition, &mut render_resource_manager, &color);
                 let matrix = glam::Mat4::IDENTITY; // Grid is at the origin
                 let render_item = LinesRenderItem {
                     lines,

@@ -1,4 +1,6 @@
+mod blackbody;
 mod config;
+mod data_cie;
 mod data_xyz;
 mod float_file;
 mod spectrum;
@@ -7,13 +9,21 @@ mod utils;
 pub use spectrum::Spectrum;
 
 use crate::error::PbrtError;
+use blackbody::*;
 use config::*;
+use data_cie::*;
 use data_xyz::*;
 use float_file::*;
 use log;
 use utils::*;
 
 impl Spectrum {
+    pub fn zero() -> Spectrum {
+        return Spectrum {
+            c: [0.0; SPECTRAL_SAMPLES],
+        };
+    }
+
     pub fn from_sampled(lambda: &[f32], vals: &[f32]) -> Spectrum {
         if !spectrum_samples_sorted(lambda, vals) {
             let mut slambda = Vec::new();
@@ -49,6 +59,18 @@ impl Spectrum {
                 return Err(e);
             }
         }
+    }
+
+    pub fn from_blackbody(values: &[f32]) -> Spectrum {
+        let n_values = values.len();
+        assert_eq!(n_values % 2, 0);
+        let n_values = n_values / 2;
+        let mut s = Self::zero();
+        for i in 0..n_values {
+            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i + 0]);
+            s += Self::from_sampled(&CIE_LAMBDA, &v) * values[2 * i + 1];
+        }
+        return s;
     }
 
     pub fn to_xyz(&self) -> [f32; 3] {
