@@ -1,5 +1,4 @@
 use crate::render::wgpu::light::RenderLightType;
-use crate::render::wgpu::matrix;
 
 use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
@@ -16,6 +15,8 @@ use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lights
+const MAX_SPOT_LIGHT_NUM: usize = 4; // Maximum number of spot lights
+const MAX_POINT_LIGHT_NUM: usize = 4; // Maximum number of point lights
 
 //pub struct SolidMeshRenderer {}
 
@@ -56,6 +57,36 @@ struct DirectionalLightUniforms {
     _pad3: u32,
 }
 
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct PointLight {
+    position: [f32; 4],  // Position of the light // 4 * 4 = 16
+    intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
+    range: [f32; 4],     // Range of the light // 4 * 4 = 8
+    _pad1: [f32; 4],     // Padding to ensure alignment
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct PointLightUniforms {
+    lights: [PointLight; MAX_POINT_LIGHT_NUM], // 8 * 16 = 256
+    count: u32,                                // Number of directional lights
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct SpotLight {
+    position: [f32; 4],  // Position of the light // 4 * 4 = 16
+    direction: [f32; 4], // Direction of the light // 4 * 4 = 16
+    intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
+    range: [f32; 2],     // Range of the light // 2 * 4 = 8
+    angle: f32,          // Angle of the spotlight
+    _pad1: f32,          // Padding to ensure alignment
+}
+
 #[derive(Debug, Clone)]
 pub struct LightingMeshRenderer {
     pipeline: wgpu::RenderPipeline,
@@ -73,7 +104,9 @@ pub struct LightingMeshRenderer {
     #[allow(dead_code)]
     light_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group: wgpu::BindGroup,
-    light_uniform_buffer: wgpu::Buffer,
+    directional_light_uniform_buffer: wgpu::Buffer,
+    point_light_uniform_buffer: wgpu::Buffer,
+    spot_light_uniform_buffer: wgpu::Buffer,
 }
 
 #[derive(Debug, Clone)]
@@ -186,6 +219,7 @@ impl LightingMeshRenderer {
             resources.insert(per_frame_resources);
         }
 
+        // Directional lights
         {
             let light_items = render_items
                 .iter()
@@ -200,13 +234,8 @@ impl LightingMeshRenderer {
                 .cloned()
                 .collect::<Vec<_>>();
             let num_light_items = light_items.len();
-            let mut light_uniforms = DirectionalLightUniforms {
-                lights: [DirectionalLight::default(); MAX_DIRECTIONAL_LIGHT_NUM],
-                count: num_light_items as u32,
-                _pad1: 0,
-                _pad2: 0,
-                _pad3: 0,
-            };
+            let mut light_uniforms = DirectionalLightUniforms::default();
+            light_uniforms.count = num_light_items as u32;
             for (i, item) in light_items.iter().enumerate() {
                 if let RenderItem::Light(light_item) = item.as_ref() {
                     if i < MAX_DIRECTIONAL_LIGHT_NUM {
@@ -226,7 +255,75 @@ impl LightingMeshRenderer {
                 }
             }
             queue.write_buffer(
-                &self.light_uniform_buffer,
+                &self.directional_light_uniform_buffer,
+                0,
+                bytemuck::bytes_of(&light_uniforms),
+            );
+        }
+
+        // Spot lights
+        {
+            let light_items = render_items
+                .iter()
+                .filter(|item| {
+                    if let RenderItem::Light(item) = item.as_ref() {
+                        if item.light.light_type == RenderLightType::Spot {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            // Currently, we do not handle spot lights in this renderer.
+            // You can implement similar logic as above for spot lights if needed.
+            let _num_light_items = light_items.len();
+        }
+
+        // Point lights
+        {
+            let light_items = render_items
+                .iter()
+                .filter(|item| {
+                    if let RenderItem::Light(item) = item.as_ref() {
+                        if item.light.light_type == RenderLightType::Point {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            // Currently, we do not handle point lights in this renderer.
+            // You can implement similar logic as above for point lights if needed.
+            let num_light_items = light_items.len();
+            let mut light_uniforms = PointLightUniforms::default();
+            light_uniforms.count = num_light_items as u32;
+            for (i, item) in light_items.iter().enumerate() {
+                //println!("Point light item: {:?}", item);
+                if let RenderItem::Light(light_item) = item.as_ref() {
+                    if i < MAX_POINT_LIGHT_NUM {
+                        let matrix = light_item.matrix; //local_to_world
+                        let position = light_item.light.position;
+                        let position = matrix.transform_point3(glam::vec3(
+                            position[0],
+                            position[1],
+                            position[2],
+                        ));
+                        //println!("Point light position: {:?}", position);
+                        let intensity = light_item.light.intensity;
+                        let radius = 5.0;
+                        light_uniforms.lights[i] = PointLight {
+                            position: [position.x, position.y, position.z, 1.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                            range: [0.0, radius, 0.0, 0.0], // min and max range
+                            ..Default::default()
+                        };
+                    }
+                }
+            }
+            queue.write_buffer(
+                &self.point_light_uniform_buffer,
                 0,
                 bytemuck::bytes_of(&light_uniforms),
             );
@@ -365,18 +462,46 @@ impl LightingMeshRenderer {
         let light_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Light Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            size_of::<DirectionalLightUniforms>() as _,
-                        ),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(size_of::<
+                                DirectionalLightUniforms,
+                            >()
+                                as _),
+                        },
+                        count: None,
                     },
-                    count: None,
-                }],
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                size_of::<PointLightUniforms>() as _,
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(size_of::<
+                                DirectionalLightUniforms,
+                            >()
+                                as _),
+                        },
+                        count: None,
+                    },
+                ],
             });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -466,25 +591,45 @@ impl LightingMeshRenderer {
             }],
         });
 
-        let light_uniforms = DirectionalLightUniforms {
-            lights: [DirectionalLight::default(); MAX_DIRECTIONAL_LIGHT_NUM],
-            count: 0,
-            _pad1: 0,
-            _pad2: 0,
-            _pad3: 0,
-        };
-        let light_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer for Lights"),
-            contents: bytemuck::bytes_of(&light_uniforms),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-        });
+        let directional_light_uniforms = DirectionalLightUniforms::default();
+        let directional_light_uniform_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer for Directional Lights"),
+                contents: bytemuck::bytes_of(&directional_light_uniforms),
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            });
+        let point_light_uniforms = PointLightUniforms::default();
+        let point_light_uniform_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer for Point Lights"),
+                contents: bytemuck::bytes_of(&point_light_uniforms),
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            });
+
+        let spot_light_uniform_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer for Spot Lights"),
+                contents: bytemuck::bytes_of(&directional_light_uniforms),
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            });
+
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Light Bind Group"),
             layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_uniform_buffer.as_entire_binding(),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: directional_light_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: point_light_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: spot_light_uniform_buffer.as_entire_binding(),
+                },
+            ],
         });
 
         let min_uniform_buffer_offset_alignment =
@@ -501,7 +646,9 @@ impl LightingMeshRenderer {
             local_uniform_buffer,
             light_bind_group_layout,
             light_bind_group,
-            light_uniform_buffer,
+            directional_light_uniform_buffer,
+            point_light_uniform_buffer,
+            spot_light_uniform_buffer,
         });
     }
 }

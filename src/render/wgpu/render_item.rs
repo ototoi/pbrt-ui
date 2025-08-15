@@ -7,8 +7,8 @@ use super::mesh::RenderMesh;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use crate::conversion::light_shape::create_light_shape;
-use crate::conversion::spectrum;
 use crate::conversion::spectrum::Spectrum;
+use crate::model::base::Matrix4x4;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 use crate::model::base::Vector3;
@@ -27,7 +27,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
-use eframe::wgpu::wgc::device::resource;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -287,69 +286,160 @@ fn get_light_gizmo_material(
     return None;
 }
 
-fn get_light(
-    _device: &wgpu::Device,
-    _queue: &wgpu::Queue,
-    node: &Arc<RwLock<Node>>,
-    resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
-) -> Option<Arc<RenderLight>> {
+fn get_light_type(node: &Arc<RwLock<Node>>) -> Option<String> {
     let node = node.read().unwrap();
     if let Some(component) = node.get_component::<LightComponent>() {
         let light = component.get_light();
         let light = light.read().unwrap();
-        let light_id = light.get_id();
+        return Some(light.get_type());
+    }
+    return None; // No LightComponent found
+}
+
+fn get_directional_light_item(
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderLightItem> {
+    let node = &item.node;
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+
+        let id = light.get_id();
+        let light_type = light.get_type();
         let edition = light.get_edition();
-        if let Some(render_light) = render_resource_manager.get_light(light_id) {
+        if let Some(render_light) = render_resource_manager.get_light(id) {
             if render_light.edition == edition {
-                return Some(render_light.clone());
+                let render_item = RenderLightItem {
+                    light: render_light.clone(),
+                    matrix: glam::Mat4::from(item.matrix),
+                };
+                return Some(render_item);
             }
         }
-        let t = light.get_type();
-        #[allow(unused_mut)]
-        let mut light_type = RenderLightType::Directional; // Default to Point light
-        #[allow(unused_mut)]
-        let mut position = [0.0, 0.0, 0.0];
-        #[allow(unused_mut)]
-        let mut direction = [0.0, 0.0, -1.0]; // Default direction for directional lights
-        #[allow(unused_mut)]
-        let mut intensity = [1.0, 1.0, 1.0]; // Default white light
-        #[allow(unused_mut)]
-        let mut range = [0.0, 1.0]; // Default range for point and spot lights
+        assert!(
+            light_type == "distant",
+            "Expected light type to be 'distant', found: {}",
+            light_type
+        );
 
-        match t.as_str() {
+        let props = light.as_property_map();
+
+        let mut from = props.get_floats("from");
+        if from.len() != 3 {
+            from = vec![0.0, 0.0, 0.0];
+        }
+        let mut to = props.get_floats("to");
+        if to.len() != 3 {
+            to = vec![0.0, 0.0, 1.0];
+        }
+        let from = Vector3::new(from[0], from[1], from[2]);
+        let to = Vector3::new(to[0], to[1], to[2]);
+        let dir = to - from;
+        let direction = [dir.x, dir.y, dir.z];
+
+        let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+        let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+        let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+        let render_light = RenderLight {
+            id,
+            edition: edition.clone(),
+            light_type: RenderLightType::Directional,
+            direction: direction,
+            intensity: intensity,
+            ..Default::default()
+        };
+        let render_light = Arc::new(render_light);
+        render_resource_manager.add_light(&render_light);
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(item.matrix),
+        };
+        return Some(render_item);
+    }
+    return None;
+}
+
+fn get_point_light_item(
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderLightItem> {
+    let node = &item.node;
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+
+        let id = light.get_id();
+        let light_type = light.get_type();
+        let edition = light.get_edition();
+        if let Some(render_light) = render_resource_manager.get_light(id) {
+            if render_light.edition == edition {
+                let render_item = RenderLightItem {
+                    light: render_light.clone(),
+                    matrix: glam::Mat4::from(item.matrix),
+                };
+                return Some(render_item);
+            }
+        }
+        assert!(
+            light_type == "point",
+            "Expected light type to be 'point', found: {}",
+            light_type
+        );
+        let props = light.as_property_map();
+
+        let mut from = props.get_floats("from");
+        if from.len() != 3 {
+            from = vec![0.0, 0.0, 0.0];
+        }
+
+        let translation = Matrix4x4::translate(from[0], from[1], from[2]);
+        let mat = translation * item.matrix;
+
+        let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+        let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+        let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+        let render_light = RenderLight {
+            id,
+            edition: edition.clone(),
+            light_type: RenderLightType::Point,
+            intensity: intensity,
+            ..Default::default()
+        };
+        let render_light = Arc::new(render_light);
+        render_resource_manager.add_light(&render_light);
+
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(mat),
+        };
+        return Some(render_item);
+    }
+    return None; // Point lights are not yet supported
+}
+
+fn get_light_item(
+    _device: &wgpu::Device,
+    _queue: &wgpu::Queue,
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderLightItem> {
+    if let Some(light_type) = get_light_type(&item.node) {
+        match light_type.as_str() {
             "distant" => {
-                //println!("Distant light is not supported yet");
-                light_type = RenderLightType::Directional;
-                let props = light.as_property_map();
-
-                let mut from = props.get_floats("from");
-                if from.len() != 3 {
-                    from = vec![0.0, 0.0, 0.0];
-                }
-                let mut to = props.get_floats("to");
-                if to.len() != 3 {
-                    to = vec![0.0, 0.0, 1.0];
-                }
-                let from = Vector3::new(from[0], from[1], from[2]);
-                let to = Vector3::new(to[0], to[1], to[2]);
-                let dir = to - from;
-                direction = [dir.x, dir.y, dir.z];
-
-                let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-                let scale =
-                    get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-
-                intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+                return get_directional_light_item(item, resource_manager, render_resource_manager);
             }
             "point" => {
-                light_type = RenderLightType::Point;
-                //
-                return None; // Spot lights are not yet supported
+                return get_point_light_item(item, resource_manager, render_resource_manager);
             }
             "spot" => {
-                light_type = RenderLightType::Spot;
-                //
                 return None; // Spot lights are not yet supported
             }
             _ => {
@@ -357,18 +447,6 @@ fn get_light(
                 return None;
             }
         }
-        let render_light = RenderLight {
-            id: light_id,
-            edition: edition.clone(),
-            light_type: light_type,
-            position: position,
-            direction: direction,
-            intensity: intensity,
-            range: range,
-        };
-        let render_light = Arc::new(render_light);
-        render_resource_manager.add_light(&render_light);
-        return Some(render_light);
     }
     return None; // Placeholder for light retrieval logic
 }
@@ -442,7 +520,7 @@ pub fn get_render_items(
     let resource_manager = resource_manager.read().unwrap();
     let render_resource_manager = get_render_resource_manager(node);
     let mut render_resource_manager = render_resource_manager.write().unwrap();
-    for item in scene_items {
+    for item in scene_items.iter() {
         match item.category {
             SceneItemType::Mesh => {
                 if let Some(mesh) =
@@ -468,16 +546,14 @@ pub fn get_render_items(
             }
             SceneItemType::Light => {
                 if mode == RenderMode::Lighting {
-                    if let Some(light) = get_light(
+                    if let Some(render_light) = get_light_item(
                         device,
                         queue,
-                        &item.node,
+                        item,
                         &resource_manager,
                         &mut render_resource_manager,
                     ) {
-                        let matrix = glam::Mat4::from(item.matrix);
-                        let render_item = RenderLightItem { light, matrix };
-                        render_items.push(Arc::new(RenderItem::Light(render_item)));
+                        render_items.push(Arc::new(RenderItem::Light(render_light)));
                     }
                 }
                 if let Some(lines) =

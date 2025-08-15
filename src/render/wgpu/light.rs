@@ -1,14 +1,15 @@
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[repr(u8)]
 pub enum RenderLightType {
+    #[default]
     Directional = 0,
     Point = 1,
     Spot = 2,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RenderLight {
     pub id: Uuid,
     pub edition: String,
