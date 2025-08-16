@@ -2,7 +2,6 @@ use crate::model::base::Matrix4x4;
 use crate::model::scene::CameraComponent;
 use crate::model::scene::Component;
 use crate::model::scene::LightComponent;
-use crate::model::scene::Material;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::Node;
 use crate::model::scene::ShapeComponent;
