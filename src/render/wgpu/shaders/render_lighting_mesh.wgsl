@@ -129,15 +129,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var bitangent = normalize(cross(normal, tangent));
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
     let tbn = transpose(mat3x3<f32>(tangent, bitangent, normal));//tangent space matrix
+    let wo = tbn * normalize(-camera_to_object);// object to camera vector
 
     var color = vec3<f32>(0.0);
     for (var i: u32 = 0; i < directional_lights.count; i++) {
         let light = directional_lights.lights[i];
         let intensity = light.intensity.rgb;
-        var wi = -normalize(light.direction.xyz);
-        wi = normalize(tbn * wi); // Transform light direction to tangent space
-        var wo = -camera_to_object;// object to camera vector
-        wo = normalize(tbn * wo); // Transform view direction to tangent space
+        var wi = tbn * -normalize(light.direction.xyz);
         color += matte(wi, wo) * intensity;
     }
     for (var i: u32 = 0; i < point_lights.count; i++) {
@@ -147,11 +145,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let r1 = light.range[1];
         var light_to_object = in.w_position - light.position.xyz;
         var distance = length(light_to_object);
+        light_to_object = normalize(light_to_object);
         let attenuation = 1.0 / pow(max((distance - r0), 1e-6), 2.0); // Simple quadratic attenuation
-        var wi = -normalize(light_to_object);
-        wi = normalize(tbn * wi); // Transform light direction to tangent space
-        var wo = -camera_to_object;// object to camera vector
-        wo = normalize(tbn * wo); // Transform view direction to tangent space
+        var wi = tbn * -light_to_object;
         color += matte(wi, wo) * intensity * attenuation;
     }
     for (var i: u32 = 0; i < spot_lights.count; i++) {
@@ -161,18 +157,15 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let intensity = light.intensity.rgb;
         let r0 = light.range[0];
         let r1 = light.range[1];
-        let a0 = cos(light.inner_angle * 0.5);
-        let a1 = cos(light.outer_angle * 0.5);
+        let a0 = cos(light.inner_angle);
+        let a1 = cos(light.outer_angle);
         var light_to_object = in.w_position - light.position.xyz;
         var distance = length(light_to_object);
         light_to_object = normalize(light_to_object);
-        let cos_angle = max(dot(light_to_object, direction), 0.0);
-        var falloff = pow(select(step(a1, cos_angle), clamp((cos_angle - a1) / (a0 - a1), 0.0, 1.0), (a0 - a1) > 0.0), 4.0);//select(FALSE, TRUE, condition)
+        let cos_theta = max(dot(light_to_object, direction), 0.0);
+        var falloff = select(step(a1, cos_theta), pow(clamp((cos_theta - a1) / (a0 - a1), 0.0, 1.0), 4.0), (a0 - a1) > 0.0);//select(FALSE, TRUE, condition)
         let attenuation = 1.0 / pow(max((distance - r0), 1e-6), 2.0); // Simple quadratic attenuation
-        var wi = -light_to_object;
-        wi = normalize(tbn * wi); // Transform light direction to tangent space
-        var wo = -camera_to_object;// object to camera vector
-        wo = normalize(tbn * wo); // Transform view direction to tangent space
+        var wi = tbn * -light_to_object;
         color += matte(wi, wo) * intensity * attenuation * falloff;
     }
 
