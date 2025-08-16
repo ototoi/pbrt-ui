@@ -82,9 +82,20 @@ struct SpotLight {
     position: [f32; 4],  // Position of the light // 4 * 4 = 16
     direction: [f32; 4], // Direction of the light // 4 * 4 = 16
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
-    range: [f32; 2],     // Range of the light // 2 * 4 = 8
-    angle: f32,          // Angle of the spotlight
-    _pad1: f32,          // Padding to ensure alignment
+    range: [f32; 4],     // Range of the light // 2 * 4 = 8
+    outer_angle: f32,    // Angle of the spotlight
+    inner_angle: f32,    // Angle of the spotlight
+    _pad1: [f32; 2],     // Padding to ensure alignmentå
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct SpotLightUniforms {
+    lights: [SpotLight; MAX_SPOT_LIGHT_NUM], // 8 * 16 = 256
+    count: u32,                              // Number of directional lights
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -277,7 +288,46 @@ impl LightingMeshRenderer {
                 .collect::<Vec<_>>();
             // Currently, we do not handle spot lights in this renderer.
             // You can implement similar logic as above for spot lights if needed.
-            let _num_light_items = light_items.len();
+            let num_light_items = light_items.len();
+            let mut light_uniforms = SpotLightUniforms::default();
+            light_uniforms.count = num_light_items as u32;
+            for (i, item) in light_items.iter().enumerate() {
+                //println!("Point light item: {:?}", item);
+                if let RenderItem::Light(light_item) = item.as_ref() {
+                    if i < MAX_SPOT_LIGHT_NUM {
+                        let matrix = light_item.matrix; //local_to_world
+                        let position = light_item.light.position;
+                        let position = matrix.transform_point3(glam::vec3(
+                            position[0],
+                            position[1],
+                            position[2],
+                        ));
+                        let direction = light_item.light.direction;
+                        let direction = matrix.transform_vector3(glam::vec3(
+                            direction[0],
+                            direction[1],
+                            direction[2],
+                        ));
+                        //println!("Point light position: {:?}", position);
+                        let intensity = light_item.light.intensity;
+                        let range = light_item.light.range;
+                        light_uniforms.lights[i] = SpotLight {
+                            position: [position.x, position.y, position.z, 1.0],
+                            direction: [direction.x, direction.y, direction.z, 0.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                            range: [range[0], range[1], 0.0, 0.0], // min and max range
+                            outer_angle: light_item.light.angle[1],
+                            inner_angle: light_item.light.angle[0],
+                            ..Default::default()
+                        };
+                    }
+                }
+            }
+            queue.write_buffer(
+                &self.spot_light_uniform_buffer,
+                0,
+                bytemuck::bytes_of(&light_uniforms),
+            );
         }
 
         // Point lights
@@ -312,11 +362,11 @@ impl LightingMeshRenderer {
                         ));
                         //println!("Point light position: {:?}", position);
                         let intensity = light_item.light.intensity;
-                        let radius = 5.0;
+                        let range = light_item.light.range;
                         light_uniforms.lights[i] = PointLight {
                             position: [position.x, position.y, position.z, 1.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            range: [0.0, radius, 0.0, 0.0], // min and max range
+                            range: [range[0], range[1], 0.0, 0.0], // min and max range
                             ..Default::default()
                         };
                     }
@@ -494,10 +544,9 @@ impl LightingMeshRenderer {
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size: wgpu::BufferSize::new(size_of::<
-                                DirectionalLightUniforms,
-                            >()
-                                as _),
+                            min_binding_size: wgpu::BufferSize::new(
+                                size_of::<SpotLightUniforms>() as _
+                            ),
                         },
                         count: None,
                     },
@@ -605,11 +654,11 @@ impl LightingMeshRenderer {
                 contents: bytemuck::bytes_of(&point_light_uniforms),
                 usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
             });
-
+        let spot_light_uniforms = SpotLightUniforms::default();
         let spot_light_uniform_buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Uniform Buffer for Spot Lights"),
-                contents: bytemuck::bytes_of(&directional_light_uniforms),
+                contents: bytemuck::bytes_of(&spot_light_uniforms),
                 usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
             });
 

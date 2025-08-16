@@ -93,6 +93,17 @@ pub fn get_mesh(
     return None;
 }
 
+#[inline]
+fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
+    let v2 = if f32::abs(v1.x) > f32::abs(v1.y) {
+        Vector3::new(-v1.z, 0.0, v1.x) / f32::sqrt(v1.x * v1.x + v1.z * v1.z)
+    } else {
+        Vector3::new(0.0, v1.z, -v1.y) / f32::sqrt(v1.y * v1.y + v1.z * v1.z)
+    };
+    let v3 = Vector3::cross(v1, &v2).normalize();
+    return (v2, v3);
+}
+
 fn get_base_color_key(material: &Material) -> Option<String> {
     let material_type = material.get_type();
     match material_type.as_str() {
@@ -401,15 +412,104 @@ fn get_point_light_item(
         let translation = Matrix4x4::translate(from[0], from[1], from[2]);
         let mat = translation * item.matrix;
 
-        let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+        let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+        let radius = 10.0; //todo: get radius from properties
         let render_light = RenderLight {
             id,
             edition: edition.clone(),
             light_type: RenderLightType::Point,
             intensity: intensity,
+            range: [0.0, radius],
+            ..Default::default()
+        };
+        let render_light = Arc::new(render_light);
+        render_resource_manager.add_light(&render_light);
+
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(mat),
+        };
+        return Some(render_item);
+    }
+    return None; // Point lights are not yet supported
+}
+
+fn get_spot_light_item(
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderLightItem> {
+    let node = &item.node;
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+
+        let id = light.get_id();
+        let light_type = light.get_type();
+        let edition = light.get_edition();
+        if let Some(render_light) = render_resource_manager.get_light(id) {
+            if render_light.edition == edition {
+                let render_item = RenderLightItem {
+                    light: render_light.clone(),
+                    matrix: glam::Mat4::from(item.matrix),
+                };
+                return Some(render_item);
+            }
+        }
+        assert!(
+            light_type == "spot",
+            "Expected light type to be 'point', found: {}",
+            light_type
+        );
+        let props = light.as_property_map();
+
+        let mut from = props.get_floats("from");
+        if from.len() != 3 {
+            from = vec![0.0, 0.0, 0.0];
+        }
+        let mut to = props.get_floats("to");
+        if to.len() != 3 {
+            to = vec![0.0, 0.0, 1.0];
+        }
+        let from = Vector3::new(from[0], from[1], from[2]);
+        let to = Vector3::new(to[0], to[1], to[2]);
+        let dir = (to - from).normalize();
+        let (du, dv) = coordinate_system(&dir);
+        let dir_to_z = Matrix4x4::new(
+            du.x, du.y, du.z, 0.0, dv.x, dv.y, dv.z, 0., dir.x, dir.y, dir.z, 0.0, 0.0, 0.0, 0.0,
+            1.0,
+        );
+        let l2w = item.matrix;
+        let mat = l2w
+            * Matrix4x4::translate(from.x, from.y, from.z)
+            * Matrix4x4::inverse(&dir_to_z).unwrap();
+
+        let coneangle = props.find_one_float("coneangle").unwrap_or(30.0);
+        let conedelta = props.find_one_float("conedelta").unwrap_or(5.0); //5.0
+        let conedelta = props.find_one_float("conedeltaangle").unwrap_or(conedelta);
+        let conedelta = conedelta.clamp(0.0, coneangle);
+
+        let outer_angle = f32::to_radians(coneangle);
+        let inner_angle = f32::to_radians((coneangle - conedelta).max(0.0));
+
+        let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+        let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+        let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+        let radius = 10.0; //todo: get radius from properties
+        let render_light = RenderLight {
+            id,
+            edition: edition.clone(),
+            light_type: RenderLightType::Spot,
+            position: [0.0, 0.0, 0.0], // Position is not used for spot lights
+            direction: [0.0, 0.0, 1.0], // Direction is not used for spot lights
+            intensity: intensity,
+            range: [0.0, radius],
+            angle: [inner_angle, outer_angle],
             ..Default::default()
         };
         let render_light = Arc::new(render_light);
@@ -440,7 +540,7 @@ fn get_light_item(
                 return get_point_light_item(item, resource_manager, render_resource_manager);
             }
             "spot" => {
-                return None; // Spot lights are not yet supported
+                return get_spot_light_item(item, resource_manager, render_resource_manager); // Spot lights are not yet supported
             }
             _ => {
                 // Handle unknown or unsupported light types

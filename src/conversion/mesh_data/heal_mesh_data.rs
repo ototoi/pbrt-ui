@@ -365,6 +365,13 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                 }
                 mesh_data.tangents.resize(tangents.len() * 3, 0.0);
                 for i in 0..tangents.len() {
+                    if tangents[i].length() == 0.0 {
+                        // If the tangent is zero, set it to a default value
+                        tangents[i] = Vector3::new(1.0, 0.0, 0.0);
+                        // println!("Warning: Tangent for vertex {} is zero, setting to default (1.0, 0.0, 0.0)", i);
+                    } else {
+                        tangents[i] = tangents[i].normalize();
+                    }
                     let idx = i * 3;
                     mesh_data.tangents[idx + 0] = tangents[i].x;
                     mesh_data.tangents[idx + 1] = tangents[i].y;
@@ -465,7 +472,23 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                     mesh_data.tangents[idx + 1] = tangents[i].y;
                     mesh_data.tangents[idx + 2] = tangents[i].z;
                 }
-                mesh_data.tangents.resize(num_vertices * 3, 0.0);
+            }
+        }
+
+        for i in 0..num_vertices {
+            let idx = 3 * i;
+            let x = mesh_data.tangents[idx + 0];
+            let y = mesh_data.tangents[idx + 1];
+            let z = mesh_data.tangents[idx + 2];
+            let length = f32::sqrt(x * x + y * y + z * z);
+            if length < 1e-8 {
+                mesh_data.tangents[idx + 0] = 1.0;
+                mesh_data.tangents[idx + 1] = 0.0;
+                mesh_data.tangents[idx + 2] = 0.0;
+            } else {
+                mesh_data.tangents[idx + 0] = x / length;
+                mesh_data.tangents[idx + 1] = y / length;
+                mesh_data.tangents[idx + 2] = z / length;
             }
         }
     }

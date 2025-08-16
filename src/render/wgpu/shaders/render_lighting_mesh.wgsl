@@ -28,9 +28,26 @@ struct PointLight {
     range: vec4<f32>, // Range of the light (min, max)
     _pad1: vec4<f32>, // Padding for alignment
 }
+
 const MAX_POINT_LIGHTS: u32 = 4; // Maximum number of point lights
 struct PointLightUniforms {
     lights: array<PointLight, MAX_POINT_LIGHTS>,
+    count: u32,
+}
+
+struct SpotLight {
+    position: vec4<f32>, // Position in world space
+    direction: vec4<f32>, // Direction of the spotlight
+    intensity: vec4<f32>, // Light intensity
+    range: vec4<f32>, // Range of the light (min, max)
+    outer_angle: f32,    // Angle of the spotlight
+    inner_angle: f32,    // Angle of the spotlight
+    _pad1: vec2<f32>, // Padding for alignment
+}
+
+const MAX_SPOT_LIGHTS: u32 = 4; // Maximum number of spot lights
+struct SpotLightUniforms {
+    lights: array<SpotLight, MAX_SPOT_LIGHTS>,
     count: u32,
 }
 
@@ -55,7 +72,7 @@ var<uniform> point_lights: PointLightUniforms;
 
 @group(2)
 @binding(2)
-var<uniform> spot_lights: DirectionalLightUniforms;
+var<uniform> spot_lights: SpotLightUniforms;
 
 
 struct VertexOut {
@@ -130,9 +147,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let r1 = light.range[1];
         var light_to_object = in.w_position - light.position.xyz;
         var distance = length(light_to_object);
-        if (distance < r0 || distance > r1) {
-            continue; // Skip light if the object is outside the light's range
-        }
         let attenuation = pow(max(1.0 - ((distance - r0) / (r1 - r0)), 0.0), 2.0); // Simple quadratic attenuation
         var wi = -normalize(light_to_object);
         wi = normalize(tbn * wi); // Transform light direction to tangent space
@@ -140,7 +154,27 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         wo = normalize(tbn * wo); // Transform view direction to tangent space
         color += matte(wi, wo) * intensity * attenuation;
     }
-
+    for (var i: u32 = 0; i < spot_lights.count; i++) {
+        let light = spot_lights.lights[i];
+        let position = light.position.xyz;
+        let direction = normalize(light.direction.xyz);
+        let intensity = light.intensity.rgb;
+        let r0 = light.range[0];
+        let r1 = light.range[1];
+        let a0 = cos(light.inner_angle * 0.5);
+        let a1 = cos(light.outer_angle * 0.5);
+        var light_to_object = in.w_position - light.position.xyz;
+        var distance = length(light_to_object);
+        light_to_object = normalize(light_to_object);
+        let cos_angle = max(dot(light_to_object, direction), 0.0);
+        var falloff = pow(select(step(a1, cos_angle), clamp((cos_angle - a1) / (a0 - a1), 0.0, 1.0), (a0 - a1) > 0.0), 4.0);//select(FALSE, TRUE, condition)
+        let attenuation = pow(max(1.0 - ((distance - r0) / (r1 - r0)), 0.0), 2.0); // Simple quadratic attenuation
+        var wi = -light_to_object;
+        wi = normalize(tbn * wi); // Transform light direction to tangent space
+        var wo = -camera_to_object;// object to camera vector
+        wo = normalize(tbn * wo); // Transform view direction to tangent space
+        color += matte(wi, wo) * intensity * attenuation * falloff;
+    }
 
     return vec4<f32>(color, 1.0);
 }

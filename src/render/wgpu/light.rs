@@ -18,6 +18,7 @@ pub struct RenderLight {
     pub direction: [f32; 3],
     pub intensity: [f32; 3], // RGB intensity
     pub range: [f32; 2],     // For point and spot lights
+    pub angle: [f32; 2],     // For spot lights inner and outer angles
 }
 
 impl RenderLight {
