@@ -1,3 +1,4 @@
+use crate::base;
 use crate::render::wgpu::light::RenderLightType;
 
 use super::material::RenderUniformValue;
@@ -208,10 +209,11 @@ impl LightingMeshRenderer {
             for (i, item) in mesh_items.iter().enumerate() {
                 let local_to_world = item.get_matrix();
                 let world_to_local = local_to_world.inverse();
+                let base_color = get_base_color(item);
                 let uniform = LocalUniforms {
                     local_to_world: local_to_world.to_cols_array_2d(),
                     world_to_local: world_to_local.to_cols_array_2d(),
-                    base_color: get_base_color(item),
+                    base_color: base_color,
                     _pad1: [0.0; 4],
                     _pad2: [0.0; 4],
                     _pad3: [0.0; 4],

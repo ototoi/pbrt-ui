@@ -32,8 +32,8 @@ pub fn create_light_shape_from_spot(props: &PropertyMap) -> Option<LightShape> {
     let coneangle = props.find_one_float("coneangle").unwrap_or(30.0);
     let conedelta = props.find_one_float("conedeltaangle").unwrap_or(5.0);
     //0,0,0 -> 0,0,1
-    let coneangle = coneangle * 0.5; //convert to half angle
-    let conedelta = conedelta * 0.5; //convert to half angle
+    // let coneangle = coneangle * 0.5; //convert to half angle
+    // let conedelta = conedelta * 0.5; //convert to half angle
 
     let mut lines = Vec::new();
 
