@@ -78,7 +78,7 @@ fn show_rgb(ui: &mut egui::Ui, value: &mut [f32]) -> bool {
             is_changed = true;
         }
         if ui
-            .add(egui::widgets::Slider::new(&mut intensity, 1.0..=100.0))
+            .add(egui::widgets::Slider::new(&mut intensity, 1.0..=10000.0))
             .changed()
         {
             is_changed = true;

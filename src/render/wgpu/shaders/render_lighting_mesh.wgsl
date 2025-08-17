@@ -146,7 +146,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         var light_to_object = in.w_position - light.position.xyz;
         var distance = length(light_to_object);
         light_to_object = normalize(light_to_object);
-        let attenuation = 1.0 / pow(max((distance - r0), 1e-6), 2.0); // Simple quadratic attenuation
+        let attenuation = clamp(1.0 / pow(max((distance - r0), 1e-6), 2.0), 0.0, 1.0); // Simple quadratic attenuation
         var wi = tbn * -light_to_object;
         color += matte(wi, wo) * intensity * attenuation;
     }
@@ -164,7 +164,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         light_to_object = normalize(light_to_object);
         let cos_theta = max(dot(light_to_object, direction), 0.0);
         var falloff = select(step(a1, cos_theta), pow(clamp((cos_theta - a1) / (a0 - a1), 0.0, 1.0), 4.0), (a0 - a1) > 0.0);//select(FALSE, TRUE, condition)
-        let attenuation = 1.0 / pow(max((distance - r0), 1e-6), 2.0); // Simple quadratic attenuation
+        let attenuation = clamp(1.0 / pow(max((distance - r0), 1e-6), 2.0), 0.0, 1.0); // Simple quadratic attenuation
         var wi = tbn * -light_to_object;
         color += matte(wi, wo) * intensity * attenuation * falloff;
     }
