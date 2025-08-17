@@ -1,7 +1,6 @@
 use super::mesh_data::MeshData;
 use crate::model::base::Vector2;
 use crate::model::base::Vector3;
-use crate::render::wgpu::mesh;
 
 use std::collections::HashMap;
 

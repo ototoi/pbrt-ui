@@ -11,9 +11,12 @@ use super::render_resource::RenderResourceManager;
 use crate::conversion::light_shape::create_light_shape;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
+use crate::model::scene::Light;
 use crate::model::scene::LightComponent;
 use crate::model::scene::Node;
 use crate::model::scene::ResourceManager;
+use crate::model::scene::Shape;
+use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
 
@@ -261,6 +264,184 @@ fn get_spot_light_item(
     return None; // Point lights are not yet supported
 }
 
+fn get_area_light_item_from_sphere(
+    light: &Light,
+    shape: &Shape,
+    matrix: &Matrix4x4,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let shape_type = shape.get_type();
+    assert!(
+        shape_type == "sphere",
+        "Expected shape type to be 'sphere' or 'disk', found: {}",
+        shape_type
+    );
+
+    let id = light.get_id();
+    let light_edition = light.get_edition();
+    let shape_edition = shape.get_edition();
+    let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
+
+    if let Some(render_light) = render_resource_manager.get_light(id) {
+        if render_light.edition == edition {
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
+    }
+
+    let radius = shape
+        .as_property_map()
+        .find_one_float("radius")
+        .unwrap_or(1.0);
+    let z_min = shape
+        .as_property_map()
+        .find_one_float("z_min")
+        .unwrap_or(-1.0);
+    let z_max = shape
+        .as_property_map()
+        .find_one_float("z_max")
+        .unwrap_or(1.0);
+
+    //self.phi_max * self.radius * (self.z_max - self.z_min)
+    let area = radius * (z_max - z_min); // Assuming a sphere for area calculation
+
+    let props = light.as_property_map();
+    let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+    let intensity = [
+        area * l[0] * scale[0],
+        area * l[1] * scale[1],
+        area * l[2] * scale[2],
+    ];
+
+    let render_light = RenderLight {
+        id,
+        edition: edition.clone(),
+        light_type: RenderLightType::Point,
+        intensity: intensity,
+        range: [radius, radius + 10.0],
+        ..Default::default()
+    };
+    let render_light = Arc::new(render_light);
+    render_resource_manager.add_light(&render_light);
+
+    let render_item = RenderLightItem {
+        light: render_light.clone(),
+        matrix: glam::Mat4::from(matrix),
+    };
+    return Some(RenderItem::Light(render_item));
+}
+
+fn get_area_light_item_from_disk(
+    light: &Light,
+    shape: &Shape,
+    matrix: &Matrix4x4,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let shape_type = shape.get_type();
+    assert!(
+        shape_type == "disk",
+        "Expected shape type to be 'sphere' or 'disk', found: {}",
+        shape_type
+    );
+
+    let id = light.get_id();
+    let light_edition = light.get_edition();
+    let shape_edition = shape.get_edition();
+    let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
+
+    if let Some(render_light) = render_resource_manager.get_light(id) {
+        if render_light.edition == edition {
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
+    }
+
+    // Assuming a disk shape for area calculation
+
+    return None;
+}
+
+fn get_area_light_item_core(
+    light: &Light,
+    shape: &Shape,
+    matrix: &Matrix4x4,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let light_type = light.get_type();
+    let shape_type = shape.get_type();
+    assert!(
+        light_type == "diffuse" || light_type == "area",
+        "Expected light type to be 'diffuse' or 'area', found: {}",
+        light_type
+    );
+    match shape_type.as_str() {
+        "sphere" => {
+            return get_area_light_item_from_sphere(
+                light,
+                shape,
+                matrix,
+                resource_manager,
+                render_resource_manager,
+            );
+        }
+        "disk" => {
+            return get_area_light_item_from_disk(
+                light,
+                shape,
+                matrix,
+                resource_manager,
+                render_resource_manager,
+            );
+        }
+        _ => {
+            // Handle other shape types if needed
+        }
+    }
+    return None; // Area lights are not yet supported
+}
+
+fn get_area_light_item(
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let node = &item.node;
+    let node = node.read().unwrap();
+    let components = (
+        node.get_component::<LightComponent>(),
+        node.get_component::<ShapeComponent>(),
+    );
+    match components {
+        (Some(light_component), Some(shape_component)) => {
+            let light = light_component.get_light();
+            let light = light.read().unwrap();
+
+            let shape = shape_component.get_shape();
+            let shape = shape.read().unwrap();
+            return get_area_light_item_core(
+                &light,
+                &shape,
+                &item.matrix,
+                resource_manager,
+                render_resource_manager,
+            );
+        }
+        _ => {}
+    }
+    return None; // Area lights are not yet supported
+}
+
 fn get_lines_material(
     id: Uuid,
     edition: &str,
@@ -361,6 +542,9 @@ pub fn get_render_light_item(
             }
             "spot" => {
                 return get_spot_light_item(item, resource_manager, render_resource_manager); // Spot lights are not yet supported
+            }
+            "diffuse" | "area" => {
+                return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
             }
             _ => {
                 // Handle unknown or unsupported light types
