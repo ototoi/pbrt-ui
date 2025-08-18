@@ -47,6 +47,18 @@ fn get_light_type(node: &Arc<RwLock<Node>>) -> Option<String> {
     return None; // No LightComponent found
 }
 
+fn get_light_id_edition(node: &Arc<RwLock<Node>>) -> Option<(Uuid, String)> {
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+        let id = light.get_id();
+        let edition = light.get_edition();
+        return Some((id, edition));
+    }
+    return None; // No LightComponent found
+}
+
 fn get_directional_light_item(
     item: &SceneItem,
     resource_manager: &ResourceManager,
@@ -128,11 +140,19 @@ fn get_point_light_item(
         let id = light.get_id();
         let light_type = light.get_type();
         let edition = light.get_edition();
+        let props = light.as_property_map();
         if let Some(render_light) = render_resource_manager.get_light(id) {
             if render_light.edition == edition {
+                let mut from = props.get_floats("from");
+                if from.len() != 3 {
+                    from = vec![0.0, 0.0, 0.0];
+                }
+                let translation = Matrix4x4::translate(from[0], from[1], from[2]);
+                let mat = translation * item.matrix;
+
                 let render_item = RenderLightItem {
                     light: render_light.clone(),
-                    matrix: glam::Mat4::from(item.matrix),
+                    matrix: glam::Mat4::from(mat),
                 };
                 return Some(RenderItem::Light(render_item));
             }
@@ -142,7 +162,6 @@ fn get_point_light_item(
             "Expected light type to be 'point', found: {}",
             light_type
         );
-        let props = light.as_property_map();
 
         let mut from = props.get_floats("from");
         if from.len() != 3 {
@@ -223,10 +242,13 @@ fn get_spot_light_item(
             du.x, du.y, du.z, 0.0, dv.x, dv.y, dv.z, 0., dir.x, dir.y, dir.z, 0.0, 0.0, 0.0, 0.0,
             1.0,
         );
-        let l2w = item.matrix;
-        let mat = l2w
-            * Matrix4x4::translate(from.x, from.y, from.z)
-            * Matrix4x4::inverse(&dir_to_z).unwrap();
+        let mat =
+            Matrix4x4::translate(from.x, from.y, from.z) * Matrix4x4::inverse(&dir_to_z).unwrap();
+
+        let position = Vector3::new(0.0, 0.0, 0.0); // Position is not used for spot lights
+        let direction = Vector3::new(0.0, 0.0, 1.0); // Direction is not used for spot lights
+        let position = mat.transform_point(&position);
+        let direction = mat.transform_vector(&direction).normalize();
 
         let coneangle = props.find_one_float("coneangle").unwrap_or(30.0);
         let conedelta = props.find_one_float("conedelta").unwrap_or(5.0); //5.0
@@ -245,8 +267,8 @@ fn get_spot_light_item(
             id,
             edition: edition.clone(),
             light_type: RenderLightType::Spot,
-            position: [0.0, 0.0, 0.0], // Position is not used for spot lights
-            direction: [0.0, 0.0, 1.0], // Direction is not used for spot lights
+            position: [position.x, position.y, position.z], // Position is not used for spot lights
+            direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
             intensity: intensity,
             range: [0.0, radius],
             angle: [inner_angle, outer_angle],
@@ -257,7 +279,7 @@ fn get_spot_light_item(
 
         let render_item = RenderLightItem {
             light: render_light.clone(),
-            matrix: glam::Mat4::from(mat),
+            matrix: glam::Mat4::from(item.matrix),
         };
         return Some(RenderItem::Light(render_item));
     }
@@ -341,7 +363,7 @@ fn get_area_light_item_from_disk(
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
-    resource_manager: &ResourceManager,
+    _resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let shape_type = shape.get_type();
@@ -491,18 +513,13 @@ fn get_light_gizmo(
     node: &Arc<RwLock<Node>>,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderLines>> {
-    let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<LightComponent>() {
-        let light = component.get_light();
-        let light = light.read().unwrap();
-        let light_id = light.get_id();
-        let light_edition = light.get_edition();
-        if let Some(lines) = render_resource_manager.get_lines(light_id) {
-            if lines.edition == light_edition {
+    if let Some((id, edition)) = get_light_id_edition(node) {
+        if let Some(lines) = render_resource_manager.get_lines(id) {
+            if lines.edition == edition {
                 return Some(lines.clone());
             }
         }
-        if let Some(light_shape) = create_light_shape(&light) {
+        if let Some(light_shape) = create_light_shape(node) {
             let lines = &light_shape.lines;
             let lines = lines
                 .iter()
@@ -512,9 +529,7 @@ fn get_light_gizmo(
                         .collect::<Vec<[f32; 3]>>()
                 })
                 .collect::<Vec<Vec<[f32; 3]>>>();
-            if let Some(lines) =
-                RenderLines::from_lines(device, queue, light_id, &light_edition, &lines)
-            {
+            if let Some(lines) = RenderLines::from_lines(device, queue, id, &edition, &lines) {
                 let lines = Arc::new(lines);
                 render_resource_manager.add_lines(&lines);
                 return Some(lines);
@@ -555,6 +570,23 @@ pub fn get_render_light_item(
     return None; // Placeholder for light retrieval logic
 }
 
+fn get_point_light_offset(node: &Arc<RwLock<Node>>) -> Option<Vector3> {
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+        if light.get_type() == "point" {
+            let props = light.as_property_map();
+            let mut from = props.get_floats("from");
+            if from.len() != 3 {
+                from = vec![0.0, 0.0, 0.0];
+            }
+            return Some(Vector3::new(from[0], from[1], from[2]));
+        }
+    }
+    return None; // Default offset
+}
+
 pub fn get_render_light_gizmo_item(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -564,7 +596,12 @@ pub fn get_render_light_gizmo_item(
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     if let Some(lines) = get_light_gizmo(device, queue, &item.node, render_resource_manager) {
-        let matrix = glam::Mat4::from(item.matrix);
+        let mut matrix = item.matrix;
+        if let Some(offset) = get_point_light_offset(&item.node) {
+            // Adjust the matrix for point lights
+            matrix = Matrix4x4::translate(offset.x, offset.y, offset.z) * matrix;
+        }
+        let matrix = glam::Mat4::from(matrix);
         let material = get_light_gizmo_material(&item.node, render_resource_manager);
         let render_item = LinesRenderItem {
             lines,

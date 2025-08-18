@@ -3,17 +3,17 @@ use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::collections::HashMap;
 
-pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 22] = [
+pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 25] = [
     ("point", "color", "I", "1.0 1.0 1.0", ""),
     ("point", "color", "scale", "1.0 1.0 1.0", ""),
-    //("point", "point", "from", "0.0 0.0 0.0", ""),
+    ("point", "point", "from", "0.0 0.0 0.0", ""),
     //
     ("spot", "color", "I", "1.0 1.0 1.0", ""),
     ("spot", "color", "scale", "1.0 1.0 1.0", ""),
     ("spot", "float", "coneangle", "45.0", "0.0 90.0"),
     ("spot", "float", "conedeltaangle", "5.0", "0.0 45.0"), //if conedelta
-    //("spot", "point", "from", "0.0 0.0 0.0", ""),
-    //("spot", "point", "to", "0.0 0.0 1.0", ""),
+    ("spot", "point", "from", "0.0 0.0 0.0", ""),
+    ("spot", "point", "to", "0.0 0.0 1.0", ""),
     ("goniometric", "color", "L", "1.0 1.0 1.0", ""),
     ("goniometric", "color", "scale", "1.0 1.0 1.0", ""),
     ("goniometric", "texture", "mapname", "", ""),
@@ -24,8 +24,8 @@ pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 22] = [
     //
     ("distant", "color", "L", "1.0 1.0 1.0", ""),
     ("distant", "color", "scale", "1.0 1.0 1.0", ""),
-    //("spot", "point", "from", "0.0 0.0 0.0", ""),
-    //("spot", "point", "to", "0.0 0.0 1.0", ""),
+    //("distant", "point", "from", "0.0 0.0 0.0", ""),
+    //("distant", "point", "to", "0.0 0.0 1.0", ""),
 
     //
     ("infinite", "color", "L", "1.0 1.0 1.0", ""),
