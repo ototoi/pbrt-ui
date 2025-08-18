@@ -11,15 +11,11 @@ struct LocalUniforms {
     base_color: vec4<f32>,
 }
 
-struct DirectionalLight {
-    direction: vec4<f32>, // Example light direction
-    intensity: vec4<f32>, // Example light intensity
-}
-
-const MAX_DIRECTIONAL_LIGHTS: u32 = 4; // Maximum number of directional lights
-struct DirectionalLightUniforms {
-    lights: array<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>,
-    count: u32,
+struct LightUniforms {
+    num_directional_lights: u32,
+    num_point_lights: u32,
+    num_spot_lights: u32,
+    _pad1: u32, // Padding for alignment
 }
 
 struct PointLight {
@@ -27,12 +23,6 @@ struct PointLight {
     intensity: vec4<f32>, // Light intensity
     range: vec4<f32>, // Range of the light (min, max)
     _pad1: vec4<f32>, // Padding for alignment
-}
-
-const MAX_POINT_LIGHTS: u32 = 4; // Maximum number of point lights
-struct PointLightUniforms {
-    lights: array<PointLight, MAX_POINT_LIGHTS>,
-    count: u32,
 }
 
 struct SpotLight {
@@ -45,10 +35,9 @@ struct SpotLight {
     _pad1: vec2<f32>, // Padding for alignment
 }
 
-const MAX_SPOT_LIGHTS: u32 = 4; // Maximum number of spot lights
-struct SpotLightUniforms {
-    lights: array<SpotLight, MAX_SPOT_LIGHTS>,
-    count: u32,
+struct DirectionalLight {
+    direction: vec4<f32>, // Example light direction
+    intensity: vec4<f32>, // Example light intensity
 }
 
 // global uniforms
@@ -64,15 +53,20 @@ var<uniform> local_uniforms: LocalUniforms;
 // light uniforms
 @group(2)
 @binding(0)
-var<uniform> directional_lights: DirectionalLightUniforms;
+var<uniform> light_uniforms: LightUniforms;
+//var<uniform> directional_lights: DirectionalLightUniforms;
 
 @group(2)
 @binding(1)
-var<uniform> point_lights: PointLightUniforms;
+var<storage, read> point_lights: array<PointLight>;
 
 @group(2)
 @binding(2)
-var<uniform> spot_lights: SpotLightUniforms;
+var<storage, read> spot_lights: array<SpotLight>;
+
+@group(2)
+@binding(3)
+var<storage, read> directional_lights: array<DirectionalLight>;
 
 
 struct VertexOut {
@@ -132,14 +126,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let wo = tbn * normalize(-camera_to_object);// object to camera vector
 
     var color = vec3<f32>(0.0);
-    for (var i: u32 = 0; i < directional_lights.count; i++) {
-        let light = directional_lights.lights[i];
-        let intensity = light.intensity.rgb;
-        var wi = tbn * -normalize(light.direction.xyz);
-        color += matte(wi, wo) * intensity;
-    }
-    for (var i: u32 = 0; i < point_lights.count; i++) {
-        let light = point_lights.lights[i];
+    for (var i: u32 = 0; i < light_uniforms.num_point_lights; i++) {
+        let light = point_lights[i];
         let intensity = light.intensity.rgb;
         let r0 = light.range[0];
         let r1 = light.range[1];
@@ -150,8 +138,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         var wi = tbn * -light_to_object;
         color += matte(wi, wo) * intensity * attenuation;
     }
-    for (var i: u32 = 0; i < spot_lights.count; i++) {
-        let light = spot_lights.lights[i];
+    for (var i: u32 = 0; i < light_uniforms.num_spot_lights; i++) {
+        let light = spot_lights[i];
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);
         let intensity = light.intensity.rgb;
@@ -167,6 +155,12 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let attenuation = clamp(1.0 / pow(max((distance - r0), 1e-6), 2.0), 0.0, 1.0); // Simple quadratic attenuation
         var wi = tbn * -light_to_object;
         color += matte(wi, wo) * intensity * attenuation * falloff;
+    }
+    for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
+        let light = directional_lights[i];
+        let intensity = light.intensity.rgb;
+        var wi = tbn * -normalize(light.direction.xyz);
+        color += matte(wi, wo) * intensity;
     }
 
     return vec4<f32>(color, 1.0);
