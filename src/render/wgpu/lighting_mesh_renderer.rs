@@ -3,6 +3,7 @@ use crate::render::wgpu::light::RenderLightType;
 use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use eframe::egui;
@@ -96,6 +97,8 @@ pub struct LightingMeshRenderer {
     directional_light_buffer: wgpu::Buffer,
     point_light_buffer: wgpu::Buffer,
     spot_light_buffer: wgpu::Buffer,
+    //
+    textures: HashMap<String, Arc<wgpu::Texture>>,
 }
 
 #[derive(Debug, Clone)]
@@ -150,236 +153,14 @@ impl LightingMeshRenderer {
         world_to_camera: &glam::Mat4,
         camera_to_clip: &glam::Mat4,
     ) -> Vec<wgpu::CommandBuffer> {
-        {
-            let mesh_items = render_items
-                .iter()
-                .filter(|item| matches!(item.as_ref(), RenderItem::Mesh(_)))
-                .cloned()
-                .collect::<Vec<_>>();
-            let num_mesh_items = mesh_items.len();
-            let local_uniform_alignment = {
-                let alignment = self.min_uniform_buffer_offset_alignment;
-                align_to(
-                    std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
-                    alignment,
-                )
-            };
-            if self.local_uniform_buffer.size()
-                < (num_mesh_items as wgpu::BufferAddress * local_uniform_alignment)
-            {
-                let new_buffer = create_local_uniform_buffer(device, num_mesh_items);
-                let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Lighting Local Bind Group"),
-                    layout: &self.local_bind_group_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                            buffer: &new_buffer,
-                            offset: 0,
-                            size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
-                        }),
-                    }],
-                });
-                self.local_uniform_buffer = new_buffer;
-                self.local_bind_group = new_bind_group;
-            }
-            for (i, item) in mesh_items.iter().enumerate() {
-                let local_to_world = item.get_matrix();
-                let world_to_local = local_to_world.inverse();
-                let base_color = get_base_color(item);
-                let uniform = LocalUniforms {
-                    local_to_world: local_to_world.to_cols_array_2d(),
-                    world_to_local: world_to_local.to_cols_array_2d(),
-                    base_color: base_color,
-                    _pad1: [0.0; 4],
-                    _pad2: [0.0; 4],
-                    _pad3: [0.0; 4],
-                };
-                let offset = i as wgpu::BufferAddress * local_uniform_alignment;
-                queue.write_buffer(
-                    &self.local_uniform_buffer,
-                    offset,
-                    bytemuck::bytes_of(&uniform),
-                );
-            }
+        self.prepare_global(device, queue, world_to_camera, camera_to_clip);
+        self.prepare_lights(device, queue, render_items);
+        let mesh_items = self.prepare_local(device, queue, render_items);
+        let per_frame_resources = PerFrameResources {
+            mesh_items: mesh_items.to_vec(),
+        };
+        resources.insert(per_frame_resources);
 
-            let per_frame_resources = PerFrameResources {
-                mesh_items: mesh_items.to_vec(),
-            };
-            resources.insert(per_frame_resources);
-        }
-
-        {
-            let mut light_uniforms = LightUniforms::default();
-            // Point lights
-            {
-                let light_items = render_items
-                    .iter()
-                    .filter(|item| {
-                        if let RenderItem::Light(item) = item.as_ref() {
-                            if item.light.light_type == RenderLightType::Point {
-                                return true;
-                            }
-                        }
-                        return false;
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-                // Currently, we do not handle point lights in this renderer.
-                // You can implement similar logic as above for point lights if needed.
-                let num_light_items = light_items.len();
-                light_uniforms.num_point_lights = num_light_items as u32;
-                for (i, item) in light_items.iter().enumerate() {
-                    //println!("Point light item: {:?}", item);
-                    if let RenderItem::Light(light_item) = item.as_ref() {
-                        if i < MAX_POINT_LIGHT_NUM {
-                            let matrix = light_item.matrix; //local_to_world
-                            let position = light_item.light.position;
-                            let position = matrix.transform_point3(glam::vec3(
-                                position[0],
-                                position[1],
-                                position[2],
-                            ));
-                            //println!("Point light position: {:?}", position);
-                            let intensity = light_item.light.intensity;
-                            let range = light_item.light.range;
-                            let light = PointLight {
-                                position: [position.x, position.y, position.z, 1.0],
-                                intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                                range: [range[0], range[1], 0.0, 0.0], // min and max range
-                                ..Default::default()
-                            };
-                            queue.write_buffer(
-                                &self.point_light_buffer,
-                                (i * size_of::<PointLight>()) as wgpu::BufferAddress,
-                                bytemuck::bytes_of(&light),
-                            );
-                        }
-                    }
-                }
-            }
-
-            // Spot lights
-            {
-                let light_items = render_items
-                    .iter()
-                    .filter(|item| {
-                        if let RenderItem::Light(item) = item.as_ref() {
-                            if item.light.light_type == RenderLightType::Spot {
-                                return true;
-                            }
-                        }
-                        return false;
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-                // Currently, we do not handle spot lights in this renderer.
-                // You can implement similar logic as above for spot lights if needed.
-                let num_light_items = light_items.len();
-                light_uniforms.num_spot_lights = num_light_items as u32;
-                for (i, item) in light_items.iter().enumerate() {
-                    //println!("Point light item: {:?}", item);
-                    if let RenderItem::Light(light_item) = item.as_ref() {
-                        if i < MAX_SPOT_LIGHT_NUM {
-                            let matrix = light_item.matrix; //local_to_world
-                            let position = light_item.light.position;
-                            let position = matrix.transform_point3(glam::vec3(
-                                position[0],
-                                position[1],
-                                position[2],
-                            ));
-                            let direction = light_item.light.direction;
-                            let direction = matrix.transform_vector3(glam::vec3(
-                                direction[0],
-                                direction[1],
-                                direction[2],
-                            ));
-                            //println!("Point light position: {:?}", position);
-                            let intensity = light_item.light.intensity;
-                            let range = light_item.light.range;
-                            let light = SpotLight {
-                                position: [position.x, position.y, position.z, 1.0],
-                                direction: [direction.x, direction.y, direction.z, 0.0],
-                                intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                                range: [range[0], range[1], 0.0, 0.0], // min and max range
-                                outer_angle: light_item.light.angle[1],
-                                inner_angle: light_item.light.angle[0],
-                                ..Default::default()
-                            };
-                            queue.write_buffer(
-                                &self.spot_light_buffer,
-                                (i * size_of::<SpotLight>()) as wgpu::BufferAddress,
-                                bytemuck::bytes_of(&light),
-                            );
-                        }
-                    }
-                }
-            }
-
-            // Directional lights
-            {
-                let light_items = render_items
-                    .iter()
-                    .filter(|item| {
-                        if let RenderItem::Light(item) = item.as_ref() {
-                            if item.light.light_type == RenderLightType::Directional {
-                                return true;
-                            }
-                        }
-                        return false;
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let num_light_items = light_items.len();
-                light_uniforms.num_directional_lights = num_light_items as u32;
-                for (i, item) in light_items.iter().enumerate() {
-                    if let RenderItem::Light(light_item) = item.as_ref() {
-                        if i < MAX_DIRECTIONAL_LIGHT_NUM {
-                            let matrix = light_item.matrix; //local_to_world
-                            let direction = light_item.light.direction;
-                            let direction = matrix.transform_vector3(glam::vec3(
-                                direction[0],
-                                direction[1],
-                                direction[2],
-                            ));
-                            let intensity = light_item.light.intensity;
-                            let light = DirectionalLight {
-                                direction: [direction[0], direction[1], direction[2], 0.0],
-                                intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            };
-                            queue.write_buffer(
-                                &self.directional_light_buffer,
-                                (i * size_of::<DirectionalLight>()) as wgpu::BufferAddress,
-                                bytemuck::bytes_of(&light),
-                            );
-                        }
-                    }
-                }
-            }
-
-            queue.write_buffer(
-                &self.light_uniform_buffer,
-                0,
-                bytemuck::bytes_of(&light_uniforms),
-            );
-        }
-
-        {
-            let camera_to_world = world_to_camera.inverse();
-            let camera_position = camera_to_world.transform_point3(glam::vec3(0.0, 0.0, 0.0));
-            let global_uniforms = GlobalUniforms {
-                world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
-                camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-                camera_to_world: camera_to_world.to_cols_array_2d(), // Identity matrix for now
-                camera_position: [camera_position.x, camera_position.y, camera_position.z, 1.0],
-            };
-            let global_unifrom_buffer = &self.global_uniform_buffer;
-            queue.write_buffer(
-                global_unifrom_buffer,
-                0,
-                bytemuck::bytes_of(&global_uniforms),
-            );
-        }
         return vec![];
     }
 
@@ -421,6 +202,249 @@ impl LightingMeshRenderer {
                 }
             }
         }
+    }
+
+    fn prepare_global(
+        &self,
+        _device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        world_to_camera: &glam::Mat4,
+        camera_to_clip: &glam::Mat4,
+    ) {
+        let camera_to_world = world_to_camera.inverse();
+        let camera_position = camera_to_world.transform_point3(glam::vec3(0.0, 0.0, 0.0));
+        let global_uniforms = GlobalUniforms {
+            world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
+            camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
+            camera_to_world: camera_to_world.to_cols_array_2d(), // Identity matrix for now
+            camera_position: [camera_position.x, camera_position.y, camera_position.z, 1.0],
+        };
+        let global_unifrom_buffer = &self.global_uniform_buffer;
+        queue.write_buffer(
+            global_unifrom_buffer,
+            0,
+            bytemuck::bytes_of(&global_uniforms),
+        );
+    }
+
+    pub fn prepare_local(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        render_items: &[Arc<RenderItem>],
+    ) -> Vec<Arc<RenderItem>> {
+        let mesh_items = render_items
+            .iter()
+            .filter(|item| matches!(item.as_ref(), RenderItem::Mesh(_)))
+            .cloned()
+            .collect::<Vec<_>>();
+        let num_mesh_items = mesh_items.len();
+        let local_uniform_alignment = {
+            let alignment = self.min_uniform_buffer_offset_alignment;
+            align_to(
+                std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
+                alignment,
+            )
+        };
+        if self.local_uniform_buffer.size()
+            < (num_mesh_items as wgpu::BufferAddress * local_uniform_alignment)
+        {
+            let new_buffer = create_local_uniform_buffer(device, num_mesh_items);
+            let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Lighting Local Bind Group"),
+                layout: &self.local_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &new_buffer,
+                        offset: 0,
+                        size: wgpu::BufferSize::new(size_of::<LocalUniforms>() as _),
+                    }),
+                }],
+            });
+            self.local_uniform_buffer = new_buffer;
+            self.local_bind_group = new_bind_group;
+        }
+        for (i, item) in mesh_items.iter().enumerate() {
+            let local_to_world = item.get_matrix();
+            let world_to_local = local_to_world.inverse();
+            let base_color = get_base_color(item);
+            let uniform = LocalUniforms {
+                local_to_world: local_to_world.to_cols_array_2d(),
+                world_to_local: world_to_local.to_cols_array_2d(),
+                base_color: base_color,
+                _pad1: [0.0; 4],
+                _pad2: [0.0; 4],
+                _pad3: [0.0; 4],
+            };
+            let offset = i as wgpu::BufferAddress * local_uniform_alignment;
+            queue.write_buffer(
+                &self.local_uniform_buffer,
+                offset,
+                bytemuck::bytes_of(&uniform),
+            );
+        }
+        return mesh_items;
+    }
+
+    fn prepare_lights(
+        &self,
+        _device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        render_items: &[Arc<RenderItem>],
+    ) {
+        let mut light_uniforms = LightUniforms::default();
+        // Point lights
+        {
+            let light_items = render_items
+                .iter()
+                .filter(|item| {
+                    if let RenderItem::Light(item) = item.as_ref() {
+                        if item.light.light_type == RenderLightType::Point {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            // Currently, we do not handle point lights in this renderer.
+            // You can implement similar logic as above for point lights if needed.
+            let num_light_items = light_items.len();
+            light_uniforms.num_point_lights = num_light_items as u32;
+            for (i, item) in light_items.iter().enumerate() {
+                //println!("Point light item: {:?}", item);
+                if let RenderItem::Light(light_item) = item.as_ref() {
+                    if i < MAX_POINT_LIGHT_NUM {
+                        let matrix = light_item.matrix; //local_to_world
+                        let position = light_item.light.position;
+                        let position = matrix.transform_point3(glam::vec3(
+                            position[0],
+                            position[1],
+                            position[2],
+                        ));
+                        //println!("Point light position: {:?}", position);
+                        let intensity = light_item.light.intensity;
+                        let range = light_item.light.range;
+                        let light = PointLight {
+                            position: [position.x, position.y, position.z, 1.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                            range: [range[0], range[1], 0.0, 0.0], // min and max range
+                            ..Default::default()
+                        };
+                        queue.write_buffer(
+                            &self.point_light_buffer,
+                            (i * size_of::<PointLight>()) as wgpu::BufferAddress,
+                            bytemuck::bytes_of(&light),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Spot lights
+        {
+            let light_items = render_items
+                .iter()
+                .filter(|item| {
+                    if let RenderItem::Light(item) = item.as_ref() {
+                        if item.light.light_type == RenderLightType::Spot {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            // Currently, we do not handle spot lights in this renderer.
+            // You can implement similar logic as above for spot lights if needed.
+            let num_light_items = light_items.len();
+            light_uniforms.num_spot_lights = num_light_items as u32;
+            for (i, item) in light_items.iter().enumerate() {
+                //println!("Point light item: {:?}", item);
+                if let RenderItem::Light(light_item) = item.as_ref() {
+                    if i < MAX_SPOT_LIGHT_NUM {
+                        let matrix = light_item.matrix; //local_to_world
+                        let position = light_item.light.position;
+                        let position = matrix.transform_point3(glam::vec3(
+                            position[0],
+                            position[1],
+                            position[2],
+                        ));
+                        let direction = light_item.light.direction;
+                        let direction = matrix.transform_vector3(glam::vec3(
+                            direction[0],
+                            direction[1],
+                            direction[2],
+                        ));
+                        //println!("Point light position: {:?}", position);
+                        let intensity = light_item.light.intensity;
+                        let range = light_item.light.range;
+                        let light = SpotLight {
+                            position: [position.x, position.y, position.z, 1.0],
+                            direction: [direction.x, direction.y, direction.z, 0.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                            range: [range[0], range[1], 0.0, 0.0], // min and max range
+                            outer_angle: light_item.light.angle[1],
+                            inner_angle: light_item.light.angle[0],
+                            ..Default::default()
+                        };
+                        queue.write_buffer(
+                            &self.spot_light_buffer,
+                            (i * size_of::<SpotLight>()) as wgpu::BufferAddress,
+                            bytemuck::bytes_of(&light),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Directional lights
+        {
+            let light_items = render_items
+                .iter()
+                .filter(|item| {
+                    if let RenderItem::Light(item) = item.as_ref() {
+                        if item.light.light_type == RenderLightType::Directional {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            let num_light_items = light_items.len();
+            light_uniforms.num_directional_lights = num_light_items as u32;
+            for (i, item) in light_items.iter().enumerate() {
+                if let RenderItem::Light(light_item) = item.as_ref() {
+                    if i < MAX_DIRECTIONAL_LIGHT_NUM {
+                        let matrix = light_item.matrix; //local_to_world
+                        let direction = light_item.light.direction;
+                        let direction = matrix.transform_vector3(glam::vec3(
+                            direction[0],
+                            direction[1],
+                            direction[2],
+                        ));
+                        let intensity = light_item.light.intensity;
+                        let light = DirectionalLight {
+                            direction: [direction[0], direction[1], direction[2], 0.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        };
+                        queue.write_buffer(
+                            &self.directional_light_buffer,
+                            (i * size_of::<DirectionalLight>()) as wgpu::BufferAddress,
+                            bytemuck::bytes_of(&light),
+                        );
+                    }
+                }
+            }
+        }
+
+        queue.write_buffer(
+            &self.light_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&light_uniforms),
+        );
     }
 }
 
@@ -695,6 +719,8 @@ impl LightingMeshRenderer {
         let min_uniform_buffer_offset_alignment =
             device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
 
+        let textures = HashMap::new();
+
         return Some(LightingMeshRenderer {
             pipeline,
             min_uniform_buffer_offset_alignment,
@@ -710,6 +736,7 @@ impl LightingMeshRenderer {
             directional_light_buffer,
             point_light_buffer,
             spot_light_buffer,
+            textures,
         });
     }
 }
