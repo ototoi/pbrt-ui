@@ -12,9 +12,9 @@ struct LocalUniforms {
 }
 
 struct LightUniforms {
-    num_directional_lights: u32,
     num_point_lights: u32,
     num_spot_lights: u32,
+    num_directional_lights: u32,
     _pad1: u32, // Padding for alignment
 }
 

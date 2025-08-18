@@ -18,8 +18,6 @@ const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lig
 const MAX_SPOT_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const MAX_POINT_LIGHT_NUM: usize = 256; // Maximum number of point lights
 
-//pub struct SolidMeshRenderer {}
-
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct GlobalUniforms {
@@ -43,9 +41,9 @@ struct LocalUniforms {
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct LightUniforms {
-    num_directional_lights: u32, // Number of directional lights
     num_point_lights: u32,       // Number of point lights
     num_spot_lights: u32,        // Number of spot lights
+    num_directional_lights: u32, // Number of directional lights
     _pad1: u32,                  // Padding to ensure alignment
 }
 
