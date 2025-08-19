@@ -76,6 +76,13 @@ struct SpotLight {
     _pad1: [f32; 2],     // Padding to ensure alignmentå
 }
 
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum FrameBufferType {
+    FinalColor,
+    FinalDepth,
+}
+
 #[derive(Debug, Clone)]
 pub struct LightingMeshRenderer {
     pipeline: wgpu::RenderPipeline,
@@ -98,7 +105,7 @@ pub struct LightingMeshRenderer {
     point_light_buffer: wgpu::Buffer,
     spot_light_buffer: wgpu::Buffer,
     //
-    textures: HashMap<String, Arc<wgpu::Texture>>,
+    textures: HashMap<FrameBufferType, (Arc<wgpu::Texture>, Arc<wgpu::TextureView>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -146,8 +153,8 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _encoder: &mut wgpu::CommandEncoder,
+        screen_descriptor: &egui_wgpu::ScreenDescriptor,
+        encoder: &mut wgpu::CommandEncoder,
         resources: &mut egui_wgpu::CallbackResources,
         render_items: &[Arc<RenderItem>],
         world_to_camera: &glam::Mat4,
@@ -160,7 +167,115 @@ impl LightingMeshRenderer {
             mesh_items: mesh_items.to_vec(),
         };
         resources.insert(per_frame_resources);
+        {
+            let mut should_make_texture = false;
+            if let Some((texture, _texture_view)) = self.textures.get(&FrameBufferType::FinalColor)
+            {
+                let width = texture.width();
+                let height = texture.height();
+                if screen_descriptor.size_in_pixels[0] != width
+                    || screen_descriptor.size_in_pixels[1] != height
+                {
+                    should_make_texture = true;
+                }
+            } else {
+                should_make_texture = true;
+            }
+            if should_make_texture {
+                {
+                    //color
+                    //wgpu_render_state.target_format
+                    let texture_format = wgpu::TextureFormat::Rgba16Float;
+                    //let texture_format = wgpu::TextureFormat::Bgra8Unorm;
 
+                    let texture = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Final Color Texture"),
+                        size: wgpu::Extent3d {
+                            width: screen_descriptor.size_in_pixels[0],
+                            height: screen_descriptor.size_in_pixels[1],
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: texture_format,
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                            | wgpu::TextureUsages::TEXTURE_BINDING
+                            | wgpu::TextureUsages::COPY_DST,
+                        view_formats: &[texture_format],
+                    });
+                    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                    self.textures.insert(
+                        FrameBufferType::FinalColor,
+                        (Arc::new(texture), Arc::new(texture_view)),
+                    );
+                }
+                {
+                    //depth
+                    let texture = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Final Depth Texture"),
+                        size: wgpu::Extent3d {
+                            width: screen_descriptor.size_in_pixels[0],
+                            height: screen_descriptor.size_in_pixels[1],
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                            | wgpu::TextureUsages::TEXTURE_BINDING
+                            | wgpu::TextureUsages::COPY_DST,
+                        view_formats: &[wgpu::TextureFormat::Depth32Float],
+                    });
+                    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                    self.textures.insert(
+                        FrameBufferType::FinalDepth,
+                        (Arc::new(texture), Arc::new(texture_view)),
+                    );
+                }
+                //
+            }
+        }
+
+        {
+            //let mut encoder =
+            //    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            let (_color_texture, color_texture_view) = self
+                .textures
+                .get(&FrameBufferType::FinalColor)
+                .expect("Final Render Texture not found");
+            let (_depth_texture, depth_texture_view) = self
+                .textures
+                .get(&FrameBufferType::FinalDepth)
+                .expect("Final Depth Texture not found");
+            {
+                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &color_texture_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),//
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &depth_texture_view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
+                    }),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                });
+                self.render(&mut rpass, &mesh_items);
+            }
+            //let command_buffer = encoder.finish();
+            //return vec![command_buffer];
+        }
         return vec![];
     }
 
@@ -170,36 +285,37 @@ impl LightingMeshRenderer {
         render_pass: &mut wgpu::RenderPass<'static>,
         resources: &egui_wgpu::CallbackResources,
     ) {
+        /* 
         if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
             if !per_frame_resources.mesh_items.is_empty() {
-                let local_uniform_alignment = {
-                    let alignment = self.min_uniform_buffer_offset_alignment;
-                    align_to(
-                        std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
-                        alignment,
-                    )
-                };
-                render_pass.set_pipeline(&self.pipeline); //
-                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                render_pass.set_bind_group(2, &self.light_bind_group, &[]);
-                for (i, item) in per_frame_resources.mesh_items.iter().enumerate() {
-                    let i = i as wgpu::DynamicOffset;
-                    if let RenderItem::Mesh(mesh_item) = item.as_ref() {
-                        let local_uniform_offset =
-                            i * local_uniform_alignment as wgpu::DynamicOffset;
-                        render_pass.set_bind_group(
-                            1,
-                            &self.local_bind_group,
-                            &[local_uniform_offset],
-                        );
-                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                        render_pass.set_index_buffer(
-                            mesh_item.mesh.index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint32,
-                        );
-                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
-                    }
-                }
+                //self.render(render_pass, &per_frame_resources.mesh_items);
+            }
+        }
+        */
+    }
+
+    fn render(&self, render_pass: &mut wgpu::RenderPass, render_items: &[Arc<RenderItem>]) {
+        let local_uniform_alignment = {
+            let alignment = self.min_uniform_buffer_offset_alignment;
+            align_to(
+                std::mem::size_of::<LocalUniforms>() as wgpu::BufferAddress,
+                alignment,
+            )
+        };
+        render_pass.set_pipeline(&self.pipeline); //
+        render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+        render_pass.set_bind_group(2, &self.light_bind_group, &[]);
+        for (i, item) in render_items.iter().enumerate() {
+            let i = i as wgpu::DynamicOffset;
+            if let RenderItem::Mesh(mesh_item) = item.as_ref() {
+                let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
+                render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(
+                    mesh_item.mesh.index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
+                render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
             }
         }
     }
@@ -598,6 +714,9 @@ impl LightingMeshRenderer {
             ..Default::default()
         };
 
+        //let color_texture_format = wgpu_render_state.target_format;
+        let color_texture_format = wgpu::TextureFormat::Rgba16Float;
+        let depth_texture_format = wgpu::TextureFormat::Depth32Float;
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Lighting Pipeline"),
             layout: Some(&pipeline_layout),
@@ -612,7 +731,7 @@ impl LightingMeshRenderer {
                 entry_point: Some("fs_main"),
                 //targets: &[Some(wgpu_render_state.target_format.into())],
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu_render_state.target_format,
+                    format: color_texture_format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -620,7 +739,7 @@ impl LightingMeshRenderer {
             }),
             primitive: primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
+                format: depth_texture_format,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
