@@ -16,144 +16,8 @@ use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 
 use bytemuck::{Pod, Zeroable};
-use eframe::wgpu::wgc::pipeline;
 
-/*
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum FrameBufferType {
-    FinalColor,
-    FinalDepth,
-}
-        {
-            let mut should_make_texture = false;
-            if let Some((texture, _texture_view)) = self.textures.get(&FrameBufferType::FinalColor)
-            {
-                let width = texture.width();
-                let height = texture.height();
-                if screen_descriptor.size_in_pixels[0] != width
-                    || screen_descriptor.size_in_pixels[1] != height
-                {
-                    should_make_texture = true;
-                }
-            } else {
-                should_make_texture = true;
-            }
-            if should_make_texture {
-                {
-                    //color
-                    //wgpu_render_state.target_format
-                    let texture_format = wgpu::TextureFormat::Rgba16Float;
-                    //let texture_format = wgpu::TextureFormat::Bgra8Unorm;
-
-                    let texture = device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("Final Color Texture"),
-                        size: wgpu::Extent3d {
-                            width: screen_descriptor.size_in_pixels[0],
-                            height: screen_descriptor.size_in_pixels[1],
-                            depth_or_array_layers: 1,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: texture_format,
-                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                            | wgpu::TextureUsages::TEXTURE_BINDING
-                            | wgpu::TextureUsages::COPY_DST,
-                        view_formats: &[texture_format],
-                    });
-                    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-                    self.textures.insert(
-                        FrameBufferType::FinalColor,
-                        (Arc::new(texture), Arc::new(texture_view)),
-                    );
-                }
-                {
-                    //depth
-                    let texture = device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("Final Depth Texture"),
-                        size: wgpu::Extent3d {
-                            width: screen_descriptor.size_in_pixels[0],
-                            height: screen_descriptor.size_in_pixels[1],
-                            depth_or_array_layers: 1,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: wgpu::TextureFormat::Depth32Float,
-                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                            | wgpu::TextureUsages::TEXTURE_BINDING
-                            | wgpu::TextureUsages::COPY_DST,
-                        view_formats: &[wgpu::TextureFormat::Depth32Float],
-                    });
-                    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-                    self.textures.insert(
-                        FrameBufferType::FinalDepth,
-                        (Arc::new(texture), Arc::new(texture_view)),
-                    );
-                }
-                {
-                    /*
-                    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("Lighting Global Bind Group"),
-                        layout: &self.global_bind_group_layout,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::Buffer(
-                                wgpu::BufferBinding {
-                                    buffer: &self.global_uniform_buffer,
-                                    offset: 0,
-                                    size: wgpu::BufferSize::new(
-                                        std::mem::size_of::<GlobalUniforms>() as _,
-                                    ),
-                                },
-                            ),
-                        }],
-                    });
-                    */
-                }
-
-
-                {
-            //let mut encoder =
-            //    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-            let (_color_texture, color_texture_view) = self
-                .textures
-                .get(&FrameBufferType::FinalColor)
-                .expect("Final Render Texture not found");
-            let (_depth_texture, depth_texture_view) = self
-                .textures
-                .get(&FrameBufferType::FinalDepth)
-                .expect("Final Depth Texture not found");
-            {
-                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &color_texture_view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),//
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &depth_texture_view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: wgpu::StoreOp::Store,
-                        }),
-                        stencil_ops: None,
-                    }),
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                });
-                self.render(&mut rpass, &mesh_items);
-            }
-            //let command_buffer = encoder.finish();
-            //return vec![command_buffer];
-        }
-
-*/
+const INTERNAL_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -168,6 +32,8 @@ struct CopyTextureRenderer {
     // This renderer is used to copy the final render texture to the screen
     // It can be used to apply post-processing effects or simply display the final render
     pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
     bind_group: Option<wgpu::BindGroup>,
 }
 
@@ -178,15 +44,37 @@ impl CopyTextureRenderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/copy_texture.wgsl").into()),
         });
 
-        //let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //    label: Some("Copy Texture Pipeline Layout"),
-        //    bind_group_layouts: &[&bind_group_layout],
-        //    push_constant_ranges: &[],
-        //});
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+            label: None,
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Copy Texture Pipeline Layout"),
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Copy Texture Pipeline"),
-            layout: None,
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
@@ -215,22 +103,40 @@ impl CopyTextureRenderer {
             cache: None,
         });
 
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Texture Sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
         CopyTextureRenderer {
             pipeline,
+            bind_group_layout,
+            sampler,
             bind_group: None, // Initialize with no bind group
         }
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, texture: &wgpu::Texture) {
-        let bind_group_layout = self.pipeline.get_bind_group_layout(0);
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(
-                    &texture.create_view(&Default::default()),
-                ),
-            }],
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(
+                        &texture.create_view(&Default::default()),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
             label: None,
         });
         self.bind_group = Some(bind_group);
@@ -240,7 +146,7 @@ impl CopyTextureRenderer {
         if let Some(bindgroup) = self.bind_group.as_ref() {
             render_pass.set_pipeline(&self.pipeline); // Set the appropriate pipeline
             render_pass.set_bind_group(0, bindgroup, &[]);
-            render_pass.draw(0..3, 0..1); // Draw a full-screen quad
+            render_pass.draw(0..6, 0..1); // Draw a full-screen quad
         }
     }
 }
@@ -273,6 +179,7 @@ impl PerFrameCallback {
         screen_descriptor: &egui_wgpu::ScreenDescriptor,
         rect: &[f32; 4],
     ) {
+        let texture_format = INTERNAL_TEXTURE_FORMAT; // Use a suitable format for your application
         let pixels_per_point = screen_descriptor.pixels_per_point;
         let mut frame_buffers = self.frame_buffers.write().unwrap();
         let width = ((rect[2] - rect[0]) * pixels_per_point) as u32;
@@ -296,11 +203,11 @@ impl PerFrameCallback {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Bgra8Unorm, // Use a suitable format
+            format: texture_format, // Use a suitable format
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[wgpu::TextureFormat::Bgra8Unorm], //
+                | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[texture_format], //
         });
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Final Depth Texture"),
@@ -315,7 +222,7 @@ impl PerFrameCallback {
             format: wgpu::TextureFormat::Depth32Float, // Use a suitable depth format
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST,
+                | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[wgpu::TextureFormat::Depth32Float],
         });
         frame_buffers.insert(FrameBufferType::FinalRender, (color_texture, depth_texture));
@@ -411,8 +318,7 @@ impl LightingRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let render_state = cc.wgpu_render_state.as_ref()?;
         let device = &render_state.device;
-        let target_format = render_state.target_format;
-        let mesh_renderer = LightingMeshRenderer::new(device, target_format);
+        let mesh_renderer = LightingMeshRenderer::new(device, INTERNAL_TEXTURE_FORMAT);
         let copy_texture_renderer = CopyTextureRenderer::new(device, render_state.target_format);
         // Create the lighting renderer with the mesh and lines renderers
         return Some(LightingRenderer {

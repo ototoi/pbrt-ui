@@ -33,9 +33,7 @@ pub fn create_light_shape_from_distant(props: &PropertyMap) -> Option<LightShape
     //let dir = to - from;
     let mut lines = vec![];
     lines.push(vec![from, to]);
-    lines.push(create_circle_points(2, 16));//todo:align direction of the circle with the direction of the light
-    let shape = LightShape {
-        lines: lines,
-    };
+    lines.push(create_circle_points(2, 16)); //todo:align direction of the circle with the direction of the light
+    let shape = LightShape { lines: lines };
     return Some(shape);
 }

@@ -1,7 +1,7 @@
 use super::light_shape::LightShape;
+use crate::model::base::Matrix4x4;
 use crate::model::base::PropertyMap;
 use crate::model::base::Vector3;
-use crate::model::base::Matrix4x4;
 
 #[inline]
 fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {

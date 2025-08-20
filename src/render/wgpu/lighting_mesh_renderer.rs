@@ -530,7 +530,7 @@ impl LightingMeshRenderer {
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: depth_texture_format,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
