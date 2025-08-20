@@ -85,17 +85,13 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
 
             //println!("Preparing lines renderer with {} items", render_items.len());
             let mut renderer = self.lines_renderer.write().unwrap();
-            let cmds = renderer.prepare(
+            renderer.prepare(
                 device,
                 queue,
-                screen_descriptor,
-                encoder,
-                resources,
                 &render_items,
                 &self.world_to_camera,
                 &self.camera_to_clip,
             );
-            command_buffers.extend(cmds);
         }
         return command_buffers;
     }
@@ -112,22 +108,21 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         }
         if true {
             let renderer = self.lines_renderer.read().unwrap();
-            renderer.paint(&info, render_pass, resources);
+            renderer.paint(render_pass);
         }
     }
 }
 
 impl SolidRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        if let Some(mesh_renderer) = SolidMeshRenderer::new(cc) {
-            if let Some(lines_renderer) = LinesRenderer::new(cc) {
-                return Some(SolidRenderer {
-                    mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
-                    lines_renderer: Arc::new(RwLock::new(lines_renderer)),
-                });
-            }
-        }
-        return None;
+        let render_state = cc.wgpu_render_state.as_ref()?;
+        let device = &render_state.device;
+        let mesh_renderer = SolidMeshRenderer::new(device, render_state.target_format);
+        let lines_renderer = LinesRenderer::new(device, render_state.target_format);
+        return Some(SolidRenderer {
+            mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
+            lines_renderer: Arc::new(RwLock::new(lines_renderer)),
+        });
     }
 
     pub fn render(

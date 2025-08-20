@@ -41,10 +41,7 @@ pub struct LinesRenderer {
     local_bind_group: wgpu::BindGroup,
     local_uniform_buffer: wgpu::Buffer,
     local_uniform_alignment: wgpu::BufferAddress,
-}
-
-#[derive(Debug, Clone)]
-struct PerFrameResources {
+    //
     render_items: Vec<Arc<RenderItem>>,
 }
 
@@ -70,13 +67,15 @@ impl LinesRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        _screen_descriptor: &egui_wgpu::ScreenDescriptor,
-        _encoder: &mut wgpu::CommandEncoder,
-        resources: &mut egui_wgpu::CallbackResources,
         render_items: &[Arc<RenderItem>],
         world_to_camera: &glam::Mat4,
         camera_to_clip: &glam::Mat4,
-    ) -> Vec<wgpu::CommandBuffer> {
+    ) {
+        let render_items = render_items
+            .iter()
+            .filter(|item| matches!(item.as_ref(), RenderItem::Lines(_)))
+            .cloned()
+            .collect::<Vec<_>>();
         let num_items = render_items.len();
         {
             let local_uniform_alignment = self.local_uniform_alignment;
@@ -144,38 +143,24 @@ impl LinesRenderer {
             );
         }
 
-        let per_frame_resources = PerFrameResources {
-            render_items: render_items.to_vec(),
-        };
-        resources.insert(per_frame_resources);
-
-        return vec![];
+        self.render_items = render_items.to_vec();
     }
 
     pub fn paint(
         &self,
-        _info: &egui::PaintCallbackInfo,
-        render_pass: &mut wgpu::RenderPass<'static>,
-        resources: &egui_wgpu::CallbackResources,
+        render_pass: &mut wgpu::RenderPass,
     ) {
-        if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            if !per_frame_resources.render_items.is_empty() {
-                let local_uniform_alignment = self.local_uniform_alignment;
-                render_pass.set_pipeline(&self.pipeline); //
-                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                for (i, item) in per_frame_resources.render_items.iter().enumerate() {
-                    let i = i as wgpu::DynamicOffset;
-                    if let RenderItem::Lines(line_item) = item.as_ref() {
-                        let local_uniform_offset =
-                            i * local_uniform_alignment as wgpu::DynamicOffset;
-                        render_pass.set_bind_group(
-                            1,
-                            &self.local_bind_group,
-                            &[local_uniform_offset],
-                        );
-                        render_pass.set_vertex_buffer(0, line_item.lines.vertex_buffer.slice(..));
-                        render_pass.draw(0..line_item.lines.vertex_count, 0..1);
-                    }
+        if !self.render_items.is_empty() {
+            let local_uniform_alignment = self.local_uniform_alignment;
+            render_pass.set_pipeline(&self.pipeline); //
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+            for (i, item) in self.render_items.iter().enumerate() {
+                let i = i as wgpu::DynamicOffset;
+                if let RenderItem::Lines(line_item) = item.as_ref() {
+                    let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
+                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    render_pass.set_vertex_buffer(0, line_item.lines.vertex_buffer.slice(..));
+                    render_pass.draw(0..line_item.lines.vertex_count, 0..1);
                 }
             }
         }
@@ -183,11 +168,7 @@ impl LinesRenderer {
 }
 
 impl LinesRenderer {
-    pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
-        let device = &wgpu_render_state.device;
-        //let queue = &wgpu_render_state.queue;
-
+    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Lines Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_lines.wgsl").into()),
@@ -258,7 +239,7 @@ impl LinesRenderer {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
-                targets: &[Some(wgpu_render_state.target_format.into())],
+                targets: &[Some(target_format.into())],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: primitive,
@@ -315,7 +296,9 @@ impl LinesRenderer {
             }],
         });
 
-        return Some(LinesRenderer {
+        let render_items = Vec::new();
+
+        return LinesRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -324,6 +307,7 @@ impl LinesRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
-        });
+            render_items,
+        };
     }
 }
