@@ -9,6 +9,7 @@ use super::render_item::RenderLightItem;
 use super::render_item::get_color;
 use super::render_resource::RenderResourceManager;
 use crate::conversion::light_shape::create_light_shape;
+use crate::conversion::mesh_data::create_mesh_data;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
 use crate::model::scene::Light;
@@ -393,6 +394,155 @@ fn get_area_light_item_from_disk(
     return None;
 }
 
+fn check_square_mesh(indices0: &[i32; 3], indices1: &[i32; 3]) -> Option<[i32; 4]> {
+    // Check if the two triangles form a square
+    for i in 0..3 {
+        for j in 0..3 {
+            let i0 = indices0[(i + 0) % 3];
+            let i1 = indices0[(i + 1) % 3];
+            let i2 = indices0[(i + 2) % 3];
+            let j0 = indices1[(j + 0) % 3];
+            let j1 = indices1[(j + 1) % 3];
+            let j2 = indices1[(j + 2) % 3];
+
+            if i1 == j2 && i2 == j1 && i0 != j0 {
+                // Found a square mesh
+                //i0, i1 == j2, j0, i2 == j1
+                return Some([i0, i1, j0, j1]);
+            }
+        }
+    }
+    return None; // Not a square mesh
+}
+
+fn get_area_light_item_from_mesh(
+    light: &Light,
+    shape: &Shape,
+    matrix: &Matrix4x4,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let shape_type = shape.get_type();
+    assert!(
+        shape_type == "trianglemesh" || shape_type == "plymesh",
+        "Expected shape type to be 'trianglemesh' or 'plymesh', found: {}",
+        shape_type
+    );
+
+    let id = light.get_id();
+    let light_edition = light.get_edition();
+    let shape_edition = shape.get_edition();
+    let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
+
+    if let Some(render_light) = render_resource_manager.get_light(id) {
+        if render_light.edition == edition {
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
+    }
+
+    if let Some(mesh_data) = create_mesh_data(shape) {
+        let num_face = mesh_data.indices.len() / 3;
+        if num_face == 2 {
+            let indices0: [i32; 3] = mesh_data.indices[0..3].try_into().unwrap();
+            let indices1: [i32; 3] = mesh_data.indices[3..6].try_into().unwrap();
+            if let Some(indices) = check_square_mesh(&indices0, &indices1) {
+                let i0 = indices[0] as usize;
+                let i1 = indices[1] as usize;
+                let i2 = indices[2] as usize;
+                let i3 = indices[3] as usize;
+                let p0 = Vector3::new(
+                    mesh_data.positions[3 * i0 + 0],
+                    mesh_data.positions[3 * i0 + 1],
+                    mesh_data.positions[3 * i0 + 2],
+                );
+                let p1 = Vector3::new(
+                    mesh_data.positions[3 * i1 + 0],
+                    mesh_data.positions[3 * i1 + 1],
+                    mesh_data.positions[3 * i1 + 2],
+                );
+                let p2 = Vector3::new(
+                    mesh_data.positions[3 * i2 + 0],
+                    mesh_data.positions[3 * i2 + 1],
+                    mesh_data.positions[3 * i2 + 2],
+                );
+                let p3 = Vector3::new(
+                    mesh_data.positions[3 * i3 + 0],
+                    mesh_data.positions[3 * i3 + 1],
+                    mesh_data.positions[3 * i3 + 2],
+                );
+                /*
+                   p0 - p3
+                   |    |
+                   p1 - p2
+                */
+                let na = Vector3::cross(&(p1 - p0), &(p2 - p0)).normalize();
+                let nb = Vector3::cross(&(p0 - p3), &(p2 - p3)).normalize();
+                if Vector3::dot(&na, &nb) >= 0.9 {
+                    let center = (p0 + p1 + p2 + p3) * 0.25;
+                    let n = (na + nb).normalize();
+                    let mut r: f32 = 0.0;
+                    for i in 0..4 {
+                        let p = Vector3::new(
+                            mesh_data.positions[3 * indices[i] as usize + 0],
+                            mesh_data.positions[3 * indices[i] as usize + 1],
+                            mesh_data.positions[3 * indices[i] as usize + 2],
+                        );
+                        r = r.max(Vector3::length_squared(&(p - center)));
+                    }
+
+                    let props = light.as_property_map();
+                    let l =
+                        get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+                    let scale = get_color(&props, "scale", resource_manager)
+                        .unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+                    let outer_angle = props
+                        .find_one_float("coneangle")
+                        .unwrap_or(35.0)
+                        .to_radians();
+
+                    let area = 1.0; //
+
+                    let intensity = [
+                        area * l[0] * scale[0],
+                        area * l[1] * scale[1],
+                        area * l[2] * scale[2],
+                    ];
+
+                    let position = center;
+                    let direction = n;
+
+                    let render_light = RenderLight {
+                        id,
+                        edition: edition.clone(),
+                        light_type: RenderLightType::Spot,
+                        position: [position.x, position.y, position.z], // Position is not used for spot lights
+                        direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
+                        intensity: intensity,
+                        range: [0.0, 10.0],
+                        angle: [0.0, outer_angle],
+                        ..Default::default()
+                    };
+                    let render_light = Arc::new(render_light);
+                    render_resource_manager.add_light(&render_light);
+
+                    let render_item = RenderLightItem {
+                        light: render_light.clone(),
+                        matrix: glam::Mat4::from(matrix),
+                    };
+                    return Some(RenderItem::Light(render_item));
+                }
+            }
+        }
+    }
+
+    return None; // Mesh shapes are not yet supported for area lights
+}
+
 fn get_area_light_item_core(
     light: &Light,
     shape: &Shape,
@@ -419,6 +569,15 @@ fn get_area_light_item_core(
         }
         "disk" => {
             return get_area_light_item_from_disk(
+                light,
+                shape,
+                matrix,
+                resource_manager,
+                render_resource_manager,
+            );
+        }
+        "trianglemesh" | "plymesh" => {
+            return get_area_light_item_from_mesh(
                 light,
                 shape,
                 matrix,

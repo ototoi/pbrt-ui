@@ -4,8 +4,6 @@ use super::lines::RenderLinesVertex;
 use super::render_item::RenderItem;
 use std::sync::Arc;
 
-use eframe::egui;
-use eframe::egui_wgpu;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
 use wgpu::util::align_to;
@@ -146,10 +144,7 @@ impl LinesRenderer {
         self.render_items = render_items.to_vec();
     }
 
-    pub fn paint(
-        &self,
-        render_pass: &mut wgpu::RenderPass,
-    ) {
+    pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
         if !self.render_items.is_empty() {
             let local_uniform_alignment = self.local_uniform_alignment;
             render_pass.set_pipeline(&self.pipeline); //
