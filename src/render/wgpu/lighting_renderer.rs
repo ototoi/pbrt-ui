@@ -1,21 +1,17 @@
 use super::lighting_mesh_renderer::LightingMeshRenderer;
+use super::linear_to_srgb_renderer::LinearToSrgbRenderer;
 use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
-use crate::render::wgpu::render_item::RenderItem;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::egui;
 use eframe::egui_wgpu;
-use eframe::epaint::color;
 use eframe::wgpu;
-use eframe::wgpu::util::DeviceExt;
-
-use bytemuck::{Pod, Zeroable};
 
 const INTERNAL_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
@@ -27,134 +23,11 @@ enum FrameBufferType {
 
 type FrameBufferMap = HashMap<FrameBufferType, (wgpu::Texture, wgpu::Texture)>;
 
-#[derive(Debug, Clone)]
-struct CopyTextureRenderer {
-    // This renderer is used to copy the final render texture to the screen
-    // It can be used to apply post-processing effects or simply display the final render
-    pipeline: wgpu::RenderPipeline,
-    bind_group_layout: wgpu::BindGroupLayout,
-    sampler: wgpu::Sampler,
-    bind_group: Option<wgpu::BindGroup>,
-}
-
-impl CopyTextureRenderer {
-    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Copy Texture Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/copy_texture.wgsl").into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-            ],
-            label: None,
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Copy Texture Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Copy Texture Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                compilation_options: Default::default(),
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
-                targets: &[Some(target_format.into())],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                ..Default::default()
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Always,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
-
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Texture Sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
-        CopyTextureRenderer {
-            pipeline,
-            bind_group_layout,
-            sampler,
-            bind_group: None, // Initialize with no bind group
-        }
-    }
-
-    pub fn prepare(&mut self, device: &wgpu::Device, texture: &wgpu::Texture) {
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(
-                        &texture.create_view(&Default::default()),
-                    ),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
-                },
-            ],
-            label: None,
-        });
-        self.bind_group = Some(bind_group);
-    }
-
-    pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
-        if let Some(bindgroup) = self.bind_group.as_ref() {
-            render_pass.set_pipeline(&self.pipeline); // Set the appropriate pipeline
-            render_pass.set_bind_group(0, bindgroup, &[]);
-            render_pass.draw(0..6, 0..1); // Draw a full-screen quad
-        }
-    }
-}
-
 pub struct LightingRenderer {
     // surface textures
     mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
-    copy_texture_renderer: Arc<RwLock<CopyTextureRenderer>>,
+    lines_renderer: Arc<RwLock<LinesRenderer>>,
+    copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
     frame_buffers: Arc<RwLock<FrameBufferMap>>,
 }
 
@@ -162,7 +35,8 @@ pub struct LightingRenderer {
 struct PerFrameCallback {
     rect: [f32; 4],
     mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
-    copy_texture_renderer: Arc<RwLock<CopyTextureRenderer>>,
+    lines_renderer: Arc<RwLock<LinesRenderer>>,
+    copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
     frame_buffers: Arc<RwLock<FrameBufferMap>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
@@ -261,6 +135,16 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     );
                 }
                 {
+                    let mut renderer = self.lines_renderer.write().unwrap();
+                    renderer.prepare(
+                        device,
+                        queue,
+                        &render_items,
+                        &self.world_to_camera,
+                        &self.camera_to_clip,
+                    );
+                }
+                {
                     // Prepare the copy renderer
                     let mut renderer = self.copy_texture_renderer.write().unwrap();
                     renderer.prepare(device, color_texture);
@@ -296,6 +180,10 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     let renderer = self.mesh_renderer.read().unwrap();
                     renderer.paint(&mut rpass);
                 }
+                {
+                    let renderer = self.lines_renderer.read().unwrap();
+                    renderer.paint(&mut rpass);
+                }
             }
         }
 
@@ -319,10 +207,12 @@ impl LightingRenderer {
         let render_state = cc.wgpu_render_state.as_ref()?;
         let device = &render_state.device;
         let mesh_renderer = LightingMeshRenderer::new(device, INTERNAL_TEXTURE_FORMAT);
-        let copy_texture_renderer = CopyTextureRenderer::new(device, render_state.target_format);
+        let lines_renderer = LinesRenderer::new(device, INTERNAL_TEXTURE_FORMAT);
+        let copy_texture_renderer = LinearToSrgbRenderer::new(device, render_state.target_format);
         // Create the lighting renderer with the mesh and lines renderers
         return Some(LightingRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
+            lines_renderer: Arc::new(RwLock::new(lines_renderer)),
             copy_texture_renderer: Arc::new(RwLock::new(copy_texture_renderer)),
             frame_buffers: Arc::new(RwLock::new(HashMap::new())),
         });
@@ -343,6 +233,7 @@ impl LightingRenderer {
             PerFrameCallback {
                 rect: [rect.min.x, rect.min.y, rect.max.x, rect.max.y],
                 mesh_renderer: self.mesh_renderer.clone(),
+                lines_renderer: self.lines_renderer.clone(),
                 copy_texture_renderer: self.copy_texture_renderer.clone(),
                 frame_buffers: self.frame_buffers.clone(),
                 node: node.clone(),

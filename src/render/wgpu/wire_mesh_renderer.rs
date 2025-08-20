@@ -171,11 +171,7 @@ impl WireMeshRenderer {
 }
 
 impl WireMeshRenderer {
-    pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
-        let device = &wgpu_render_state.device;
-        //let queue = &wgpu_render_state.queue;
-
+    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Wireframe Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_wire_mesh.wgsl").into()),
@@ -246,7 +242,7 @@ impl WireMeshRenderer {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
-                targets: &[Some(wgpu_render_state.target_format.into())],
+                targets: &[Some(target_format.into())],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: primitive,
@@ -303,7 +299,7 @@ impl WireMeshRenderer {
             }],
         });
 
-        return Some(WireMeshRenderer {
+        return WireMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -312,6 +308,6 @@ impl WireMeshRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
-        });
+        };
     }
 }

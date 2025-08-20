@@ -204,11 +204,7 @@ impl SolidMeshRenderer {
 }
 
 impl SolidMeshRenderer {
-    pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
-        let wgpu_render_state = cc.wgpu_render_state.as_ref()?;
-        let device = &wgpu_render_state.device;
-        //let queue = &wgpu_render_state.queue;
-
+    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Solid Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_solid_mesh.wgsl").into()),
@@ -299,7 +295,7 @@ impl SolidMeshRenderer {
                 entry_point: Some("fs_main"),
                 //targets: &[Some(wgpu_render_state.target_format.into())],
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu_render_state.target_format,
+                    format: target_format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -362,7 +358,7 @@ impl SolidMeshRenderer {
             }],
         });
 
-        return Some(SolidMeshRenderer {
+        return SolidMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -371,6 +367,6 @@ impl SolidMeshRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
-        });
+        };
     }
 }

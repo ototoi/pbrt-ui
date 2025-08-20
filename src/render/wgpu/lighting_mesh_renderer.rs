@@ -543,7 +543,7 @@ impl LightingMeshRenderer {
 }
 
 impl LightingMeshRenderer {
-    pub fn new<'a>(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
         let global_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Global Bind Group Layout"),
