@@ -1,6 +1,7 @@
 pub mod light;
 pub mod lighting_mesh_renderer;
 pub mod lighting_renderer;
+pub mod linear_to_srgb_renderer;
 pub mod lines;
 pub mod lines_renderer;
 pub mod material;
@@ -15,4 +16,3 @@ pub mod solid_mesh_renderer;
 pub mod solid_renderer;
 pub mod wire_mesh_renderer;
 pub mod wire_renderer;
-pub mod linear_to_srgb_renderer;
