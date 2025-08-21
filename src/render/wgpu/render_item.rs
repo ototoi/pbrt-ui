@@ -5,7 +5,7 @@ use super::mesh::RenderMesh;
 use super::render_gizmo_item::get_render_axis_gizmo_items;
 use super::render_gizmo_item::get_render_grid_gizmo_items;
 use super::render_light_item::get_render_light_gizmo_item;
-use super::render_light_item::get_render_light_item;
+use super::render_light_item::get_render_light_items;
 use super::render_mesh_item::get_render_mesh_item;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
@@ -160,15 +160,16 @@ pub fn get_render_items(
             }
             SceneItemType::Light => {
                 if mode == RenderMode::Lighting {
-                    if let Some(render_item) = get_render_light_item(
+                    let items = get_render_light_items(
                         device,
                         queue,
                         item,
                         mode,
                         &resource_manager,
                         &mut render_resource_manager,
-                    ) {
-                        render_items.push(Arc::new(render_item));
+                    );
+                    for item in items {
+                        render_items.push(Arc::new(item));
                     }
                 }
                 if let Some(render_item) = get_render_light_gizmo_item(
