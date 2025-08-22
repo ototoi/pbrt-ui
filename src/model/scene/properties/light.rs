@@ -3,15 +3,15 @@ use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::collections::HashMap;
 
-pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 25] = [
+pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 27] = [
     ("point", "color", "I", "1.0 1.0 1.0", ""),
     ("point", "color", "scale", "1.0 1.0 1.0", ""),
     ("point", "point", "from", "0.0 0.0 0.0", ""),
     //
     ("spot", "color", "I", "1.0 1.0 1.0", ""),
     ("spot", "color", "scale", "1.0 1.0 1.0", ""),
-    ("spot", "float", "coneangle", "45.0", "0.0 90.0"),
-    ("spot", "float", "conedeltaangle", "5.0", "0.0 45.0"), //if conedelta
+    ("spot", "float", "coneangle", "30.0", "0.0 89.0"),
+    ("spot", "float", "conedeltaangle", "5.0", "0.0 44.0"), //if conedelta
     ("spot", "point", "from", "0.0 0.0 0.0", ""),
     ("spot", "point", "to", "0.0 0.0 1.0", ""),
     ("goniometric", "color", "L", "1.0 1.0 1.0", ""),
@@ -37,6 +37,8 @@ pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 25] = [
     ("diffuse", "color", "scale", "1.0 1.0 1.0", ""),
     ("diffuse", "integer", "nsamples", "1", "1 100000"),
     ("diffuse", "bool", "twosided", "false", ""),
+    ("diffuse", "float", "coneangle", "30.0", "0.0 89.0"),
+    ("diffuse", "float", "conedeltaangle", "5.0", "0.0 44.0"),
 ];
 
 fn parse_floats(value: &str) -> Vec<f32> {

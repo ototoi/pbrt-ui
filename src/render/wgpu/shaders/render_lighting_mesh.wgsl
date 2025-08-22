@@ -12,20 +12,21 @@ struct LocalUniforms {
 }
 
 struct LightUniforms {
-    num_point_lights: u32,
-    num_spot_lights: u32,
     num_directional_lights: u32,
+    num_sphere_lights: u32,
+    num_disk_lights: u32,
     _pad1: u32, // Padding for alignment
 }
 
-struct PointLight {
+struct SphereLight {
     position: vec4<f32>, // Position in world space
     intensity: vec4<f32>, // Light intensity
-    range: vec4<f32>, // Range of the light (min, max)
-    _pad1: vec4<f32>, // Padding for alignment
+    radius: f32,
+    range: f32,
+    _pad1: vec2<f32>, // Padding for alignment
 }
 
-struct SpotLight {
+struct DiskLight {
     position: vec4<f32>, // Position in world space
     direction: vec4<f32>, // Direction of the spotlight
     intensity: vec4<f32>, // Light intensity
@@ -58,11 +59,11 @@ var<uniform> light_uniforms: LightUniforms;
 
 @group(2)
 @binding(1)
-var<storage, read> point_lights: array<PointLight>;
+var<storage, read> sphere_lights: array<SphereLight>;
 
 @group(2)
 @binding(2)
-var<storage, read> spot_lights: array<SpotLight>;
+var<storage, read> disk_lights: array<DiskLight>;
 
 @group(2)
 @binding(3)
@@ -114,32 +115,45 @@ fn matte(wi: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
-    let camera_to_object = normalize(in.w_position - global_uniforms.camera_position.xyz);
+    let camera_to_surface = normalize(in.w_position - global_uniforms.camera_position.xyz);
     var normal = normalize(in.w_normal);
-    if dot(normal, camera_to_object) > 0.0 {
+    if dot(normal, camera_to_surface) > 0.0 {
         normal = -normal;
     }
     var tangent = normalize(in.w_tangent);
     var bitangent = normalize(cross(normal, tangent));
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
     let tbn = transpose(mat3x3<f32>(tangent, bitangent, normal));//tangent space matrix
-    let wo = tbn * normalize(-camera_to_object);// object to camera vector
+    let wo = tbn * -camera_to_surface;// object to camera vector
 
     var color = vec3<f32>(0.0);
-    for (var i: u32 = 0; i < light_uniforms.num_point_lights; i++) {
-        let light = point_lights[i];
+    for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
+        let light = directional_lights[i];
         let intensity = light.intensity.rgb;
-        let r0 = light.range[0];
-        let r1 = light.range[1];
-        var light_to_object = in.w_position - light.position.xyz;
-        var distance = length(light_to_object);
-        light_to_object = normalize(light_to_object);
-        let attenuation = 1.0 / pow(max((distance - r0), 1e-6), 2.0); // Simple quadratic attenuation
-        var wi = tbn * -light_to_object;
+        var wi = tbn * -normalize(light.direction.xyz);
+        color += matte(wi, wo) * intensity;
+    }
+    for (var i: u32 = 0; i < light_uniforms.num_sphere_lights; i++) {
+        let light = sphere_lights[i];
+        let intensity = light.intensity.rgb;
+        let radius = light.radius;
+
+        var light_to_surface = in.w_position - light.position.xyz;
+        if radius > 0.0 {
+            let l = light_to_surface;
+            let r = reflect(camera_to_surface, normal);
+            let center_to_ray = dot(l, r) * r - l;
+            let closest_point = light.position.xyz + center_to_ray * saturate(radius / length(center_to_ray));
+            light_to_surface = in.w_position - closest_point;
+        }
+        let distance = length(light_to_surface);
+        let attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
+        var wi = tbn * -normalize(light_to_surface);
         color += matte(wi, wo) * intensity * attenuation;
     }
-    for (var i: u32 = 0; i < light_uniforms.num_spot_lights; i++) {
-        let light = spot_lights[i];
+    for (var i: u32 = 0; i < light_uniforms.num_disk_lights; i++) {
+        let light = disk_lights[i];
+        /*
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);
         let intensity = light.intensity.rgb;
@@ -147,21 +161,22 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let r1 = light.range[1];
         let a0 = cos(light.inner_angle);
         let a1 = cos(light.outer_angle);
-        var light_to_object = in.w_position - light.position.xyz;
-        var distance = length(light_to_object);
-        light_to_object = normalize(light_to_object);
-        let cos_theta = max(dot(light_to_object, direction), 0.0);
+        var light_to_surface = in.w_position - light.position.xyz;
+        var distance = length(light_to_surface);
+        var z_distance = dot(light_to_surface, direction);
+        light_to_surface = normalize(light_to_surface);
+        let cos_theta = max(dot(light_to_surface, direction), 0.0);
         var falloff = select(step(a1, cos_theta), pow(clamp((cos_theta - a1) / (a0 - a1), 0.0, 1.0), 4.0), (a0 - a1) > 0.0);//select(FALSE, TRUE, condition)
-        let attenuation = 1.0 / pow(max((distance - r0), 1e-6), 2.0); // Simple quadratic attenuation
-        var wi = tbn * -light_to_object;
+        let attenuation = select(
+            1.0 / pow(distance, 2.0), 
+            1.0 / pow(max(z_distance - r0, 1e-6), 2.0) * select(0.0, 1.0, r0 < z_distance),
+            r0 > 0.0
+        ); // Simple quadratic attenuation
+        var wi = tbn * -light_to_surface;
         color += matte(wi, wo) * intensity * attenuation * falloff;
+        */
     }
-    for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
-        let light = directional_lights[i];
-        let intensity = light.intensity.rgb;
-        var wi = tbn * -normalize(light.direction.xyz);
-        color += matte(wi, wo) * intensity;
-    }
+    
 
     return vec4<f32>(color, 1.0);
 }

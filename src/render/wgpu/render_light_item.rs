@@ -25,7 +25,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
-use serde::de;
 use uuid::Uuid;
 
 #[inline]
@@ -183,7 +182,7 @@ fn get_point_light_item(
             edition: edition.clone(),
             light_type: RenderLightType::Point,
             intensity: intensity,
-            range: [0.0, radius],
+            range: [0.0, radius + 10.0],
             ..Default::default()
         };
         let render_light = Arc::new(render_light);
@@ -288,7 +287,7 @@ fn get_spot_light_item(
     return None; // Point lights are not yet supported
 }
 
-fn get_area_light_item_from_sphere(
+fn get_sphere_light_item(
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
@@ -321,17 +320,24 @@ fn get_area_light_item_from_sphere(
         .as_property_map()
         .find_one_float("radius")
         .unwrap_or(1.0);
-    let z_min = shape
+    /*
+    let zmin = shape
         .as_property_map()
-        .find_one_float("z_min")
+        .find_one_float("zmin")
         .unwrap_or(-1.0);
-    let z_max = shape
+    let zmax = shape
         .as_property_map()
-        .find_one_float("z_max")
+        .find_one_float("zmax")
         .unwrap_or(1.0);
+    */
 
     //self.phi_max * self.radius * (self.z_max - self.z_min)
-    let area = radius * (z_max - z_min); // Assuming a sphere for area calculation
+    let area = if radius > 0.0 {
+        //std::f32::consts::PI * radius * (zmax - zmin) // Area of the sphere segment
+        2.0 * std::f32::consts::PI * radius // Area of the sphere
+    } else {
+        1.0 // Default area if radius is not specified
+    };
 
     let props = light.as_property_map();
     let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
@@ -346,7 +352,7 @@ fn get_area_light_item_from_sphere(
     let render_light = RenderLight {
         id,
         edition: edition.clone(),
-        light_type: RenderLightType::Point,
+        light_type: RenderLightType::Sphere,
         intensity: intensity,
         range: [radius, radius + 10.0],
         ..Default::default()
@@ -361,11 +367,11 @@ fn get_area_light_item_from_sphere(
     return Some(RenderItem::Light(render_item));
 }
 
-fn get_area_light_item_from_disk(
+fn get_disk_light_item(
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
-    _resource_manager: &ResourceManager,
+    resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let shape_type = shape.get_type();
@@ -390,9 +396,58 @@ fn get_area_light_item_from_disk(
         }
     }
 
-    // Assuming a disk shape for area calculation
+    let radius = shape
+        .as_property_map()
+        .find_one_float("radius")
+        .unwrap_or(1.0);
 
-    return None;
+    let area = if radius > 0.0 {
+        std::f32::consts::PI * radius * radius // Area of the disk
+    } else {
+        1.0 // Default area if radius is not specified
+    };
+    //let area = 1.0;////radius * radius; // Assuming a disk for area calculation
+
+    let props = light.as_property_map();
+    let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+    let outer_angle = props
+        .find_one_float("coneangle")
+        .unwrap_or(30.0)
+        .to_radians();
+
+    //let area = area * (1.0 - f32::powf(outer_angle/std::f32::consts::PI, 2.0));
+
+    let position = Vector3::new(0.0, 0.0, 0.0); // Center of the disk
+    let n = Vector3::new(0.0, 0.0, -1.0); // Normal of the disk
+
+    let intensity = [
+        area * l[0] * scale[0],
+        area * l[1] * scale[1],
+        area * l[2] * scale[2],
+    ];
+
+    let render_light = RenderLight {
+        id,
+        edition: edition.clone(),
+        light_type: RenderLightType::Disk,
+        position: [position.x, position.y, position.z], // Position is not used for spot lights
+        direction: [n.x, n.y, n.z],                     // Direction is not used for spot lights
+        intensity: intensity,
+        range: [radius, 10.0],
+        angle: [outer_angle, outer_angle],
+        center: [0.0, 0.0, 0.0], // Center is not used for disk lights
+        ..Default::default()
+    };
+    let render_light = Arc::new(render_light);
+    render_resource_manager.add_light(&render_light);
+
+    let render_item = RenderLightItem {
+        light: render_light.clone(),
+        matrix: glam::Mat4::from(matrix),
+    };
+    return Some(RenderItem::Light(render_item));
 }
 
 fn check_square_mesh(indices0: &[i32; 3], indices1: &[i32; 3]) -> Option<[i32; 4]> {
@@ -416,13 +471,13 @@ fn check_square_mesh(indices0: &[i32; 3], indices1: &[i32; 3]) -> Option<[i32; 4
     return None; // Not a square mesh
 }
 
-fn get_area_light_items_from_mesh(
+fn get_rectangle_light_item(
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderItem> {
+) -> Option<RenderItem> {
     let shape_type = shape.get_type();
     assert!(
         shape_type == "trianglemesh" || shape_type == "plymesh",
@@ -435,61 +490,11 @@ fn get_area_light_items_from_mesh(
     let shape_edition = shape.get_edition();
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
-    let props = light.as_property_map();
-    let two_sided = props
-                        .find_one_bool("twosided")
-                        .unwrap_or(false); // Default to false if not specified
+    return None;
+}
 
-    let mut render_items = Vec::new();
-    if let Some(render_light) = render_resource_manager.get_light(id) {
-        if render_light.edition == edition {
-            let render_item = RenderLightItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(matrix),
-            };
-            render_items.push(RenderItem::Light(render_item));
-
-            if two_sided {
-                let center = Vector3::new(
-                    render_light.center[0],
-                    render_light.center[1],
-                    render_light.center[2],
-                );
-                let position = Vector3::new(
-                    render_light.position[0],
-                    render_light.position[1],
-                    render_light.position[2],
-                );
-                let d = center - position; // Direction from position to center
-                let position = center + d; // Position on the other side
-                // Create a second light for the other side
-                let render_light = RenderLight {
-                    id,
-                    edition: edition.clone(),
-                    light_type: RenderLightType::Spot,
-                    position: [position.x, position.y, position.z], // Position is not used for spot lights
-                    direction: [-render_light.direction[0], -render_light.direction[1], -render_light.direction[2]], // Inverted direction for two-sided
-                    intensity: render_light.intensity,
-                    range: render_light.range,
-                    angle: render_light.angle,
-                    center: render_light.center,
-                    ..Default::default()
-                };
-                let render_light = Arc::new(render_light);
-                //render_resource_manager.add_light(&render_light);
-
-                let render_item = RenderLightItem {
-                    light: render_light.clone(),
-                    matrix: glam::Mat4::from(matrix),
-                };
-                render_items.push(RenderItem::Light(render_item));
-            }
-
-            return render_items; // Already exists, no need to create again
-        }
-    }
-
-    if let Some(mesh_data) = create_mesh_data(shape) {
+/*
+if let Some(mesh_data) = create_mesh_data(shape) {
         let num_face = mesh_data.indices.len() / 3;
         if num_face == 2 {
             let indices0: [i32; 3] = mesh_data.indices[0..3].try_into().unwrap();
@@ -570,10 +575,10 @@ fn get_area_light_items_from_mesh(
                     l = r / sin(outer_angle)
                     x = r / sin(outer_angle) * cos(outer_angle)
                     x = r * cos(outer_angle) / sin(outer_angle)
-                    x = r * tan(outer_angle)
+                    x = r / tan(outer_angle)
                      */
-                    let x = r * f32::tan(outer_angle);
-                    let position = center - n * x; //
+                    let h = r / f32::tan(outer_angle);
+                    let position = center - n * h; //
                     let direction = n;
 
                     let render_light = RenderLight {
@@ -583,7 +588,7 @@ fn get_area_light_items_from_mesh(
                         position: [position.x, position.y, position.z], // Position is not used for spot lights
                         direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
                         intensity: intensity,
-                        range: [0.0, 10.0],
+                        range: [h, 10.0],
                         angle: [inner_angle, outer_angle],
                         center: [center.x, center.y, center.z],
                         ..Default::default()
@@ -626,9 +631,8 @@ fn get_area_light_items_from_mesh(
                 }
             }
         }
-    }
-    return render_items; // Mesh shapes are not yet supported for area lights
-}
+
+*/
 
 fn get_area_light_item_core(
     light: &Light,
@@ -636,7 +640,7 @@ fn get_area_light_item_core(
     matrix: &Matrix4x4,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderItem> {
+) -> Option<RenderItem> {
     let light_type = light.get_type();
     let shape_type = shape.get_type();
     assert!(
@@ -644,54 +648,46 @@ fn get_area_light_item_core(
         "Expected light type to be 'diffuse' or 'area', found: {}",
         light_type
     );
-    let mut render_items = Vec::new();
     match shape_type.as_str() {
         "sphere" => {
-            if let Some(item) = get_area_light_item_from_sphere(
-                light,
-                shape,
-                matrix,
-                resource_manager,
-                render_resource_manager,
-            ) {
-                render_items.push(item);
-            }
-        }
-        "disk" => {
-            if let Some(item) = get_area_light_item_from_disk(
-                light,
-                shape,
-                matrix,
-                resource_manager,
-                render_resource_manager,
-            ) {
-                render_items.push(item);
-            }
-        }
-        "trianglemesh" | "plymesh" => {
-            let items = get_area_light_items_from_mesh(
+            return get_sphere_light_item(
                 light,
                 shape,
                 matrix,
                 resource_manager,
                 render_resource_manager,
             );
-            if !items.is_empty() {
-                render_items.extend(items);
-            }
+        }
+        "disk" => {
+            return get_disk_light_item(
+                light,
+                shape,
+                matrix,
+                resource_manager,
+                render_resource_manager,
+            );
+        }
+        "trianglemesh" | "plymesh" => {
+            return get_rectangle_light_item(
+                light,
+                shape,
+                matrix,
+                resource_manager,
+                render_resource_manager,
+            );
         }
         _ => {
-            // Handle other shape types if needed
+            // Unsupported shape type for area light
         }
     }
-    return render_items; // Area lights are not yet supported
+    return None; // No area light item created
 }
 
-fn get_area_light_items(
+fn get_area_light_item(
     item: &SceneItem,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderItem> {
+) -> Option<RenderItem> {
     let node = &item.node;
     let node = node.read().unwrap();
     let components = (
@@ -715,7 +711,7 @@ fn get_area_light_items(
         }
         _ => {}
     }
-    return vec![]; 
+    return None;
 }
 
 fn get_lines_material(
@@ -813,7 +809,7 @@ pub fn get_render_light_item(
                 return get_spot_light_item(item, resource_manager, render_resource_manager); // Spot lights are not yet supported
             }
             "diffuse" | "area" => {
-                //return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
+                return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
             }
             _ => {
                 // Handle unknown or unsupported light types
@@ -822,39 +818,6 @@ pub fn get_render_light_item(
         }
     }
     return None; // Placeholder for light retrieval logic
-}
-pub fn get_render_light_items(
-    _device: &wgpu::Device,
-    _queue: &wgpu::Queue,
-    item: &SceneItem,
-    _mode: RenderMode,
-    resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderItem> {
-    let mut render_items = Vec::new();
-    if let Some(light_type) = get_light_type(&item.node) {
-        match light_type.as_str() {
-            "diffuse" | "area" => {
-                let items = get_area_light_items(item, resource_manager, render_resource_manager);
-                if !items.is_empty() {
-                    render_items.extend(items);
-                }
-            }
-            _ => {
-                if let Some(render_item) = get_render_light_item(
-                    _device,
-                    _queue,
-                    item,
-                    _mode,
-                    resource_manager,
-                    render_resource_manager,
-                ) {
-                    render_items.push(render_item);
-                }
-            }
-        }
-    }
-    return render_items; // No additional light items to render
 }
 
 fn get_point_light_offset(node: &Arc<RwLock<Node>>) -> Option<Vector3> {

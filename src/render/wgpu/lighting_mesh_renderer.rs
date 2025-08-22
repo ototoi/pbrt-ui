@@ -16,8 +16,8 @@ use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lights
-const MAX_SPOT_LIGHT_NUM: usize = 32; // Maximum number of spot lights
-const MAX_POINT_LIGHT_NUM: usize = 256; // Maximum number of point lights
+const MAX_SPHERE_LIGHT_NUM: usize = 256; // Maximum number of point lights
+const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const TEST_PIPELINE_ID: &str = "basic_pipeline";
 
 #[repr(C)]
@@ -43,9 +43,9 @@ struct LocalUniforms {
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct LightUniforms {
-    num_point_lights: u32,       // Number of point lights
-    num_spot_lights: u32,        // Number of spot lights
     num_directional_lights: u32, // Number of directional lights
+    num_sphere_lights: u32,      // Number of point lights
+    num_disk_lights: u32,        // Number of spot lights
     _pad1: u32,                  // Padding to ensure alignment
 }
 
@@ -58,16 +58,17 @@ struct DirectionalLight {
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-struct PointLight {
+struct SphereLight {
     position: [f32; 4],  // Position of the light // 4 * 4 = 16
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
-    range: [f32; 4],     // Range of the light // 4 * 4 = 8
-    _pad1: [f32; 4],     // Padding to ensure alignment
+    radius: f32,         // Radius of the light // 1 * 4 = 4
+    range: f32,          // Range of the light // 1 * 4 = 4
+    _pad1: [f32; 2],     // Range of the light // 4 * 4 = 8
 }
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-struct SpotLight {
+struct DiskLight {
     position: [f32; 4],  // Position of the light // 4 * 4 = 16
     direction: [f32; 4], // Direction of the light // 4 * 4 = 16
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
@@ -297,7 +298,9 @@ impl LightingMeshRenderer {
                 .iter()
                 .filter(|item| {
                     if let RenderItem::Light(item) = item.as_ref() {
-                        if item.light.light_type == RenderLightType::Point {
+                        if item.light.light_type == RenderLightType::Point
+                            || item.light.light_type == RenderLightType::Sphere
+                        {
                             return true;
                         }
                     }
@@ -305,14 +308,12 @@ impl LightingMeshRenderer {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            // Currently, we do not handle point lights in this renderer.
-            // You can implement similar logic as above for point lights if needed.
             let num_light_items = light_items.len();
-            light_uniforms.num_point_lights = num_light_items as u32;
+            light_uniforms.num_sphere_lights = num_light_items as u32;
             for (i, item) in light_items.iter().enumerate() {
                 //println!("Point light item: {:?}", item);
                 if let RenderItem::Light(light_item) = item.as_ref() {
-                    if i < MAX_POINT_LIGHT_NUM {
+                    if i < MAX_SPHERE_LIGHT_NUM {
                         let matrix = light_item.matrix; //local_to_world
                         let position = light_item.light.position;
                         let position = matrix.transform_point3(glam::vec3(
@@ -323,15 +324,16 @@ impl LightingMeshRenderer {
                         //println!("Point light position: {:?}", position);
                         let intensity = light_item.light.intensity;
                         let range = light_item.light.range;
-                        let light = PointLight {
+                        let light = SphereLight {
                             position: [position.x, position.y, position.z, 1.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            range: [range[0], range[1], 0.0, 0.0], // min and max range
+                            radius: range[0],
+                            range: range[1],
                             ..Default::default()
                         };
                         queue.write_buffer(
                             &self.point_light_buffer,
-                            (i * size_of::<PointLight>()) as wgpu::BufferAddress,
+                            (i * size_of::<SphereLight>()) as wgpu::BufferAddress,
                             bytemuck::bytes_of(&light),
                         );
                     }
@@ -345,7 +347,9 @@ impl LightingMeshRenderer {
                 .iter()
                 .filter(|item| {
                     if let RenderItem::Light(item) = item.as_ref() {
-                        if item.light.light_type == RenderLightType::Spot {
+                        if item.light.light_type == RenderLightType::Spot
+                            || item.light.light_type == RenderLightType::Disk
+                        {
                             return true;
                         }
                     }
@@ -353,14 +357,12 @@ impl LightingMeshRenderer {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            // Currently, we do not handle spot lights in this renderer.
-            // You can implement similar logic as above for spot lights if needed.
             let num_light_items = light_items.len();
-            light_uniforms.num_spot_lights = num_light_items as u32;
+            light_uniforms.num_disk_lights = num_light_items as u32;
             for (i, item) in light_items.iter().enumerate() {
                 //println!("Point light item: {:?}", item);
                 if let RenderItem::Light(light_item) = item.as_ref() {
-                    if i < MAX_SPOT_LIGHT_NUM {
+                    if i < MAX_DISK_LIGHT_NUM {
                         let matrix = light_item.matrix; //local_to_world
                         let position = light_item.light.position;
                         let position = matrix.transform_point3(glam::vec3(
@@ -377,7 +379,7 @@ impl LightingMeshRenderer {
                         //println!("Point light position: {:?}", position);
                         let intensity = light_item.light.intensity;
                         let range = light_item.light.range;
-                        let light = SpotLight {
+                        let light = DiskLight {
                             position: [position.x, position.y, position.z, 1.0],
                             direction: [direction.x, direction.y, direction.z, 0.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
@@ -388,7 +390,7 @@ impl LightingMeshRenderer {
                         };
                         queue.write_buffer(
                             &self.spot_light_buffer,
-                            (i * size_of::<SpotLight>()) as wgpu::BufferAddress,
+                            (i * size_of::<DiskLight>()) as wgpu::BufferAddress,
                             bytemuck::bytes_of(&light),
                         );
                     }
@@ -575,9 +577,9 @@ impl LightingMeshRenderer {
             });
 
         let point_light_buffer_size =
-            (MAX_POINT_LIGHT_NUM * size_of::<PointLight>()) as wgpu::BufferAddress;
+            (MAX_SPHERE_LIGHT_NUM * size_of::<SphereLight>()) as wgpu::BufferAddress;
         let spot_light_buffer_size =
-            (MAX_SPOT_LIGHT_NUM * size_of::<SpotLight>()) as wgpu::BufferAddress;
+            (MAX_DISK_LIGHT_NUM * size_of::<DiskLight>()) as wgpu::BufferAddress;
         let directional_light_buffer_size =
             (MAX_DIRECTIONAL_LIGHT_NUM * size_of::<DirectionalLight>()) as wgpu::BufferAddress;
         let light_bind_group_layout =
