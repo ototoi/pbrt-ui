@@ -7,6 +7,10 @@ pub enum RenderLightType {
     Directional = 0,
     Point = 1,
     Spot = 2,
+    Sphere = 3,
+    Disk = 4,
+    Rectangle = 5,
+    Infinite = 6,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -19,6 +23,7 @@ pub struct RenderLight {
     pub intensity: [f32; 3], // RGB intensity
     pub range: [f32; 2],     // For point and spot lights
     pub angle: [f32; 2],     // For spot lights inner and outer angles
+    pub center: [f32; 3],    // For spot lights center position
 }
 
 impl RenderLight {

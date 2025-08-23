@@ -250,6 +250,14 @@ impl ParamSet {
         }
         return None;
     }
+    pub fn find_one_bool(&self, key: &str) -> Option<bool> {
+        if let Some(Property::Bools(v)) = self.get(key) {
+            if v.len() > 0 {
+                return Some(v[0]);
+            }
+        }
+        return None;
+    }
     pub fn find_one_string(&self, key: &str) -> Option<String> {
         if let Some(Property::Strings(v)) = self.get(key) {
             if v.len() > 0 {
