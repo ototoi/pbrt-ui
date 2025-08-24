@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
-pub struct RenderDirectionalLight {
+pub struct DirectionalRenderLight {
     pub id: Uuid,
     pub edition: String,
     pub direction: [f32; 3],
@@ -9,7 +9,7 @@ pub struct RenderDirectionalLight {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct RenderSphereLight {
+pub struct SphereRenderLight {
     pub id: Uuid,
     pub edition: String,
     pub position: [f32; 3],
@@ -18,7 +18,7 @@ pub struct RenderSphereLight {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct RenderDiskLight {
+pub struct DiskRenderLight {
     pub id: Uuid,
     pub edition: String,
     pub position: [f32; 3],
@@ -30,7 +30,7 @@ pub struct RenderDiskLight {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct RenderRectLight {
+pub struct RectRenderLight {
     pub id: Uuid,
     pub edition: String,
     pub position: [f32; 3],
@@ -42,10 +42,10 @@ pub struct RenderRectLight {
 
 #[derive(Debug, Clone)]
 pub enum RenderLight {
-    Directional(RenderDirectionalLight),
-    Sphere(RenderSphereLight),
-    Disk(RenderDiskLight),
-    Rect(RenderRectLight),
+    Directional(DirectionalRenderLight),
+    Sphere(SphereRenderLight),
+    Disk(DiskRenderLight),
+    Rect(RectRenderLight),
     // Add other light types as needed
 }
 

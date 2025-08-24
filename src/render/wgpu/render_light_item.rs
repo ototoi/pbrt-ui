@@ -1,8 +1,8 @@
-use super::light::RenderDirectionalLight;
-use super::light::RenderDiskLight;
+use super::light::DirectionalRenderLight;
+use super::light::DiskRenderLight;
 use super::light::RenderLight;
-use super::light::RenderRectLight;
-use super::light::RenderSphereLight;
+use super::light::RectRenderLight;
+use super::light::SphereRenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
@@ -111,7 +111,7 @@ fn get_directional_light_item(
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
-        let render_light = RenderDirectionalLight {
+        let render_light = DirectionalRenderLight {
             id,
             edition: edition.clone(),
             direction: direction,
@@ -179,7 +179,7 @@ fn get_point_light_item(
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
 
-        let render_light = RenderSphereLight {
+        let render_light = SphereRenderLight {
             id,
             edition: edition.clone(),
             intensity: intensity,
@@ -265,7 +265,7 @@ fn get_spot_light_item(
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
         let radius = 10.0; //todo: get radius from properties
-        let render_light = RenderDiskLight {
+        let render_light = DiskRenderLight {
             id,
             edition: edition.clone(),
             position: [position.x, position.y, position.z], // Position is not used for spot lights
@@ -349,7 +349,7 @@ fn get_sphere_light_item(
         area * l[2] * scale[2],
     ];
 
-    let render_light = RenderSphereLight {
+    let render_light = SphereRenderLight {
         id,
         edition: edition.clone(),
         position: [0.0, 0.0, 0.0], // Position is not used for sphere lights
@@ -427,7 +427,7 @@ fn get_disk_light_item(
         area * l[2] * scale[2],
     ];
 
-    let render_light = RenderDiskLight {
+    let render_light = DiskRenderLight {
         id,
         edition: edition.clone(),
         position: [position.x, position.y, position.z], // Position is not used for spot lights
