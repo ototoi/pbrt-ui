@@ -1,5 +1,8 @@
+use super::light::RenderDirectionalLight;
+use super::light::RenderDiskLight;
 use super::light::RenderLight;
-use super::light::RenderLightType;
+use super::light::RenderRectLight;
+use super::light::RenderSphereLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
@@ -75,7 +78,7 @@ fn get_directional_light_item(
         let light_type = light.get_type();
         let edition = light.get_edition();
         if let Some(render_light) = render_resource_manager.get_light(id) {
-            if render_light.edition == edition {
+            if render_light.get_edition() == edition {
                 let render_item = RenderLightItem {
                     light: render_light.clone(),
                     matrix: glam::Mat4::from(item.matrix),
@@ -108,15 +111,14 @@ fn get_directional_light_item(
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
-        let render_light = RenderLight {
+        let render_light = RenderDirectionalLight {
             id,
             edition: edition.clone(),
-            light_type: RenderLightType::Directional,
             direction: direction,
             intensity: intensity,
             ..Default::default()
         };
-        let render_light = Arc::new(render_light);
+        let render_light = Arc::new(RenderLight::Directional(render_light));
         render_resource_manager.add_light(&render_light);
         let render_item = RenderLightItem {
             light: render_light.clone(),
@@ -143,7 +145,7 @@ fn get_point_light_item(
         let edition = light.get_edition();
         let props = light.as_property_map();
         if let Some(render_light) = render_resource_manager.get_light(id) {
-            if render_light.edition == edition {
+            if render_light.get_edition() == edition {
                 let mut from = props.get_floats("from");
                 if from.len() != 3 {
                     from = vec![0.0, 0.0, 0.0];
@@ -176,16 +178,15 @@ fn get_point_light_item(
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
-        let radius = 10.0; //todo: get radius from properties
-        let render_light = RenderLight {
+
+        let render_light = RenderSphereLight {
             id,
             edition: edition.clone(),
-            light_type: RenderLightType::Point,
             intensity: intensity,
-            range: [0.0, radius + 10.0],
+            radius: 0.0,
             ..Default::default()
         };
-        let render_light = Arc::new(render_light);
+        let render_light = Arc::new(RenderLight::Sphere(render_light));
         render_resource_manager.add_light(&render_light);
 
         let render_item = RenderLightItem {
@@ -212,7 +213,7 @@ fn get_spot_light_item(
         let light_type = light.get_type();
         let edition = light.get_edition();
         if let Some(render_light) = render_resource_manager.get_light(id) {
-            if render_light.edition == edition {
+            if render_light.get_edition() == edition {
                 let render_item = RenderLightItem {
                     light: render_light.clone(),
                     matrix: glam::Mat4::from(item.matrix),
@@ -264,18 +265,17 @@ fn get_spot_light_item(
 
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
         let radius = 10.0; //todo: get radius from properties
-        let render_light = RenderLight {
+        let render_light = RenderDiskLight {
             id,
             edition: edition.clone(),
-            light_type: RenderLightType::Spot,
             position: [position.x, position.y, position.z], // Position is not used for spot lights
             direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
             intensity: intensity,
-            range: [0.0, radius],
-            angle: [inner_angle, outer_angle],
-            ..Default::default()
+            radius: radius,
+            inner_angle, // Inner radius for spot lights
+            outer_angle, // Outer radius for spot lights
         };
-        let render_light = Arc::new(render_light);
+        let render_light = Arc::new(RenderLight::Disk(render_light));
         render_resource_manager.add_light(&render_light);
 
         let render_item = RenderLightItem {
@@ -307,7 +307,7 @@ fn get_sphere_light_item(
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
     if let Some(render_light) = render_resource_manager.get_light(id) {
-        if render_light.edition == edition {
+        if render_light.get_edition() == edition {
             let render_item = RenderLightItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(matrix),
@@ -349,15 +349,14 @@ fn get_sphere_light_item(
         area * l[2] * scale[2],
     ];
 
-    let render_light = RenderLight {
+    let render_light = RenderSphereLight {
         id,
         edition: edition.clone(),
-        light_type: RenderLightType::Sphere,
+        position: [0.0, 0.0, 0.0], // Position is not used for sphere lights
         intensity: intensity,
-        range: [radius, radius + 10.0],
-        ..Default::default()
+        radius: radius,
     };
-    let render_light = Arc::new(render_light);
+    let render_light = Arc::new(RenderLight::Sphere(render_light));
     render_resource_manager.add_light(&render_light);
 
     let render_item = RenderLightItem {
@@ -387,7 +386,7 @@ fn get_disk_light_item(
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
     if let Some(render_light) = render_resource_manager.get_light(id) {
-        if render_light.edition == edition {
+        if render_light.get_edition() == edition {
             let render_item = RenderLightItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(matrix),
@@ -414,7 +413,7 @@ fn get_disk_light_item(
 
     let outer_angle = props
         .find_one_float("coneangle")
-        .unwrap_or(30.0)
+        .unwrap_or(90.0)
         .to_radians();
 
     //let area = area * (1.0 - f32::powf(outer_angle/std::f32::consts::PI, 2.0));
@@ -428,19 +427,17 @@ fn get_disk_light_item(
         area * l[2] * scale[2],
     ];
 
-    let render_light = RenderLight {
+    let render_light = RenderDiskLight {
         id,
         edition: edition.clone(),
-        light_type: RenderLightType::Disk,
         position: [position.x, position.y, position.z], // Position is not used for spot lights
         direction: [n.x, n.y, n.z],                     // Direction is not used for spot lights
         intensity: intensity,
-        range: [radius, 10.0],
-        angle: [outer_angle, outer_angle],
-        center: [0.0, 0.0, 0.0], // Center is not used for disk lights
-        ..Default::default()
+        radius: radius,           // Radius of the disk
+        inner_angle: outer_angle, // Inner radius for disk lights
+        outer_angle: outer_angle, // Outer radius for disk lights
     };
-    let render_light = Arc::new(render_light);
+    let render_light = Arc::new(RenderLight::Disk(render_light));
     render_resource_manager.add_light(&render_light);
 
     let render_item = RenderLightItem {
