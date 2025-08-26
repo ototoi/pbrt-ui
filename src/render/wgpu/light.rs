@@ -1,37 +1,72 @@
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[repr(u8)]
-pub enum RenderLightType {
-    #[default]
-    Directional = 0,
-    Point = 1,
-    Spot = 2,
-    Sphere = 3,
-    Disk = 4,
-    Rectangle = 5,
-    Infinite = 6,
+#[derive(Debug, Clone, Default)]
+pub struct DirectionalRenderLight {
+    pub id: Uuid,
+    pub edition: String,
+    pub direction: [f32; 3],
+    pub intensity: [f32; 3], // RGB intensity
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct RenderLight {
+pub struct SphereRenderLight {
     pub id: Uuid,
     pub edition: String,
-    pub light_type: RenderLightType,
+    pub position: [f32; 3],
+    pub intensity: [f32; 3], // RGB intensity
+    pub radius: f32,         // Sphere radius
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DiskRenderLight {
+    pub id: Uuid,
+    pub edition: String,
     pub position: [f32; 3],
     pub direction: [f32; 3],
     pub intensity: [f32; 3], // RGB intensity
-    pub range: [f32; 2],     // For point and spot lights
-    pub angle: [f32; 2],     // For spot lights inner and outer angles
-    pub center: [f32; 3],    // For spot lights center position
+    pub radius: f32,         // Sphere radius
+    pub inner_angle: f32,    // Inner radius for disk
+    pub outer_angle: f32,    // Outer radius for disk
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RectRenderLight {
+    pub id: Uuid,
+    pub edition: String,
+    pub position: [f32; 3],
+    pub direction: [f32; 3],
+    pub u_axis: [f32; 3],    // U axis for rectangle
+    pub v_axis: [f32; 3],    // V axis for rectangle
+    pub intensity: [f32; 3], // RGB intensity
+}
+
+#[derive(Debug, Clone)]
+pub enum RenderLight {
+    Directional(DirectionalRenderLight),
+    Sphere(SphereRenderLight),
+    Disk(DiskRenderLight),
+    Rect(RectRenderLight),
+    // Add other light types as needed
 }
 
 impl RenderLight {
     pub fn get_id(&self) -> Uuid {
-        self.id
+        match self {
+            RenderLight::Directional(light) => light.id,
+            RenderLight::Sphere(light) => light.id,
+            RenderLight::Disk(light) => light.id,
+            RenderLight::Rect(light) => light.id,
+            // Handle other light types here
+        }
     }
 
     pub fn get_edition(&self) -> String {
-        self.edition.clone()
+        match self {
+            RenderLight::Directional(light) => light.edition.clone(),
+            RenderLight::Sphere(light) => light.edition.clone(),
+            RenderLight::Disk(light) => light.edition.clone(),
+            RenderLight::Rect(light) => light.edition.clone(),
+            // Handle other light types here
+        }
     }
 }

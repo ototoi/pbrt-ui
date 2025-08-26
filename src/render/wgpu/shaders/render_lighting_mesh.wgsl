@@ -30,10 +30,12 @@ struct DiskLight {
     position: vec4<f32>, // Position in world space
     direction: vec4<f32>, // Direction of the spotlight
     intensity: vec4<f32>, // Light intensity
-    range: vec4<f32>, // Range of the light (min, max)
-    outer_angle: f32,    // Angle of the spotlight
-    inner_angle: f32,    // Angle of the spotlight
+    radius: f32,    // Radius of the disk
+    range: f32,
     _pad1: vec2<f32>, // Padding for alignment
+    inner_angle: f32,    // Angle of the spotlight
+    outer_angle: f32,    // Angle of the spotlight
+    _pad2: vec2<f32>, // Padding for alignment
 }
 
 struct DirectionalLight {
@@ -153,30 +155,53 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     }
     for (var i: u32 = 0; i < light_uniforms.num_disk_lights; i++) {
         let light = disk_lights[i];
-        /*
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);
         let intensity = light.intensity.rgb;
-        let r0 = light.range[0];
-        let r1 = light.range[1];
-        let a0 = cos(light.inner_angle);
-        let a1 = cos(light.outer_angle);
-        var light_to_surface = in.w_position - light.position.xyz;
-        var distance = length(light_to_surface);
-        var z_distance = dot(light_to_surface, direction);
-        light_to_surface = normalize(light_to_surface);
-        let cos_theta = max(dot(light_to_surface, direction), 0.0);
-        var falloff = select(step(a1, cos_theta), pow(clamp((cos_theta - a1) / (a0 - a1), 0.0, 1.0), 4.0), (a0 - a1) > 0.0);//select(FALSE, TRUE, condition)
-        let attenuation = select(
-            1.0 / pow(distance, 2.0), 
-            1.0 / pow(max(z_distance - r0, 1e-6), 2.0) * select(0.0, 1.0, r0 < z_distance),
-            r0 > 0.0
-        ); // Simple quadratic attenuation
-        var wi = tbn * -light_to_surface;
-        color += matte(wi, wo) * intensity * attenuation * falloff;
-        */
+        let radius = light.radius;
+        let cos_inner = cos(light.inner_angle);
+        let cos_outer = cos(light.outer_angle);
+
+        var closest_point = position;
+        let center_to_surface = in.w_position - position;
+        
+        if radius > 0.0 {
+            let center_to_surface = in.w_position - position;
+            let direction_to_surface = select(-direction, direction, dot(center_to_surface, direction) > 0.0);
+            let ray_origin = in.w_position;
+            let ray_direction = reflect(camera_to_surface, normal);//ray direction
+            let d = dot(position, direction_to_surface);
+            let distance_to_plane = (d - dot(ray_origin, direction_to_surface)) / dot(ray_direction, direction_to_surface);
+            let intersection_point = ray_origin + distance_to_plane * ray_direction;
+            let center_to_intersection = intersection_point - position;
+            closest_point = position + center_to_intersection * saturate(radius / length(center_to_intersection));
+        }
+        let light_to_surface = in.w_position - closest_point;
+        let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
+        let cos_delta = cos_inner - cos_outer;
+        var falloff = select(step(cos_outer, cos_theta), clamp((cos_theta - cos_outer) / cos_delta, 0.0, 1.0), cos_delta > 0.0);
+        if radius <= 0.0 {
+            falloff = pow(falloff, 4.0);
+        }
+        let distance = length(light_to_surface);
+        var attenuation = 1.0 / (pow(distance + 1.0, 2.0) + 1e-6); // Simple quadratic attenuation
+        var wi = tbn * -normalize(light_to_surface);
+        color += matte(wo, wo) * intensity * attenuation * falloff;
     }
-    
 
     return vec4<f32>(color, 1.0);
 }
+
+/*
+let a0 = cos(light.inner_angle);
+let a1 = cos(light.outer_angle);
+var light_to_surface = in.w_position - light.position.xyz;
+var distance = length(light_to_surface);
+light_to_surface = normalize(light_to_surface);
+let cos_theta = max(dot(light_to_surface, direction), 0.0);
+var falloff = select(step(a1, cos_theta), pow(clamp((cos_theta - a1) / (a0 - a1), 0.0, 1.0), 4.0), (a0 - a1) > 0.0);//select(FALSE, TRUE, condition)
+let attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
+var wi = tbn * -light_to_surface;
+color += matte(wi, wo) * intensity * attenuation * falloff;
+
+*/
