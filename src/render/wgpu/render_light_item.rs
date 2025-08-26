@@ -1,7 +1,7 @@
 use super::light::DirectionalRenderLight;
 use super::light::DiskRenderLight;
-use super::light::RenderLight;
 use super::light::RectRenderLight;
+use super::light::RenderLight;
 use super::light::SphereRenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
@@ -257,8 +257,8 @@ fn get_spot_light_item(
         let conedelta = props.find_one_float("conedeltaangle").unwrap_or(conedelta);
         let conedelta = conedelta.clamp(0.0, coneangle);
 
-        let outer_angle = f32::to_radians(coneangle);
         let inner_angle = f32::to_radians((coneangle - conedelta).max(0.0));
+        let outer_angle = f32::to_radians(coneangle);
 
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
@@ -401,7 +401,7 @@ fn get_disk_light_item(
         .unwrap_or(1.0);
 
     let area = if radius > 0.0 {
-        std::f32::consts::PI * radius * radius // Area of the disk
+        radius * radius / std::f32::consts::PI // Area of the disk
     } else {
         1.0 // Default area if radius is not specified
     };
@@ -411,15 +411,17 @@ fn get_disk_light_item(
     let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
     let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-    let outer_angle = props
-        .find_one_float("coneangle")
-        .unwrap_or(90.0)
-        .to_radians();
+    let coneangle = props.find_one_float("coneangle").unwrap_or(90.0);
+    let conedelta = props.find_one_float("conedeltaangle").unwrap_or(90.0);
+    let conedelta = conedelta.clamp(0.0, coneangle);
+
+    let inner_angle = f32::to_radians((coneangle - conedelta).max(0.0));
+    let outer_angle = f32::to_radians(coneangle);
 
     //let area = area * (1.0 - f32::powf(outer_angle/std::f32::consts::PI, 2.0));
 
     let position = Vector3::new(0.0, 0.0, 0.0); // Center of the disk
-    let n = Vector3::new(0.0, 0.0, -1.0); // Normal of the disk
+    let direction = Vector3::new(0.0, 0.0, 1.0); // Normal of the disk
 
     let intensity = [
         area * l[0] * scale[0],
@@ -431,11 +433,11 @@ fn get_disk_light_item(
         id,
         edition: edition.clone(),
         position: [position.x, position.y, position.z], // Position is not used for spot lights
-        direction: [n.x, n.y, n.z],                     // Direction is not used for spot lights
-        intensity: intensity,
-        radius: radius,           // Radius of the disk
-        inner_angle: outer_angle, // Inner radius for disk lights
-        outer_angle: outer_angle, // Outer radius for disk lights
+        direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
+        intensity,
+        radius, // Radius of the disk
+        inner_angle,
+        outer_angle,
     };
     let render_light = Arc::new(RenderLight::Disk(render_light));
     render_resource_manager.add_light(&render_light);

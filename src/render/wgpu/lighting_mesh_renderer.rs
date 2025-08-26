@@ -75,8 +75,8 @@ struct DiskLight {
     radius: f32,         // Radius of the light // 1 * 4 = 4
     range: f32,          // Range of the light // 1 * 4 = 4
     _pad1: [f32; 2],     // Padding to ensure alignment
-    outer_angle: f32,    // Angle of the spotlight
     inner_angle: f32,    // Angle of the spotlight
+    outer_angle: f32,    // Angle of the spotlight
     _pad2: [f32; 2],     // Padding to ensure alignmentå
 }
 
@@ -386,8 +386,8 @@ impl LightingMeshRenderer {
                                 direction: [direction.x, direction.y, direction.z, 0.0],
                                 intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                                 radius: radius,
-                                outer_angle: light.outer_angle,
                                 inner_angle: light.inner_angle,
+                                outer_angle: light.outer_angle,
                                 ..Default::default()
                             };
                             queue.write_buffer(
