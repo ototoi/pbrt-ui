@@ -33,8 +33,8 @@ struct DiskLight {
     radius: f32,    // Radius of the disk
     range: f32,
     _pad1: vec2<f32>, // Padding for alignment
-    inner_angle: f32,    // Angle of the spotlight
-    outer_angle: f32,    // Angle of the spotlight
+    cos_inner_angle: f32,    // Angle of the spotlight
+    cos_outer_angle: f32,    // Angle of the spotlight
     _pad2: vec2<f32>, // Padding for alignment
 }
 
@@ -137,13 +137,14 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     }
     for (var i: u32 = 0; i < light_uniforms.num_sphere_lights; i++) {
         let light = sphere_lights[i];
+        let position = light.position.xyz;
         let intensity = light.intensity.rgb;
         let radius = light.radius;
 
-        var light_to_surface = in.w_position - light.position.xyz;
+        var light_to_surface = in.w_position - position;
         if radius > 0.0 {
             let l = light_to_surface;
-            let r = reflect(camera_to_surface, normal);
+            let r = reflect(normalize(camera_to_surface), normal);
             let center_to_ray = dot(l, r) * r - l;
             let closest_point = light.position.xyz + center_to_ray * saturate(radius / length(center_to_ray));
             light_to_surface = in.w_position - closest_point;
@@ -159,19 +160,24 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let direction = normalize(light.direction.xyz);
         let intensity = light.intensity.rgb;
         let radius = light.radius;
-        let cos_inner = cos(light.inner_angle);
-        let cos_outer = cos(light.outer_angle);
+        let cos_inner = light.cos_inner_angle;//cos(light.inner_angle);
+        let cos_outer = light.cos_outer_angle;//cos(light.outer_angle);
 
         var closest_point = position;
-        let center_to_surface = in.w_position - position;
-        
         if radius > 0.0 {
-            let center_to_surface = in.w_position - position;
-            let direction_to_surface = select(-direction, direction, dot(center_to_surface, direction) > 0.0);
             let ray_origin = in.w_position;
-            let ray_direction = reflect(camera_to_surface, normal);//ray direction
-            let d = dot(position, direction_to_surface);
-            let distance_to_plane = (d - dot(ray_origin, direction_to_surface)) / dot(ray_direction, direction_to_surface);
+            var ray_direction = reflect(camera_to_surface, normal);//ray direction
+            let rn = dot(ray_direction, direction);
+            if rn > 0.0 {
+                ray_direction = ray_direction - 2.0 * rn * direction;
+            }
+            let pn = dot(position, direction);
+            let on = dot(ray_origin, direction);
+            let dn = dot(ray_direction, direction);
+            let distance_to_plane = (pn - on) / dn;
+            //if distance_to_plane < 1e-6 {
+            //    continue;
+            //}
             let intersection_point = ray_origin + distance_to_plane * ray_direction;
             let center_to_intersection = intersection_point - position;
             closest_point = position + center_to_intersection * saturate(radius / length(center_to_intersection));
@@ -184,9 +190,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             falloff = pow(falloff, 4.0);
         }
         let distance = length(light_to_surface);
-        var attenuation = 1.0 / (pow(distance + 1.0, 2.0) + 1e-6); // Simple quadratic attenuation
+        var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
-        color += matte(wo, wo) * intensity * attenuation * falloff;
+        color += intensity * attenuation * falloff;
     }
 
     return vec4<f32>(color, 1.0);

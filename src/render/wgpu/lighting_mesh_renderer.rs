@@ -69,15 +69,15 @@ struct SphereLight {
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct DiskLight {
-    position: [f32; 4],  // Position of the light // 4 * 4 = 16
-    direction: [f32; 4], // Direction of the light // 4 * 4 = 16
-    intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
-    radius: f32,         // Radius of the light // 1 * 4 = 4
-    range: f32,          // Range of the light // 1 * 4 = 4
-    _pad1: [f32; 2],     // Padding to ensure alignment
-    inner_angle: f32,    // Angle of the spotlight
-    outer_angle: f32,    // Angle of the spotlight
-    _pad2: [f32; 2],     // Padding to ensure alignmentå
+    position: [f32; 4],   // Position of the light // 4 * 4 = 16
+    direction: [f32; 4],  // Direction of the light // 4 * 4 = 16
+    intensity: [f32; 4],  // Intensity of the light // 4 * 4 = 16
+    radius: f32,          // Radius of the light // 1 * 4 = 4
+    range: f32,           // Range of the light // 1 * 4 = 4
+    _pad1: [f32; 2],      // Padding to ensure alignment
+    cos_inner_angle: f32, // Angle of the spotlight
+    cos_outer_angle: f32, // Angle of the spotlight
+    _pad2: [f32; 2],      // Padding to ensure alignmentå
 }
 
 #[derive(Debug, Clone)]
@@ -381,13 +381,15 @@ impl LightingMeshRenderer {
                             //println!("Point light position: {:?}", position);
                             let intensity = light.intensity;
                             let radius = light.radius;
+                            let cos_inner_angle = f32::cos(light.inner_angle);
+                            let cos_outer_angle = f32::cos(light.outer_angle);
                             let light = DiskLight {
                                 position: [position.x, position.y, position.z, 1.0],
                                 direction: [direction.x, direction.y, direction.z, 0.0],
                                 intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                                 radius: radius,
-                                inner_angle: light.inner_angle,
-                                outer_angle: light.outer_angle,
+                                cos_inner_angle: cos_inner_angle,
+                                cos_outer_angle: cos_outer_angle,
                                 ..Default::default()
                             };
                             queue.write_buffer(
