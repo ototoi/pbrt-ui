@@ -1,6 +1,6 @@
 use super::light_shape::LightShape;
-use crate::model::base::Vector3;
 use crate::model::base::Matrix4x4;
+use crate::model::base::Vector3;
 use crate::model::scene::Light;
 
 #[inline]

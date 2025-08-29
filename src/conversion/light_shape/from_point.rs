@@ -2,7 +2,6 @@ use super::light_shape::LightShape;
 use crate::model::base::Vector3;
 use crate::model::scene::Light;
 
-
 fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
     let mut points = Vec::new();
     let xx = ((axis + 1) % 3) as usize;

@@ -8,7 +8,7 @@ struct Edge {
     twin: Option<usize>,
 }
 
-pub fn create_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOutline> {
+pub fn create_plane_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOutline> {
     let mut edges: Vec<Edge> = Vec::new();
     let num_faces = mesh.indices.len() / 3;
     for i in 0..num_faces {
@@ -33,9 +33,16 @@ pub fn create_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOutline> 
         });
     }
     for i in 0..edges.len() {
+        if edges[i].twin.is_some() {
+            continue;
+        }
         for j in i + 1..edges.len() {
+            if edges[j].twin.is_some() {
+                continue;
+            }
             if i != j && edges[i].start == edges[j].end && edges[i].end == edges[j].start {
                 edges[i].twin = Some(j);
+                edges[j].twin = Some(i);
                 break;
             }
         }
@@ -51,7 +58,10 @@ pub fn create_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOutline> 
         let mut current_edge = outline_edges[0];
         loop {
             if let Some(next) = outline_edges.iter().find(|e| e.start == current_edge.end) {
-                if !outline_loops.is_empty() && next.start == outline_loops[0].start && next.end == outline_loops[0].end {
+                if !outline_loops.is_empty()
+                    && next.start == outline_loops[0].start
+                    && next.end == outline_loops[0].end
+                {
                     break;
                 } else {
                     outline_loops.push(next.clone());
