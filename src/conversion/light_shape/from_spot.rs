@@ -1,7 +1,7 @@
 use super::light_shape::LightShape;
-use crate::model::base::Matrix4x4;
-use crate::model::base::PropertyMap;
 use crate::model::base::Vector3;
+use crate::model::base::Matrix4x4;
+use crate::model::scene::Light;
 
 #[inline]
 fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
@@ -49,7 +49,8 @@ fn apply_transform(lines: &mut Vec<Vec<Vector3>>, mat: &Matrix4x4) {
     }
 }
 
-pub fn create_light_shape_from_spot(props: &PropertyMap) -> Option<LightShape> {
+pub fn create_light_shape_from_spot(light: &Light) -> Option<LightShape> {
+    let props = light.as_property_map();
     let coneangle = props.find_one_float("coneangle").unwrap_or(30.0);
     let conedelta = props.find_one_float("conedeltaangle").unwrap_or(5.0);
     //0,0,0 -> 0,0,1

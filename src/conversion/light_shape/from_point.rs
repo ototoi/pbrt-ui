@@ -1,5 +1,7 @@
 use super::light_shape::LightShape;
-use crate::model::base::{PropertyMap, Vector3};
+use crate::model::base::Vector3;
+use crate::model::scene::Light;
+
 
 fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
     let mut points = Vec::new();
@@ -19,7 +21,7 @@ fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
     return points;
 }
 
-pub fn create_light_shape_from_point(_props: &PropertyMap) -> Option<LightShape> {
+pub fn create_light_shape_from_point(light: &Light) -> Option<LightShape> {
     let axis_x = vec![Vector3::new(-1.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)];
     let axis_y = vec![Vector3::new(0.0, -1.0, 0.0), Vector3::new(0.0, 1.0, 0.0)];
     let axis_z = vec![Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, 0.0, 1.0)];

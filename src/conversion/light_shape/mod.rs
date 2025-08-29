@@ -1,9 +1,12 @@
+mod from_area;
 mod from_distant;
 mod from_point;
 mod from_spot;
 mod light_shape;
 
 use crate::model::scene::LightComponent;
+use crate::model::scene::ShapeComponent;
+use from_area::create_light_shape_from_area;
 use from_distant::create_light_shape_from_distant;
 use from_point::create_light_shape_from_point;
 use from_spot::create_light_shape_from_spot;
@@ -14,33 +17,34 @@ use std::sync::{Arc, RwLock};
 
 pub fn create_light_shape(node: &Arc<RwLock<Node>>) -> Option<LightShape> {
     let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<LightComponent>() {
-        let light = component.get_light();
+    if let Some(light_component) = node.get_component::<LightComponent>() {
+        let light = light_component.get_light();
         let light = light.read().unwrap();
-        let props = light.as_property_map();
-        if let Some(light_type) = props.find_one_string("string type") {
-            match light_type.as_str() {
-                "point" => {
-                    return create_light_shape_from_point(props);
+        let light_type = light.get_type();
+        match light_type.as_str() {
+            "point" => {
+                return create_light_shape_from_point(&light);
+            }
+            "spot" => {
+                return create_light_shape_from_spot(&light);
+            }
+            "diffuse" | "area" => {
+                if let Some(shape_component) = node.get_component::<ShapeComponent>() {
+                    let shape = shape_component.get_shape();
+                    let shape = shape.read().unwrap();
+                    return create_light_shape_from_area(&light, &shape);
                 }
-                "spot" => {
-                    return create_light_shape_from_spot(props);
-                }
-                "diffuse" | "area" => {
-                    // Diffuse and area lights do not have a specific shape, return None
-                    return None;
-                }
-                "distant" => {
-                    return create_light_shape_from_distant(props);
-                }
-                "goniometric" | "projection" | "infinite" => {
-                    // These light types are not implemented yet
-                    //log::warn!("Light type '{}' is not implemented yet", light_type);
-                    return None;
-                }
-                _ => {
-                    log::warn!("Unknown light type: {}", light_type);
-                }
+            }
+            "distant" => {
+                return create_light_shape_from_distant(&light);
+            }
+            "goniometric" | "projection" | "infinite" => {
+                // These light types are not implemented yet
+                //log::warn!("Light type '{}' is not implemented yet", light_type);
+                return None;
+            }
+            _ => {
+                log::warn!("Unknown light type: {}", light_type);
             }
         }
     }
