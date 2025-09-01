@@ -29,10 +29,9 @@ pub struct DiskRenderLight {
     pub outer_angle: f32,    // Outer radius for disk
 }
 
+
 #[derive(Debug, Clone, Default)]
-pub struct RectRenderLight {
-    pub id: Uuid,
-    pub edition: String,
+pub struct RenderLightRect {
     pub position: [f32; 3],
     pub direction: [f32; 3],
     pub u_axis: [f32; 3],    // U axis for rectangle
@@ -40,12 +39,19 @@ pub struct RectRenderLight {
     pub intensity: [f32; 3], // RGB intensity
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RectsRenderLight {
+    pub id: Uuid,
+    pub edition: String,
+    pub rects: Vec<RenderLightRect>, // Multiple rectangles
+}
+
 #[derive(Debug, Clone)]
 pub enum RenderLight {
     Directional(DirectionalRenderLight),
     Sphere(SphereRenderLight),
     Disk(DiskRenderLight),
-    Rect(RectRenderLight),
+    Rects(RectsRenderLight),
     // Add other light types as needed
 }
 
@@ -55,7 +61,7 @@ impl RenderLight {
             RenderLight::Directional(light) => light.id,
             RenderLight::Sphere(light) => light.id,
             RenderLight::Disk(light) => light.id,
-            RenderLight::Rect(light) => light.id,
+            RenderLight::Rects(light) => light.id,
             // Handle other light types here
         }
     }
@@ -65,7 +71,7 @@ impl RenderLight {
             RenderLight::Directional(light) => light.edition.clone(),
             RenderLight::Sphere(light) => light.edition.clone(),
             RenderLight::Disk(light) => light.edition.clone(),
-            RenderLight::Rect(light) => light.edition.clone(),
+            RenderLight::Rects(light) => light.edition.clone(),
             // Handle other light types here
         }
     }

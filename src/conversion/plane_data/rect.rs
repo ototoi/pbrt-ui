@@ -80,7 +80,7 @@ pub fn create_plane_rect_from_plane_outline(
         let u_axis = u_dir * 0.5;
         let v_axis = v_dir * 0.5;
         let rect = PlaneRect {
-            center: [center.x, center.y, center.z],
+            position: [center.x, center.y, center.z],
             normal: [normal.x, normal.y, normal.z],
             u_axis: [u_axis.x, u_axis.y, u_axis.z],
             v_axis: [v_axis.x, v_axis.y, v_axis.z],
