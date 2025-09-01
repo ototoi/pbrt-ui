@@ -15,7 +15,12 @@ struct LightUniforms {
     num_directional_lights: u32,
     num_sphere_lights: u32,
     num_disk_lights: u32,
-    _pad1: u32, // Padding for alignment
+    num_rect_lights: u32,
+}
+
+struct DirectionalLight {
+    direction: vec4<f32>, // Example light direction
+    intensity: vec4<f32>, // Example light intensity
 }
 
 struct SphereLight {
@@ -38,9 +43,12 @@ struct DiskLight {
     _pad2: vec2<f32>, // Padding for alignment
 }
 
-struct DirectionalLight {
-    direction: vec4<f32>, // Example light direction
-    intensity: vec4<f32>, // Example light intensity
+struct RectLight {
+    position: vec4<f32>, // Position in world space
+    direction: vec4<f32>, // Direction of the spotlight
+    u_axis: vec4<f32>,    // U axis for rectangle // 4 * 4 = 16
+    v_axis: vec4<f32>,    // V axis for rectangle // 4 * 4 = 16
+    intensity: vec4<f32>, // Light intensity
 }
 
 // global uniforms
@@ -61,16 +69,19 @@ var<uniform> light_uniforms: LightUniforms;
 
 @group(2)
 @binding(1)
-var<storage, read> sphere_lights: array<SphereLight>;
+var<storage, read> directional_lights: array<DirectionalLight>;
 
 @group(2)
 @binding(2)
-var<storage, read> disk_lights: array<DiskLight>;
+var<storage, read> sphere_lights: array<SphereLight>;
 
 @group(2)
 @binding(3)
-var<storage, read> directional_lights: array<DirectionalLight>;
+var<storage, read> disk_lights: array<DiskLight>;
 
+@group(2)
+@binding(4)
+var<storage, read> rect_lights: array<RectLight>;
 
 struct VertexOut {
     @location(0) w_position: vec3<f32>,
@@ -189,6 +200,37 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         if radius <= 0.0 {
             falloff = pow(falloff, 4.0);
         }
+        let distance = length(light_to_surface);
+        var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
+        var wi = tbn * -normalize(light_to_surface);
+        color += intensity * attenuation * falloff;
+    }
+
+    for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) {
+        let light = rect_lights[i];
+        let position = light.position.xyz;
+        let direction = normalize(light.direction.xyz);
+        let intensity = light.intensity.rgb;
+
+        let ray_origin = in.w_position;
+        var ray_direction = reflect(camera_to_surface, normal);//ray direction
+        let rn = dot(ray_direction, direction);
+        if rn > 0.0 {
+            ray_direction = ray_direction - 2.0 * rn * direction;
+        }
+        let pn = dot(position, direction);
+        let on = dot(ray_origin, direction);
+        let dn = dot(ray_direction, direction);
+        let distance_to_plane = (pn - on) / dn;
+        if distance_to_plane < 1e-2 {
+            continue;
+        }
+        let closest_point = ray_origin + distance_to_plane * ray_direction;
+
+        let light_to_surface = in.w_position - closest_point;
+        let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
+        let falloff = cos_theta;
+
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);

@@ -11,7 +11,7 @@ pub struct PlaneOutline {
 
 #[derive(Debug, Clone)]
 pub struct PlaneRect {
-    pub center: [f32; 3],
+    pub position: [f32; 3],
     pub normal: [f32; 3],
     pub u_axis: [f32; 3],
     pub v_axis: [f32; 3],
