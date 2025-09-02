@@ -267,15 +267,19 @@ fn get_spot_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
-        let radius = 10.0; //todo: get radius from properties
+        let p = 1.0 / std::f32::consts::PI; // Point light power normalization
+        let intensity = [
+            p * l[0] * scale[0],
+            p * l[1] * scale[1],
+            p * l[2] * scale[2],
+        ];
         let render_light = DiskRenderLight {
             id,
             edition: edition.clone(),
             position: [position.x, position.y, position.z], // Position is not used for spot lights
             direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
             intensity: intensity,
-            radius: radius,
+            radius: 0.0,
             inner_angle, // Inner radius for spot lights
             outer_angle, // Outer radius for spot lights
         };
