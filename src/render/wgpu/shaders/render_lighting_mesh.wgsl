@@ -206,7 +206,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         color += intensity * attenuation * falloff;
     }
 
-    for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) {
+
+    for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) 
+    {
         let light = rect_lights[i];
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);

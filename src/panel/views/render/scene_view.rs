@@ -84,7 +84,7 @@ impl SceneView {
         let available_size = available_rect.size();
 
         let mut znear = 0.01f32;
-        let mut zfar = 1000.0f32;
+        let mut zfar = 10000.0f32;
         let mut fov = 90.0f32.to_radians();
         let mut w2c = Matrix4x4::identity();
         let mut render_size = Vec2::new(1280.0, 720.0);

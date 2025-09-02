@@ -1,8 +1,8 @@
 use super::light::DirectionalRenderLight;
 use super::light::DiskRenderLight;
+use super::light::RectRenderLight;
 use super::light::RectsRenderLight;
 use super::light::RenderLight;
-use super::light::RenderLightRect;
 use super::light::SphereRenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
@@ -519,15 +519,18 @@ fn get_rects_light_item(
                         area * l[2] * scale[2],
                     ];
 
-                    RenderLightRect {
+                    let light = RectRenderLight {
+                        id,
+                        edition: edition.clone(),
                         position,
                         direction,
                         u_axis,
                         v_axis,
                         intensity,
-                    }
+                    };
+                    Arc::new(RenderLight::Rect(light))
                 })
-                .collect::<Vec<RenderLightRect>>();
+                .collect::<Vec<Arc<RenderLight>>>();
 
             let render_light = RectsRenderLight {
                 id,
@@ -702,7 +705,8 @@ fn get_light_gizmo(
     return None;
 }
 
-pub fn get_render_light_item(
+//private
+fn get_render_light_item(
     _device: &wgpu::Device,
     _queue: &wgpu::Queue,
     item: &SceneItem,
@@ -731,6 +735,42 @@ pub fn get_render_light_item(
         }
     }
     return None; // Placeholder for light retrieval logic
+}
+
+pub fn get_render_light_items(
+    _device: &wgpu::Device,
+    _queue: &wgpu::Queue,
+    item: &SceneItem,
+    _mode: RenderMode,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<Arc<RenderItem>> {
+    let mut render_items = Vec::new();
+    if let Some(render_item) = get_render_light_item(
+        _device,
+        _queue,
+        item,
+        _mode,
+        resource_manager,
+        render_resource_manager,
+    ) {
+        if let RenderItem::Light(light_item) = render_item {
+            if let RenderLight::Rects(rects) = light_item.light.as_ref() {
+                //println!("Area light with {} rects", rects.rects.len());
+                for light in rects.rects.iter() {
+                    //
+                    let render_item = RenderLightItem {
+                        light: light.clone(),
+                        matrix: light_item.matrix,
+                    };
+                    render_items.push(Arc::new(RenderItem::Light(render_item)));
+                }
+            } else {
+                render_items.push(Arc::new(RenderItem::Light(light_item)));
+            }
+        }
+    }
+    return render_items;
 }
 
 fn get_point_light_offset(node: &Arc<RwLock<Node>>) -> Option<Vector3> {

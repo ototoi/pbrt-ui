@@ -419,45 +419,44 @@ impl LightingMeshRenderer {
             let mut i = 0;
             for item in render_items.iter() {
                 if let RenderItem::Light(item) = item.as_ref() {
-                    if let RenderLight::Rects(rects) = item.light.as_ref() {
-                        let matrix = item.matrix; //local_to_world
-                        for rect in rects.rects.iter() {
-                            if i >= MAX_RECT_LIGHT_NUM {
-                                break;
-                            }
-                            let position = rect.position;
-                            let position = matrix.transform_point3(glam::vec3(
-                                position[0],
-                                position[1],
-                                position[2],
-                            ));
-                            let direction = rect.direction;
-                            let direction = matrix.transform_vector3(glam::vec3(
-                                direction[0],
-                                direction[1],
-                                direction[2],
-                            ));
-                            let u_axis = rect.u_axis;
-                            let u_axis = matrix
-                                .transform_vector3(glam::vec3(u_axis[0], u_axis[1], u_axis[2]));
-                            let v_axis = rect.v_axis;
-                            let v_axis = matrix
-                                .transform_vector3(glam::vec3(v_axis[0], v_axis[1], v_axis[2]));
-                            let intensity = rect.intensity;
-                            let light = RectLight {
-                                position: [position.x, position.y, position.z, 1.0],
-                                direction: [direction.x, direction.y, direction.z, 0.0],
-                                u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
-                                v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
-                                intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            };
-                            queue.write_buffer(
-                                &self.rect_light_buffer,
-                                (i * size_of::<RectLight>()) as wgpu::BufferAddress,
-                                bytemuck::bytes_of(&light),
-                            );
-                            i += 1;
+                    let matrix = item.matrix; //local_to_world
+                    if let RenderLight::Rect(rect) = item.light.as_ref() {
+                        //println!("Rect light item: {:?}", item);
+                        if i >= MAX_RECT_LIGHT_NUM {
+                            break;
                         }
+                        let position = rect.position;
+                        let position = matrix.transform_point3(glam::vec3(
+                            position[0],
+                            position[1],
+                            position[2],
+                        ));
+                        let direction = rect.direction;
+                        let direction = matrix.transform_vector3(glam::vec3(
+                            direction[0],
+                            direction[1],
+                            direction[2],
+                        ));
+                        let u_axis = rect.u_axis;
+                        let u_axis =
+                            matrix.transform_vector3(glam::vec3(u_axis[0], u_axis[1], u_axis[2]));
+                        let v_axis = rect.v_axis;
+                        let v_axis =
+                            matrix.transform_vector3(glam::vec3(v_axis[0], v_axis[1], v_axis[2]));
+                        let intensity = rect.intensity;
+                        let light = RectLight {
+                            position: [position.x, position.y, position.z, 1.0],
+                            direction: [direction.x, direction.y, direction.z, 0.0],
+                            u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
+                            v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
+                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        };
+                        queue.write_buffer(
+                            &self.rect_light_buffer,
+                            (i * size_of::<RectLight>()) as wgpu::BufferAddress,
+                            bytemuck::bytes_of(&light),
+                        );
+                        i += 1;
                     }
                 }
             }
@@ -507,7 +506,6 @@ impl LightingMeshRenderer {
                 }
             }
         }
-
         queue.write_buffer(
             &self.light_uniform_buffer,
             0,
