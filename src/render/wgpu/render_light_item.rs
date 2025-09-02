@@ -669,7 +669,7 @@ fn get_infinite_light_item(
         let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 1.0 / std::f32::consts::PI; // Point light power normalization
+        let p = 1.0; // / std::f32::consts::PI; // Point light power normalization
         let intensity = [
             p * l[0] * scale[0],
             p * l[1] * scale[1],

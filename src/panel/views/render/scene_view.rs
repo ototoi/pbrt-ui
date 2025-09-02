@@ -1,3 +1,4 @@
+use super::fps_counter::FpsCounter;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Property;
 use crate::model::base::Quaternion;
@@ -59,6 +60,7 @@ pub struct SceneView {
     wireframe: Option<WireRenderer>,
     solid: Option<SolidRenderer>,
     shaded: Option<LightingRenderer>,
+    fps_counter: FpsCounter,
 }
 
 impl SceneView {
@@ -70,6 +72,7 @@ impl SceneView {
             wireframe,
             solid,
             shaded,
+            fps_counter: FpsCounter::new(),
         }
     }
 
@@ -190,5 +193,18 @@ impl SceneView {
             egui::Stroke::new(1.0, egui::Color32::WHITE),
             egui::StrokeKind::Inside,
         );
+
+        let show_fps = true; //TODO: add option to show/hide fps
+        if show_fps {
+            self.fps_counter.update();
+            let fps = self.fps_counter.get_fps();
+            ui.painter().text(
+                rect.right_top() + egui::vec2(-5.0, 5.0),
+                egui::Align2::RIGHT_TOP,
+                format!("FPS: {:.1}", fps),
+                egui::FontId::monospace(16.0),
+                egui::Color32::GREEN,
+            );
+        }
     }
 }
