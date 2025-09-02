@@ -1,5 +1,6 @@
 use super::light::DirectionalRenderLight;
 use super::light::DiskRenderLight;
+use super::light::InfiniteRenderLight;
 use super::light::RectRenderLight;
 use super::light::RectsRenderLight;
 use super::light::RenderLight;
@@ -634,6 +635,62 @@ fn get_area_light_item(
     return None;
 }
 
+fn get_infinite_light_item(
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let node = &item.node;
+    let node = node.read().unwrap();
+    if let Some(component) = node.get_component::<LightComponent>() {
+        let light = component.get_light();
+        let light = light.read().unwrap();
+
+        let id = light.get_id();
+        let light_type = light.get_type();
+        let edition = light.get_edition();
+        if let Some(render_light) = render_resource_manager.get_light(id) {
+            if render_light.get_edition() == edition {
+                let render_item = RenderLightItem {
+                    light: render_light.clone(),
+                    matrix: glam::Mat4::from(item.matrix),
+                };
+                return Some(RenderItem::Light(render_item));
+            }
+        }
+        assert!(
+            light_type == "infinite",
+            "Expected light type to be 'infinite', found: {}",
+            light_type
+        );
+
+        let props = light.as_property_map();
+
+        let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+        let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+        let p = 1.0 / std::f32::consts::PI; // Point light power normalization
+        let intensity = [
+            p * l[0] * scale[0],
+            p * l[1] * scale[1],
+            p * l[2] * scale[2],
+        ];
+        let render_light = InfiniteRenderLight {
+            id,
+            edition: edition.clone(),
+            intensity: intensity,
+        };
+        let render_light = Arc::new(RenderLight::Infinite(render_light));
+        render_resource_manager.add_light(&render_light);
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(item.matrix),
+        };
+        return Some(RenderItem::Light(render_item));
+    }
+    return None; // Placeholder for light retrieval logic
+}
+
 fn get_lines_material(
     id: Uuid,
     edition: &str,
@@ -731,6 +788,9 @@ fn get_render_light_item(
             }
             "diffuse" | "area" => {
                 return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
+            }
+            "infinite" => {
+                return get_infinite_light_item(item, resource_manager, render_resource_manager);
             }
             _ => {
                 // Handle unknown or unsupported light types

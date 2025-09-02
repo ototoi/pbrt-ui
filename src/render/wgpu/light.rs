@@ -48,6 +48,13 @@ pub struct RectsRenderLight {
     pub rects: Vec<Arc<RenderLight>>, // Multiple rectangles
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct InfiniteRenderLight {
+    pub id: Uuid,
+    pub edition: String,
+    pub intensity: [f32; 3], // RGB intensity
+}
+
 #[derive(Debug, Clone)]
 pub enum RenderLight {
     Directional(DirectionalRenderLight),
@@ -55,6 +62,7 @@ pub enum RenderLight {
     Disk(DiskRenderLight),
     Rects(RectsRenderLight),
     Rect(RectRenderLight),
+    Infinite(InfiniteRenderLight),
     // Add other light types as needed
 }
 
@@ -66,6 +74,7 @@ impl RenderLight {
             RenderLight::Disk(light) => light.id,
             RenderLight::Rects(light) => light.id,
             RenderLight::Rect(light) => light.id,
+            RenderLight::Infinite(light) => light.id,
             // Handle other light types here
         }
     }
@@ -77,6 +86,7 @@ impl RenderLight {
             RenderLight::Disk(light) => light.edition.clone(),
             RenderLight::Rects(light) => light.edition.clone(),
             RenderLight::Rect(light) => light.edition.clone(),
+            RenderLight::Infinite(light) => light.edition.clone(),
             // Handle other light types here
         }
     }
