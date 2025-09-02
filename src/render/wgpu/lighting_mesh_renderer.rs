@@ -17,7 +17,7 @@ const MIN_LOCAL_BUFFER_NUM: usize = 64;
 const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lights
 const MAX_SPHERE_LIGHT_NUM: usize = 256; // Maximum number of point lights
 const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
-const MAX_RECT_LIGHT_NUM: usize = 16; // Maximum number of rectangle lights
+const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
 const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 
 const TEST_PIPELINE_ID: &str = "basic_pipeline";
