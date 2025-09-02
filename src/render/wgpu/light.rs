@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
@@ -29,9 +30,10 @@ pub struct DiskRenderLight {
     pub outer_angle: f32,    // Outer radius for disk
 }
 
-
 #[derive(Debug, Clone, Default)]
-pub struct RenderLightRect {
+pub struct RectRenderLight {
+    pub id: Uuid,
+    pub edition: String,
     pub position: [f32; 3],
     pub direction: [f32; 3],
     pub u_axis: [f32; 3],    // U axis for rectangle
@@ -43,7 +45,14 @@ pub struct RenderLightRect {
 pub struct RectsRenderLight {
     pub id: Uuid,
     pub edition: String,
-    pub rects: Vec<RenderLightRect>, // Multiple rectangles
+    pub rects: Vec<Arc<RenderLight>>, // Multiple rectangles
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct InfiniteRenderLight {
+    pub id: Uuid,
+    pub edition: String,
+    pub intensity: [f32; 3], // RGB intensity
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +61,8 @@ pub enum RenderLight {
     Sphere(SphereRenderLight),
     Disk(DiskRenderLight),
     Rects(RectsRenderLight),
+    Rect(RectRenderLight),
+    Infinite(InfiniteRenderLight),
     // Add other light types as needed
 }
 
@@ -62,6 +73,8 @@ impl RenderLight {
             RenderLight::Sphere(light) => light.id,
             RenderLight::Disk(light) => light.id,
             RenderLight::Rects(light) => light.id,
+            RenderLight::Rect(light) => light.id,
+            RenderLight::Infinite(light) => light.id,
             // Handle other light types here
         }
     }
@@ -72,6 +85,8 @@ impl RenderLight {
             RenderLight::Sphere(light) => light.edition.clone(),
             RenderLight::Disk(light) => light.edition.clone(),
             RenderLight::Rects(light) => light.edition.clone(),
+            RenderLight::Rect(light) => light.edition.clone(),
+            RenderLight::Infinite(light) => light.edition.clone(),
             // Handle other light types here
         }
     }

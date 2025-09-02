@@ -16,6 +16,10 @@ struct LightUniforms {
     num_sphere_lights: u32,
     num_disk_lights: u32,
     num_rect_lights: u32,
+    num_infinite_lights: u32,
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 struct DirectionalLight {
@@ -51,6 +55,13 @@ struct RectLight {
     intensity: vec4<f32>, // Light intensity
 }
 
+struct InfiniteLight {
+    intensity: vec4<f32>, // Light intensity
+    _pad1: vec4<f32>, // Padding for alignment
+    _pad2: vec4<f32>, // Padding for alignment
+    _pad3: vec4<f32>, // Padding for alignment
+}
+
 // global uniforms
 @group(0)
 @binding(0)
@@ -82,6 +93,10 @@ var<storage, read> disk_lights: array<DiskLight>;
 @group(2)
 @binding(4)
 var<storage, read> rect_lights: array<RectLight>;
+
+@group(2)
+@binding(5)
+var<storage, read> infinite_lights: array<InfiniteLight>;
 
 struct VertexOut {
     @location(0) w_position: vec3<f32>,
@@ -203,10 +218,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
-        color += intensity * attenuation * falloff;
+        color += matte(wi, wo) * intensity * attenuation * falloff;
     }
 
-    for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) {
+    for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) 
+    {
         let light = rect_lights[i];
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);
@@ -234,7 +250,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
-        color += intensity * attenuation * falloff;
+        color += matte(wi, wo) * intensity * attenuation * falloff;
+    }
+
+    for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 
+    {
+        let light = infinite_lights[i];
+        let intensity = light.intensity.rgb;
+        let r = reflect(normalize(camera_to_surface), normal);
+        let wi = tbn * r;
+        color += matte(wi, wo) * intensity;
     }
 
     return vec4<f32>(color, 1.0);
