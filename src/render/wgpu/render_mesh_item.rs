@@ -1,4 +1,5 @@
 use super::material::RenderMaterial;
+use super::material::RenderCategory;
 use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_item::MeshRenderItem;
@@ -96,6 +97,7 @@ fn create_surface_material(
             let render_material = RenderMaterial {
                 id,
                 edition,
+                render_type: RenderCategory::Opaque, //todo
                 uniform_values,
             };
             return render_material;
@@ -113,6 +115,7 @@ fn create_surface_material(
         let render_material = RenderMaterial {
             id,
             edition,
+            render_type: RenderCategory::Opaque,
             uniform_values,
         };
         return render_material;
