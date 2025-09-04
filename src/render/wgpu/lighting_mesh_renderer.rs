@@ -375,11 +375,12 @@ impl LightingMeshRenderer {
             if entry.count < num_items {
                 entry.recreate_buffer(device, num_items);
             }
+            let ks = 0.1;
             for (i, item) in mesh_items.iter().enumerate() {
                 let base_color = get_base_color(item);
                 let uniform = BasicMaterialUniforms {
                     kd: base_color,
-                    ks: [1.0, 1.0, 1.0, 0.0], //todo
+                    ks: [ks, ks, ks, 0.0],
                     ..Default::default()
                 };
                 let offset = i as wgpu::BufferAddress * uniform_alignment;
