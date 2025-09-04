@@ -1,5 +1,15 @@
 use uuid::Uuid;
 
+#[repr(u32)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RenderCategory {
+    #[default]
+    Opaque = 1000, //use for opaque surfaces
+    Emissive = 1500,    //use for light diffuse no lighting
+    Masked = 2500,      //use for masked surfaces
+    Transparent = 3000, //use for transparent surfaces
+}
+
 #[derive(Debug, Clone)]
 pub enum RenderUniformValue {
     Float(f32),
@@ -9,10 +19,11 @@ pub enum RenderUniformValue {
     Bool(bool),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct RenderMaterial {
     pub id: Uuid,
     pub edition: String,
+    pub render_type: RenderCategory,
     pub uniform_values: Vec<(String, RenderUniformValue)>, //key, value
 }
 

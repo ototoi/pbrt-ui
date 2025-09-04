@@ -2,6 +2,7 @@ use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use crate::render::wgpu::light::RenderLight;
+use core::num;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -20,7 +21,8 @@ const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
 const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 
-const TEST_PIPELINE_ID: &str = "basic_pipeline";
+const MIN_MATERIAL_BUFFER_NUM: usize = 8;
+const BASIC_MATERIAL_ENTRY_ID: &str = "basic_material";
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
@@ -36,10 +38,10 @@ struct GlobalUniforms {
 struct LocalUniforms {
     local_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
     world_to_local: [[f32; 4]; 4], // 4 * 4 * 4 = 64
-    base_color: [f32; 4],          // Base color for the mesh
-    _pad1: [f32; 4],               // Padding to ensure alignment
-    _pad2: [f32; 4],               // Padding to ensure alignment
-    _pad3: [f32; 4],               // Padding to ensure alignment
+    _pad1: [f32; 4],
+    _pad2: [f32; 4],
+    _pad3: [f32; 4],
+    _pad4: [f32; 4],
 }
 
 #[repr(C)]
@@ -105,6 +107,53 @@ struct InfiniteLight {
     _pad3: [f32; 4],     // Padding to ensure alignment
 }
 
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct BasicMaterialUniforms {
+    kd: [f32; 4],    // Diffuse color
+    ks: [f32; 4],    // Specular color
+    _pad1: [f32; 4], // Padding to ensure alignment
+    _pad2: [f32; 4], // Padding to ensure alignment
+}
+
+#[derive(Debug, Clone)]
+struct MaterialEntry {
+    pub pipeline: wgpu::RenderPipeline,
+    pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group: wgpu::BindGroup,
+    pub uniform_buffer: wgpu::Buffer,
+    pub alignment: wgpu::BufferAddress,
+    pub count: usize,
+}
+
+impl MaterialEntry {
+    fn recreate_buffer(&mut self, device: &wgpu::Device, num_items: usize) {
+        let alignment = self.alignment;
+        let required_size = alignment * num_items as wgpu::BufferAddress;
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Item Matrices Buffer"),
+            size: required_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            mapped_at_creation: false,
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Lighting Material Bind Group"),
+            layout: &self.bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(size_of::<BasicMaterialUniforms>() as _),
+                }),
+            }],
+        });
+        self.uniform_buffer = uniform_buffer;
+        self.bind_group = bind_group;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LightingMeshRenderer {
     target_format: wgpu::TextureFormat,
@@ -130,8 +179,8 @@ pub struct LightingMeshRenderer {
     infinite_light_buffer: wgpu::Buffer,
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
-    //
-    pipelines: HashMap<String, wgpu::RenderPipeline>,
+    // Material entries
+    materials: HashMap<String, MaterialEntry>,
 }
 
 fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -180,7 +229,7 @@ impl LightingMeshRenderer {
     ) {
         self.prepare_global(device, queue, world_to_camera, camera_to_clip);
         self.prepare_lights(device, queue, render_items);
-        self.prepare_local(device, queue, render_items);
+        self.prepare_local_and_mateials(device, queue, render_items);
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
@@ -197,18 +246,25 @@ impl LightingMeshRenderer {
                 alignment,
             )
         };
-        let pipeline = self
-            .pipelines
-            .get(TEST_PIPELINE_ID)
+
+        let material_entry = self
+            .materials
+            .get(BASIC_MATERIAL_ENTRY_ID)
             .expect("Pipeline for basic material not found");
-        render_pass.set_pipeline(pipeline); //
+        render_pass.set_pipeline(&material_entry.pipeline); //
         render_pass.set_bind_group(0, &self.global_bind_group, &[]);
         render_pass.set_bind_group(2, &self.light_bind_group, &[]);
         for (i, item) in render_items.iter().enumerate() {
             let i = i as wgpu::DynamicOffset;
             if let RenderItem::Mesh(mesh_item) = item.as_ref() {
                 let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
+                let material_uniform_offset = i * material_entry.alignment as wgpu::DynamicOffset;
                 render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                render_pass.set_bind_group(
+                    3,
+                    &material_entry.bind_group,
+                    &[material_uniform_offset],
+                );
                 render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(
                     mesh_item.mesh.index_buffer.slice(..),
@@ -242,7 +298,7 @@ impl LightingMeshRenderer {
         );
     }
 
-    pub fn prepare_local(
+    pub fn prepare_local_and_mateials(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -283,14 +339,10 @@ impl LightingMeshRenderer {
         for (i, item) in mesh_items.iter().enumerate() {
             let local_to_world = item.get_matrix();
             let world_to_local = local_to_world.inverse();
-            let base_color = get_base_color(item);
             let uniform = LocalUniforms {
                 local_to_world: local_to_world.to_cols_array_2d(),
                 world_to_local: world_to_local.to_cols_array_2d(),
-                base_color: base_color,
-                _pad1: [0.0; 4],
-                _pad2: [0.0; 4],
-                _pad3: [0.0; 4],
+                ..Default::default()
             };
             let offset = i as wgpu::BufferAddress * local_uniform_alignment;
             queue.write_buffer(
@@ -299,15 +351,40 @@ impl LightingMeshRenderer {
                 bytemuck::bytes_of(&uniform),
             );
         }
-        //for (i, item) in mesh_items.iter().enumerate() {
-        //
-        //}
+
         {
-            if !self.pipelines.contains_key(TEST_PIPELINE_ID) {
-                self.pipelines.insert(
-                    TEST_PIPELINE_ID.to_string(),
-                    self.create_pipeline(device, TEST_PIPELINE_ID),
+            let uniform_alignment = {
+                let alignment =
+                    device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+                align_to(
+                    std::mem::size_of::<BasicMaterialUniforms>() as wgpu::BufferAddress,
+                    alignment,
+                )
+            };
+            let num_items = mesh_items.len();
+            if !self.materials.contains_key(BASIC_MATERIAL_ENTRY_ID) {
+                self.materials.insert(
+                    BASIC_MATERIAL_ENTRY_ID.to_string(),
+                    self.create_material_entry(device, BASIC_MATERIAL_ENTRY_ID, num_items),
                 );
+            }
+            let entry = self
+                .materials
+                .get_mut(BASIC_MATERIAL_ENTRY_ID)
+                .expect("Pipeline for basic material not found");
+            if entry.count < num_items {
+                entry.recreate_buffer(device, num_items);
+            }
+            let ks = 0.1;
+            for (i, item) in mesh_items.iter().enumerate() {
+                let base_color = get_base_color(item);
+                let uniform = BasicMaterialUniforms {
+                    kd: base_color,
+                    ks: [ks, ks, ks, 0.0],
+                    ..Default::default()
+                };
+                let offset = i as wgpu::BufferAddress * uniform_alignment;
+                queue.write_buffer(&entry.uniform_buffer, offset, bytemuck::bytes_of(&uniform));
             }
         }
 
@@ -533,18 +610,12 @@ impl LightingMeshRenderer {
         );
     }
 
-    pub fn create_pipeline(
+    fn create_material_entry(
         &self,
         device: &wgpu::Device,
         _material_id: &str,
-    ) -> wgpu::RenderPipeline {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Lighting Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/render_lighting_mesh.wgsl").into(),
-            ),
-        });
-
+        num_items: usize,
+    ) -> MaterialEntry {
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -572,12 +643,37 @@ impl LightingMeshRenderer {
             ],
         }];
 
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Lighting Shader"),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("shaders/render_lighting_mesh.wgsl").into(),
+            ),
+        });
+
+        let bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Material Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: wgpu::BufferSize::new(
+                            size_of::<BasicMaterialUniforms>() as _
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Lighting Pipeline Layout"),
             bind_group_layouts: &[
                 &self.global_bind_group_layout,
                 &self.local_bind_group_layout,
                 &self.light_bind_group_layout,
+                &bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -627,7 +723,46 @@ impl LightingMeshRenderer {
             multiview: None,
             cache: None,
         });
-        return pipeline;
+
+        // Create a uniform buffer for material properties
+        let alignment = {
+            let alignment =
+                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+            align_to(
+                std::mem::size_of::<BasicMaterialUniforms>() as wgpu::BufferAddress,
+                alignment,
+            )
+        };
+        let required_size = alignment * num_items as wgpu::BufferAddress;
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Item Matrices Buffer"),
+            size: required_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            mapped_at_creation: false,
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Lighting Local Bind Group"),
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(size_of::<BasicMaterialUniforms>() as _),
+                }),
+            }],
+        });
+
+        let entry = MaterialEntry {
+            pipeline: pipeline,
+            bind_group_layout,
+            bind_group,
+            uniform_buffer,
+            alignment,
+            count: num_items,
+        };
+        return entry;
     }
 }
 
@@ -862,7 +997,7 @@ impl LightingMeshRenderer {
             device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
 
         let mesh_items = Vec::with_capacity(MIN_LOCAL_BUFFER_NUM);
-        let pipelines = HashMap::new();
+        let materials = HashMap::new();
         let mut pass = LightingMeshRenderer {
             target_format,
             min_uniform_buffer_offset_alignment,
@@ -881,17 +1016,21 @@ impl LightingMeshRenderer {
             rect_light_buffer,
             infinite_light_buffer,
             mesh_items,
-            pipelines,
+            materials,
         };
         pass.init(device);
         return pass;
     }
 
     pub fn init(&mut self, device: &wgpu::Device) {
-        if self.pipelines.is_empty() {
-            self.pipelines.insert(
-                TEST_PIPELINE_ID.to_string(),
-                self.create_pipeline(device, TEST_PIPELINE_ID),
+        if self.materials.is_empty() {
+            self.materials.insert(
+                BASIC_MATERIAL_ENTRY_ID.to_string(),
+                self.create_material_entry(
+                    device,
+                    BASIC_MATERIAL_ENTRY_ID,
+                    MIN_MATERIAL_BUFFER_NUM,
+                ),
             );
         }
     }

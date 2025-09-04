@@ -8,7 +8,10 @@ struct GlobalUniforms {
 struct LocalUniforms {
     local_to_world: mat4x4<f32>,
     world_to_local: mat4x4<f32>, // inverse of world to camera
-    base_color: vec4<f32>,
+    _pad1: vec4<f32>,
+    _pad2: vec4<f32>,
+    _pad3: vec4<f32>,
+    _pad4: vec4<f32>,
 }
 
 struct LightUniforms {
@@ -98,6 +101,134 @@ var<storage, read> rect_lights: array<RectLight>;
 @binding(5)
 var<storage, read> infinite_lights: array<InfiniteLight>;
 
+//-------------------------------------------------------
+//Material specific definitions
+struct BasicMaterialUniforms {
+    kd: vec4<f32>,
+    ks: vec4<f32>,
+    _pad1: vec4<f32>,
+    _pad2: vec4<f32>,
+}
+
+@group(3)
+@binding(0)
+var<uniform> material_uniforms: BasicMaterialUniforms;
+
+const PI: f32 = 3.14159265359;
+const INV_PI: f32 = 1.0 / 3.14159265359;
+
+fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
+    return r * INV_PI;
+}
+
+fn fr_dielectric_(cos_i: f32, eta_i: f32, eta_t: f32) -> f32 {
+    let cos_theta_i = cos_i;
+    let sin_theta_i = sqrt(max(0.0, 1.0 - cos_theta_i * cos_theta_i));
+    let sin_theta_t = eta_i / eta_t * sin_theta_i;
+    if sin_theta_t >= 1.0 {
+        return 1.0; // Total internal reflection
+    }
+    let cos_theta_t = sqrt(max(0.0, 1.0 - sin_theta_t * sin_theta_t));
+    let rparl = ((eta_t * cos_theta_i) - (eta_i * cos_theta_t)) / ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
+    let rperp = ((eta_i * cos_theta_i) - (eta_t * cos_theta_t)) / ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
+    return (rparl * rparl + rperp * rperp) / 2.0;
+}
+
+fn fr_dielectric(cos_i: f32, eta_i: f32, eta_t: f32) -> f32 {
+    let cos_theta_i = clamp(cos_i, -1.0, 1.0);
+    return select(fr_dielectric_(-cos_theta_i, eta_t, eta_i), fr_dielectric_(cos_theta_i, eta_i, eta_t), cos_theta_i >= 0.0);
+}
+
+fn cos_2_theta(w: vec3<f32>) -> f32 {
+    return w.z * w.z;
+}
+
+fn sin_2_theta(w: vec3<f32>) -> f32 {
+    //return max(0.0, 1.0 - w.z * w.z);
+    return w.x * w.x + w.y * w.y;//max(0.0, 1.0 - w.z * w.z);
+}
+
+fn tan_2_theta(w: vec3<f32>) -> f32 {
+    return sin_2_theta(w) / cos_2_theta(w);
+}
+
+fn cos_phi(w: vec3<f32>) -> f32 {
+    return w.x / sqrt(w.x * w.x + w.y * w.y);
+}
+
+fn cos_2_phi(w: vec3<f32>) -> f32 {
+    return (w.x * w.x) / (w.x * w.x + w.y * w.y);
+}
+
+fn sin_2_phi(w: vec3<f32>) -> f32 {
+    return (w.y * w.y) / (w.x * w.x + w.y * w.y);
+}
+
+fn trowbridge_reitz_d(w: vec3<f32>, alpha: f32) -> f32 {
+    let alpha2 = alpha * alpha;
+    let tan_2_theta = tan_2_theta(w);//sin_2_theta(w) / cos_2_theta(w)
+    let cos_2_theta = cos_2_theta(w);
+    let cos_4_theta = cos_2_theta * cos_2_theta;
+    //let cos_2_phi = cos_2_phi(wh);
+    let e = tan_2_theta * alpha2;
+    //let e = (cos_2_phi(w) / (alpha2) + sin_2_phi(w) / (alpha2)) * tan_2_theta;
+    let e2 = pow(1.0 + e, 2.0);
+    return clamp(1.0 / (PI * cos_4_theta * e2), 0.0, 1.0);
+}
+
+fn trowbridge_reitz_lambda(w: vec3<f32>, alpha: f32) -> f32 {
+    let alpha2 = alpha * alpha;
+    let tan_2_theta = tan_2_theta(w);
+    let alpha_2_tan_2_theta = alpha2 * tan_2_theta;
+    return (-1.0 + sqrt(1.0 + alpha_2_tan_2_theta)) / 2.0;
+}
+
+fn trowbridge_reitz_g(wo: vec3<f32>, wi: vec3<f32>, alpha: f32) -> f32 {
+    let lambda_o = trowbridge_reitz_lambda(wo, alpha);
+    let lambda_i = trowbridge_reitz_lambda(wi, alpha);
+    return 1.0 / (1.0 + lambda_o + lambda_i);
+}
+
+fn micro_facet_reflection(r: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    let cos_theta_o = abs(wo.z);
+    let cos_theta_i = abs(wi.z);
+    var wh = wo + wi;
+    if wh.z <= 0.0 {
+        return vec3<f32>(0.0);
+    }
+    wh = normalize(wh);
+    let wi_wh = dot(wi, wh);
+    let roughness = max(0.001, 0.2);//<roughness>
+    let f = fr_dielectric(wi_wh, 1.5, 1.0);
+    let d = trowbridge_reitz_d(wh, roughness);
+    let g = trowbridge_reitz_g(wo, wi, roughness);
+    return r * d * g * f;
+}
+
+fn matte(wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    let diffuse = max(dot(vec3<f32>(0.0, 0.0, 1.0), wi), 0.0);
+    let kd = material_uniforms.kd.rgb;
+    let c1 = lambertian_reflection(kd);
+    return diffuse * c1;
+}
+
+fn plastic(wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    let diffuse = max(dot(vec3<f32>(0.0, 0.0, 1.0), wi), 0.0);
+    let kd = material_uniforms.kd.rgb;
+    let ks = material_uniforms.ks.rgb;
+    let c1 = lambertian_reflection(kd);
+    let c2 = micro_facet_reflection(ks, wo, wi);
+    return diffuse * (c1 + c2);
+}
+
+fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    return matte(wo, wi) * intensity;
+}
+//-------------------------------------------------------
+
+
+
+
 struct VertexOut {
     @location(0) w_position: vec3<f32>,
     @location(1) uv: vec2<f32>,
@@ -130,17 +261,6 @@ fn vs_main(
     return out;
 }
 
-fn lambertian_reflection(reflectance: vec3<f32>) -> vec3<f32> {;
-    return reflectance;
-}
-
-fn matte(wi: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
-    // This is a placeholder for a more complex matte reflection model
-    let diffuse = max(dot(vec3<f32>(0.0, 0.0, 1.0), wi), 0.0);
-    let reflectance = local_uniforms.base_color.rgb;
-    return diffuse * lambertian_reflection(reflectance);
-}
-
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let camera_to_surface = normalize(in.w_position - global_uniforms.camera_position.xyz);
@@ -159,7 +279,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let light = directional_lights[i];
         let intensity = light.intensity.rgb;
         var wi = tbn * -normalize(light.direction.xyz);
-        color += matte(wi, wo) * intensity;
+        color += shade(intensity, wo, wi);
     }
     for (var i: u32 = 0; i < light_uniforms.num_sphere_lights; i++) {
         let light = sphere_lights[i];
@@ -178,7 +298,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let distance = length(light_to_surface);
         let attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
-        color += matte(wi, wo) * intensity * attenuation;
+        color += shade(intensity * attenuation, wo, wi);
     }
     for (var i: u32 = 0; i < light_uniforms.num_disk_lights; i++) {
         let light = disk_lights[i];
@@ -218,7 +338,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
-        color += matte(wi, wo) * intensity * attenuation * falloff;
+        color += shade(intensity * attenuation * falloff, wo, wi);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) 
@@ -250,31 +370,17 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
-        color += matte(wi, wo) * intensity * attenuation * falloff;
+        color += shade(intensity * attenuation * falloff, wo, wi);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 
     {
         let light = infinite_lights[i];
         let intensity = light.intensity.rgb;
-        let r = reflect(normalize(camera_to_surface), normal);
+        let r = reflect(camera_to_surface, normal);
         let wi = tbn * r;
-        color += matte(wi, wo) * intensity;
+        color += shade(intensity, wo, wi);
     }
 
     return vec4<f32>(color, 1.0);
 }
-
-/*
-let a0 = cos(light.inner_angle);
-let a1 = cos(light.outer_angle);
-var light_to_surface = in.w_position - light.position.xyz;
-var distance = length(light_to_surface);
-light_to_surface = normalize(light_to_surface);
-let cos_theta = max(dot(light_to_surface, direction), 0.0);
-var falloff = select(step(a1, cos_theta), pow(clamp((cos_theta - a1) / (a0 - a1), 0.0, 1.0), 4.0), (a0 - a1) > 0.0);//select(FALSE, TRUE, condition)
-let attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
-var wi = tbn * -light_to_surface;
-color += matte(wi, wo) * intensity * attenuation * falloff;
-
-*/

@@ -1,4 +1,5 @@
 use super::lines::RenderLines;
+use super::material::RenderCategory;
 use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
 use super::render_item::LinesRenderItem;
@@ -35,7 +36,9 @@ fn get_lines_material(
     let render_material = RenderMaterial {
         id: id,
         edition: edition.to_string(),
+        render_type: RenderCategory::Opaque,
         uniform_values,
+
     };
     let render_material = Arc::new(render_material);
     render_resource_manager.add_material(&render_material);

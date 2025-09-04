@@ -182,7 +182,8 @@ fn get_point_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
+        let p = 4.0;//std::f32::consts::PI;//1.0 / (4.0 * std::f32::consts::PI); // Point light power normalization
+        let intensity = [p * l[0] * scale[0], p * l[1] * scale[1], p * l[2] * scale[2]];
 
         let render_light = SphereRenderLight {
             id,
@@ -268,7 +269,7 @@ fn get_spot_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 1.0 / std::f32::consts::PI; // Point light power normalization
+        let p = 1.0;// / std::f32::consts::PI; // Point light power normalization
         let intensity = [
             p * l[0] * scale[0],
             p * l[1] * scale[1],
@@ -345,7 +346,7 @@ fn get_sphere_light_item(
         //std::f32::consts::PI * radius * (zmax - zmin) // Area of the sphere segment
         2.0 * std::f32::consts::PI * radius // Area of the sphere
     } else {
-        1.0 // Default area if radius is not specified
+        4.0 // Default area if radius is not specified
     };
 
     let props = light.as_property_map();
@@ -669,7 +670,7 @@ fn get_infinite_light_item(
         let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 1.0 / std::f32::consts::PI; // Point light power normalization
+        let p = 1.0; // / std::f32::consts::PI; // Point light power normalization
         let intensity = [
             p * l[0] * scale[0],
             p * l[1] * scale[1],
@@ -712,6 +713,7 @@ fn get_lines_material(
         id: id,
         edition: edition.to_string(),
         uniform_values,
+        ..Default::default()
     };
     let render_material = Arc::new(render_material);
     render_resource_manager.add_material(&render_material);
