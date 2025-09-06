@@ -60,10 +60,10 @@ pub enum RenderLight {
     Directional(DirectionalRenderLight),
     Sphere(SphereRenderLight),
     Disk(DiskRenderLight),
-    Rects(RectsRenderLight),
     Rect(RectRenderLight),
     Infinite(InfiniteRenderLight),
     // Add other light types as needed
+    _Rects(RectsRenderLight),
 }
 
 impl RenderLight {
@@ -72,10 +72,10 @@ impl RenderLight {
             RenderLight::Directional(light) => light.id,
             RenderLight::Sphere(light) => light.id,
             RenderLight::Disk(light) => light.id,
-            RenderLight::Rects(light) => light.id,
             RenderLight::Rect(light) => light.id,
             RenderLight::Infinite(light) => light.id,
             // Handle other light types here
+            RenderLight::_Rects(light) => light.id,
         }
     }
 
@@ -84,10 +84,10 @@ impl RenderLight {
             RenderLight::Directional(light) => light.edition.clone(),
             RenderLight::Sphere(light) => light.edition.clone(),
             RenderLight::Disk(light) => light.edition.clone(),
-            RenderLight::Rects(light) => light.edition.clone(),
             RenderLight::Rect(light) => light.edition.clone(),
             RenderLight::Infinite(light) => light.edition.clone(),
             // Handle other light types here
+            RenderLight::_Rects(light) => light.edition.clone(),
         }
     }
 }

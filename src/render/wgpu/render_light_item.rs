@@ -182,8 +182,12 @@ fn get_point_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 4.0;//std::f32::consts::PI;//1.0 / (4.0 * std::f32::consts::PI); // Point light power normalization
-        let intensity = [p * l[0] * scale[0], p * l[1] * scale[1], p * l[2] * scale[2]];
+        let p = 4.0; //std::f32::consts::PI;//1.0 / (4.0 * std::f32::consts::PI); // Point light power normalization
+        let intensity = [
+            p * l[0] * scale[0],
+            p * l[1] * scale[1],
+            p * l[2] * scale[2],
+        ];
 
         let render_light = SphereRenderLight {
             id,
@@ -269,7 +273,7 @@ fn get_spot_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 1.0;// / std::f32::consts::PI; // Point light power normalization
+        let p = 1.0; // / std::f32::consts::PI; // Point light power normalization
         let intensity = [
             p * l[0] * scale[0],
             p * l[1] * scale[1],
@@ -411,10 +415,11 @@ fn get_disk_light_item(
         .unwrap_or(1.0);
 
     let area = if radius > 0.0 {
-        radius * radius / std::f32::consts::PI // Area of the disk
+        radius * radius * std::f32::consts::PI // Area of the disk
     } else {
         1.0 // Default area if radius is not specified
     };
+    //let area = 8.0 * area;
     //let area = 1.0;////radius * radius; // Assuming a disk for area calculation
 
     let props = light.as_property_map();
@@ -513,11 +518,12 @@ fn get_rects_light_item(
                     let v_axis = rect.v_axis;
 
                     //let area = 1.0; //todo: get area from rect
-                    let area = Vector3::cross(
-                        &Vector3::new(u_axis[0], u_axis[1], u_axis[2]),
-                        &Vector3::new(v_axis[0], v_axis[1], v_axis[2]),
-                    )
-                    .length();
+                    let area = 4.0
+                        * Vector3::cross(
+                            &Vector3::new(u_axis[0], u_axis[1], u_axis[2]),
+                            &Vector3::new(v_axis[0], v_axis[1], v_axis[2]),
+                        )
+                        .length();
 
                     let intensity = [
                         area * l[0] * scale[0],
@@ -543,7 +549,7 @@ fn get_rects_light_item(
                 edition: edition.clone(),
                 rects: render_rects,
             };
-            let render_light = Arc::new(RenderLight::Rects(render_light));
+            let render_light = Arc::new(RenderLight::_Rects(render_light));
             render_resource_manager.add_light(&render_light);
 
             let render_item = RenderLightItem {
@@ -821,7 +827,7 @@ pub fn get_render_light_items(
         render_resource_manager,
     ) {
         if let RenderItem::Light(light_item) = render_item {
-            if let RenderLight::Rects(rects) = light_item.light.as_ref() {
+            if let RenderLight::_Rects(rects) = light_item.light.as_ref() {
                 //println!("Area light with {} rects", rects.rects.len());
                 for light in rects.rects.iter() {
                     //

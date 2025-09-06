@@ -38,7 +38,6 @@ fn get_lines_material(
         edition: edition.to_string(),
         render_type: RenderCategory::Opaque,
         uniform_values,
-
     };
     let render_material = Arc::new(render_material);
     render_resource_manager.add_material(&render_material);
