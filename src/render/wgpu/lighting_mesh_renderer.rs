@@ -2,7 +2,6 @@ use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use crate::render::wgpu::light::RenderLight;
-use core::num;
 use std::collections::HashMap;
 use std::sync::Arc;
 

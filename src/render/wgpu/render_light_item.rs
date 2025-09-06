@@ -518,11 +518,12 @@ fn get_rects_light_item(
                     let v_axis = rect.v_axis;
 
                     //let area = 1.0; //todo: get area from rect
-                    let area = Vector3::cross(
-                        &Vector3::new(u_axis[0], u_axis[1], u_axis[2]),
-                        &Vector3::new(v_axis[0], v_axis[1], v_axis[2]),
-                    )
-                    .length();
+                    let area = 4.0
+                        * Vector3::cross(
+                            &Vector3::new(u_axis[0], u_axis[1], u_axis[2]),
+                            &Vector3::new(v_axis[0], v_axis[1], v_axis[2]),
+                        )
+                        .length();
 
                     let intensity = [
                         area * l[0] * scale[0],
@@ -548,7 +549,7 @@ fn get_rects_light_item(
                 edition: edition.clone(),
                 rects: render_rects,
             };
-            let render_light = Arc::new(RenderLight::Rects(render_light));
+            let render_light = Arc::new(RenderLight::_Rects(render_light));
             render_resource_manager.add_light(&render_light);
 
             let render_item = RenderLightItem {
@@ -826,7 +827,7 @@ pub fn get_render_light_items(
         render_resource_manager,
     ) {
         if let RenderItem::Light(light_item) = render_item {
-            if let RenderLight::Rects(rects) = light_item.light.as_ref() {
+            if let RenderLight::_Rects(rects) = light_item.light.as_ref() {
                 //println!("Area light with {} rects", rects.rects.len());
                 for light in rects.rects.iter() {
                     //
