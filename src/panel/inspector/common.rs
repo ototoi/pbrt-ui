@@ -422,7 +422,7 @@ fn show_strings(
     return is_changed;
 }
 
-fn show_bools(ui: &mut egui::Ui, key_type: &str, key_name: &str, value: &mut Vec<bool>) {
+fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut Vec<bool>) {
     if value.len() == 1 {
         Checkbox::without_text(&mut value[0]).ui(ui);
     }

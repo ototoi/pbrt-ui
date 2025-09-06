@@ -1,5 +1,5 @@
-use super::material::RenderMaterial;
 use super::material::RenderCategory;
+use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_item::MeshRenderItem;
@@ -15,6 +15,7 @@ use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -87,29 +88,29 @@ fn create_surface_material(
     material: &Material,
     resource_manager: &ResourceManager,
 ) -> RenderMaterial {
+    let mut uniform_values_map = HashMap::new();
+    uniform_values_map.insert(
+        "base_color".to_string(),
+        RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
+    );
     if let Some(base_color_key) = get_base_color_key(material) {
         if let Some(value) = get_base_color_value(material, &base_color_key, resource_manager) {
-            let mut uniform_values = Vec::new();
-            uniform_values.push(("base_color".to_string(), value.clone()));
-            uniform_values.push((base_color_key.to_string(), value.clone()));
-            let edition = material.get_edition();
-            let id = material.get_id();
-            let render_material = RenderMaterial {
-                id,
-                edition,
-                render_type: RenderCategory::Opaque, //todo
-                uniform_values,
-            };
-            return render_material;
+            uniform_values_map.insert("base_color".to_string(), value.clone());
         }
     }
     {
-        // Fallback to a default solid material if no base color is found
-        let mut uniform_values = Vec::new();
-        uniform_values.push((
-            "base_color".to_string(),
-            RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
-        ));
+        let keys = ["Kd", "Ks", "Kt", "Kr"];
+        for key in keys {
+            if let Some(value) = get_base_color_value(material, key, resource_manager) {
+                uniform_values_map.insert(key.to_string(), value.clone());
+            }
+        }
+    }
+    {
+        let uniform_values: Vec<(String, RenderUniformValue)> = uniform_values_map
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
         let edition = material.get_edition();
         let id = material.get_id();
         let render_material = RenderMaterial {

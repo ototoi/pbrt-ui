@@ -182,8 +182,12 @@ fn get_point_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 4.0;//std::f32::consts::PI;//1.0 / (4.0 * std::f32::consts::PI); // Point light power normalization
-        let intensity = [p * l[0] * scale[0], p * l[1] * scale[1], p * l[2] * scale[2]];
+        let p = 4.0; //std::f32::consts::PI;//1.0 / (4.0 * std::f32::consts::PI); // Point light power normalization
+        let intensity = [
+            p * l[0] * scale[0],
+            p * l[1] * scale[1],
+            p * l[2] * scale[2],
+        ];
 
         let render_light = SphereRenderLight {
             id,
@@ -269,7 +273,7 @@ fn get_spot_light_item(
         let l = get_color(&props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
-        let p = 1.0;// / std::f32::consts::PI; // Point light power normalization
+        let p = 1.0; // / std::f32::consts::PI; // Point light power normalization
         let intensity = [
             p * l[0] * scale[0],
             p * l[1] * scale[1],
@@ -411,10 +415,11 @@ fn get_disk_light_item(
         .unwrap_or(1.0);
 
     let area = if radius > 0.0 {
-        radius * radius / std::f32::consts::PI // Area of the disk
+        radius * radius * std::f32::consts::PI // Area of the disk
     } else {
         1.0 // Default area if radius is not specified
     };
+    //let area = 8.0 * area;
     //let area = 1.0;////radius * radius; // Assuming a disk for area calculation
 
     let props = light.as_property_map();

@@ -202,13 +202,16 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
 }
 
 fn get_base_color(item: &RenderItem) -> [f32; 4] {
+    let keys = ["Kd", "base_color"];
     match item {
         RenderItem::Mesh(mesh_item) => {
             if let Some(material) = &mesh_item.material {
                 // Assuming the material has a base color property
-                if let Some(value) = material.get_uniform_value("base_color") {
-                    if let RenderUniformValue::Vec4(color) = value {
-                        return *color;
+                for key in keys {
+                    if let Some(value) = material.get_uniform_value(key) {
+                        if let RenderUniformValue::Vec4(color) = value {
+                            return *color;
+                        }
                     }
                 }
             }
@@ -216,6 +219,25 @@ fn get_base_color(item: &RenderItem) -> [f32; 4] {
         _ => {} // Default color for other items
     }
     return [1.0, 1.0, 1.0, 1.0]; // Default color for 
+}
+
+fn get_specular_color(item: &RenderItem) -> [f32; 4] {
+    let keys = ["Ks", "specular_color"];
+    match item {
+        RenderItem::Mesh(mesh_item) => {
+            if let Some(material) = &mesh_item.material {
+                for key in keys {
+                    if let Some(value) = material.get_uniform_value(key) {
+                        if let RenderUniformValue::Vec4(color) = value {
+                            return *color;
+                        }
+                    }
+                }
+            }
+        }
+        _ => {} // Default color for other items
+    }
+    return [0.0, 0.0, 0.0, 1.0]; // Default color for specular
 }
 
 impl LightingMeshRenderer {
@@ -375,12 +397,12 @@ impl LightingMeshRenderer {
             if entry.count < num_items {
                 entry.recreate_buffer(device, num_items);
             }
-            let ks = 0.1;
             for (i, item) in mesh_items.iter().enumerate() {
                 let base_color = get_base_color(item);
+                let specular_color = get_specular_color(item);
                 let uniform = BasicMaterialUniforms {
                     kd: base_color,
-                    ks: [ks, ks, ks, 0.0],
+                    ks: specular_color,
                     ..Default::default()
                 };
                 let offset = i as wgpu::BufferAddress * uniform_alignment;

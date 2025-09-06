@@ -21,7 +21,7 @@ pub const V3_MATERIAL_NAMES: [&str; 14] = [
 ];
 
 //type, key_type, key_name, value
-pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 98] = [
+pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 100] = [
     ("matte", "color", "Kd", "0.5 0.5 0.5", ""),
     ("matte", "float", "sigma", "0.0", ""),
     ("matte", "texture", "bumpmap", "", ""),
@@ -30,7 +30,7 @@ pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 98] = [
     ("plastic", "color", "Ks", "0.25 0.25 0.25", ""),
     ("plastic", "float", "roughness", "0.0", "0.0 1.0"),
     ("plastic", "texture", "bumpmap", "", ""),
-    ("plastic", "bool", "remaproughness", "true", "0.0 1.0"),
+    ("plastic", "bool", "remaproughness", "true", ""),
     //
     ("translucent", "color", "Kd", "0.25 0.25 0.25", ""),
     ("translucent", "color", "Ks", "0.25 0.25 0.25", ""),
@@ -78,6 +78,7 @@ pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 98] = [
     ("substrate", "float", "uroughness", "0.1", "0.0 1.0"),
     ("substrate", "float", "vroughness", "0.1", "0.0 1.0"),
     ("substrate", "texture", "bumpmap", "", ""),
+    ("substrate", "bool", "remaproughness", "true", ""),
     //
     ("subsurface", "string", "name", "", ""),
     ("subsurface", "float", "scale", "1.0", ""),
@@ -113,6 +114,7 @@ pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 98] = [
     ("uber", "float", "eta", "1.5", "0.0 10.0"),
     ("uber", "texture", "bumpmap", "", ""),
     ("uber", "color", "opacity", "1.0 1.0 1.0", ""),
+    ("uber", "bool", "remaproughness", "true", ""),
     //
     ("fourier", "string", "bsdffile", "", ""),
     ("fourier", "texture", "bumpmap", "", ""),

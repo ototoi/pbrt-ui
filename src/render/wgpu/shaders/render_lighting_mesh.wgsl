@@ -136,7 +136,7 @@ fn fr_dielectric_(cos_i: f32, eta_i: f32, eta_t: f32) -> f32 {
 
 fn fr_dielectric(cos_i: f32, eta_i: f32, eta_t: f32) -> f32 {
     let cos_theta_i = clamp(cos_i, -1.0, 1.0);
-    return select(fr_dielectric_(-cos_theta_i, eta_t, eta_i), fr_dielectric_(cos_theta_i, eta_i, eta_t), cos_theta_i >= 0.0);
+    return select(fr_dielectric_(-cos_theta_i, eta_t, eta_i), fr_dielectric_(cos_theta_i, eta_i, eta_t), cos_theta_i > 0.0);
 }
 
 fn cos_2_theta(w: vec3<f32>) -> f32 {
@@ -144,8 +144,8 @@ fn cos_2_theta(w: vec3<f32>) -> f32 {
 }
 
 fn sin_2_theta(w: vec3<f32>) -> f32 {
-    //return max(0.0, 1.0 - w.z * w.z);
-    return w.x * w.x + w.y * w.y;//max(0.0, 1.0 - w.z * w.z);
+    return max(0.0, 1.0 - w.z * w.z);
+    //return w.x * w.x + w.y * w.y;//max(0.0, 1.0 - w.z * w.z);
 }
 
 fn tan_2_theta(w: vec3<f32>) -> f32 {
@@ -157,23 +157,25 @@ fn cos_phi(w: vec3<f32>) -> f32 {
 }
 
 fn cos_2_phi(w: vec3<f32>) -> f32 {
-    return (w.x * w.x) / (w.x * w.x + w.y * w.y);
+    let sin = sin_2_theta(w);
+    return select(0.0, (w.x * w.x) / sin, sin > 0.0);
 }
 
 fn sin_2_phi(w: vec3<f32>) -> f32 {
-    return (w.y * w.y) / (w.x * w.x + w.y * w.y);
+    let sin = sin_2_theta(w);
+    return select(0.0, (w.y * w.y) / sin, sin > 0.0);
 }
 
-fn trowbridge_reitz_d(w: vec3<f32>, alpha: f32) -> f32 {
+fn trowbridge_reitz_d(wh: vec3<f32>, alpha: f32) -> f32 {
     let alpha2 = alpha * alpha;
-    let tan_2_theta = tan_2_theta(w);//sin_2_theta(w) / cos_2_theta(w)
-    let cos_2_theta = cos_2_theta(w);
+    let tan_2_theta = tan_2_theta(wh);//sin_2_theta(w) / cos_2_theta(w)
+    let cos_2_theta = cos_2_theta(wh);
     let cos_4_theta = cos_2_theta * cos_2_theta;
     //let cos_2_phi = cos_2_phi(wh);
-    let e = tan_2_theta * alpha2;
-    //let e = (cos_2_phi(w) / (alpha2) + sin_2_phi(w) / (alpha2)) * tan_2_theta;
+    let e = tan_2_theta / alpha2;
+    //let e = (cos_2_phi(wh) / (alpha2) + sin_2_phi(wh) / (alpha2)) * tan_2_theta;
     let e2 = pow(1.0 + e, 2.0);
-    return clamp(1.0 / (PI * cos_4_theta * e2), 0.0, 1.0);
+    return 1.0 / (PI * alpha2 * e2);
 }
 
 fn trowbridge_reitz_lambda(w: vec3<f32>, alpha: f32) -> f32 {
@@ -197,12 +199,20 @@ fn micro_facet_reflection(r: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f3
         return vec3<f32>(0.0);
     }
     wh = normalize(wh);
-    let wi_wh = dot(wi, wh);
-    let roughness = max(0.001, 0.2);//<roughness>
-    let f = fr_dielectric(wi_wh, 1.5, 1.0);
+    let face_forward_wh = select(-wh, wh, dot(wh, vec3<f32>(0.0, 0.0, 1.0)) > 0.0);
+    let wi_wh = dot(wi, face_forward_wh);
+    let roughness = max(0.001, 0.5);//<roughness>
+    //let f = fr_dielectric(wi_wh, 1.5, 1.0);
     let d = trowbridge_reitz_d(wh, roughness);
-    let g = trowbridge_reitz_g(wo, wi, roughness);
-    return r * d * g * f;
+    //let g = trowbridge_reitz_g(wo, wi, roughness);
+    return r * d / (4.0 * cos_theta_i * cos_theta_o);// * d * g / (4.0 * cos_theta_i * cos_theta_o);
+}
+
+fn simple_specular(ks: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    let wr = reflect(-wo, vec3<f32>(0.0, 0.0, 1.0));
+    let cos_alpha = max(dot(wi, wr), 0.0);
+    let f = pow(cos_alpha, 20.0);
+    return ks * f;
 }
 
 fn matte(wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
@@ -377,9 +387,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     {
         let light = infinite_lights[i];
         let intensity = light.intensity.rgb;
-        let r = reflect(camera_to_surface, normal);
+        //let r = reflect(camera_to_surface, normal);
+        let r = normal;
+        let d = max(dot(r, vec3<f32>(0.0, 0.0, 1.0)), 0.0);
         let wi = tbn * r;
-        color += shade(intensity, wo, wi);
+        color += shade(intensity * d, wo, wi);
     }
 
     return vec4<f32>(color, 1.0);
