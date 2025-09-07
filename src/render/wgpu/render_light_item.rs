@@ -517,6 +517,18 @@ fn get_rects_light_item(
                     let u_axis = rect.u_axis;
                     let v_axis = rect.v_axis;
 
+                    let p = Vector3::new(position[0], position[1], position[2]);
+                    let u = Vector3::new(u_axis[0], u_axis[1], u_axis[2]);
+                    let v = Vector3::new(v_axis[0], v_axis[1], v_axis[2]);
+                    let a = p - u - v;
+                    let b = p - u + v;
+                    let c = p + u + v;
+                    let d = p + u - v;
+                    let a = [a.x, a.y, a.z];
+                    let b = [b.x, b.y, b.z];
+                    let c = [c.x, c.y, c.z];
+                    let d = [d.x, d.y, d.z];
+
                     //let area = 1.0; //todo: get area from rect
                     let area = 4.0
                         * Vector3::cross(
@@ -536,8 +548,10 @@ fn get_rects_light_item(
                         edition: edition.clone(),
                         position,
                         direction,
-                        u_axis,
-                        v_axis,
+                        a,
+                        b,
+                        c,
+                        d,
                         intensity,
                     };
                     Arc::new(RenderLight::Rect(light))

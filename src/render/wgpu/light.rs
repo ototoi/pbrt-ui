@@ -36,8 +36,10 @@ pub struct RectRenderLight {
     pub edition: String,
     pub position: [f32; 3],
     pub direction: [f32; 3],
-    pub u_axis: [f32; 3],    // U axis for rectangle
-    pub v_axis: [f32; 3],    // V axis for rectangle
+    pub a: [f32; 3],         //left top
+    pub b: [f32; 3],         //left bottom
+    pub c: [f32; 3],         //right bottom
+    pub d: [f32; 3],         //right top
     pub intensity: [f32; 3], // RGB intensity
 }
 

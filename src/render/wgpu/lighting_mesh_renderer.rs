@@ -92,8 +92,10 @@ struct DiskLight {
 struct RectLight {
     position: [f32; 4],  // Position of the light // 4 * 4 = 16
     direction: [f32; 4], // Direction of the light // 4 * 4 = 16
-    u_axis: [f32; 4],    // U axis for rectangle // 4 * 4 = 16
-    v_axis: [f32; 4],    // V axis for rectangle // 4 * 4 = 16
+    a: [f32; 4],         //left top
+    b: [f32; 4],         //left bottom
+    c: [f32; 4],         //right bottom
+    d: [f32; 4],         //right top
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
 }
 
@@ -533,18 +535,22 @@ impl LightingMeshRenderer {
                             direction[1],
                             direction[2],
                         ));
-                        let u_axis = rect.u_axis;
-                        let u_axis =
-                            matrix.transform_vector3(glam::vec3(u_axis[0], u_axis[1], u_axis[2]));
-                        let v_axis = rect.v_axis;
-                        let v_axis =
-                            matrix.transform_vector3(glam::vec3(v_axis[0], v_axis[1], v_axis[2]));
+                        let a =
+                            matrix.transform_point3(glam::vec3(rect.a[0], rect.a[1], rect.a[2]));
+                        let b =
+                            matrix.transform_point3(glam::vec3(rect.b[0], rect.b[1], rect.b[2]));
+                        let c =
+                            matrix.transform_point3(glam::vec3(rect.b[0], rect.b[1], rect.b[2]));
+                        let d =
+                            matrix.transform_point3(glam::vec3(rect.d[0], rect.d[1], rect.d[2]));
                         let intensity = rect.intensity;
                         let light = RectLight {
                             position: [position.x, position.y, position.z, 1.0],
                             direction: [direction.x, direction.y, direction.z, 0.0],
-                            u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
-                            v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
+                            a: [a.x, a.y, a.z, 1.0],
+                            b: [b.x, b.y, b.z, 1.0],
+                            c: [c.x, c.y, c.z, 1.0],
+                            d: [d.x, d.y, d.z, 1.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                         };
                         light_buffer.push(light);
