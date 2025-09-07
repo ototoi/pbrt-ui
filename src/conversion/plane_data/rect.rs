@@ -67,16 +67,16 @@ pub fn create_plane_rect_from_plane_outline(
             let v1 = positions[(i + 1) % vn];
             let v2 = positions[(i + 2) % vn];
             let edge1 = v1 - v0;
-            let edge2 = v2 - v0;
+            let edge2 = v2 - v1;
             normal += Vector3::cross(&edge1, &edge2);
         }
         normal = normal.normalize();
-        let edge0 = positions[1] - positions[0]; //v
-        let edge1 = positions[2] - positions[1]; //u
-        let edge2 = positions[3] - positions[2]; //-v
-        let edge3 = positions[0] - positions[3]; //-u
-        let v_dir = (edge0 - edge2) * 0.5;
-        let u_dir = (edge1 - edge3) * 0.5;
+        let edge0 = positions[1] - positions[0];
+        let edge1 = positions[2] - positions[1];
+        let edge2 = positions[3] - positions[2];
+        let edge3 = positions[0] - positions[3];
+        let u_dir = (edge0 - edge2) * 0.5;
+        let v_dir = (edge1 - edge3) * 0.5;
         let u_axis = u_dir * 0.5;
         let v_axis = v_dir * 0.5;
         let rect = PlaneRect {
