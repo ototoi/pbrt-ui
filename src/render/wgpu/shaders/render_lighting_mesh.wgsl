@@ -236,53 +236,27 @@ fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
 }
 //-------------------------------------------------------
 
-fn test_in_triangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, p: vec3<f32>) -> bool {
-    let n1 = normalize(cross(b - a, p - b));
-    let n2 = normalize(cross(c - b, p - c));
-    let n3 = normalize(cross(a - c, p - a));
-    let d0 = dot(n1, n2);
-    let d1 = dot(n2, n3);
-    if d0 > 0.99 && d1 > 0.99 {
-        return true;
-    } else {
-        return false;
-    }
-}
-
 fn closest_point_on_line_segment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
     let ab = b - a;
     let t = dot(p - a, ab) / dot(ab, ab);
     return a + saturate(t) * ab;
 }
 
-fn closest_point_on_rectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
-    if !test_in_triangle(a, b, c, p) && !test_in_triangle(a, c, d, p) {
-        let p1 = closest_point_on_line_segment(a, b, p);
-        let p2 = closest_point_on_line_segment(b, c, p);
-        let p3 = closest_point_on_line_segment(c, d, p);
-        let p4 = closest_point_on_line_segment(d, a, p);
-        let t1 = length(p - p1);
-        let t2 = length(p - p2);
-        let t3 = length(p - p3);
-        let t4 = length(p - p4);
-        var t = t1;
-        var closest_point = p1;
-        if t2 < t {
-            t = t2;
-            closest_point = p2;
-        }
-        if t3 < t {
-            t = t3;
-            closest_point = p3;
-        }
-        if t4 < t {
-            t = t4;
-            closest_point = p4;
-        }
-        return closest_point;
-    } else {
-        return p;
-    }
+fn test_in_half_space(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>, n: vec3<f32>) -> bool {
+    let ab = b - a;
+    let ap = p - a;
+    let cross_product = cross(ab, ap);
+    let dot_product = dot(cross_product, n);
+    return dot_product >= 0.0;
+}
+
+fn closest_point_on_rectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>, n: vec3<f32>) -> vec3<f32> {
+    var closest_point = p;
+    closest_point = select(closest_point, closest_point_on_line_segment(a, b, p), test_in_half_space(a, b, p, n));
+    closest_point = select(closest_point, closest_point_on_line_segment(b, c, p), test_in_half_space(b, c, p, n));
+    closest_point = select(closest_point, closest_point_on_line_segment(c, d, p), test_in_half_space(c, d, p, n));
+    closest_point = select(closest_point, closest_point_on_line_segment(d, a, p), test_in_half_space(d, a, p, n));
+    return closest_point;
 }
 
 struct VertexOut {
@@ -425,12 +399,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         |    |
         b----c
          */
-        let a = position - light.u_axis.xyz - light.v_axis.xyz;
-        let b = position - light.u_axis.xyz + light.v_axis.xyz;
-        let c = position + light.u_axis.xyz + light.v_axis.xyz;
-        let d = position + light.u_axis.xyz - light.v_axis.xyz;
+        let a = position + light.u_axis.xyz - light.v_axis.xyz;
+        let b = position + light.u_axis.xyz + light.v_axis.xyz;
+        let c = position - light.u_axis.xyz + light.v_axis.xyz;
+        let d = position - light.u_axis.xyz - light.v_axis.xyz;
+        
         // Find the closest point on the rectangle
-        var closest_point = closest_point_on_rectangle(a, b, c, d, p);
+        var closest_point = closest_point_on_rectangle(a, b, c, d, p, direction);
         let light_to_surface = in.w_position - closest_point;
         let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
         let falloff = cos_theta;
