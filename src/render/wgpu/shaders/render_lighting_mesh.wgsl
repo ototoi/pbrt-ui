@@ -238,16 +238,12 @@ fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
 //-------------------------------------------------------
 
 fn test_in_triangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, p: vec3<f32>) -> bool {
-    let n1 = normalize(cross(b - a, p - b));
-    let n2 = normalize(cross(c - b, p - c));
-    let n3 = normalize(cross(a - c, p - a));
+    let n1 = cross(b - a, p - b);
+    let n2 = cross(c - b, p - c);
+    let n3 = cross(a - c, p - a);
     let d0 = dot(n1, n2);
     let d1 = dot(n2, n3);
-    if d0 > 0.99 && d1 > 0.99 {
-        return true;
-    } else {
-        return false;
-    }
+    return d0 > 0.0 && d1 > 0.0;
 }
 
 fn closest_point_on_line_segment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
@@ -256,24 +252,21 @@ fn closest_point_on_line_segment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> ve
     return a + saturate(t) * ab;
 }
 
-fn closest_point_and_distance_on_line_segment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> vec4<f32> {
+fn closest_point_outside_rectangle(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>, n: vec3<f32>, cp: vec4<f32>) -> vec4<f32> {
     let closest_point = closest_point_on_line_segment(a, b, p);
-    let cp = p - closest_point;
-    let distance = dot(cp, cp);
-    return vec4<f32>(closest_point, distance);
+    let l = p - closest_point;
+    let distance = dot(l, l);
+    let pp = vec4<f32>(closest_point, distance);
+    return select(cp, pp, pp.w < cp.w);
 }
 
-fn closest_point_on_rectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
+fn closest_point_on_rectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>, n: vec3<f32>) -> vec3<f32> {
     if !test_in_triangle(a, b, c, p) && !test_in_triangle(a, c, d, p) {
         var cp = vec4<f32>(p, MAX_FLOAT);
-        let p1 = closest_point_and_distance_on_line_segment(a, b, p);
-        let p2 = closest_point_and_distance_on_line_segment(b, c, p);
-        let p3 = closest_point_and_distance_on_line_segment(c, d, p);
-        let p4 = closest_point_and_distance_on_line_segment(d, a, p);
-        cp = select(cp, p1, p1.w < cp.w);
-        cp = select(cp, p2, p2.w < cp.w);
-        cp = select(cp, p3, p3.w < cp.w);
-        cp = select(cp, p4, p4.w < cp.w);
+        cp = closest_point_outside_rectangle(a, b, p, n, cp);
+        cp = closest_point_outside_rectangle(b, c, p, n, cp);
+        cp = closest_point_outside_rectangle(c, d, p, n, cp);
+        cp = closest_point_outside_rectangle(d, a, p, n, cp);
         return cp.xyz;
     } else {
         return p;
@@ -425,10 +418,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let c = position + light.u_axis.xyz + light.v_axis.xyz;
         let d = position + light.u_axis.xyz - light.v_axis.xyz;
         // Find the closest point on the rectangle
-        var closest_point = closest_point_on_rectangle(a, b, c, d, p);
+        var closest_point = closest_point_on_rectangle(a, b, c, d, p, direction);
         let light_to_surface = in.w_position - closest_point;
         let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
-        let falloff = cos_theta;
+        let falloff = cos_theta;//pow(cos_theta, 1.0);
 
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
