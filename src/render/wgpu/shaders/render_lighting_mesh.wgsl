@@ -340,7 +340,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             light_to_surface = in.w_position - closest_point;
         }
         let distance = length(light_to_surface);
-        let attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
+        let attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
         color += shade(intensity * attenuation, wo, wi);
     }
@@ -380,7 +380,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             falloff = pow(falloff, 4.0);
         }
         let distance = length(light_to_surface);
-        var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
+        var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
         color += shade(intensity * attenuation * falloff, wo, wi);
     }
@@ -424,7 +424,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let falloff = cos_theta;//pow(cos_theta, 1.0);
 
         let distance = length(light_to_surface);
-        var attenuation = 1.0 / pow(distance, 2.0); // Simple quadratic attenuation
+        var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
         var wi = tbn * -normalize(light_to_surface);
         color += shade(intensity * attenuation * falloff, wo, wi);
     }
