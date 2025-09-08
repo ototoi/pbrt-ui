@@ -114,6 +114,7 @@ struct BasicMaterialUniforms {
 @binding(0)
 var<uniform> material_uniforms: BasicMaterialUniforms;
 
+const MAX_FLOAT: f32 = 1e+10;
 const PI: f32 = 3.14159265359;
 const INV_PI: f32 = 1.0 / 3.14159265359;
 
@@ -255,31 +256,25 @@ fn closest_point_on_line_segment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> ve
     return a + saturate(t) * ab;
 }
 
+fn closest_point_and_distance_on_line_segment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> vec4<f32> {
+    let closest_point = closest_point_on_line_segment(a, b, p);
+    let cp = p - closest_point;
+    let distance = dot(cp, cp);
+    return vec4<f32>(closest_point, distance);
+}
+
 fn closest_point_on_rectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
     if !test_in_triangle(a, b, c, p) && !test_in_triangle(a, c, d, p) {
-        let p1 = closest_point_on_line_segment(a, b, p);
-        let p2 = closest_point_on_line_segment(b, c, p);
-        let p3 = closest_point_on_line_segment(c, d, p);
-        let p4 = closest_point_on_line_segment(d, a, p);
-        let t1 = length(p - p1);
-        let t2 = length(p - p2);
-        let t3 = length(p - p3);
-        let t4 = length(p - p4);
-        var t = t1;
-        var closest_point = p1;
-        if t2 < t {
-            t = t2;
-            closest_point = p2;
-        }
-        if t3 < t {
-            t = t3;
-            closest_point = p3;
-        }
-        if t4 < t {
-            t = t4;
-            closest_point = p4;
-        }
-        return closest_point;
+        var cp = vec4<f32>(p, MAX_FLOAT);
+        let p1 = closest_point_and_distance_on_line_segment(a, b, p);
+        let p2 = closest_point_and_distance_on_line_segment(b, c, p);
+        let p3 = closest_point_and_distance_on_line_segment(c, d, p);
+        let p4 = closest_point_and_distance_on_line_segment(d, a, p);
+        cp = select(cp, p1, p1.w < cp.w);
+        cp = select(cp, p2, p2.w < cp.w);
+        cp = select(cp, p3, p3.w < cp.w);
+        cp = select(cp, p4, p4.w < cp.w);
+        return cp.xyz;
     } else {
         return p;
     }
