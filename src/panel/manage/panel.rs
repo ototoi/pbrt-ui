@@ -1,3 +1,4 @@
+use super::debug_textures::DebugTexturesPanel;
 use super::log::LogPanel;
 use super::resources::ResourcesPanel;
 use crate::controller::AppController;
@@ -11,6 +12,7 @@ use std::sync::RwLock;
 enum ManageTab {
     Resources,
     Log,
+    DebugTextures,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +21,7 @@ pub struct ManagePanel {
     current_tab: ManageTab,
     pub resources_panel: ResourcesPanel,
     pub log_panel: LogPanel,
+    pub debug_textures_panel: DebugTexturesPanel,
 }
 
 impl ManagePanel {
@@ -28,6 +31,7 @@ impl ManagePanel {
             current_tab: ManageTab::Resources,
             resources_panel: ResourcesPanel::new(controller),
             log_panel: LogPanel::new(),
+            debug_textures_panel: DebugTexturesPanel::new(controller),
         }
     }
 
@@ -37,6 +41,10 @@ impl ManagePanel {
 
     fn show_log(&mut self, ui: &mut egui::Ui) {
         self.log_panel.show(ui);
+    }
+
+    fn show_debug_textures(&mut self, ui: &mut egui::Ui) {
+        self.debug_textures_panel.show(ui);
     }
 }
 
@@ -72,6 +80,11 @@ impl Panel for ManagePanel {
                             "Resources",
                         );
                         ui.selectable_value(&mut self.current_tab, ManageTab::Log, "Log");
+                        ui.selectable_value(
+                            &mut self.current_tab,
+                            ManageTab::DebugTextures,
+                            "Debug Textures",
+                        );
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.small_button("X").clicked() {
@@ -86,6 +99,9 @@ impl Panel for ManagePanel {
                     }
                     ManageTab::Log => {
                         self.show_log(ui);
+                    }
+                    ManageTab::DebugTextures => {
+                        self.show_debug_textures(ui);
                     }
                 }
             });

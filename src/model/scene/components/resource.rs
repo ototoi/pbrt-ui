@@ -1,10 +1,8 @@
 use crate::model::scene::Component;
 use crate::model::scene::Material;
-use crate::model::scene::OtherResource;
 use crate::model::scene::ResourceObject;
 use crate::model::scene::Shape;
 use crate::model::scene::Texture;
-use crate::model::scene::components::resource;
 
 use std::collections::HashMap;
 use std::sync::Arc;

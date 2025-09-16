@@ -27,6 +27,7 @@ pub use material::MaterialComponent;
 pub use resource::ResourceComponent;
 pub use resource::ResourceManager;
 pub use resource_cache::ResourceCacheComponent;
+pub use resource_cache::ResourceCacheManager;
 pub use sampler::SamplerComponent;
 pub use scene::SceneComponent;
 pub use shape::ShapeComponent;

@@ -1,3 +1,4 @@
+mod debug_textures;
 mod log;
 mod panel;
 mod resources;
