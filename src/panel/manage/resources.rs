@@ -1,9 +1,10 @@
 use crate::controller::AppController;
-use crate::conversion::texture_cache::TextureCacheManager;
-use crate::conversion::texture_cache::TextureCacheSize;
-use crate::model::scene::Node;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
+
+use crate::conversion::texture_cache::TexturePurpose;
+use crate::conversion::texture_cache::create_image_variants;
+use crate::conversion::texture_cache::create_texture_nodes;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -19,7 +20,7 @@ use eframe::egui::Vec2;
 pub struct ResourcesPanel {
     pub app_controller: Arc<RwLock<AppController>>,
     pub resource_type: ResourceType,
-    pub texture_id_map: HashMap<Uuid, (String, egui::TextureId)>,
+    pub texture_id_map: HashMap<Uuid, (String, egui::TextureId, String)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -29,6 +30,28 @@ pub enum ResourceType {
     Material,
     Mesh,
     Other,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum IconData {
+    Textured(Uuid, String, egui::TextureId),
+    Colored(Uuid, String, egui::Color32),
+}
+
+impl IconData {
+    pub fn get_id(&self) -> Uuid {
+        match self {
+            IconData::Textured(id, _, _) => *id,
+            IconData::Colored(id, _, _) => *id,
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        match self {
+            IconData::Textured(_, name, _) => name.clone(),
+            IconData::Colored(_, name, _) => name.clone(),
+        }
+    }
 }
 
 fn short_name(name: &str, len: usize) -> String {
@@ -41,19 +64,10 @@ fn short_name(name: &str, len: usize) -> String {
 }
 
 fn get_image_data(image: &DynamicImage) -> Option<egui::ColorImage> {
-    let rgb_image = image.to_rgb8();
+    let rgb_image = image.to_rgb8(); // Convert to RGB8 format
     let size = [rgb_image.width() as usize, rgb_image.height() as usize];
     let pixels = rgb_image.into_raw();
     Some(egui::ColorImage::from_rgb(size, &pixels))
-}
-
-fn get_texture_cache_manager(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<TextureCacheManager>>> {
-    let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<ResourceCacheComponent>() {
-        let resource_manager = component.get_texture_cache_manager();
-        return Some(resource_manager.clone());
-    }
-    return None;
 }
 
 impl ResourcesPanel {
@@ -67,7 +81,7 @@ impl ResourcesPanel {
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
         // Here you can add more UI elements related to resources
-        let mut resources = Vec::new();
+        let mut icon_data = Vec::new();
         {
             let controller = self.app_controller.read().unwrap();
             let root_node = controller.get_root_node();
@@ -77,59 +91,65 @@ impl ResourcesPanel {
                     root_node.get_component::<ResourceCacheComponent>()
                 {
                     let resource_manager = resource_component.get_resource_manager();
-                    let resource_manager = resource_manager.write().unwrap();
-                    let texture_cache_manager =
-                        resource_cache_component.get_texture_cache_manager();
-                    let texture_cache_manager = texture_cache_manager.write().unwrap();
-                    let texture_manager = ui.ctx().tex_manager();
-                    let mut texture_manager = texture_manager.write();
+                    let resource_manager = resource_manager.read().unwrap();
 
                     if self.resource_type == ResourceType::All
                         || self.resource_type == ResourceType::Texture
                     {
-                        for (id, res) in resource_manager.textures.iter() {
-                            let texture = res.read().unwrap();
-                            let name = texture.get_name();
-                            let mut texure_id: Option<egui::TextureId> = None;
-                            if let Some(texture_cache) = texture_cache_manager
-                                .get_texture_cache(&texture, TextureCacheSize::Icon)
-                            {
-                                let texture_cache = texture_cache.read().unwrap();
-                                let org_id = texture_cache.id;
-                                //println!("Cache path: {}", cache_path);
-                                if let Some((edition, tex_id)) = self.texture_id_map.get(&org_id) {
-                                    if *edition == texture_cache.edition {
-                                        texure_id = Some(*tex_id);
-                                    }
-                                }
-                                if texure_id.is_none() {
-                                    if let Some(rgb_image) = get_image_data(&texture_cache.image) {
-                                        if let Some(old_tex_id) =
-                                            self.texture_id_map.get(&org_id).map(|(_, id)| *id)
-                                        {
-                                            texture_manager.free(old_tex_id);
-                                        }
+                        let resource_cache_manager =
+                            resource_cache_component.get_resource_cache_manager();
+                        let mut resource_cache_manager = resource_cache_manager.write().unwrap();
+                        create_texture_nodes(&resource_manager, &mut resource_cache_manager);
+                        create_image_variants(
+                            &resource_manager,
+                            &mut resource_cache_manager,
+                            crate::conversion::texture_cache::TexturePurpose::Icon,
+                        );
 
-                                        // Create a new texture ID
-                                        let color_image =
-                                            egui::ImageData::Color(Arc::new(rgb_image));
-                                        let texture_options = egui::TextureOptions::LINEAR;
-                                        let new_tex_id = texture_manager.alloc(
-                                            name.clone(),
-                                            color_image,
-                                            texture_options,
-                                        );
-                                        texure_id = Some(new_tex_id);
-                                        // Store the texture ID in the map
-                                        self.texture_id_map.insert(
-                                            org_id,
-                                            (texture_cache.edition.clone(), new_tex_id),
-                                        );
-                                    }
+                        for (id, texture) in resource_manager.textures.iter() {
+                            let texture = texture.read().unwrap();
+                            let name = texture.get_name();
+                            let edition = texture.get_edition();
+                            if let Some((name, tex_id, tex_edition)) = self.texture_id_map.get(id) {
+                                if edition == *tex_edition {
+                                    // No need to update
+                                    icon_data.push(IconData::Textured(
+                                        id.clone(),
+                                        name.clone(),
+                                        *tex_id,
+                                    ));
+                                    continue;
                                 }
                             }
 
-                            resources.push((id.clone(), "texture", name, texure_id));
+                            if let Some(texture_node) = resource_cache_manager.textures.get(id) {
+                                let texture_node = texture_node.read().unwrap();
+                                if let Some(image) =
+                                    texture_node.image_variants.get(&TexturePurpose::IconSrgb)
+                                {
+                                    let image = image.read().unwrap();
+                                    if let Some(color_image) = get_image_data(&image) {
+                                        let tex_manager = ui.ctx().tex_manager();
+                                        let mut tex_manager = tex_manager.write();
+                                        let texture_name = format!("texture_{}_icon", id);
+                                        let tex_id = tex_manager.alloc(
+                                            texture_name,
+                                            egui::ImageData::Color(Arc::new(color_image)),
+                                            egui::TextureOptions::LINEAR,
+                                        );
+                                        self.texture_id_map.insert(*id, (name.clone(), tex_id, edition));
+                                        icon_data.push(IconData::Textured(
+                                            id.clone(),
+                                            name.clone(),
+                                            tex_id,
+                                        ));
+                                        continue;
+                                    }
+                                }
+
+                                // Texture node not found
+                                icon_data.push(IconData::Colored(*id, name, egui::Color32::YELLOW));
+                            }
                         }
                     }
 
@@ -139,7 +159,11 @@ impl ResourcesPanel {
                         for (id, res) in resource_manager.materials.iter() {
                             let res = res.read().unwrap();
                             let name = res.get_name();
-                            resources.push((id.clone(), "material", name, None));
+                            icon_data.push(IconData::Colored(
+                                id.clone(),
+                                name,
+                                egui::Color32::GREEN,
+                            ));
                         }
                     }
                     if self.resource_type == ResourceType::All
@@ -148,7 +172,11 @@ impl ResourcesPanel {
                         for (id, res) in resource_manager.meshes.iter() {
                             let res = res.read().unwrap();
                             let name = res.get_name();
-                            resources.push((id.clone(), "mesh", name, None));
+                            icon_data.push(IconData::Colored(
+                                id.clone(),
+                                name,
+                                egui::Color32::BLUE,
+                            ));
                         }
                     }
 
@@ -158,16 +186,20 @@ impl ResourcesPanel {
                         for (id, res) in resource_manager.other_resources.iter() {
                             let res = res.read().unwrap();
                             let name = res.get_name();
-                            resources.push((id.clone(), "other", name, None));
+                            icon_data.push(IconData::Colored(
+                                id.clone(),
+                                name,
+                                egui::Color32::GRAY,
+                            ));
                         }
                     }
                 }
             }
         }
         {
-            if !resources.is_empty() {
+            if !icon_data.is_empty() {
                 // Sort resources by name
-                resources.sort_by(|a, b| a.2.cmp(&b.2));
+                icon_data.sort_by(|a, b| a.get_name().cmp(&b.get_name()));
             }
         }
         egui::SidePanel::left("resources_type")
@@ -187,8 +219,10 @@ impl ResourcesPanel {
             .auto_shrink(false)
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    for (resource_id, resource_type, resource_name, texture_id) in resources {
-                        let short_name = short_name(&resource_name, 10);
+                    for icon in icon_data {
+                        let id = icon.get_id();
+                        let name = icon.get_name();
+                        let short_name = short_name(&name, 10);
                         ui.allocate_ui(total_size, |ui| {
                             ui.vertical_centered(|ui| {
                                 let (rect, response) =
@@ -197,48 +231,31 @@ impl ResourcesPanel {
                                     ui.painter().rect_filled(
                                         rect,
                                         1.0,
-                                        egui::Color32::from_white_alpha(10),
+                                        egui::Color32::from_white_alpha(128),
                                     );
                                 }
                                 // Draw the icon here
-                                /*
-                                ui.painter().rect_stroke(
-                                    rect,
-                                    10.0,
-                                    egui::Stroke::new(1.0, egui::Color32::RED),
-                                    egui::StrokeKind::Outside
-                                );
-                                */
-
-                                if let Some(texture_id) = texture_id {
-                                    let uv = egui::Rect::from_min_max(
-                                        egui::Pos2::new(0.0, 0.0),
-                                        egui::Pos2::new(1.0, 1.0),
-                                    );
-                                    let icon_rect = rect.shrink(5.0);
-                                    ui.painter().image(
-                                        texture_id,
-                                        icon_rect,
-                                        uv,
-                                        egui::Color32::WHITE,
-                                    );
-                                    //println!("Drawing texture: {:?}", texture_id);
-                                } else {
-                                    let icon_color = match resource_type {
-                                        "texture" => egui::Color32::YELLOW,
-                                        "material" => egui::Color32::GREEN,
-                                        "mesh" => egui::Color32::BLUE,
-                                        "other" => egui::Color32::PURPLE,
-                                        _ => egui::Color32::WHITE,
-                                    };
-                                    let icon_rect = rect.shrink(5.0);
-                                    ui.painter().rect_filled(icon_rect, 0.0, icon_color);
+                                match icon {
+                                    IconData::Textured(_, _, texture_id) => {
+                                        ui.painter().image(
+                                            texture_id,
+                                            rect.shrink(5.0),
+                                            egui::Rect::from_min_max(
+                                                egui::Pos2::new(0.0, 0.0),
+                                                egui::Pos2::new(1.0, 1.0),
+                                            ),
+                                            egui::Color32::WHITE,
+                                        );
+                                    }
+                                    IconData::Colored(_, _, color) => {
+                                        ui.painter().rect_filled(rect.shrink(5.0), 0.0, color);
+                                    }
                                 }
                                 if response.clicked() {
                                     // Handle click event
-                                    log::info!("Clicked on resource: {}", &resource_name);
+                                    log::info!("Clicked on resource: {}", &name);
                                     let mut controller = self.app_controller.write().unwrap();
-                                    controller.set_current_resource_by_id(resource_id);
+                                    controller.set_current_resource_by_id(id);
                                 }
 
                                 ui.label(short_name);

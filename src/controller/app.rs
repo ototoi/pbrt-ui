@@ -1,4 +1,3 @@
-use crate::conversion::texture_cache::TextureCacheSize;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
@@ -45,6 +44,7 @@ fn set_node_after_load(node: &Arc<RwLock<Node>>) {
             .collect::<Vec<_>>();
         textures.sort_by(|a, b| a.0.cmp(&b.0));
         if let Some(cache_component) = node.get_component::<ResourceCacheComponent>() {
+            /*
             let texture_cache_manager = cache_component.get_texture_cache_manager();
             let texture_cache_manager = texture_cache_manager.write().unwrap();
             for (_, texture) in textures {
@@ -52,6 +52,7 @@ fn set_node_after_load(node: &Arc<RwLock<Node>>) {
                 let _ = texture_cache_manager.get_texture_cache(&texture, TextureCacheSize::Icon);
                 let _ = texture_cache_manager.get_texture_cache(&texture, TextureCacheSize::Full);
             }
+            */
         }
     }
 }

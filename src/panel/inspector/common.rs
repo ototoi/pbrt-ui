@@ -422,10 +422,13 @@ fn show_strings(
     return is_changed;
 }
 
-fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut Vec<bool>) {
+fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut Vec<bool>) -> bool {
     if value.len() == 1 {
-        Checkbox::without_text(&mut value[0]).ui(ui);
+        if Checkbox::without_text(&mut value[0]).ui(ui).changed() {
+            return true;
+        }
     }
+    return false;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -702,26 +705,30 @@ pub fn show_properties(
                                         is_changed = true;
                                     }
                                 } else if let Property::Strings(value) = v {
-                                    show_strings(
+                                    if show_strings(
                                         ui,
                                         key_type,
                                         key_name,
                                         value,
                                         resource_selector,
                                         own_id,
-                                    );
+                                    ) {
+                                        is_changed = true;
+                                    }
                                 } else if let Property::Bools(value) = v {
-                                    show_bools(ui, key_type, key_name, value);
+                                    if show_bools(ui, key_type, key_name, value) {
+                                        is_changed = true;
+                                    }
                                 }
                             } else {
                                 ui.label("No property found");
                             }
                         }
-                        if is_changed {
-                            props.add_string("string edition", &Uuid::new_v4().to_string());
-                        }
                     });
                 });
+            }
+            if is_changed {
+                props.add_string("string edition", &Uuid::new_v4().to_string());
             }
         });
     return is_changed;
