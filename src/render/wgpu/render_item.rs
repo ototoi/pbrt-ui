@@ -13,6 +13,8 @@ use crate::conversion::spectrum::Spectrum;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 use crate::model::scene::Node;
+use crate::model::scene::ResourceCacheComponent;
+use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
 use crate::render::render_mode::RenderMode;
@@ -132,6 +134,15 @@ fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderRes
     return component.get_resource_manager();
 }
 
+fn get_resource_cache_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceCacheManager>> {
+    let mut node = node.write().unwrap();
+    if node.get_component::<ResourceCacheComponent>().is_none() {
+        node.add_component::<ResourceCacheComponent>(ResourceCacheComponent::new());
+    }
+    let component = node.get_component::<ResourceCacheComponent>().unwrap();
+    return component.get_resource_cache_manager();
+}
+
 pub fn get_render_items(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -142,8 +153,11 @@ pub fn get_render_items(
     let mut render_items = Vec::new();
     let resource_manager = get_resource_manager(node);
     let resource_manager = resource_manager.read().unwrap();
+    let resource_cache_manager = get_resource_cache_manager(node);
+    let mut resource_cache_manager = resource_cache_manager.write().unwrap();
     let render_resource_manager = get_render_resource_manager(node);
     let mut render_resource_manager = render_resource_manager.write().unwrap();
+
     for item in scene_items.iter() {
         match item.category {
             SceneItemType::Mesh => {
@@ -166,6 +180,7 @@ pub fn get_render_items(
                         item,
                         mode,
                         &resource_manager,
+                        &mut resource_cache_manager,
                         &mut render_resource_manager,
                     );
                     if !items.is_empty() {

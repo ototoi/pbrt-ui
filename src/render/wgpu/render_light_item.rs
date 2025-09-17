@@ -23,6 +23,7 @@ use crate::model::base::Vector3;
 use crate::model::scene::Light;
 use crate::model::scene::LightComponent;
 use crate::model::scene::Node;
+use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceManager;
 use crate::model::scene::Shape;
 use crate::model::scene::ShapeComponent;
@@ -33,6 +34,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
+use serde_json::map;
 use uuid::Uuid;
 
 #[inline]
@@ -642,9 +644,29 @@ fn get_area_light_item(
     return None;
 }
 
+fn get_render_texture(
+    resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
+    render_resource_manager: &mut RenderResourceManager,
+    mapname: &str,
+) -> Option<Arc<wgpu::Texture>> {
+    if let Some(texture) = resource_manager.find_texture_by_name(mapname) {
+        let texture = texture.read().unwrap();
+        let texture_id = texture.get_id();
+        let texture_edition = texture.get_edition();
+        //
+        if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
+            let texture_node = texture_node.read().unwrap();
+            //
+        }
+    }
+    return None; // Texture not found
+}
+
 fn get_infinite_light_item(
     item: &SceneItem,
     resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let node = &item.node;
@@ -656,6 +678,7 @@ fn get_infinite_light_item(
         let id = light.get_id();
         let light_type = light.get_type();
         let edition = light.get_edition();
+
         if let Some(render_light) = render_resource_manager.get_light(id) {
             if render_light.get_edition() == edition {
                 let render_item = RenderLightItem {
@@ -665,6 +688,7 @@ fn get_infinite_light_item(
                 return Some(RenderItem::Light(render_item));
             }
         }
+
         assert!(
             light_type == "infinite",
             "Expected light type to be 'infinite', found: {}",
@@ -682,18 +706,20 @@ fn get_infinite_light_item(
             p * l[1] * scale[1],
             p * l[2] * scale[2],
         ];
-        let render_light = InfiniteRenderLight {
-            id,
-            edition: edition.clone(),
-            intensity: intensity,
-        };
-        let render_light = Arc::new(RenderLight::Infinite(render_light));
-        render_resource_manager.add_light(&render_light);
-        let render_item = RenderLightItem {
-            light: render_light.clone(),
-            matrix: glam::Mat4::from(item.matrix),
-        };
-        return Some(RenderItem::Light(render_item));
+
+        let mapname = props.find_one_string("mapname").unwrap_or("".to_string());
+        if mapname.is_empty() {
+            return None; // No texture map specified for infinite light
+        }
+        if let Some(texture) = resource_manager.find_texture_by_name(&mapname) {
+            let texture = texture.read().unwrap();
+            let texture_id = texture.get_id();
+            let texture_edition = texture.get_edition();
+            //
+            if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
+                let texture_node = texture_node.read().unwrap();
+            }
+        }
     }
     return None; // Placeholder for light retrieval logic
 }
@@ -781,6 +807,7 @@ fn get_render_light_item(
     item: &SceneItem,
     _mode: RenderMode,
     resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     if let Some(light_type) = get_light_type(&item.node) {
@@ -798,7 +825,12 @@ fn get_render_light_item(
                 return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
             }
             "infinite" => {
-                return get_infinite_light_item(item, resource_manager, render_resource_manager);
+                return get_infinite_light_item(
+                    item,
+                    resource_manager,
+                    resource_cache_manager,
+                    render_resource_manager,
+                );
             }
             _ => {
                 // Handle unknown or unsupported light types
@@ -815,6 +847,7 @@ pub fn get_render_light_items(
     item: &SceneItem,
     _mode: RenderMode,
     resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderItem>> {
     let mut render_items = Vec::new();
@@ -824,6 +857,7 @@ pub fn get_render_light_items(
         item,
         _mode,
         resource_manager,
+        resource_cache_manager,
         render_resource_manager,
     ) {
         if let RenderItem::Light(light_item) = render_item {
