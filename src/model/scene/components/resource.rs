@@ -26,6 +26,21 @@ impl ResourceManager {
             .cloned()
     }
 
+    pub fn find_texture_by_filename(&self, name: &str) -> Option<Arc<RwLock<Texture>>> {
+        self.textures
+            .values()
+            .find(|texture| {
+                let texture = texture.read().unwrap();
+                if let Some(filename) = texture.get_filename() {
+                    if filename == name {
+                        return true;
+                    }
+                }
+                return false;
+            })
+            .cloned()
+    }
+
     pub fn find_spectrum_by_filename(&self, name: &str) -> Option<Arc<RwLock<dyn ResourceObject>>> {
         self.other_resources
             .values()

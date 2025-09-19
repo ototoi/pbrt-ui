@@ -10,6 +10,7 @@ use super::render_mesh_item::get_render_mesh_item;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use crate::conversion::spectrum::Spectrum;
+use crate::conversion::texture_cache::create_texture_nodes;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 use crate::model::scene::Node;
@@ -157,6 +158,10 @@ pub fn get_render_items(
     let mut resource_cache_manager = resource_cache_manager.write().unwrap();
     let render_resource_manager = get_render_resource_manager(node);
     let mut render_resource_manager = render_resource_manager.write().unwrap();
+
+    //
+    create_texture_nodes(&resource_manager, &mut resource_cache_manager);
+    //
 
     for item in scene_items.iter() {
         match item.category {

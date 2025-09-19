@@ -7,7 +7,7 @@ pub struct RenderTexture {
     pub edition: String,
     pub texture: wgpu::Texture,
     //pub view: wgpu::TextureView,
-    //pub sampler: wgpu::Sampler,
+    pub sampler: wgpu::Sampler,
 }
 
 impl RenderTexture {

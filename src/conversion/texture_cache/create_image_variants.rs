@@ -92,6 +92,64 @@ fn convert_to_srgb_u8_image(image: &DynamicImage) -> image::RgbImage {
     }
 }
 
+fn create_image_variants_for_nodes(
+    texture_nodes: &Vec<Arc<RwLock<TextureNode>>>,
+    resource_manager: &ResourceManager,
+    purpose: TexturePurpose,
+) {
+    let ordered_nodes = sort_texture_nodes_by_dependency(&texture_nodes);
+    for texture_node in ordered_nodes.iter() {
+        let mut texture_node = texture_node.write().unwrap();
+        let texture_id = texture_node.id;
+        let mut dependencies = HashMap::new();
+        for (key, dep) in texture_node.dependencies.iter() {
+            if let TextureDependent::Node(dep_node) = dep {
+                let dep_node = dep_node.read().unwrap();
+                if let Some(image) = dep_node.image_variants.get(&purpose) {
+                    dependencies.insert(key.clone(), image.clone());
+                }
+            }
+        }
+        let texture = resource_manager.textures.get(&texture_id).unwrap();
+        let texture = texture.read().unwrap();
+        if let Some(image) = render_texture_image(&texture, &dependencies, purpose) {
+            if purpose == TexturePurpose::Render {
+                texture_node
+                    .image_variants
+                    .insert(purpose, Arc::new(RwLock::new(image)));
+            } else {
+                let srgb_purpose = purpose.add_srgb();
+                let srgb_image = DynamicImage::ImageRgb8(convert_to_srgb_u8_image(&image));
+
+                texture_node
+                    .image_variants
+                    .insert(purpose, Arc::new(RwLock::new(image)));
+
+                texture_node
+                    .image_variants
+                    .insert(srgb_purpose, Arc::new(RwLock::new(srgb_image)));
+            }
+        }
+    }
+}
+
+pub fn create_image_variant(
+    texture_node: &Arc<RwLock<TextureNode>>,
+    resource_manager: &ResourceManager,
+    purpose: TexturePurpose,
+) -> Option<Arc<RwLock<DynamicImage>>> {
+    if let Some(image) = texture_node.read().unwrap().image_variants.get(&purpose) {
+        return Some(image.clone());
+    } else {
+        let texture_nodes = vec![texture_node.clone()];
+        create_image_variants_for_nodes(&texture_nodes, resource_manager, purpose);
+        if let Some(image) = texture_node.read().unwrap().image_variants.get(&purpose) {
+            return Some(image.clone());
+        }
+        return None;
+    }
+}
+
 pub fn create_image_variants(
     resource_manager: &ResourceManager,
     resource_cache_manager: &mut ResourceCacheManager,
@@ -103,30 +161,5 @@ pub fn create_image_variants(
             texture_nodes.push(texture_node.clone());
         }
     }
-    let ordered_nodes = sort_texture_nodes_by_dependency(&texture_nodes);
-    for texture_node in ordered_nodes.iter() {
-        let mut texture_node = texture_node.write().unwrap();
-        let texture_id = texture_node.id;
-        let texture = resource_manager.textures.get(&texture_id).unwrap();
-        let mut dependencies = HashMap::new();
-        for (key, dep) in texture_node.dependencies.iter() {
-            if let TextureDependent::Node(dep_node) = dep {
-                let dep_node = dep_node.read().unwrap();
-                if let Some(image) = dep_node.image_variants.get(&purpose) {
-                    dependencies.insert(key.clone(), image.clone());
-                }
-            }
-        }
-        let texture = texture.read().unwrap();
-        if let Some(image) = render_texture_image(&texture, &dependencies, purpose) {
-            let srgb_purpose = purpose.add_srgb();
-            let srgb_image = DynamicImage::ImageRgb8(convert_to_srgb_u8_image(&image));
-            texture_node
-                .image_variants
-                .insert(purpose, Arc::new(RwLock::new(image)));
-            texture_node
-                .image_variants
-                .insert(srgb_purpose, Arc::new(RwLock::new(srgb_image)));
-        }
-    }
+    create_image_variants_for_nodes(&texture_nodes, resource_manager, purpose);
 }

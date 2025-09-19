@@ -20,6 +20,7 @@ use crate::conversion::plane_data::create_plane_meshes_from_mesh;
 use crate::conversion::plane_data::create_plane_outline_from_plane_mesh;
 use crate::conversion::plane_data::create_plane_rect_from_plane_outline;
 use crate::conversion::texture_cache::TexturePurpose;
+use crate::conversion::texture_cache::create_image_variant;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
 use crate::model::scene::Light;
@@ -36,6 +37,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
+use eframe::wgpu::naga::back::msl::sampler;
 use uuid::Uuid;
 
 #[inline]
@@ -645,35 +647,24 @@ fn get_area_light_item(
     return None;
 }
 
-fn get_image_data(image: &image::DynamicImage) -> image::Rgb32FImage {
-    let rgb_image = image.to_rgb32f();
-    return rgb_image;
+fn get_image_data(image: &image::DynamicImage) -> image::Rgba32FImage {
+    return image.to_rgba32f();
 }
 
 fn get_texture_from_image(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    image: &image::Rgb32FImage,
+    image: &image::Rgba32FImage,
 ) -> wgpu::Texture {
     let dimensions = image.dimensions();
-    let texture_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Texture Buffer"),
-        size: (dimensions.0 * dimensions.1 * 4 * std::mem::size_of::<f32>() as u32) as u64,
-        usage: wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    queue.write_buffer(
-        &texture_buffer,
-        0,
-        bytemuck::cast_slice(image.as_flat_samples().as_slice()),
-    );
+    let size = wgpu::Extent3d {
+        width: dimensions.0,
+        height: dimensions.1,
+        depth_or_array_layers: 1,
+    };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Render Texture"),
-        size: wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        },
+        size: size,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -681,25 +672,17 @@ fn get_texture_from_image(
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
-    // TODO: Implement texture upload
-    /*
-    queue.copy_buffer_to_texture(
-        wgpu::ImageCopyBuffer {
-            buffer: &texture_buffer,
-            layout: wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
-                rows_per_image: Some(dimensions.1),
-            },
+    let image_raw = image.as_raw();
+    queue.write_texture(
+        texture.as_image_copy(),
+        bytemuck::cast_slice(image_raw),
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * 4 * dimensions.0),
+            rows_per_image: None,
         },
-        wgpu::ImageCopyTexture {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-        },
-        dimensions,
+        size,
     );
-    */
     return texture;
 }
 
@@ -711,28 +694,41 @@ fn get_render_texture(
     render_resource_manager: &mut RenderResourceManager,
     mapname: &str,
 ) -> Option<Arc<RenderTexture>> {
-    if let Some(texture) = resource_manager.find_texture_by_name(mapname) {
+    //println!("Searching for texture: {}", mapname);
+    if let Some(texture) = resource_manager.find_texture_by_filename(mapname) {
         let texture = texture.read().unwrap();
         let texture_id = texture.get_id();
         let texture_edition = texture.get_edition();
+        // println!("Found texture: {} (ID: {})", mapname, texture.get_id());
         if let Some(render_texture) = render_resource_manager.get_texture(texture_id) {
             if render_texture.edition == texture_edition {
                 return Some(render_texture.clone());
             }
         }
         if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
-            let texture_node = texture_node.read().unwrap();
-            if let Some(image) = texture_node.image_variants.get(&TexturePurpose::Render) {
+            // println!("Loading texture: {} (ID: {})", mapname, texture_id);
+            if let Some(image) =
+                create_image_variant(texture_node, resource_manager, TexturePurpose::Render)
+            {
+                // println!("Texture image created: {} (ID: {})", mapname, texture_id);
                 let image = image.read().unwrap();
                 let image_data = get_image_data(&image);
                 let texture = get_texture_from_image(device, queue, &image_data);
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Render Texture Sampler"),
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    ..Default::default()
+                });
                 let render_texture = RenderTexture {
                     id: texture_id,
                     edition: texture_edition.clone(),
                     texture,
+                    sampler,
                 };
                 let render_texture = Arc::new(render_texture);
                 render_resource_manager.add_texture(&render_texture);
+                // println!("Loaded texture: {} (ID: {})", mapname, texture_id);
                 return Some(render_texture);
             }
         }
