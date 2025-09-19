@@ -1,3 +1,4 @@
+use super::texture::RenderTexture;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -52,7 +53,8 @@ pub struct RectsRenderLight {
 pub struct InfiniteRenderLight {
     pub id: Uuid,
     pub edition: String,
-    pub intensity: [f32; 3], // RGB intensity
+    pub intensity: [f32; 3],                 // RGB intensity
+    pub texture: Option<Arc<RenderTexture>>, // Environment map texture
 }
 
 #[derive(Debug, Clone)]
