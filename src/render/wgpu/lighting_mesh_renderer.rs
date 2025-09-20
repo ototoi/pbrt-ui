@@ -19,6 +19,7 @@ const MAX_SPHERE_LIGHT_NUM: usize = 256; // Maximum number of point lights
 const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
 const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
+const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
 const MIN_MATERIAL_BUFFER_NUM: usize = 8;
 const BASIC_MATERIAL_ENTRY_ID: &str = "basic_material";
@@ -100,10 +101,9 @@ struct RectLight {
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct InfiniteLight {
-    intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
-    _pad1: [f32; 4],     // Padding to ensure alignment
-    _pad2: [f32; 4],     // Padding to ensure alignment
-    _pad3: [f32; 4],     // Padding to ensure alignment
+    intensity: [f32; 4],       // Intensity of the light // 4 * 4 = 16
+    indices: [i32; 4],         // Indices for the light texture
+    inv_matrix: [[f32; 4]; 4], // Inverse matrix for the light texture
 }
 
 #[repr(C)]
@@ -176,6 +176,9 @@ pub struct LightingMeshRenderer {
     disk_light_buffer: wgpu::Buffer,
     rect_light_buffer: wgpu::Buffer,
     infinite_light_buffer: wgpu::Buffer,
+    default_light_texture: wgpu::Texture,
+    default_light_texture_view: wgpu::TextureView,
+    default_light_sampler: wgpu::Sampler,
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
     // Material entries
@@ -412,13 +415,64 @@ impl LightingMeshRenderer {
         self.mesh_items = mesh_items;
     }
 
-    fn prepare_lights(
+    fn create_light_bind_group(
         &self,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        light_texture_view: &wgpu::TextureView,
+        light_sampler: &wgpu::Sampler,
+    ) -> wgpu::BindGroup {
+        let layout = &self.light_bind_group_layout;
+        let entries = vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: self.light_uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: self.directional_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: self.sphere_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: self.disk_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: self.rect_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: self.infinite_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: wgpu::BindingResource::TextureView(light_texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: wgpu::BindingResource::Sampler(light_sampler),
+            },
+        ];
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Lighting Light Bind Group"),
+            layout: layout,
+            entries: &entries,
+        });
+        return light_bind_group;
+    }
+
+    fn prepare_lights(
+        &mut self,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         render_items: &[Arc<RenderItem>],
     ) {
         let mut light_uniforms = LightUniforms::default();
+        let mut light_textures = Vec::new();
         // Point lights
         {
             let mut light_buffer = Vec::new();
@@ -566,15 +620,26 @@ impl LightingMeshRenderer {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref() {
-                    if let RenderLight::Infinite(infinite) = light_item.light.as_ref() {
+                    if let RenderLight::Infinite(light) = light_item.light.as_ref() {
                         if light_buffer.len() >= MAX_INFINITE_LIGHT_NUM {
                             break;
                         }
-                        //let matrix = light_item.matrix; //local_to_world
-                        let intensity = infinite.intensity;
+                        if light_textures.len() >= MAX_LIGHT_TEXTURE_NUM {
+                            break;
+                        }
+                        let mut texture_index = -1;
+                        if let Some(texture) = &light.texture {
+                            // New texture, add it to the list
+                            texture_index = light_textures.len() as i32;
+                            light_textures.push(texture.clone());
+                        }
+
+                        let inv_matrix = light_item.matrix.inverse();
+                        let intensity = light.intensity;
                         let light = InfiniteLight {
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            ..Default::default()
+                            indices: [texture_index, 0, 0, 0], // Indices for the light texture
+                            inv_matrix: inv_matrix.to_cols_array_2d(),
                         };
                         light_buffer.push(light);
                     }
@@ -624,6 +689,27 @@ impl LightingMeshRenderer {
             }
             light_uniforms.num_directional_lights = light_buffer.len() as u32;
         }
+
+        {
+            if light_textures.len() <= 0 {
+                self.light_bind_group = self.create_light_bind_group(
+                    device,
+                    queue,
+                    &self.default_light_texture_view,
+                    &self.default_light_sampler,
+                );
+            } else {
+                let light_texture = &light_textures[0];
+                self.light_bind_group = self.create_light_bind_group(
+                    device,
+                    queue,
+                    &light_texture.view,
+                    &light_texture.sampler,
+                );
+            }
+        }
+
+        // Finally, write light uniforms
         queue.write_buffer(
             &self.light_uniform_buffer,
             0,
@@ -835,7 +921,7 @@ impl LightingMeshRenderer {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -848,7 +934,7 @@ impl LightingMeshRenderer {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage {
                                 read_only: true,
@@ -860,7 +946,7 @@ impl LightingMeshRenderer {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage {
                                 read_only: true,
@@ -872,7 +958,7 @@ impl LightingMeshRenderer {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 3,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage {
                                 read_only: true,
@@ -884,7 +970,7 @@ impl LightingMeshRenderer {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 4,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage {
                                 read_only: true,
@@ -896,7 +982,7 @@ impl LightingMeshRenderer {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 5,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage {
                                 read_only: true,
@@ -904,6 +990,22 @@ impl LightingMeshRenderer {
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(infinite_light_buffer_size),
                         },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 6,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 7,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],
@@ -983,6 +1085,20 @@ impl LightingMeshRenderer {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
         });
 
+        let default_light_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Dummy Light Texture"),
+            size: wgpu::Extent3d::default(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let default_light_texture_view =
+            default_light_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let default_light_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
+
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Light Bind Group"),
             layout: &light_bind_group_layout,
@@ -1011,6 +1127,14 @@ impl LightingMeshRenderer {
                     binding: 5,
                     resource: infinite_light_buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::TextureView(&default_light_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: wgpu::BindingResource::Sampler(&default_light_sampler),
+                },
             ],
         });
 
@@ -1036,6 +1160,9 @@ impl LightingMeshRenderer {
             disk_light_buffer,
             rect_light_buffer,
             infinite_light_buffer,
+            default_light_texture,
+            default_light_texture_view,
+            default_light_sampler,
             mesh_items,
             materials,
         };

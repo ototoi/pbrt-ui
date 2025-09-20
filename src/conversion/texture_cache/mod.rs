@@ -3,6 +3,7 @@ mod create_texture_nodes;
 mod dyna_image;
 mod render_texture_image;
 mod texture_node;
+pub use create_image_variants::create_image_variant;
 pub use create_image_variants::create_image_variants;
 pub use create_texture_nodes::create_texture_nodes;
 pub use dyna_image::DynaImage;

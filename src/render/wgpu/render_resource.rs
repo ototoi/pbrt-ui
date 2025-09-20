@@ -2,6 +2,7 @@ use super::light::RenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::mesh::RenderMesh;
+use super::texture::RenderTexture;
 use crate::model::scene::Component;
 
 use std::collections::HashMap;
@@ -16,6 +17,7 @@ pub struct RenderResourceManager {
     pub lights: HashMap<Uuid, Arc<RenderLight>>, // Assuming lights are also stored as RenderLines
     pub lines: HashMap<Uuid, Arc<RenderLines>>,
     pub materials: HashMap<Uuid, Arc<RenderMaterial>>,
+    pub textures: HashMap<Uuid, Arc<RenderTexture>>,
 }
 
 impl RenderResourceManager {
@@ -25,6 +27,7 @@ impl RenderResourceManager {
             lights: HashMap::new(),
             lines: HashMap::new(),
             materials: HashMap::new(),
+            textures: HashMap::new(),
         }
     }
     pub fn add_mesh(&mut self, mesh: &Arc<RenderMesh>) {
@@ -77,6 +80,19 @@ impl RenderResourceManager {
 
     pub fn remove_material(&mut self, id: Uuid) {
         self.materials.remove(&id);
+    }
+
+    pub fn add_texture(&mut self, texture: &Arc<RenderTexture>) {
+        let id = texture.get_id();
+        self.textures.insert(id, texture.clone());
+    }
+
+    pub fn get_texture(&self, id: Uuid) -> Option<&Arc<RenderTexture>> {
+        self.textures.get(&id)
+    }
+
+    pub fn remove_texture(&mut self, id: Uuid) {
+        self.textures.remove(&id);
     }
 }
 

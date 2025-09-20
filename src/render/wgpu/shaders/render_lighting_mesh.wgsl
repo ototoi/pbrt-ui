@@ -60,9 +60,10 @@ struct RectLight {
 
 struct InfiniteLight {
     intensity: vec4<f32>, // Light intensity
-    _pad1: vec4<f32>, // Padding for alignment
-    _pad2: vec4<f32>, // Padding for alignment
-    _pad3: vec4<f32>, // Padding for alignment
+    indices: vec4<i32>, // Indices for the light texture
+    inv_matrix: mat4x4<f32>, // Inverse matrix for the light texture
+    //_pad2: vec4<f32>,     // Padding to ensure alignment
+    //_pad3: vec4<f32>,     // Padding to ensure alignment
 }
 
 // global uniforms
@@ -100,6 +101,14 @@ var<storage, read> rect_lights: array<RectLight>;
 @group(2)
 @binding(5)
 var<storage, read> infinite_lights: array<InfiniteLight>;
+
+@group(2)
+@binding(6)
+var light_texture: texture_2d<f32>;//binding_array<texture_2d<f32>>;
+
+@group(2)
+@binding(7)
+var light_sampler: sampler;
 
 //-------------------------------------------------------
 //Material specific definitions
@@ -273,6 +282,17 @@ fn closest_point_on_rectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<
     }
 }
 
+fn spherical_texture_lookup(direction: vec3<f32>) -> vec2<f32> {
+    // Assumes direction is normalized
+    //let u = 0.5 + atan2(direction.z, direction.x) / (2.0 * PI);
+    //let v = 0.5 - asin(direction.y) / PI;
+    let phi = atan2(direction.y, direction.x);
+    let theta = acos(clamp(direction.z, -1.0, 1.0));//0..PI
+    let u = phi / (2.0 * PI);
+    let v = theta / PI;
+    return vec2<f32>(u, v);
+}
+
 struct VertexOut {
     @location(0) w_position: vec3<f32>,
     @location(1) uv: vec2<f32>,
@@ -433,11 +453,19 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     {
         let light = infinite_lights[i];
         let intensity = light.intensity.rgb;
-        //let r = reflect(camera_to_surface, normal);
-        let r = normal;
-        let d = max(dot(r, vec3<f32>(0.0, 0.0, 1.0)), 0.0);
+        let tex_index = light.indices.x;
+        let inv_matrix = light.inv_matrix;
+        let r = normalize(reflect(camera_to_surface, normal));
+        var val = vec3<f32>(1.0);
+        if tex_index >= 0 {
+            let rt = inv_matrix * vec4<f32>(r, 0.0);
+            let rt2 = normalize(rt.xyz);
+            let uv = spherical_texture_lookup(rt2);
+            val = textureSample(light_texture, light_sampler, uv).rgb;
+        }
+        //color += val * intensity;
         let wi = tbn * r;
-        color += shade(intensity * d, wo, wi);
+        color += shade(intensity * val, wo, wi);
     }
 
     return vec4<f32>(color, 1.0);

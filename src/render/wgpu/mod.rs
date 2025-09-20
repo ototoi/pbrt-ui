@@ -14,5 +14,6 @@ pub mod render_mesh_item;
 pub mod render_resource;
 pub mod solid_mesh_renderer;
 pub mod solid_renderer;
+pub mod texture;
 pub mod wire_mesh_renderer;
 pub mod wire_renderer;

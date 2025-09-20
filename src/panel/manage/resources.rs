@@ -137,7 +137,8 @@ impl ResourcesPanel {
                                             egui::ImageData::Color(Arc::new(color_image)),
                                             egui::TextureOptions::LINEAR,
                                         );
-                                        self.texture_id_map.insert(*id, (name.clone(), tex_id, edition));
+                                        self.texture_id_map
+                                            .insert(*id, (name.clone(), tex_id, edition));
                                         icon_data.push(IconData::Textured(
                                             id.clone(),
                                             name.clone(),

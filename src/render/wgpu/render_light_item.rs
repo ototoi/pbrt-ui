@@ -13,16 +13,20 @@ use super::render_item::RenderItem;
 use super::render_item::RenderLightItem;
 use super::render_item::get_color;
 use super::render_resource::RenderResourceManager;
+use super::texture::RenderTexture;
 use crate::conversion::light_shape::create_light_shape;
 use crate::conversion::mesh_data::create_mesh_data;
 use crate::conversion::plane_data::create_plane_meshes_from_mesh;
 use crate::conversion::plane_data::create_plane_outline_from_plane_mesh;
 use crate::conversion::plane_data::create_plane_rect_from_plane_outline;
+use crate::conversion::texture_cache::TexturePurpose;
+use crate::conversion::texture_cache::create_image_variant;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
 use crate::model::scene::Light;
 use crate::model::scene::LightComponent;
 use crate::model::scene::Node;
+use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceManager;
 use crate::model::scene::Shape;
 use crate::model::scene::ShapeComponent;
@@ -33,6 +37,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
+use eframe::wgpu::naga::back::msl::sampler;
 use uuid::Uuid;
 
 #[inline]
@@ -642,9 +647,113 @@ fn get_area_light_item(
     return None;
 }
 
+fn get_image_data(image: &image::DynamicImage) -> image::Rgba32FImage {
+    return image.to_rgba32f();
+}
+
+fn get_texture_from_image(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    image: &image::Rgba32FImage,
+) -> wgpu::Texture {
+    let dimensions = image.dimensions();
+    let size = wgpu::Extent3d {
+        width: dimensions.0,
+        height: dimensions.1,
+        depth_or_array_layers: 1,
+    };
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Render Texture"),
+        size: size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba32Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    let image_raw = image.as_raw();
+    queue.write_texture(
+        texture.as_image_copy(),
+        bytemuck::cast_slice(image_raw),
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * 4 * dimensions.0),
+            rows_per_image: None,
+        },
+        size,
+    );
+    return texture;
+}
+
+fn get_render_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
+    render_resource_manager: &mut RenderResourceManager,
+    mapname: &str,
+) -> Option<Arc<RenderTexture>> {
+    //println!("Searching for texture: {}", mapname);
+    if let Some(texture) = resource_manager.find_texture_by_filename(mapname) {
+        let texture = texture.read().unwrap();
+        let texture_id = texture.get_id();
+        let texture_edition = texture.get_edition();
+        // println!("Found texture: {} (ID: {})", mapname, texture.get_id());
+        if let Some(render_texture) = render_resource_manager.get_texture(texture_id) {
+            if render_texture.edition == texture_edition {
+                return Some(render_texture.clone());
+            }
+        }
+        if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
+            // println!("Loading texture: {} (ID: {})", mapname, texture_id);
+            if let Some(image) =
+                create_image_variant(texture_node, resource_manager, TexturePurpose::Render)
+            {
+                // println!("Texture image created: {} (ID: {})", mapname, texture_id);
+                let image = image.read().unwrap();
+                let image_data = get_image_data(&image);
+                let texture = get_texture_from_image(device, queue, &image_data);
+                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Render Texture Sampler"),
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
+                let render_texture = RenderTexture {
+                    id: texture_id,
+                    edition: texture_edition.clone(),
+                    texture,
+                    view,
+                    sampler,
+                };
+                let render_texture = Arc::new(render_texture);
+                render_resource_manager.add_texture(&render_texture);
+                // println!("Loaded texture: {} (ID: {})", mapname, texture_id);
+                return Some(render_texture);
+            }
+        }
+    }
+    return None; // Texture not found
+}
+
+fn get_rotation_matrix(matrix: &Matrix4x4) -> Matrix4x4 {
+    let mut rot = *matrix;
+    rot.m[3] = 0.0;
+    rot.m[7] = 0.0;
+    rot.m[11] = 0.0;
+    return rot;
+}
+
 fn get_infinite_light_item(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     item: &SceneItem,
     resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let node = &item.node;
@@ -656,6 +765,7 @@ fn get_infinite_light_item(
         let id = light.get_id();
         let light_type = light.get_type();
         let edition = light.get_edition();
+
         if let Some(render_light) = render_resource_manager.get_light(id) {
             if render_light.get_edition() == edition {
                 let render_item = RenderLightItem {
@@ -665,6 +775,7 @@ fn get_infinite_light_item(
                 return Some(RenderItem::Light(render_item));
             }
         }
+
         assert!(
             light_type == "infinite",
             "Expected light type to be 'infinite', found: {}",
@@ -682,18 +793,37 @@ fn get_infinite_light_item(
             p * l[1] * scale[1],
             p * l[2] * scale[2],
         ];
-        let render_light = InfiniteRenderLight {
-            id,
-            edition: edition.clone(),
-            intensity: intensity,
-        };
-        let render_light = Arc::new(RenderLight::Infinite(render_light));
-        render_resource_manager.add_light(&render_light);
-        let render_item = RenderLightItem {
-            light: render_light.clone(),
-            matrix: glam::Mat4::from(item.matrix),
-        };
-        return Some(RenderItem::Light(render_item));
+
+        let mapname = props.find_one_string("mapname").unwrap_or("".to_string());
+        if mapname.is_empty() {
+            return None; // No texture map specified for infinite light
+        }
+
+        // Use only rotation part of the matrix for infinite light
+        let light_matrix = get_rotation_matrix(&item.matrix);
+
+        if let Some(texture) = get_render_texture(
+            device,
+            queue,
+            resource_manager,
+            resource_cache_manager,
+            render_resource_manager,
+            &mapname,
+        ) {
+            let render_light = InfiniteRenderLight {
+                id,
+                edition: edition.clone(),
+                intensity,
+                texture: Some(texture.clone()),
+            };
+            let render_light = Arc::new(RenderLight::Infinite(render_light));
+            render_resource_manager.add_light(&render_light);
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(light_matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
     }
     return None; // Placeholder for light retrieval logic
 }
@@ -776,11 +906,12 @@ fn get_light_gizmo(
 
 //private
 fn get_render_light_item(
-    _device: &wgpu::Device,
-    _queue: &wgpu::Queue,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     item: &SceneItem,
     _mode: RenderMode,
     resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     if let Some(light_type) = get_light_type(&item.node) {
@@ -798,7 +929,14 @@ fn get_render_light_item(
                 return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
             }
             "infinite" => {
-                return get_infinite_light_item(item, resource_manager, render_resource_manager);
+                return get_infinite_light_item(
+                    device,
+                    queue,
+                    item,
+                    resource_manager,
+                    resource_cache_manager,
+                    render_resource_manager,
+                );
             }
             _ => {
                 // Handle unknown or unsupported light types
@@ -810,20 +948,22 @@ fn get_render_light_item(
 }
 
 pub fn get_render_light_items(
-    _device: &wgpu::Device,
-    _queue: &wgpu::Queue,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     item: &SceneItem,
     _mode: RenderMode,
     resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderItem>> {
     let mut render_items = Vec::new();
     if let Some(render_item) = get_render_light_item(
-        _device,
-        _queue,
+        device,
+        queue,
         item,
         _mode,
         resource_manager,
+        resource_cache_manager,
         render_resource_manager,
     ) {
         if let RenderItem::Light(light_item) = render_item {
