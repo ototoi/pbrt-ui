@@ -5,7 +5,6 @@ use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use std::num::NonZeroU32;
 //use eframe::egui;
 //use eframe::egui_wgpu;
 use eframe::wgpu;
@@ -102,10 +101,9 @@ struct RectLight {
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct InfiniteLight {
-    intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
-    indices: [i32; 4],   // Indices for the light texture
-    _pad2: [f32; 4],     // Padding to ensure alignment
-    _pad3: [f32; 4],     // Padding to ensure alignment
+    intensity: [f32; 4],       // Intensity of the light // 4 * 4 = 16
+    indices: [i32; 4],         // Indices for the light texture
+    inv_matrix: [[f32; 4]; 4], // Inverse matrix for the light texture
 }
 
 #[repr(C)]
@@ -417,9 +415,59 @@ impl LightingMeshRenderer {
         self.mesh_items = mesh_items;
     }
 
-    fn prepare_lights(
+    fn create_light_bind_group(
         &self,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        light_texture_view: &wgpu::TextureView,
+        light_sampler: &wgpu::Sampler,
+    ) -> wgpu::BindGroup {
+        let layout = &self.light_bind_group_layout;
+        let entries = vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: self.light_uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: self.directional_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: self.sphere_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: self.disk_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: self.rect_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: self.infinite_light_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: wgpu::BindingResource::TextureView(light_texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: wgpu::BindingResource::Sampler(light_sampler),
+            },
+        ];
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Lighting Light Bind Group"),
+            layout: layout,
+            entries: &entries,
+        });
+        return light_bind_group;
+    }
+
+    fn prepare_lights(
+        &mut self,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         render_items: &[Arc<RenderItem>],
     ) {
@@ -586,12 +634,12 @@ impl LightingMeshRenderer {
                             light_textures.push(texture.clone());
                         }
 
-                        //let matrix = light_item.matrix; //local_to_world
+                        let inv_matrix = light_item.matrix.inverse();
                         let intensity = light.intensity;
                         let light = InfiniteLight {
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                             indices: [texture_index, 0, 0, 0], // Indices for the light texture
-                            ..Default::default()
+                            inv_matrix: inv_matrix.to_cols_array_2d(),
                         };
                         light_buffer.push(light);
                     }
@@ -643,8 +691,21 @@ impl LightingMeshRenderer {
         }
 
         {
-            if light_textures.len() > 0 {
-                //push_dummy_texture
+            if light_textures.len() <= 0 {
+                self.light_bind_group = self.create_light_bind_group(
+                    device,
+                    queue,
+                    &self.default_light_texture_view,
+                    &self.default_light_sampler,
+                );
+            } else {
+                let light_texture = &light_textures[0];
+                self.light_bind_group = self.create_light_bind_group(
+                    device,
+                    queue,
+                    &light_texture.view,
+                    &light_texture.sampler,
+                );
             }
         }
 

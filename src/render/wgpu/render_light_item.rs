@@ -719,6 +719,8 @@ fn get_render_texture(
                     label: Some("Render Texture Sampler"),
                     address_mode_u: wgpu::AddressMode::Repeat,
                     address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mag_filter: wgpu::FilterMode::Linear,
                     ..Default::default()
                 });
                 let render_texture = RenderTexture {
@@ -736,6 +738,14 @@ fn get_render_texture(
         }
     }
     return None; // Texture not found
+}
+
+fn get_rotation_matrix(matrix: &Matrix4x4) -> Matrix4x4 {
+    let mut rot = *matrix;
+    rot.m[3] = 0.0;
+    rot.m[7] = 0.0;
+    rot.m[11] = 0.0;
+    return rot;
 }
 
 fn get_infinite_light_item(
@@ -788,6 +798,10 @@ fn get_infinite_light_item(
         if mapname.is_empty() {
             return None; // No texture map specified for infinite light
         }
+
+        // Use only rotation part of the matrix for infinite light
+        let light_matrix = get_rotation_matrix(&item.matrix);
+
         if let Some(texture) = get_render_texture(
             device,
             queue,
@@ -806,7 +820,7 @@ fn get_infinite_light_item(
             render_resource_manager.add_light(&render_light);
             let render_item = RenderLightItem {
                 light: render_light.clone(),
-                matrix: glam::Mat4::from(item.matrix),
+                matrix: glam::Mat4::from(light_matrix),
             };
             return Some(RenderItem::Light(render_item));
         }
