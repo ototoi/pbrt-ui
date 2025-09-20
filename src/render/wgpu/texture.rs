@@ -6,7 +6,7 @@ pub struct RenderTexture {
     pub id: Uuid,
     pub edition: String,
     pub texture: wgpu::Texture,
-    //pub view: wgpu::TextureView,
+    pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
 

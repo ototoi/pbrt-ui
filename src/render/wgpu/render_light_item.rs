@@ -714,6 +714,7 @@ fn get_render_texture(
                 let image = image.read().unwrap();
                 let image_data = get_image_data(&image);
                 let texture = get_texture_from_image(device, queue, &image_data);
+                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     label: Some("Render Texture Sampler"),
                     address_mode_u: wgpu::AddressMode::Repeat,
@@ -724,6 +725,7 @@ fn get_render_texture(
                     id: texture_id,
                     edition: texture_edition.clone(),
                     texture,
+                    view,
                     sampler,
                 };
                 let render_texture = Arc::new(render_texture);
@@ -798,7 +800,7 @@ fn get_infinite_light_item(
                 id,
                 edition: edition.clone(),
                 intensity,
-                texture: Some(texture),
+                texture: Some(texture.clone()),
             };
             let render_light = Arc::new(RenderLight::Infinite(render_light));
             render_resource_manager.add_light(&render_light);

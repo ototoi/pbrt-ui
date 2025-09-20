@@ -60,7 +60,7 @@ struct RectLight {
 
 struct InfiniteLight {
     intensity: vec4<f32>, // Light intensity
-    _pad1: vec4<f32>, // Padding for alignment
+    indices: vec4<i32>, // Indices for the light texture
     _pad2: vec4<f32>, // Padding for alignment
     _pad3: vec4<f32>, // Padding for alignment
 }
@@ -100,6 +100,14 @@ var<storage, read> rect_lights: array<RectLight>;
 @group(2)
 @binding(5)
 var<storage, read> infinite_lights: array<InfiniteLight>;
+
+@group(2)
+@binding(6)
+var light_texture: texture_2d<f32>;//binding_array<texture_2d<f32>>;
+
+@group(2)
+@binding(7)
+var light_sampler: sampler;
 
 //-------------------------------------------------------
 //Material specific definitions
