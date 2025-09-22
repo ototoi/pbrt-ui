@@ -5,6 +5,7 @@ use super::targets::SceneTarget;
 use crate::error::PbrtError;
 use crate::model::scene::Node;
 use crate::model::scene::SceneComponent;
+use crate::model::scene::optimize_nodes;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -24,6 +25,9 @@ pub fn load_pbrt(path: &str) -> Result<Arc<RwLock<Node>>, PbrtError> {
     {
         let target = scene_target.read().unwrap();
         let node = target.create_scene_node();
+        // Optimize the scene graph
+        let node = optimize_nodes(&node);
+
         {
             let mut node = node.write().unwrap();
             if let Some(scene) = node.get_component_mut::<SceneComponent>() {
