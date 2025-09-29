@@ -1,9 +1,9 @@
-use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::sync::Weak;
 
 use image::DynamicImage;
 use uuid::Uuid;
@@ -34,19 +34,14 @@ impl TexturePurpose {
 }
 
 #[derive(Debug, Clone)]
-pub enum TextureDependent {
-    Node(Arc<RwLock<TextureNode>>),
-    Value(Property),
-}
-
-#[derive(Debug, Clone)]
 pub struct TextureNode {
     pub name: String,
     pub ty: String, //type
     pub id: Uuid,
     pub edition: String,
     pub properties: PropertyMap,
-    pub dependencies: HashMap<String, TextureDependent>,
+    pub inputs: HashMap<String, Option<Weak<RwLock<TextureNode>>>>,
+    pub outputs: HashMap<Uuid, Weak<RwLock<TextureNode>>>,
     pub image_variants: HashMap<TexturePurpose, Arc<RwLock<DynamicImage>>>, // key is variant name
 }
 
@@ -62,5 +57,18 @@ impl TextureNode {
     }
     pub fn get_edition(&self) -> String {
         self.edition.clone()
+    }
+
+    pub fn set_link(key: &str, from: &Arc<RwLock<TextureNode>>, to: &Arc<RwLock<TextureNode>>) {
+        {
+            let mut from = from.write().unwrap();
+            let id = to.read().unwrap().id;
+            from.outputs.insert(id, Arc::downgrade(&to));
+        }
+        {
+            let mut to = to.write().unwrap();
+            to.inputs
+                .insert(key.to_string(), Some(Arc::downgrade(&from)));
+        }
     }
 }

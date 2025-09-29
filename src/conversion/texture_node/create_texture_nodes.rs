@@ -1,4 +1,3 @@
-use super::texture_node::TextureDependent;
 use super::texture_node::TextureNode;
 use crate::model::base::Property;
 use crate::model::scene::ResourceCacheManager;
@@ -26,7 +25,8 @@ fn initialize_texture_node(
                 id,
                 properties: texture.as_property_map().clone(),
                 edition: "".to_string(), // initially empty
-                dependencies: HashMap::new(),
+                inputs: HashMap::new(),
+                outputs: HashMap::new(),
                 image_variants: HashMap::new(),
             };
             let texture_node = Arc::new(RwLock::new(texture_node));
@@ -89,38 +89,61 @@ fn connect_texture_dependencies(
                 continue;
             }
         }
-        let mut texture_node = texture_node.write().unwrap();
-        texture_node.properties = texture.as_property_map().clone();
-        texture_node.dependencies.clear(); // clear existing dependencies
-        texture_node.image_variants.clear(); // clear existing image variants
-        // connect dependencies
-        let keys = get_dependent_texture_keys(&texture);
-        let props = texture.as_property_map();
-        for key in keys.iter() {
-            if let Some(value) = props.get(key) {
-                if let Property::Strings(names) = value {
-                    for dep_texture_name in names {
-                        if let Some(dep_texture) =
-                            resource_manager.find_texture_by_name(dep_texture_name)
-                        {
-                            let dep_texture = dep_texture.read().unwrap();
-                            let dep_id = dep_texture.get_id();
-                            if let Some(dep_node) = resource_cache_manager.textures.get(&dep_id) {
-                                texture_node
-                                    .dependencies
-                                    .insert(key.clone(), TextureDependent::Node(dep_node.clone()));
+
+        {
+            let mut texture_node = texture_node.write().unwrap();
+            for (_id, output) in texture_node.outputs.iter() {
+                if let Some(output) = output.upgrade() {
+                    let mut output = output.write().unwrap();
+                    output.image_variants.clear(); // clear image variants of dependent nodes
+                }
+            }
+            for (_key, input) in texture_node.inputs.iter() {
+                if let Some(input) = input {
+                    if let Some(input) = input.upgrade() {
+                        let mut input = input.write().unwrap();
+                        input.outputs.remove(&id); // remove this node from outputs of input nodes
+                    }
+                }
+            }
+            texture_node.inputs.clear(); // clear existing dependencies
+            //texture_node.outputs.clear(); // clear existing dependencies
+            texture_node.image_variants.clear(); // clear existing image variants
+        }
+
+        let mut dependency_nodes = Vec::new();
+        {
+            let mut texture_node = texture_node.write().unwrap();
+            texture_node.properties = texture.as_property_map().clone();
+            // connect dependencies
+            let keys = get_dependent_texture_keys(&texture);
+            let props = texture.as_property_map();
+            for key in keys.iter() {
+                if let Some(value) = props.get(key) {
+                    if let Property::Strings(names) = value {
+                        for dep_texture_name in names {
+                            if let Some(dep_texture) =
+                                resource_manager.find_texture_by_name(dep_texture_name)
+                            {
+                                let dep_texture = dep_texture.read().unwrap();
+                                let dep_id = dep_texture.get_id();
+                                if let Some(dep_texture_node) =
+                                    resource_cache_manager.textures.get(&dep_id)
+                                {
+                                    dependency_nodes.push((key.clone(), dep_texture_node.clone()));
+                                }
                             }
                         }
                     }
-                } else if let Property::Floats(_value) = value {
-                    //let value = Property::Floats(value.clone());
-                    //texture_node
-                    //.dependencies
-                    //    .insert(key.clone(), TextureDependent::Value(value));
                 }
             }
+            texture_node.edition = edition; // update edition
         }
-        texture_node.edition = edition; // update edition
+        {
+            for (key, dep_texture_node) in dependency_nodes.iter() {
+                TextureNode::set_link(key, &dep_texture_node, &texture_node);
+            }
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use image::DynamicImage;
+use serde::de;
 
 use super::render_texture_image::render_texture_image;
-use super::texture_node::TextureDependent;
 use super::texture_node::TextureNode;
 use super::texture_node::TexturePurpose;
 use crate::model::scene::ResourceCacheManager;
@@ -25,23 +25,38 @@ fn sort_texture_nodes_by_dependency(
         let mut stack = Vec::new();
         stack.push(node.clone());
         while let Some(current_node) = stack.pop() {
+            //let current_name = current_node.read().unwrap().name.clone();
             let current_id = current_node.read().unwrap().id;
             if !visited.contains(&current_id) {
-                ordered_nodes.push(current_node.clone());
-                visited.insert(current_id);
-                let dependencies = current_node.read().unwrap().dependencies.clone();
-                for (_key, dep) in dependencies.iter() {
-                    if let TextureDependent::Node(dep_node) = dep {
-                        let dep_id = dep_node.read().unwrap().id;
-                        if !visited.contains(&dep_id) {
-                            stack.push(dep_node.clone());
+                let dependencies = current_node.read().unwrap().inputs.clone();
+                let dependencies = dependencies
+                    .iter()
+                    .filter_map(|(_key, dep)| {
+                        if let Some(dep) = dep {
+                            dep.upgrade()
+                        } else {
+                            None
                         }
+                    })
+                    .collect::<Vec<_>>();
+                let dependencies = dependencies
+                    .iter()
+                    .filter(|dep| !visited.contains(&dep.read().unwrap().id))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !dependencies.is_empty() {
+                    stack.push(current_node.clone());
+                    for dep_node in dependencies.iter() {
+                        stack.push(dep_node.clone());
                     }
+                    continue;
+                } else {
+                    visited.insert(current_id);
+                    ordered_nodes.push(current_node.clone());
                 }
             }
         }
     }
-    ordered_nodes.reverse();
     return ordered_nodes;
 }
 
@@ -98,15 +113,40 @@ fn create_image_variants_for_nodes(
     purpose: TexturePurpose,
 ) {
     let ordered_nodes = sort_texture_nodes_by_dependency(&texture_nodes);
+    /*
+    println!("Creating image variants for purpose: {:?}", purpose);
+    for (i, node) in texture_nodes.iter().enumerate() {
+        let node = node.read().unwrap();
+        let id = node.id;
+        let name = node.name.clone();
+        let ty = node.ty.clone();
+        println!("{}: {} : {} ({})", i, ty, name, id);
+    }
+    println!("Ordered nodes:");
+    for (i, node) in ordered_nodes.iter().enumerate() {
+        let node = node.read().unwrap();
+        let id = node.id;
+        let name = node.name.clone();
+        let ty = node.ty.clone();
+        println!("{}: {} : {} ({})", i, ty, name, id);
+    }
+    */
     for texture_node in ordered_nodes.iter() {
         let mut texture_node = texture_node.write().unwrap();
         let texture_id = texture_node.id;
         let mut dependencies = HashMap::new();
-        for (key, dep) in texture_node.dependencies.iter() {
-            if let TextureDependent::Node(dep_node) = dep {
+        for (key, dep) in texture_node.inputs.iter() {
+            if let Some(dep_node) = dep.as_ref() {
+                let dep_node = dep_node.upgrade().unwrap();
                 let dep_node = dep_node.read().unwrap();
                 if let Some(image) = dep_node.image_variants.get(&purpose) {
                     dependencies.insert(key.clone(), image.clone());
+                } else {
+                    // should not happen
+                    println!(
+                        "Warning: Dependency image variant not found for key: {} in texture node: {}",
+                        key, dep_node.name
+                    );
                 }
             }
         }

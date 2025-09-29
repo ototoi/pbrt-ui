@@ -1,5 +1,4 @@
 use crate::controller::AppController;
-use crate::conversion::texture_node::TextureDependent;
 use crate::conversion::texture_node::TexturePurpose;
 use crate::conversion::texture_node::create_image_variants;
 use crate::conversion::texture_node::create_texture_nodes;
@@ -41,14 +40,14 @@ fn create_texture_views(
         let cache = cache.read().unwrap();
         let cache_edition = cache.get_edition();
         let mut dependencies = Vec::new();
-        for (key, dep) in cache.dependencies.iter() {
-            if let TextureDependent::Node(tex) = dep {
-                let tex = tex.read().unwrap();
-                let name = tex.name.clone();
-                dependencies.push((key.clone(), name));
-            } else if let TextureDependent::Value(prop) = dep {
-                let value = format!("{:?}", prop);
-                dependencies.push((key.clone(), value));
+        for (key, dep) in cache.inputs.iter() {
+            if let Some(dep) = dep {
+                if let Some(dep) = dep.upgrade() {
+                    let dep = dep.read().unwrap();
+                    dependencies.push((key.clone(), dep.get_name()));
+                }
+            } else {
+                dependencies.push((key.clone(), "<none>".to_string()));
             }
         }
 

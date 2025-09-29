@@ -147,6 +147,8 @@ fn get_dependent_image(
         let image = Arc::new(RwLock::new(image));
         return Some(image);
     }
+    let name = textue.get_name();
+    println!("{} Dependency image not found for key: {}", name, key);
     return None;
 }
 
