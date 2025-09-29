@@ -1,3 +1,4 @@
+use super::dyna_image::DynaImage;
 use crate::model::base::PropertyMap;
 
 use std::collections::HashMap;
@@ -42,7 +43,7 @@ pub struct TextureNode {
     pub properties: PropertyMap,
     pub inputs: HashMap<String, Option<Weak<RwLock<TextureNode>>>>,
     pub outputs: HashMap<Uuid, Weak<RwLock<TextureNode>>>,
-    pub image_variants: HashMap<TexturePurpose, Arc<RwLock<DynamicImage>>>, // key is variant name
+    pub image_variants: HashMap<TexturePurpose, Arc<RwLock<DynaImage>>>, // key is variant name
 }
 
 impl TextureNode {

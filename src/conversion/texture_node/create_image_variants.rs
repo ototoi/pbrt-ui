@@ -1,5 +1,5 @@
+use super::dyna_image::DynaImage;
 use image::DynamicImage;
-use serde::de;
 
 use super::render_texture_image::render_texture_image;
 use super::texture_node::TextureNode;
@@ -158,16 +158,16 @@ fn create_image_variants_for_nodes(
                     .image_variants
                     .insert(purpose, Arc::new(RwLock::new(image)));
             } else {
-                let srgb_purpose = purpose.add_srgb();
-                let srgb_image = DynamicImage::ImageRgb8(convert_to_srgb_u8_image(&image));
+                //let srgb_purpose = purpose.add_srgb();
+                //let srgb_image = DynamicImage::ImageRgb8(convert_to_srgb_u8_image(&image));
 
                 texture_node
                     .image_variants
                     .insert(purpose, Arc::new(RwLock::new(image)));
 
-                texture_node
-                    .image_variants
-                    .insert(srgb_purpose, Arc::new(RwLock::new(srgb_image)));
+                //texture_node
+                //    .image_variants
+                //    .insert(srgb_purpose, Arc::new(RwLock::new(srgb_image)));
             }
         }
     }
@@ -177,7 +177,7 @@ pub fn create_image_variant(
     texture_node: &Arc<RwLock<TextureNode>>,
     resource_manager: &ResourceManager,
     purpose: TexturePurpose,
-) -> Option<Arc<RwLock<DynamicImage>>> {
+) -> Option<Arc<RwLock<DynaImage>>> {
     if let Some(image) = texture_node.read().unwrap().image_variants.get(&purpose) {
         return Some(image.clone());
     } else {
