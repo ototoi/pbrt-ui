@@ -1,8 +1,8 @@
 use crate::controller::AppController;
-use crate::conversion::texture_cache::TextureDependent;
-use crate::conversion::texture_cache::TexturePurpose;
-use crate::conversion::texture_cache::create_image_variants;
-use crate::conversion::texture_cache::create_texture_nodes;
+use crate::conversion::texture_node::TextureDependent;
+use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::create_image_variants;
+use crate::conversion::texture_node::create_texture_nodes;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceComponent;

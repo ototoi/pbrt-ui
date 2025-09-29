@@ -2,9 +2,9 @@ use crate::controller::AppController;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 
-use crate::conversion::texture_cache::TexturePurpose;
-use crate::conversion::texture_cache::create_image_variants;
-use crate::conversion::texture_cache::create_texture_nodes;
+use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::create_image_variants;
+use crate::conversion::texture_node::create_texture_nodes;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -103,7 +103,7 @@ impl ResourcesPanel {
                         create_image_variants(
                             &resource_manager,
                             &mut resource_cache_manager,
-                            crate::conversion::texture_cache::TexturePurpose::Icon,
+                            crate::conversion::texture_node::TexturePurpose::Icon,
                         );
 
                         for (id, texture) in resource_manager.textures.iter() {
