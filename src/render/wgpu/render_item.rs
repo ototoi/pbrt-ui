@@ -10,7 +10,7 @@ use super::render_mesh_item::get_render_mesh_item;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use crate::conversion::spectrum::Spectrum;
-use crate::conversion::texture_cache::create_texture_nodes;
+use crate::conversion::texture_node::create_texture_nodes;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 use crate::model::scene::Node;

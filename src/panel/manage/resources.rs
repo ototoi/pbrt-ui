@@ -2,15 +2,16 @@ use crate::controller::AppController;
 use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 
-use crate::conversion::texture_cache::TexturePurpose;
-use crate::conversion::texture_cache::create_image_variants;
-use crate::conversion::texture_cache::create_texture_nodes;
+use crate::conversion::texture_node::DynaImage;
+use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::create_image_variants;
+use crate::conversion::texture_node::create_texture_nodes;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use image::DynamicImage;
+//use image::DynamicImage;
 use uuid::Uuid;
 
 use eframe::egui;
@@ -63,7 +64,7 @@ fn short_name(name: &str, len: usize) -> String {
     short_name
 }
 
-fn get_image_data(image: &DynamicImage) -> Option<egui::ColorImage> {
+fn get_image_data(image: &DynaImage) -> Option<egui::ColorImage> {
     let rgb_image = image.to_rgb8(); // Convert to RGB8 format
     let size = [rgb_image.width() as usize, rgb_image.height() as usize];
     let pixels = rgb_image.into_raw();
@@ -103,7 +104,7 @@ impl ResourcesPanel {
                         create_image_variants(
                             &resource_manager,
                             &mut resource_cache_manager,
-                            crate::conversion::texture_cache::TexturePurpose::Icon,
+                            crate::conversion::texture_node::TexturePurpose::Icon,
                         );
 
                         for (id, texture) in resource_manager.textures.iter() {
@@ -125,7 +126,7 @@ impl ResourcesPanel {
                             if let Some(texture_node) = resource_cache_manager.textures.get(id) {
                                 let texture_node = texture_node.read().unwrap();
                                 if let Some(image) =
-                                    texture_node.image_variants.get(&TexturePurpose::IconSrgb)
+                                    texture_node.image_variants.get(&TexturePurpose::Icon)
                                 {
                                     let image = image.read().unwrap();
                                     if let Some(color_image) = get_image_data(&image) {

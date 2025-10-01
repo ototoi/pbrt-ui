@@ -19,8 +19,9 @@ use crate::conversion::mesh_data::create_mesh_data;
 use crate::conversion::plane_data::create_plane_meshes_from_mesh;
 use crate::conversion::plane_data::create_plane_outline_from_plane_mesh;
 use crate::conversion::plane_data::create_plane_rect_from_plane_outline;
-use crate::conversion::texture_cache::TexturePurpose;
-use crate::conversion::texture_cache::create_image_variant;
+use crate::conversion::texture_node::DynaImage;
+use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::create_image_variant;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
 use crate::model::scene::Light;
@@ -647,7 +648,7 @@ fn get_area_light_item(
     return None;
 }
 
-fn get_image_data(image: &image::DynamicImage) -> image::Rgba32FImage {
+fn get_image_data(image: &DynaImage) -> image::Rgba32FImage {
     return image.to_rgba32f();
 }
 

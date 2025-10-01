@@ -1,5 +1,5 @@
 use super::component::Component;
-use crate::conversion::texture_cache::TextureNode;
+use crate::conversion::texture_node::TextureNode;
 
 use std::collections::HashMap;
 use std::sync::Arc;
