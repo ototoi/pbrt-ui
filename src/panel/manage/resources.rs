@@ -126,7 +126,7 @@ impl ResourcesPanel {
                             if let Some(texture_node) = resource_cache_manager.textures.get(id) {
                                 let texture_node = texture_node.read().unwrap();
                                 if let Some(image) =
-                                    texture_node.image_variants.get(&TexturePurpose::IconSrgb)
+                                    texture_node.image_variants.get(&TexturePurpose::Icon)
                                 {
                                     let image = image.read().unwrap();
                                     if let Some(color_image) = get_image_data(&image) {

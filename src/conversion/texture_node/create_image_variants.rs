@@ -143,10 +143,10 @@ fn create_image_variants_for_nodes(
                     dependencies.insert(key.clone(), image.clone());
                 } else {
                     // should not happen
-                    println!(
-                        "Warning: Dependency image variant not found for key: {} in texture node: {}",
-                        key, dep_node.name
-                    );
+                    //println!(
+                    //    "Warning: Dependency image variant not found for key: {} in texture node: {}",
+                    //    key, dep_node.name
+                    //);
                 }
             }
         }

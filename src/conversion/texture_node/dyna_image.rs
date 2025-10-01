@@ -1,7 +1,22 @@
-use std::convert;
-
 use image::{buffer::ConvertBuffer, imageops};
 //pub type Rgb32FImage = ImageBuffer<Rgb<f32>, Vec<f32>>;
+
+fn linear_to_srgb(value: f32) -> u8 {
+    if value <= 0.0031308 {
+        (value * 12.92 * 255.0).round() as u8
+    } else {
+        ((1.055 * value.powf(1.0 / 2.4) - 0.055) * 255.0).round() as u8
+    }
+}
+
+fn srgb_to_linear(value: u8) -> f32 {
+    let v = value as f32 / 255.0;
+    if v <= 0.04045 {
+        v / 12.92
+    } else {
+        ((v + 0.055) / 1.055).powf(2.4)
+    }
+}
 
 // Inner representation of images used in texture cache
 // Only f32 images are supported for now
@@ -46,7 +61,12 @@ impl DynaImage {
         }
     }
 
-    pub fn resize_exact(&self, nwidth: u32, nheight: u32, filter: imageops::FilterType) -> DynaImage {
+    pub fn resize_exact(
+        &self,
+        nwidth: u32,
+        nheight: u32,
+        filter: imageops::FilterType,
+    ) -> DynaImage {
         return self.resize(nwidth, nheight, filter);
     }
 
@@ -60,8 +80,21 @@ impl DynaImage {
                 return img.clone().convert();
             }
             DynaImage::ImageRgb32F(img) => {
-                //todo: implement proper linear to srgb conversion
-                return img.clone().convert();
+                let width = img.width();
+                let height = img.height();
+                let mut result_image = image::ImageBuffer::new(width, height);
+                for (x, y, pixel) in img.enumerate_pixels() {
+                    result_image.put_pixel(
+                        x,
+                        y,
+                        image::Rgb([
+                            linear_to_srgb(pixel[0]),
+                            linear_to_srgb(pixel[1]),
+                            linear_to_srgb(pixel[2]),
+                        ]),
+                    );
+                }
+                return result_image;
             }
         }
     }
@@ -72,13 +105,41 @@ impl DynaImage {
                 return img.clone().convert();
             }
             DynaImage::ImageRgb8(img) => {
-                //todo: implement proper srgb to linear conversion
-                return img.clone().convert();
+                let mut result_image = image::ImageBuffer::new(img.width(), img.height());
+                for (x, y, pixel) in img.enumerate_pixels() {
+                    result_image.put_pixel(
+                        x,
+                        y,
+                        image::Rgb([
+                            srgb_to_linear(pixel[0]),
+                            srgb_to_linear(pixel[1]),
+                            srgb_to_linear(pixel[2]),
+                        ]),
+                    );
+                }
+                return result_image;
             }
             DynaImage::ImageLuma32F(img) => {
                 return img.clone().convert();
             }
             DynaImage::ImageRgb32F(img) => img.clone(),
+        }
+    }
+
+    pub fn to_rgba32f(&self) -> image::Rgba32FImage {
+        match self {
+            DynaImage::ImageLuma8(img) => {
+                return img.clone().convert();
+            }
+            DynaImage::ImageRgb8(img) => {
+                return img.clone().convert();
+            }
+            DynaImage::ImageLuma32F(img) => {
+                return img.clone().convert();
+            }
+            DynaImage::ImageRgb32F(img) => {
+                return img.clone().convert();
+            }
         }
     }
 }
