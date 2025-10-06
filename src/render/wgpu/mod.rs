@@ -4,6 +4,7 @@ pub mod lighting_renderer;
 pub mod linear_to_srgb_renderer;
 pub mod lines;
 pub mod lines_renderer;
+pub mod ltc;
 pub mod material;
 pub mod matrix;
 pub mod mesh;
