@@ -271,10 +271,20 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
     let tex2 = image_map.get("tex2").unwrap().clone();
     let amount = image_map.get("amount").unwrap().clone();
 
-    if let (DynaImage::ImageRgb32F(tex1), DynaImage::ImageRgb32F(tex2), DynaImage::ImageRgb32F(amount)) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref()) {
+    if let (
+        DynaImage::ImageRgb32F(tex1),
+        DynaImage::ImageRgb32F(tex2),
+        DynaImage::ImageRgb32F(amount),
+    ) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref())
+    {
         let image_buffer = mix_texture_rgb(&tex1, &tex2, &amount);
         return Some(DynaImage::ImageRgb32F(image_buffer));
-    } else if let (DynaImage::ImageLuma32F(tex1), DynaImage::ImageLuma32F(tex2), DynaImage::ImageLuma32F(amount)) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref()) {
+    } else if let (
+        DynaImage::ImageLuma32F(tex1),
+        DynaImage::ImageLuma32F(tex2),
+        DynaImage::ImageLuma32F(amount),
+    ) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref())
+    {
         let image_buffer = mix_texture_float(&tex1, &tex2, &amount);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
@@ -354,10 +364,14 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
     let tex1 = image_map.get("tex1").unwrap().clone();
     let tex2 = image_map.get("tex2").unwrap().clone();
 
-    if let (DynaImage::ImageRgb32F(tex1), DynaImage::ImageRgb32F(tex2)) = (tex1.as_ref(), tex2.as_ref()) {
+    if let (DynaImage::ImageRgb32F(tex1), DynaImage::ImageRgb32F(tex2)) =
+        (tex1.as_ref(), tex2.as_ref())
+    {
         let image_buffer = scale_texture_rgb(&tex1, &tex2);
         return Some(DynaImage::ImageRgb32F(image_buffer));
-    } else if let (DynaImage::ImageLuma32F(tex1), DynaImage::ImageLuma32F(tex2)) = (tex1.as_ref(), tex2.as_ref()) {
+    } else if let (DynaImage::ImageLuma32F(tex1), DynaImage::ImageLuma32F(tex2)) =
+        (tex1.as_ref(), tex2.as_ref())
+    {
         let image_buffer = scale_texture_float(&tex1, &tex2);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
