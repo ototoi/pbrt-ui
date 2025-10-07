@@ -38,7 +38,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use eframe::wgpu;
-use eframe::wgpu::naga::back::msl::sampler;
 use uuid::Uuid;
 
 #[inline]
