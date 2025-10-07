@@ -1,5 +1,4 @@
 pub mod app;
-pub mod base;
 pub mod controller;
 pub mod conversion;
 pub mod error;
