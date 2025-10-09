@@ -1,15 +1,15 @@
-use super::texture::RenderTexture;
 use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
+use super::texture::RenderTexture;
 use crate::render::{self, wgpu::light::RenderLight};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 //use eframe::egui;
 //use eframe::egui_wgpu;
-use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
+use eframe::wgpu::{self, wgc::pipeline};
 use wgpu::util::align_to;
 
 use bytemuck::{Pod, Zeroable};
@@ -187,7 +187,7 @@ pub struct LightingMeshRenderer {
     // Textures used in the materials
     textures: HashMap<String, Arc<RenderTexture>>,
     // Material entries
-    pipelines: HashMap<String, PipelineEntry>
+    pipelines: HashMap<String, PipelineEntry>,
 }
 
 fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -273,7 +273,9 @@ impl LightingMeshRenderer {
 
     // -------------------------------------------------------
 
-    fn split_items(render_items: &[Arc<RenderItem>]) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
+    fn split_items(
+        render_items: &[Arc<RenderItem>],
+    ) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
         let mut mesh_items = Vec::new();
         let mut light_items = Vec::new();
         for item in render_items.iter() {
@@ -297,30 +299,33 @@ impl LightingMeshRenderer {
             )
         };
 
-        let material_entry = self
-            .pipelines
-            .get(BASIC_MATERIAL_ENTRY_ID)
-            .expect("Pipeline for basic material not found");
-        render_pass.set_pipeline(&material_entry.pipeline); //
-        render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-        render_pass.set_bind_group(2, &self.light_bind_group, &[]);
-        for (i, item) in render_items.iter().enumerate() {
-            let i = i as wgpu::DynamicOffset;
-            if let RenderItem::Mesh(mesh_item) = item.as_ref() {
-                let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
-                let material_uniform_offset = i * material_entry.alignment as wgpu::DynamicOffset;
-                render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
-                render_pass.set_bind_group(
-                    3,
-                    &material_entry.bind_group,
-                    &[material_uniform_offset],
-                );
-                render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(
-                    mesh_item.mesh.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint32,
-                );
-                render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+        for pipeline_entry in self.pipelines.values() {
+            if pipeline_entry.indices.is_empty() {
+                continue;
+            }
+            render_pass.set_pipeline(&pipeline_entry.pipeline); //
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
+            for (i, item_index) in pipeline_entry.indices.iter().enumerate() {
+                let item_index = *item_index as usize;
+                if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
+                    let local_uniform_offset = item_index as wgpu::DynamicOffset
+                        * local_uniform_alignment as wgpu::DynamicOffset;
+                    let material_uniform_offset =
+                        i as wgpu::DynamicOffset * pipeline_entry.alignment as wgpu::DynamicOffset;
+                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    render_pass.set_bind_group(
+                        3,
+                        &pipeline_entry.bind_group,
+                        &[material_uniform_offset],
+                    );
+                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_item.mesh.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+                }
             }
         }
     }
@@ -418,20 +423,22 @@ impl LightingMeshRenderer {
             for entry in self.pipelines.values_mut() {
                 entry.indices.clear();
             }
-            
+
             for (i, item) in mesh_items.iter().enumerate() {
-                if !self.pipelines.contains_key(BASIC_MATERIAL_ENTRY_ID) {
+                let pipeline_id = BASIC_MATERIAL_ENTRY_ID;
+
+                if !self.pipelines.contains_key(pipeline_id) {
                     self.pipelines.insert(
-                        BASIC_MATERIAL_ENTRY_ID.to_string(),
-                        self.create_pipeline_entry(device, BASIC_MATERIAL_ENTRY_ID, num_items),
+                        pipeline_id.to_string(),
+                        self.create_pipeline_entry(device, pipeline_id, num_items),
                     );
                 }
                 let entry = self
                     .pipelines
-                    .get_mut(BASIC_MATERIAL_ENTRY_ID)
+                    .get_mut(pipeline_id)
                     .expect("Pipeline for basic material not found");
                 entry.indices.push(i as u32);
-            
+
                 let base_color = get_base_color(item);
                 let specular_color = get_specular_color(item);
                 let uniform = BasicMaterialUniforms {
