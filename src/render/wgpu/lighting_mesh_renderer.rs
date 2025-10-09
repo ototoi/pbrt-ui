@@ -1,7 +1,8 @@
+use super::texture::RenderTexture;
 use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
-use crate::render::wgpu::light::RenderLight;
+use crate::render::{self, wgpu::light::RenderLight};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -116,28 +117,28 @@ struct BasicMaterialUniforms {
 }
 
 #[derive(Debug, Clone)]
-struct MaterialEntry {
+struct PipelineEntry {
     pub pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
     pub uniform_buffer: wgpu::Buffer,
     pub alignment: wgpu::BufferAddress,
-    pub count: usize,
+    pub indices: Vec<u32>,
 }
 
-impl MaterialEntry {
+impl PipelineEntry {
     fn recreate_buffer(&mut self, device: &wgpu::Device, num_items: usize) {
         let alignment = self.alignment;
         let required_size = alignment * num_items as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Item Matrices Buffer"),
+            label: Some("Material Buffer"),
             size: required_size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
             mapped_at_creation: false,
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Lighting Material Bind Group"),
+            label: Some("Material Bind Group"),
             layout: &self.bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -176,13 +177,17 @@ pub struct LightingMeshRenderer {
     disk_light_buffer: wgpu::Buffer,
     rect_light_buffer: wgpu::Buffer,
     infinite_light_buffer: wgpu::Buffer,
+
     default_light_texture: wgpu::Texture,
     default_light_texture_view: wgpu::TextureView,
     default_light_sampler: wgpu::Sampler,
+
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
+    // Textures used in the materials
+    textures: HashMap<String, Arc<RenderTexture>>,
     // Material entries
-    materials: HashMap<String, MaterialEntry>,
+    pipelines: HashMap<String, PipelineEntry>
 }
 
 fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -252,8 +257,12 @@ impl LightingMeshRenderer {
         camera_to_clip: &glam::Mat4,
     ) {
         self.prepare_global(device, queue, world_to_camera, camera_to_clip);
-        self.prepare_lights(device, queue, render_items);
-        self.prepare_local_and_mateials(device, queue, render_items);
+        {
+            let (mesh_items, light_items) = Self::split_items(render_items);
+            self.prepare_lights(device, queue, &light_items);
+            self.prepare_locals(device, queue, &mesh_items);
+            self.prepare_materials(device, queue, &mesh_items);
+        }
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
@@ -261,6 +270,23 @@ impl LightingMeshRenderer {
             self.render(render_pass, &self.mesh_items);
         }
     }
+
+    // -------------------------------------------------------
+
+    fn split_items(render_items: &[Arc<RenderItem>]) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
+        let mut mesh_items = Vec::new();
+        let mut light_items = Vec::new();
+        for item in render_items.iter() {
+            match item.as_ref() {
+                RenderItem::Mesh(_) => mesh_items.push(item.clone()),
+                RenderItem::Light(_) => light_items.push(item.clone()),
+                _ => {}
+            }
+        }
+        return (mesh_items, light_items);
+    }
+
+    // -------------------------------------------------------
 
     fn render(&self, render_pass: &mut wgpu::RenderPass, render_items: &[Arc<RenderItem>]) {
         let local_uniform_alignment = {
@@ -272,7 +298,7 @@ impl LightingMeshRenderer {
         };
 
         let material_entry = self
-            .materials
+            .pipelines
             .get(BASIC_MATERIAL_ENTRY_ID)
             .expect("Pipeline for basic material not found");
         render_pass.set_pipeline(&material_entry.pipeline); //
@@ -322,17 +348,12 @@ impl LightingMeshRenderer {
         );
     }
 
-    pub fn prepare_local_and_mateials(
+    pub fn prepare_locals(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        render_items: &[Arc<RenderItem>],
+        mesh_items: &[Arc<RenderItem>],
     ) {
-        let mesh_items = render_items
-            .iter()
-            .filter(|item| matches!(item.as_ref(), RenderItem::Mesh(_)))
-            .cloned()
-            .collect::<Vec<_>>();
         let num_mesh_items = mesh_items.len();
         let local_uniform_alignment = {
             let alignment = self.min_uniform_buffer_offset_alignment;
@@ -375,8 +396,16 @@ impl LightingMeshRenderer {
                 bytemuck::bytes_of(&uniform),
             );
         }
+    }
 
+    pub fn prepare_materials(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        mesh_items: &[Arc<RenderItem>],
+    ) {
         {
+            let num_items = mesh_items.len();
             let uniform_alignment = {
                 let alignment =
                     device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
@@ -385,21 +414,24 @@ impl LightingMeshRenderer {
                     alignment,
                 )
             };
-            let num_items = mesh_items.len();
-            if !self.materials.contains_key(BASIC_MATERIAL_ENTRY_ID) {
-                self.materials.insert(
-                    BASIC_MATERIAL_ENTRY_ID.to_string(),
-                    self.create_material_entry(device, BASIC_MATERIAL_ENTRY_ID, num_items),
-                );
+
+            for entry in self.pipelines.values_mut() {
+                entry.indices.clear();
             }
-            let entry = self
-                .materials
-                .get_mut(BASIC_MATERIAL_ENTRY_ID)
-                .expect("Pipeline for basic material not found");
-            if entry.count < num_items {
-                entry.recreate_buffer(device, num_items);
-            }
+            
             for (i, item) in mesh_items.iter().enumerate() {
+                if !self.pipelines.contains_key(BASIC_MATERIAL_ENTRY_ID) {
+                    self.pipelines.insert(
+                        BASIC_MATERIAL_ENTRY_ID.to_string(),
+                        self.create_pipeline_entry(device, BASIC_MATERIAL_ENTRY_ID, num_items),
+                    );
+                }
+                let entry = self
+                    .pipelines
+                    .get_mut(BASIC_MATERIAL_ENTRY_ID)
+                    .expect("Pipeline for basic material not found");
+                entry.indices.push(i as u32);
+            
                 let base_color = get_base_color(item);
                 let specular_color = get_specular_color(item);
                 let uniform = BasicMaterialUniforms {
@@ -412,7 +444,7 @@ impl LightingMeshRenderer {
             }
         }
 
-        self.mesh_items = mesh_items;
+        self.mesh_items = mesh_items.to_vec();
     }
 
     fn create_light_bind_group(
@@ -717,12 +749,12 @@ impl LightingMeshRenderer {
         );
     }
 
-    fn create_material_entry(
+    fn create_pipeline_entry(
         &self,
         device: &wgpu::Device,
         _material_id: &str,
         num_items: usize,
-    ) -> MaterialEntry {
+    ) -> PipelineEntry {
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -861,13 +893,13 @@ impl LightingMeshRenderer {
             }],
         });
 
-        let entry = MaterialEntry {
+        let entry = PipelineEntry {
             pipeline: pipeline,
             bind_group_layout,
             bind_group,
             uniform_buffer,
             alignment,
-            count: num_items,
+            indices: Vec::new(),
         };
         return entry;
     }
@@ -1164,17 +1196,18 @@ impl LightingMeshRenderer {
             default_light_texture_view,
             default_light_sampler,
             mesh_items,
-            materials,
+            textures: HashMap::new(),
+            pipelines: materials,
         };
         pass.init(device);
         return pass;
     }
 
     pub fn init(&mut self, device: &wgpu::Device) {
-        if self.materials.is_empty() {
-            self.materials.insert(
+        if self.pipelines.is_empty() {
+            self.pipelines.insert(
                 BASIC_MATERIAL_ENTRY_ID.to_string(),
-                self.create_material_entry(
+                self.create_pipeline_entry(
                     device,
                     BASIC_MATERIAL_ENTRY_ID,
                     MIN_MATERIAL_BUFFER_NUM,
