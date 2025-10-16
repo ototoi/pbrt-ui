@@ -1,15 +1,15 @@
-use super::super::render_resource::RenderResourceManager;
+//use super::super::render_resource::RenderResourceManager;
 use super::super::texture::RenderTexture;
 use super::textures::*;
 
 use eframe::wgpu;
-use std::sync::Arc;
+//use std::sync::Arc;
 use uuid::Uuid;
 
 
 pub const DEFAULT_LTC_UUID: Uuid = Uuid::from_u128(0x123e4567_e89b_12d3_a456_426614174000);
 
-fn create_ltc_texture(
+pub fn create_ltc_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     label: &str,
@@ -93,6 +93,15 @@ fn create_ltc_texture(
     return render_texture;
 }
 
+pub fn create_default_ltc_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+) -> RenderTexture {
+    let data = vec![LTC1.to_vec(), LTC2.to_vec()];
+    return create_ltc_texture(device, queue, "LTC", DEFAULT_LTC_UUID, &data);
+}
+
+/* 
 pub fn register_ltc_textures(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -104,3 +113,4 @@ pub fn register_ltc_textures(
         resource_manager.add_texture(&Arc::new(texture));
     }
 }
+    */

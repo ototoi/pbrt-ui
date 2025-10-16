@@ -1,15 +1,18 @@
+use super::ltc::DEFAULT_LTC_UUID;
+use super::ltc::create_default_ltc_texture;
 use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::texture::RenderTexture;
-use crate::render::{self, wgpu::light::RenderLight};
+use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 //use eframe::egui;
 //use eframe::egui_wgpu;
+use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use eframe::wgpu::{self, wgc::pipeline};
+use uuid::Uuid;
 use wgpu::util::align_to;
 
 use bytemuck::{Pod, Zeroable};
@@ -24,6 +27,8 @@ const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
 const MIN_MATERIAL_BUFFER_NUM: usize = 8;
 const BASIC_MATERIAL_ENTRY_ID: &str = "basic_material";
+
+const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0x00000000_0000_0000_FFFF_000000000000);
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
@@ -178,14 +183,10 @@ pub struct LightingMeshRenderer {
     rect_light_buffer: wgpu::Buffer,
     infinite_light_buffer: wgpu::Buffer,
 
-    default_light_texture: wgpu::Texture,
-    default_light_texture_view: wgpu::TextureView,
-    default_light_sampler: wgpu::Sampler,
-
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
     // Textures used in the materials
-    textures: HashMap<String, Arc<RenderTexture>>,
+    textures: HashMap<Uuid, Arc<RenderTexture>>,
     // Material entries
     pipelines: HashMap<String, PipelineEntry>,
 }
@@ -313,7 +314,9 @@ impl LightingMeshRenderer {
                         * local_uniform_alignment as wgpu::DynamicOffset;
                     let material_uniform_offset =
                         i as wgpu::DynamicOffset * pipeline_entry.alignment as wgpu::DynamicOffset;
+                    //local params
                     render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    //material params
                     render_pass.set_bind_group(
                         3,
                         &pipeline_entry.bind_group,
@@ -424,9 +427,16 @@ impl LightingMeshRenderer {
                 entry.indices.clear();
             }
 
-            for (i, item) in mesh_items.iter().enumerate() {
+            let mut pipelines: HashMap<String, Vec<u32>> = HashMap::new();
+            for (i, _item) in mesh_items.iter().enumerate() {
                 let pipeline_id = BASIC_MATERIAL_ENTRY_ID;
+                let indices = pipelines
+                    .entry(pipeline_id.to_string())
+                    .or_insert(Vec::new());
+                indices.push(i as u32);
+            }
 
+            for (pipeline_id, indices) in pipelines.iter() {
                 if !self.pipelines.contains_key(pipeline_id) {
                     self.pipelines.insert(
                         pipeline_id.to_string(),
@@ -437,17 +447,22 @@ impl LightingMeshRenderer {
                     .pipelines
                     .get_mut(pipeline_id)
                     .expect("Pipeline for basic material not found");
-                entry.indices.push(i as u32);
+                entry.recreate_buffer(device, indices.len());
+                entry.indices = indices.clone();
 
-                let base_color = get_base_color(item);
-                let specular_color = get_specular_color(item);
-                let uniform = BasicMaterialUniforms {
-                    kd: base_color,
-                    ks: specular_color,
-                    ..Default::default()
-                };
-                let offset = i as wgpu::BufferAddress * uniform_alignment;
-                queue.write_buffer(&entry.uniform_buffer, offset, bytemuck::bytes_of(&uniform));
+                for (i, item_index) in indices.iter().enumerate() {
+                    let index = *item_index as usize;
+                    let item = &mesh_items[index];
+                    let base_color = get_base_color(item);
+                    let specular_color = get_specular_color(item);
+                    let uniform = BasicMaterialUniforms {
+                        kd: base_color,
+                        ks: specular_color,
+                        ..Default::default()
+                    };
+                    let offset = i as wgpu::BufferAddress * uniform_alignment;
+                    queue.write_buffer(&entry.uniform_buffer, offset, bytemuck::bytes_of(&uniform));
+                }
             }
         }
 
@@ -731,11 +746,15 @@ impl LightingMeshRenderer {
 
         {
             if light_textures.len() <= 0 {
+                let light_texture = self
+                    .textures
+                    .get(&DEFAULT_LIGHT_TEXTURE_ID)
+                    .expect("Default light texture not found");
                 self.light_bind_group = self.create_light_bind_group(
                     device,
                     queue,
-                    &self.default_light_texture_view,
-                    &self.default_light_sampler,
+                    &light_texture.view,
+                    &light_texture.sampler,
                 );
             } else {
                 let light_texture = &light_textures[0];
@@ -913,7 +932,11 @@ impl LightingMeshRenderer {
 }
 
 impl LightingMeshRenderer {
-    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        target_format: wgpu::TextureFormat,
+    ) -> Self {
         let global_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Global Bind Group Layout"),
@@ -1138,6 +1161,18 @@ impl LightingMeshRenderer {
             default_light_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let default_light_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
+        let default_light_texture = RenderTexture {
+            id: DEFAULT_LIGHT_TEXTURE_ID,
+            edition: Uuid::new_v4().to_string(),
+            texture: default_light_texture,
+            view: default_light_texture_view,
+            sampler: default_light_sampler,
+        };
+        let default_light_texture = Arc::new(default_light_texture);
+
+        let default_ltc_texture = create_default_ltc_texture(device, queue);
+        let default_ltc_texture = Arc::new(default_ltc_texture);
+
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Light Bind Group"),
             layout: &light_bind_group_layout,
@@ -1168,14 +1203,18 @@ impl LightingMeshRenderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 6,
-                    resource: wgpu::BindingResource::TextureView(&default_light_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&default_light_texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 7,
-                    resource: wgpu::BindingResource::Sampler(&default_light_sampler),
+                    resource: wgpu::BindingResource::Sampler(&default_light_texture.sampler),
                 },
             ],
         });
+
+        let mut textures = HashMap::new();
+        textures.insert(default_light_texture.id, default_light_texture);
+        textures.insert(default_ltc_texture.id, default_ltc_texture);
 
         let min_uniform_buffer_offset_alignment =
             device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
@@ -1199,11 +1238,8 @@ impl LightingMeshRenderer {
             disk_light_buffer,
             rect_light_buffer,
             infinite_light_buffer,
-            default_light_texture,
-            default_light_texture_view,
-            default_light_sampler,
             mesh_items,
-            textures: HashMap::new(),
+            textures,
             pipelines: materials,
         };
         pass.init(device);

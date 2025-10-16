@@ -162,7 +162,7 @@ pub fn get_render_items(
 
     //
     create_texture_nodes(&resource_manager, &mut resource_cache_manager);
-    register_ltc_textures(device, queue, &mut render_resource_manager);
+    //register_ltc_textures(device, queue, &mut render_resource_manager);
     //
 
     for item in scene_items.iter() {
