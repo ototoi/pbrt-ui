@@ -476,6 +476,7 @@ impl LightingMeshRenderer {
         light_texture_view: &wgpu::TextureView,
         light_sampler: &wgpu::Sampler,
     ) -> wgpu::BindGroup {
+        let default_ltc_texture = self.textures.get(&DEFAULT_LTC_UUID).expect("Default LTC texture not found");
         let layout = &self.light_bind_group_layout;
         let entries = vec![
             wgpu::BindGroupEntry {
@@ -509,6 +510,14 @@ impl LightingMeshRenderer {
             wgpu::BindGroupEntry {
                 binding: 7,
                 resource: wgpu::BindingResource::Sampler(light_sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 8,
+                resource: wgpu::BindingResource::TextureView(&default_ltc_texture.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 9,
+                resource: wgpu::BindingResource::Sampler(&default_ltc_texture.sampler),
             },
         ];
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -1070,6 +1079,22 @@ impl LightingMeshRenderer {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 8,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 9,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             });
 
@@ -1208,6 +1233,14 @@ impl LightingMeshRenderer {
                 wgpu::BindGroupEntry {
                     binding: 7,
                     resource: wgpu::BindingResource::Sampler(&default_light_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 8,
+                    resource: wgpu::BindingResource::TextureView(&default_ltc_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 9,
+                    resource: wgpu::BindingResource::Sampler(&default_ltc_texture.sampler),
                 },
             ],
         });
