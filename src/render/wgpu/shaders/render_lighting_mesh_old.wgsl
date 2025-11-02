@@ -510,6 +510,38 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
         color += diffuse * intensity * attenuation;
+
+        /*
+        let ray_origin = in.w_position;
+        var ray_direction = reflect(camera_to_surface, normal);//ray direction
+        let rn = dot(ray_direction, direction);
+        if rn > 0.0 {
+            ray_direction = ray_direction - 2.0 * rn * direction;
+        }
+        let pn = dot(position, direction);
+        let on = dot(ray_origin, direction);
+        let dn = dot(ray_direction, direction);
+        let distance_to_plane = (pn - on) / dn;
+        if distance_to_plane < 1e-6 {
+            continue;
+        }
+        let p = ray_origin + distance_to_plane * ray_direction;
+
+        let a = position - light.u_axis.xyz - light.v_axis.xyz;
+        let b = position - light.u_axis.xyz + light.v_axis.xyz;
+        let c = position + light.u_axis.xyz + light.v_axis.xyz;
+        let d = position + light.u_axis.xyz - light.v_axis.xyz;
+        // Find the closest point on the rectangle
+        var closest_point = closest_point_on_rectangle(a, b, c, d, p, direction);
+        let light_to_surface = in.w_position - closest_point;
+        let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
+        let falloff = cos_theta;//pow(cos_theta, 1.0);
+
+        let distance = length(light_to_surface);
+        var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
+        var wi = tbn * -normalize(light_to_surface);
+        color += shade(intensity * attenuation * falloff, wo, wi);
+        */
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 
