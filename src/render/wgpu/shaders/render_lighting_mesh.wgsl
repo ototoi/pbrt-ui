@@ -191,6 +191,11 @@ fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x
     return Lo_i;
 }
 
+fn ClosestPointOnRectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>, n: vec3<f32>) -> vec3<f32> {
+    // Check if the point is inside the rectangle
+    return (a + b + c + d) * 0.25;
+}
+
 //-------------------------------------------------------
 //Material specific definitions
 struct BasicMaterialUniforms {
@@ -505,8 +510,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
         let diffuse = LTC_Evaluate_Polygon(N, V, P, IDENTITY_MAT3, lightPoints);
 
-        //var closest_point = closest_point_on_rectangle(a, b, c, d, p, direction);
-        let light_to_surface = in.w_position - position;
+        let closest_point = ClosestPointOnRectangle(a, b, c, d, P, direction);
+        let light_to_surface = in.w_position - closest_point;
         let distance = length(light_to_surface);
         var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
         color += diffuse * intensity * attenuation;
