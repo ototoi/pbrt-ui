@@ -88,10 +88,14 @@ struct DiskLight {
     intensity: [f32; 4],  // Intensity of the light // 4 * 4 = 16
     radius: f32,          // Radius of the light // 1 * 4 = 4
     range: f32,           // Range of the light // 1 * 4 = 4
-    _pad1: [f32; 2],      // Padding to ensure alignment
     cos_inner_angle: f32, // Angle of the spotlight
     cos_outer_angle: f32, // Angle of the spotlight
-    _pad2: [f32; 2],      // Padding to ensure alignmentå
+    u_axis: [f32; 4],    // U axis for rectangle // 4 * 4 = 16
+    v_axis: [f32; 4],    // V axis for rectangle // 4 * 4 = 16
+    twosided: u32,       // Whether the rectangle emits light on both sides
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 #[repr(C)]
@@ -102,6 +106,10 @@ struct RectLight {
     u_axis: [f32; 4],    // U axis for rectangle // 4 * 4 = 16
     v_axis: [f32; 4],    // V axis for rectangle // 4 * 4 = 16
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
+    twosided: u32,       // Whether the rectangle emits light on both sides
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 #[repr(C)]
@@ -111,6 +119,18 @@ struct InfiniteLight {
     indices: [i32; 4],         // Indices for the light texture
     inv_matrix: [[f32; 4]; 4], // Inverse matrix for the light texture
 }
+
+fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
+    let up = if direction.abs().dot(glam::vec3(0.0, 1.0, 0.0)) < 0.999 {
+        glam::vec3(0.0, 1.0, 0.0)
+    } else {
+        glam::vec3(1.0, 0.0, 0.0)
+    };
+    let u_axis = direction.cross(up).normalize();
+    let v_axis = direction.cross(u_axis).normalize();
+    return (u_axis, v_axis);
+}
+
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
@@ -604,6 +624,7 @@ impl LightingMeshRenderer {
                         let radius = light.radius;
                         let cos_inner_angle = f32::cos(light.inner_angle);
                         let cos_outer_angle = f32::cos(light.outer_angle);
+                        let (u_axis, v_axis) = get_uv_axis(&direction);
                         let light = DiskLight {
                             position: [position.x, position.y, position.z, 1.0],
                             direction: [direction.x, direction.y, direction.z, 0.0],
@@ -611,6 +632,9 @@ impl LightingMeshRenderer {
                             radius: radius,
                             cos_inner_angle: cos_inner_angle,
                             cos_outer_angle: cos_outer_angle,
+                            u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
+                            v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
+                            twosided: if light.twosided { 1 } else { 0 },
                             ..Default::default()
                         };
                         light_buffer.push(light);
@@ -663,6 +687,8 @@ impl LightingMeshRenderer {
                             u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
                             v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                            twosided: if rect.twosided { 1 } else { 0 },
+                            ..Default::default()
                         };
                         light_buffer.push(light);
                     }

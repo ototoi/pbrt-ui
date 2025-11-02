@@ -17,6 +17,7 @@ pub struct SphereRenderLight {
     pub position: [f32; 3],
     pub intensity: [f32; 3], // RGB intensity
     pub radius: f32,         // Sphere radius
+    //pub points: [[f32; 3]; 4], // Precomputed points on the sphere surface
 }
 
 #[derive(Debug, Clone, Default)]
@@ -29,6 +30,8 @@ pub struct DiskRenderLight {
     pub radius: f32,         // Sphere radius
     pub inner_angle: f32,    // Inner radius for disk
     pub outer_angle: f32,    // Outer radius for disk
+    pub twosided: bool,      // Whether the disk emits light on both sides
+    //pub points: [[f32; 3]; 4], // Precomputed corner points of the disk
 }
 
 #[derive(Debug, Clone, Default)]
@@ -40,6 +43,7 @@ pub struct RectRenderLight {
     pub u_axis: [f32; 3],    // U axis for rectangle
     pub v_axis: [f32; 3],    // V axis for rectangle
     pub intensity: [f32; 3], // RGB intensity
+    pub twosided: bool,      // Whether the rectangle emits light on both sides
 }
 
 #[derive(Debug, Clone, Default)]

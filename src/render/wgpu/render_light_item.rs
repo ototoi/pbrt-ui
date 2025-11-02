@@ -293,6 +293,7 @@ fn get_spot_light_item(
             radius: 0.0,
             inner_angle, // Inner radius for spot lights
             outer_angle, // Outer radius for spot lights
+            ..Default::default()
         };
         let render_light = Arc::new(RenderLight::Disk(render_light));
         render_resource_manager.add_light(&render_light);
@@ -304,6 +305,12 @@ fn get_spot_light_item(
         return Some(RenderItem::Light(render_item));
     }
     return None; // Point lights are not yet supported
+}
+
+fn calc_sphere_light_ltc_points(radius: f32) -> [[f32; 3]; 4] {
+
+    
+    return [[0.0; 3]; 4]; // Placeholder implementation
 }
 
 fn get_sphere_light_item(
@@ -367,6 +374,7 @@ fn get_sphere_light_item(
         area * l[1] * scale[1],
         area * l[2] * scale[2],
     ];
+    
 
     let render_light = SphereRenderLight {
         id,
@@ -438,6 +446,8 @@ fn get_disk_light_item(
     let inner_angle = f32::to_radians((coneangle - conedelta).max(0.0));
     let outer_angle = f32::to_radians(coneangle);
 
+    let twosided = props.find_one_bool("twosided").unwrap_or(false);
+
     //let area = area * (1.0 - f32::powf(outer_angle/std::f32::consts::PI, 2.0));
 
     let position = Vector3::new(0.0, 0.0, 0.0); // Center of the disk
@@ -458,6 +468,7 @@ fn get_disk_light_item(
         radius, // Radius of the disk
         inner_angle,
         outer_angle,
+        twosided,
     };
     let render_light = Arc::new(RenderLight::Disk(render_light));
     render_resource_manager.add_light(&render_light);
@@ -514,6 +525,8 @@ fn get_rects_light_item(
             let scale =
                 get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
+            let twosided = props.find_one_bool("twosided").unwrap_or(false);
+
             let render_rects = rects
                 .iter()
                 .map(|rect| {
@@ -544,6 +557,7 @@ fn get_rects_light_item(
                         u_axis,
                         v_axis,
                         intensity,
+                        twosided
                     };
                     Arc::new(RenderLight::Rect(light))
                 })
