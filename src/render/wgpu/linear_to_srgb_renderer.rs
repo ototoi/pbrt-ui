@@ -11,7 +11,7 @@ pub struct LinearToSrgbRenderer {
 }
 
 impl LinearToSrgbRenderer {
-    pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue, target_format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Linear To SRGB Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/copy_texture.wgsl").into()),

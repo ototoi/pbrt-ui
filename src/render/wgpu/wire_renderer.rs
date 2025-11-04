@@ -119,8 +119,9 @@ impl WireRenderer {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Option<Self> {
         let render_state = cc.wgpu_render_state.as_ref()?;
         let device = &render_state.device;
-        let mesh_renderer = WireMeshRenderer::new(device, render_state.target_format);
-        let lines_renderer = LinesRenderer::new(device, render_state.target_format);
+        let queue = &render_state.queue;
+        let mesh_renderer = WireMeshRenderer::new(device, queue, render_state.target_format);
+        let lines_renderer = LinesRenderer::new(device, queue, render_state.target_format);
         return Some(WireRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),

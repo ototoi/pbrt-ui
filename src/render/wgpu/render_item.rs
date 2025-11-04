@@ -1,5 +1,6 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
+use super::ltc::register_ltc_textures;
 use super::material::RenderMaterial;
 use super::mesh::RenderMesh;
 use super::render_gizmo_item::get_render_axis_gizmo_items;
@@ -161,6 +162,7 @@ pub fn get_render_items(
 
     //
     create_texture_nodes(&resource_manager, &mut resource_cache_manager);
+    //register_ltc_textures(device, queue, &mut render_resource_manager);
     //
 
     for item in scene_items.iter() {
