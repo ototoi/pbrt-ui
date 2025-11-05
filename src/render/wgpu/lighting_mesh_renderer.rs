@@ -4,6 +4,7 @@ use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::texture::RenderTexture;
+use super::materials::basic_material::BasicMaterialUniforms;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -129,16 +130,6 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
     let u_axis = direction.cross(up).normalize();
     let v_axis = direction.cross(u_axis).normalize();
     return (u_axis, v_axis);
-}
-
-
-#[repr(C)]
-#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-struct BasicMaterialUniforms {
-    kd: [f32; 4],    // Diffuse color
-    ks: [f32; 4],    // Specular color
-    _pad1: [f32; 4], // Padding to ensure alignment
-    _pad2: [f32; 4], // Padding to ensure alignment
 }
 
 #[derive(Debug, Clone)]
@@ -448,12 +439,15 @@ impl LightingMeshRenderer {
             }
 
             let mut pipelines: HashMap<String, Vec<u32>> = HashMap::new();
-            for (i, _item) in mesh_items.iter().enumerate() {
-                let pipeline_id = BASIC_MATERIAL_ENTRY_ID;
-                let indices = pipelines
-                    .entry(pipeline_id.to_string())
-                    .or_insert(Vec::new());
-                indices.push(i as u32);
+            for (i, item) in mesh_items.iter().enumerate() {
+                if let Some(material) = item.get_material() {
+                    let material_type = material.get_type();
+                    let pipeline_id = BASIC_MATERIAL_ENTRY_ID;
+                    let indices = pipelines
+                        .entry(pipeline_id.to_string())
+                        .or_insert(Vec::new());
+                    indices.push(i as u32);
+                }
             }
 
             for (pipeline_id, indices) in pipelines.iter() {

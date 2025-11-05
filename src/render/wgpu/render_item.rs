@@ -1,6 +1,5 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
-use super::ltc::register_ltc_textures;
 use super::material::RenderMaterial;
 use super::mesh::RenderMesh;
 use super::render_gizmo_item::get_render_axis_gizmo_items;
@@ -62,6 +61,13 @@ impl RenderItem {
             RenderItem::Light(item) => item.matrix,
             RenderItem::Lines(item) => item.matrix,
             // Handle other render item types here
+        }
+    }
+    pub fn get_material(&self) -> Option<Arc<RenderMaterial>> {
+        match self {
+            RenderItem::Mesh(item) => item.material.clone(),
+            RenderItem::Lines(item) => item.material.clone(),
+            _ => None,
         }
     }
 }

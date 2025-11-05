@@ -36,7 +36,8 @@ fn get_lines_material(
     let render_material = RenderMaterial {
         id: id,
         edition: edition.to_string(),
-        render_type: RenderCategory::Opaque,
+        ty: "lines".to_string(),
+        render_category: RenderCategory::Opaque,
         uniform_values,
     };
     let render_material = Arc::new(render_material);
