@@ -627,7 +627,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let v_axis = light.v_axis.xyz;
         let twosided = light.twosided;
         let center_to_surface = in.w_position - position;
-        let ndotl = dot(normalize(center_to_surface), direction);
+        let distance = length(center_to_surface);
+        if (distance < 1e-6) {
+            continue;
+        }
+        let ndotl = dot(center_to_surface, direction);
         if (ndotl < 0.0 && twosided == 0) {
             continue;
         }
@@ -644,10 +648,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
             let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
-
-            var closest_point = position;
-            let light_to_surface = in.w_position - closest_point;
-            let distance = length(light_to_surface);
+            
             var attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
             color += intensity * attenuation * (m_diff * diffuse);
         } else {
@@ -674,8 +675,12 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let intensity = light.intensity.rgb;
         let twosided = light.twosided;
         let center_to_surface = in.w_position - position;
-        let ndotl = dot(normalize(center_to_surface), direction);
-        if (ndotl < 0.0 && twosided == 0) {
+        let distance = length(center_to_surface);
+        if (distance < 1e-6) {
+            continue;
+        }
+        let ndotl = dot(center_to_surface, direction);
+        if (ndotl <= 0.0 && twosided == 0) {
             continue;
         }
 
@@ -687,10 +692,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
         let diffuse = LTC_Evaluate_Polygon(N, V, P, IDENTITY_MAT3, lightPoints);
         let specular = LTC_Evaluate_Polygon(N, V, P, Minv, lightPoints);
-
-        let closest_point = position;
-        let light_to_surface = in.w_position - closest_point;
-        let distance = length(light_to_surface);
+        
         let attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
         color += intensity * attenuation * (m_diff * diffuse);
     }

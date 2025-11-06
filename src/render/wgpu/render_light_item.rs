@@ -308,8 +308,6 @@ fn get_spot_light_item(
 }
 
 fn calc_sphere_light_ltc_points(radius: f32) -> [[f32; 3]; 4] {
-
-    
     return [[0.0; 3]; 4]; // Placeholder implementation
 }
 
@@ -374,7 +372,6 @@ fn get_sphere_light_item(
         area * l[1] * scale[1],
         area * l[2] * scale[2],
     ];
-    
 
     let render_light = SphereRenderLight {
         id,
@@ -557,7 +554,7 @@ fn get_rects_light_item(
                         u_axis,
                         v_axis,
                         intensity,
-                        twosided
+                        twosided,
                     };
                     Arc::new(RenderLight::Rect(light))
                 })

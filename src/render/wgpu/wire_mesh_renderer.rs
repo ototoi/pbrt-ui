@@ -171,7 +171,11 @@ impl WireMeshRenderer {
 }
 
 impl WireMeshRenderer {
-    pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue, target_format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        target_format: wgpu::TextureFormat,
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Wireframe Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_wire_mesh.wgsl").into()),

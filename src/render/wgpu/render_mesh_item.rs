@@ -147,7 +147,7 @@ fn create_render_material_from_light(
             .collect();
         let edition = light.get_edition();
         let id = light.get_id();
-        let ty = light.get_type();
+        let ty = format!("area_light_{}", light.get_type());
         let render_material = RenderMaterial {
             id,
             edition,

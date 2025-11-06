@@ -209,7 +209,8 @@ impl LightingRenderer {
         let queue = &render_state.queue;
         let mesh_renderer = LightingMeshRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
         let lines_renderer = LinesRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
-        let copy_texture_renderer = LinearToSrgbRenderer::new(device, queue, render_state.target_format);
+        let copy_texture_renderer =
+            LinearToSrgbRenderer::new(device, queue, render_state.target_format);
         // Create the lighting renderer with the mesh and lines renderers
         return Some(LightingRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),

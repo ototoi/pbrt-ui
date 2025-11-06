@@ -41,6 +41,10 @@ impl RenderMaterial {
         self.ty.clone()
     }
 
+    pub fn get_shader_type(&self) -> String {
+        return self.ty.clone();
+    }
+
     pub fn get_uniform_value(&self, key: &str) -> Option<&RenderUniformValue> {
         self.uniform_values
             .iter()
