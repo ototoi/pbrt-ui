@@ -23,7 +23,8 @@ pub enum RenderUniformValue {
 pub struct RenderMaterial {
     pub id: Uuid,
     pub edition: String,
-    pub render_type: RenderCategory,
+    pub ty: String,
+    pub render_category: RenderCategory,
     pub uniform_values: Vec<(String, RenderUniformValue)>, //key, value
 }
 
@@ -34,6 +35,14 @@ impl RenderMaterial {
 
     pub fn get_edition(&self) -> String {
         self.edition.clone()
+    }
+
+    pub fn get_type(&self) -> String {
+        self.ty.clone()
+    }
+
+    pub fn get_shader_type(&self) -> String {
+        return self.ty.clone();
     }
 
     pub fn get_uniform_value(&self, key: &str) -> Option<&RenderUniformValue> {

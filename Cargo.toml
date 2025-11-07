@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-uuid = { version = "1.16.0", features = ["v4", "serde"] }
+uuid = { version = "1.16.0", features = ["v4", "serde", "v3"] }
 eframe = { version = "0.32.0", features = ["__screenshot", "serde", "wgpu"] }
 env_logger = "0.11.7"
 nom = "7.1.1"

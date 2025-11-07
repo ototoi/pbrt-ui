@@ -308,8 +308,6 @@ fn get_spot_light_item(
 }
 
 fn calc_sphere_light_ltc_points(radius: f32) -> [[f32; 3]; 4] {
-
-    
     return [[0.0; 3]; 4]; // Placeholder implementation
 }
 
@@ -374,7 +372,6 @@ fn get_sphere_light_item(
         area * l[1] * scale[1],
         area * l[2] * scale[2],
     ];
-    
 
     let render_light = SphereRenderLight {
         id,
@@ -557,7 +554,7 @@ fn get_rects_light_item(
                         u_axis,
                         v_axis,
                         intensity,
-                        twosided
+                        twosided,
                     };
                     Arc::new(RenderLight::Rect(light))
                 })
@@ -878,8 +875,10 @@ fn get_light_gizmo_material(
     if let Some(component) = node.get_component::<LightComponent>() {
         let light = component.get_light();
         let light = light.read().unwrap();
-        let light_id = light.get_id();
-        let edition = light.get_edition();
+        //let light_id = light.get_id();
+        let light_type = light.get_type();
+        let light_id = Uuid::new_v3(&Uuid::NAMESPACE_OID, light_type.as_bytes());
+        let edition = "".to_string();
         let base_color = [1.0, 1.0, 0.0, 1.0]; // Default Yellow color for light gizmo
         return get_lines_material(light_id, &edition, render_resource_manager, &base_color);
     }
