@@ -25,7 +25,7 @@ var<uniform> global_uniforms: GlobalUniforms;
 var<uniform> local_uniforms: LocalUniforms;
 
 struct AreaLightDiffuseMaterialUniforms {
-    intensity: vec4<f32>,
+    l: vec4<f32>,
     scale: vec4<f32>,
     _pad1: vec4<f32>,
     _pad2: vec4<f32>,
@@ -42,9 +42,11 @@ const INV_PI: f32 = 1.0 / 3.14159265359;
 
 
 fn shade_nolight(wo: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
+    let l = material_uniforms.l.xyz;
     let scale = material_uniforms.scale.xyz;
-    let intensity = material_uniforms.intensity.xyz;
-    let color = scale * intensity * INV_PI;
+    let color = scale * l;
+    //let d = max(dot(wo, vec3<f32>(0.0, 0.0, 1.0)), 0.0);
+    //let d_color = color * d * INV_PI;
     return color;
 }
 

@@ -1,7 +1,9 @@
 use super::ltc::DEFAULT_LTC_UUID;
 use super::ltc::create_default_ltc_texture;
+use super::material::RenderCategory;
 use super::material::RenderUniformValue;
-use super::materials::basic_material::BasicMaterialUniforms;
+use super::materials::AreaLightDiffuseMaterialUniforms;
+use super::materials::BasicMaterialUniforms;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::texture::RenderTexture;
@@ -14,7 +16,6 @@ use std::sync::Arc;
 //use eframe::egui_wgpu;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use eframe::wgpu::wgc::pipeline;
 use uuid::Uuid;
 use wgpu::util::align_to;
 
@@ -141,14 +142,17 @@ struct PipelineEntry {
     pub material_bind_group_layout: wgpu::BindGroupLayout,
     pub material_bind_group: wgpu::BindGroup,
     pub uniform_buffer: wgpu::Buffer,
-    pub alignment: wgpu::BufferAddress,
+    pub material_uniform_size: usize,
+    pub material_uniform_alignment: wgpu::BufferAddress,
     pub indices: Vec<u32>,
+    pub has_lighting: bool,
 }
 
 impl PipelineEntry {
     fn allocate_material_uniform_buffer(&mut self, device: &wgpu::Device, num_items: usize) {
-        let alignment = self.alignment;
-        let required_size = alignment * num_items as wgpu::BufferAddress;
+        let material_uniform_size = self.material_uniform_size;
+        let material_uniform_alignment = self.material_uniform_alignment;
+        let required_size = material_uniform_alignment * num_items as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Material Buffer"),
             size: required_size,
@@ -164,7 +168,7 @@ impl PipelineEntry {
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                     buffer: &uniform_buffer,
                     offset: 0,
-                    size: wgpu::BufferSize::new(size_of::<BasicMaterialUniforms>() as _),
+                    size: wgpu::BufferSize::new(material_uniform_size as _),
                 }),
             }],
         });
@@ -223,13 +227,23 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
+fn get_color_value(material: &RenderMaterial, key: &str) -> Option<[f32; 4]> {
+    if let Some(value) = material.get_uniform_value(key) {
+        if let RenderUniformValue::Vec4(color) = value {
+            return Some(*color);
+        }
+        if let RenderUniformValue::Float(f) = value {
+            return Some([*f, *f, *f, 1.0]);
+        }
+    }
+    None
+}
+
 fn get_base_color(material: &RenderMaterial) -> [f32; 4] {
     let keys = ["Kd", "base_color"];
     for key in keys {
-        if let Some(value) = material.get_uniform_value(key) {
-            if let RenderUniformValue::Vec4(color) = value {
-                return *color;
-            }
+        if let Some(value) = get_color_value(material, key) {
+            return value;
         }
     }
     [1.0, 0.0, 1.0, 1.0] // Default color
@@ -238,10 +252,8 @@ fn get_base_color(material: &RenderMaterial) -> [f32; 4] {
 fn get_specular_color(material: &RenderMaterial) -> [f32; 4] {
     let keys = ["Ks", "specular_color"];
     for key in keys {
-        if let Some(value) = material.get_uniform_value(key) {
-            if let RenderUniformValue::Vec4(color) = value {
-                return *color;
-            }
+        if let Some(value) = get_color_value(material, key) {
+            return value;
         }
     }
     [0.0, 0.0, 0.0, 1.0] // Default color for specular
@@ -256,6 +268,74 @@ fn get_shader_type_to_type(shader_type: &str) -> String {
 
 fn get_shader_id_from_type(shader_type: &str) -> Uuid {
     return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
+}
+
+fn get_material_uniform_size(shader_type: &str) -> usize {
+    match shader_type {
+        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => size_of::<AreaLightDiffuseMaterialUniforms>(),
+        BASIC_SURFACE_SHADER_NAME => size_of::<BasicMaterialUniforms>(),
+        _ => size_of::<BasicMaterialUniforms>(),
+    }
+}
+
+fn get_material_uniform_buffer(material: &RenderMaterial) -> Vec<u8> {
+    let shader_type = material.get_shader_type();
+    let shader_type = get_shader_type_to_type(&shader_type);
+    match shader_type.as_str() {
+        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => {
+            let uniform = AreaLightDiffuseMaterialUniforms {
+                l: get_color_value(material, "L").unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                scale: get_color_value(material, "scale").unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                _pad1: [0.0; 4],
+                _pad2: [0.0; 4],
+            };
+            let bytes = bytemuck::bytes_of(&uniform);
+            return bytes.to_vec();
+        }
+        BASIC_SURFACE_SHADER_NAME => {
+            let uniform = BasicMaterialUniforms {
+                kd: get_base_color(material),
+                ks: get_specular_color(material),
+                _pad1: [0.0; 4],
+                _pad2: [0.0; 4],
+            };
+            let bytes = bytemuck::bytes_of(&uniform);
+            return bytes.to_vec();
+        }
+        _ => {
+            let uniform = BasicMaterialUniforms {
+                kd: get_base_color(material),
+                ks: get_specular_color(material),
+                _pad1: [0.0; 4],
+                _pad2: [0.0; 4],
+            };
+            let bytes = bytemuck::bytes_of(&uniform);
+            return bytes.to_vec();
+        }
+    }
+}
+
+fn get_shader_has_lighting(shader_type: &str, _category: RenderCategory) -> bool {
+    match shader_type {
+        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => false,
+        BASIC_SURFACE_SHADER_NAME => true,
+        _ => true,
+    }
+}
+
+fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
+    let source = match shader_type {
+        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => {
+            include_str!("shaders/area_light_diffuse.wgsl")
+        }
+        BASIC_SURFACE_SHADER_NAME => include_str!("shaders/render_lighting_mesh.wgsl"),
+        _ => include_str!("shaders/render_lighting_mesh.wgsl"),
+    };
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Shader"),
+        source: wgpu::ShaderSource::Wgsl(source.into()),
+    });
+    return shader;
 }
 
 impl LightingMeshRenderer {
@@ -316,14 +396,17 @@ impl LightingMeshRenderer {
             }
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-            render_pass.set_bind_group(3, &self.light_bind_group, &[]);
+            if pipeline_entry.has_lighting {
+                render_pass.set_bind_group(3, &self.light_bind_group, &[]);
+            }
             for (i, item_index) in pipeline_entry.indices.iter().enumerate() {
                 let item_index = *item_index as usize;
+                let material_index = i;
                 if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
                     let local_uniform_offset = item_index as wgpu::DynamicOffset
                         * local_uniform_alignment as wgpu::DynamicOffset;
-                    let material_uniform_offset =
-                        i as wgpu::DynamicOffset * pipeline_entry.alignment as wgpu::DynamicOffset;
+                    let material_uniform_offset = material_index as wgpu::DynamicOffset
+                        * pipeline_entry.material_uniform_alignment as wgpu::DynamicOffset;
                     //local params
                     render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
                     //material params
@@ -429,23 +512,35 @@ impl LightingMeshRenderer {
                 entry.indices.clear();
             }
 
-            let mut pipelines: HashMap<String, Vec<u32>> = HashMap::new();
+            let mut pipelines: HashMap<String, (Vec<u32>, bool)> = HashMap::new();
             for (i, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
                     let shader_type_org = material.get_shader_type();
                     let shader_type = get_shader_type_to_type(&shader_type_org);
+                    let has_lighting_ = get_shader_has_lighting(&shader_type, material.render_category);
                     //println!("Material {} uses shader type: {}", shader_type_org, shader_type);
-                    let indices = pipelines.entry(shader_type).or_insert(Vec::new());
+                    let (indices, has_lighting) = pipelines.entry(shader_type).or_insert((Vec::new(), false));
                     indices.push(i as u32);
+                    *has_lighting |= has_lighting_;
                 }
             }
 
-            for (shader_type, indices) in pipelines.iter() {
+            for (shader_type, (indices, has_lighting)) in pipelines.iter() {
                 let shader_id = get_shader_id_from_type(shader_type);
                 if !self.pipelines.contains_key(&shader_id) {
+                    let material_uniform_size = get_material_uniform_size(shader_type);
+                    let shader = get_shader(device, shader_type);
+                    let has_lighting = *has_lighting;
                     self.pipelines.insert(
                         shader_id,
-                        self.create_pipeline(device, queue, shader_type, num_items),
+                        self.create_pipeline(
+                            device,
+                            queue,
+                            &shader,
+                            has_lighting,
+                            material_uniform_size,
+                            num_items,
+                        ),
                     );
                 }
                 let entry = self
@@ -459,7 +554,9 @@ impl LightingMeshRenderer {
                     let index = *item_index as usize;
                     let item = &mesh_items[index];
                     if let Some(material) = item.get_material() {
-                        Self::bind_pipeline(device, queue, i, entry, material.as_ref());
+                        let material_uniform_buffer =
+                            get_material_uniform_buffer(material.as_ref());
+                        Self::bind_pipeline(device, queue, i, entry, &material_uniform_buffer);
                     }
                 }
             }
@@ -796,7 +893,9 @@ impl LightingMeshRenderer {
         &self,
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
-        _shader_type: &str,
+        shader: &wgpu::ShaderModule,
+        has_lighting: bool,
+        material_uniform_size: usize,
         num_items: usize,
     ) -> PipelineEntry {
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -826,13 +925,6 @@ impl LightingMeshRenderer {
             ],
         }];
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Lighting Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("shaders/render_lighting_mesh.wgsl").into(),
-            ),
-        });
-
         let material_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Material Bind Group Layout"),
@@ -842,22 +934,24 @@ impl LightingMeshRenderer {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(
-                            size_of::<BasicMaterialUniforms>() as _
-                        ),
+                        min_binding_size: wgpu::BufferSize::new(material_uniform_size as _),
                     },
                     count: None,
                 }],
             });
 
+        let mut bind_group_layouts = vec![
+            &self.global_bind_group_layout, //group(0)
+            &self.local_bind_group_layout,  //group(1)
+            &material_bind_group_layout,    //group(2)
+        ];
+        if has_lighting {
+            bind_group_layouts.push(&self.light_bind_group_layout); //group(3)
+        }
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Lighting Pipeline Layout"),
-            bind_group_layouts: &[
-                &self.global_bind_group_layout, //group(0)
-                &self.local_bind_group_layout,  //group(1)
-                &material_bind_group_layout,    //group(2)
-                &self.light_bind_group_layout,  //group(3)
-            ],
+            bind_group_layouts: &bind_group_layouts,
             push_constant_ranges: &[],
         });
 
@@ -908,15 +1002,12 @@ impl LightingMeshRenderer {
         });
 
         // Create a uniform buffer for material properties
-        let alignment = {
+        let material_uniform_alignment = {
             let alignment =
                 device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            align_to(
-                std::mem::size_of::<BasicMaterialUniforms>() as wgpu::BufferAddress,
-                alignment,
-            )
+            align_to(material_uniform_size as wgpu::BufferAddress, alignment)
         };
-        let required_size = alignment * num_items as wgpu::BufferAddress;
+        let required_size = material_uniform_alignment * num_items as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Item Matrices Buffer"),
             size: required_size,
@@ -932,7 +1023,7 @@ impl LightingMeshRenderer {
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                     buffer: &uniform_buffer,
                     offset: 0,
-                    size: wgpu::BufferSize::new(size_of::<BasicMaterialUniforms>() as _),
+                    size: wgpu::BufferSize::new(material_uniform_size as _),
                 }),
             }],
         });
@@ -942,8 +1033,10 @@ impl LightingMeshRenderer {
             material_bind_group_layout,
             material_bind_group,
             uniform_buffer,
-            alignment,
+            material_uniform_size,
+            material_uniform_alignment,
             indices: Vec::new(),
+            has_lighting: has_lighting,
         };
         return entry;
     }
@@ -953,31 +1046,18 @@ impl LightingMeshRenderer {
         queue: &wgpu::Queue,
         i: usize,
         pipeline: &PipelineEntry,
-        material: &RenderMaterial,
+        material_uniform_buffer: &[u8],
     ) {
         let uniform_alignment = {
             let alignment =
                 device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
             align_to(
-                std::mem::size_of::<BasicMaterialUniforms>() as wgpu::BufferAddress,
+                material_uniform_buffer.len() as wgpu::BufferAddress,
                 alignment,
             )
         };
-        //let shader_type = material.get_shader_type();
-        //let shader_type = get_shader_type_to_type(&shader_type);
-        let base_color = get_base_color(&material);
-        let specular_color = get_specular_color(&material);
-        let uniform = BasicMaterialUniforms {
-            kd: base_color,
-            ks: specular_color,
-            ..Default::default()
-        };
         let offset = i as wgpu::BufferAddress * uniform_alignment;
-        queue.write_buffer(
-            &pipeline.uniform_buffer,
-            offset,
-            bytemuck::bytes_of(&uniform),
-        );
+        queue.write_buffer(&pipeline.uniform_buffer, offset, material_uniform_buffer);
     }
 }
 
@@ -1323,10 +1403,21 @@ impl LightingMeshRenderer {
     pub fn init(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         if self.pipelines.is_empty() {
             let shader_type = BASIC_SURFACE_SHADER_NAME;
+            let render_category = RenderCategory::Opaque;
             let shader_id = get_shader_id_from_type(shader_type);
+            let uniform_size = get_material_uniform_size(shader_type);
+            let shader = get_shader(device, shader_type);
+            let has_lighting = get_shader_has_lighting(shader_type, render_category);
             self.pipelines.insert(
                 shader_id,
-                self.create_pipeline(device, queue, shader_type, MIN_MATERIAL_BUFFER_NUM),
+                self.create_pipeline(
+                    device,
+                    queue,
+                    &shader,
+                    has_lighting,
+                    uniform_size,
+                    MIN_MATERIAL_BUFFER_NUM,
+                ),
             );
         }
     }
