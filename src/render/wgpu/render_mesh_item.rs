@@ -159,7 +159,7 @@ fn create_render_material_from_light(
     }
 }
 
-pub fn get_surface_material(
+pub fn get_render_material(
     node: &Arc<RwLock<Node>>,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -208,7 +208,7 @@ pub fn get_render_mesh_item(
     if let Some(mesh) = get_mesh(device, queue, &item.node, render_resource_manager) {
         let matrix = glam::Mat4::from(item.matrix);
         let material = if mode == RenderMode::Lighting {
-            get_surface_material(&item.node, &resource_manager, render_resource_manager)
+            get_render_material(&item.node, &resource_manager, render_resource_manager)
         } else {
             None
         };

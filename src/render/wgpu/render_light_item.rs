@@ -875,8 +875,10 @@ fn get_light_gizmo_material(
     if let Some(component) = node.get_component::<LightComponent>() {
         let light = component.get_light();
         let light = light.read().unwrap();
-        let light_id = light.get_id();
-        let edition = light.get_edition();
+        //let light_id = light.get_id();
+        let light_type = light.get_type();
+        let light_id = Uuid::new_v3(&Uuid::NAMESPACE_OID, light_type.as_bytes());
+        let edition = "".to_string();
         let base_color = [1.0, 1.0, 0.0, 1.0]; // Default Yellow color for light gizmo
         return get_lines_material(light_id, &edition, render_resource_manager, &base_color);
     }

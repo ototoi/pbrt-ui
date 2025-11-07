@@ -84,45 +84,77 @@ var<uniform> global_uniforms: GlobalUniforms;
 @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
 
-// light uniforms
+//-------------------------------------------------------
+// material definitions
+
+// material uniforms
+struct BasicMaterialUniforms {
+    kd: vec4<f32>,
+    ks: vec4<f32>,
+    _pad1: vec4<f32>,
+    _pad2: vec4<f32>,
+}
+
 @group(2)
+@binding(0)
+var<uniform> material_uniforms: BasicMaterialUniforms;
+
+fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
+    return r * INV_PI;
+}
+
+fn matte(wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    let diffuse = max(dot(vec3<f32>(0.0, 0.0, 1.0), wi), 0.0);
+    let kd = material_uniforms.kd.rgb;
+    let c1 = lambertian_reflection(kd);
+    return diffuse * c1;
+}
+
+fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
+    return matte(wo, wi) * intensity;
+}
+
+//-------------------------------------------------------
+
+// light uniforms
+@group(3)
 @binding(0)
 var<uniform> light_uniforms: LightUniforms;
 //var<uniform> directional_lights: DirectionalLightUniforms;
 
-@group(2)
+@group(3)
 @binding(1)
 var<storage, read> directional_lights: array<DirectionalLight>;
 
-@group(2)
+@group(3)
 @binding(2)
 var<storage, read> sphere_lights: array<SphereLight>;
 
-@group(2)
+@group(3)
 @binding(3)
 var<storage, read> disk_lights: array<DiskLight>;
 
-@group(2)
+@group(3)
 @binding(4)
 var<storage, read> rect_lights: array<RectLight>;
 
-@group(2)
+@group(3)
 @binding(5)
 var<storage, read> infinite_lights: array<InfiniteLight>;
 
-@group(2)
+@group(3)
 @binding(6)
 var light_texture: texture_2d<f32>;//binding_array<texture_2d<f32>>;
 
-@group(2)
+@group(3)
 @binding(7)
 var light_sampler: sampler;
 
-@group(2)
+@group(3)
 @binding(8)
 var ltc_texture_array: texture_2d_array<f32>;// LTC lookup texture
 
-@group(2)
+@group(3)
 @binding(9)
 var ltc_sampler: sampler;
 
@@ -474,34 +506,6 @@ fn ClosestPointOnDisk(center: vec3<f32>, radius: f32, p: vec3<f32>) -> vec3<f32>
     }
 }
 */
-
-//-------------------------------------------------------
-//Material specific definitions
-struct BasicMaterialUniforms {
-    kd: vec4<f32>,
-    ks: vec4<f32>,
-    _pad1: vec4<f32>,
-    _pad2: vec4<f32>,
-}
-
-@group(3)
-@binding(0)
-var<uniform> material_uniforms: BasicMaterialUniforms;
-
-fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
-    return r * INV_PI;
-}
-
-fn matte(wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
-    let diffuse = max(dot(vec3<f32>(0.0, 0.0, 1.0), wi), 0.0);
-    let kd = material_uniforms.kd.rgb;
-    let c1 = lambertian_reflection(kd);
-    return diffuse * c1;
-}
-
-fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>) -> vec3<f32> {
-    return matte(wo, wi) * intensity;
-}
 //-------------------------------------------------------
 fn spherical_texture_lookup(direction: vec3<f32>) -> vec2<f32> {
     // Assumes direction is normalized
@@ -648,7 +652,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
             let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
-            
+
             var attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
             color += intensity * attenuation * (m_diff * diffuse);
         } else {

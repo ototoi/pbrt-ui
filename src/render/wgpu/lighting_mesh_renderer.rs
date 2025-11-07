@@ -138,15 +138,15 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
 #[derive(Debug, Clone)]
 struct PipelineEntry {
     pub pipeline: wgpu::RenderPipeline,
-    pub bind_group_layout: wgpu::BindGroupLayout,
-    pub bind_group: wgpu::BindGroup,
+    pub material_bind_group_layout: wgpu::BindGroupLayout,
+    pub material_bind_group: wgpu::BindGroup,
     pub uniform_buffer: wgpu::Buffer,
     pub alignment: wgpu::BufferAddress,
     pub indices: Vec<u32>,
 }
 
 impl PipelineEntry {
-    fn recreate_buffer(&mut self, device: &wgpu::Device, num_items: usize) {
+    fn allocate_material_uniform_buffer(&mut self, device: &wgpu::Device, num_items: usize) {
         let alignment = self.alignment;
         let required_size = alignment * num_items as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -158,7 +158,7 @@ impl PipelineEntry {
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Material Bind Group"),
-            layout: &self.bind_group_layout,
+            layout: &self.material_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
@@ -169,7 +169,7 @@ impl PipelineEntry {
             }],
         });
         self.uniform_buffer = uniform_buffer;
-        self.bind_group = bind_group;
+        self.material_bind_group = bind_group;
     }
 }
 
@@ -232,7 +232,7 @@ fn get_base_color(material: &RenderMaterial) -> [f32; 4] {
             }
         }
     }
-    [1.0, 1.0, 1.0, 1.0] // Default color
+    [1.0, 0.0, 1.0, 1.0] // Default color
 }
 
 fn get_specular_color(material: &RenderMaterial) -> [f32; 4] {
@@ -267,12 +267,12 @@ impl LightingMeshRenderer {
         world_to_camera: &glam::Mat4,
         camera_to_clip: &glam::Mat4,
     ) {
-        self.prepare_global(device, queue, world_to_camera, camera_to_clip);
+        self.prepare_global(device, queue, world_to_camera, camera_to_clip); //group(0)
         {
             let (mesh_items, light_items) = Self::split_items(render_items);
-            self.prepare_lights(device, queue, &light_items);
-            self.prepare_locals(device, queue, &mesh_items);
-            self.prepare_materials(device, queue, &mesh_items);
+            self.prepare_locals(device, queue, &mesh_items); //group(1)
+            self.prepare_materials(device, queue, &mesh_items); //group(2)
+            self.prepare_lights(device, queue, &light_items); //group(3)
         }
     }
 
@@ -316,7 +316,7 @@ impl LightingMeshRenderer {
             }
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
+            render_pass.set_bind_group(3, &self.light_bind_group, &[]);
             for (i, item_index) in pipeline_entry.indices.iter().enumerate() {
                 let item_index = *item_index as usize;
                 if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
@@ -328,8 +328,8 @@ impl LightingMeshRenderer {
                     render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
                     //material params
                     render_pass.set_bind_group(
-                        3,
-                        &pipeline_entry.bind_group,
+                        2,
+                        &pipeline_entry.material_bind_group,
                         &[material_uniform_offset],
                     );
                     render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
@@ -432,8 +432,9 @@ impl LightingMeshRenderer {
             let mut pipelines: HashMap<String, Vec<u32>> = HashMap::new();
             for (i, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
-                    let shader_type = material.get_shader_type();
-                    let shader_type = get_shader_type_to_type(&shader_type);
+                    let shader_type_org = material.get_shader_type();
+                    let shader_type = get_shader_type_to_type(&shader_type_org);
+                    //println!("Material {} uses shader type: {}", shader_type_org, shader_type);
                     let indices = pipelines.entry(shader_type).or_insert(Vec::new());
                     indices.push(i as u32);
                 }
@@ -451,7 +452,7 @@ impl LightingMeshRenderer {
                     .pipelines
                     .get_mut(&shader_id)
                     .expect("Pipeline for basic material not found");
-                entry.recreate_buffer(device, indices.len());
+                entry.allocate_material_uniform_buffer(device, indices.len());
                 entry.indices = indices.clone();
 
                 for (i, item_index) in indices.iter().enumerate() {
@@ -832,7 +833,7 @@ impl LightingMeshRenderer {
             ),
         });
 
-        let bind_group_layout =
+        let material_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Material Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -852,10 +853,10 @@ impl LightingMeshRenderer {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Lighting Pipeline Layout"),
             bind_group_layouts: &[
-                &self.global_bind_group_layout,
-                &self.local_bind_group_layout,
-                &self.light_bind_group_layout,
-                &bind_group_layout,
+                &self.global_bind_group_layout, //group(0)
+                &self.local_bind_group_layout,  //group(1)
+                &material_bind_group_layout,    //group(2)
+                &self.light_bind_group_layout,  //group(3)
             ],
             push_constant_ranges: &[],
         });
@@ -923,9 +924,9 @@ impl LightingMeshRenderer {
             mapped_at_creation: false,
         });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let material_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Local Bind Group"),
-            layout: &bind_group_layout,
+            layout: &material_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
@@ -937,9 +938,9 @@ impl LightingMeshRenderer {
         });
 
         let entry = PipelineEntry {
-            pipeline: pipeline,
-            bind_group_layout,
-            bind_group,
+            pipeline,
+            material_bind_group_layout,
+            material_bind_group,
             uniform_buffer,
             alignment,
             indices: Vec::new(),
@@ -962,6 +963,8 @@ impl LightingMeshRenderer {
                 alignment,
             )
         };
+        //let shader_type = material.get_shader_type();
+        //let shader_type = get_shader_type_to_type(&shader_type);
         let base_color = get_base_color(&material);
         let specular_color = get_specular_color(&material);
         let uniform = BasicMaterialUniforms {
