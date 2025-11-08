@@ -641,8 +641,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         }
  
         if radius > 0.0 {
-            let ex = radius * u_axis;
-            let ey = radius * v_axis;
+            let ex = radius * u_axis * 0.5;
+            let ey = radius * v_axis * 0.5;
 
             let a = position - ex - ey;
             let b = position + ex - ey;
