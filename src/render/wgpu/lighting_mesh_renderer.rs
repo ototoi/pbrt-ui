@@ -144,7 +144,8 @@ struct PipelineEntry {
     pub uniform_buffer: wgpu::Buffer,
     pub material_uniform_size: usize,
     pub material_uniform_alignment: wgpu::BufferAddress,
-    pub indices: Vec<u32>,
+    pub mesh_indices: Vec<usize>,
+    pub material_indices: Vec<usize>,
     pub has_lighting: bool,
 }
 
@@ -153,6 +154,9 @@ impl PipelineEntry {
         let material_uniform_size = self.material_uniform_size;
         let material_uniform_alignment = self.material_uniform_alignment;
         let required_size = material_uniform_alignment * num_items as wgpu::BufferAddress;
+        if self.uniform_buffer.size() >= required_size {
+            return;
+        }
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Material Buffer"),
             size: required_size,
@@ -391,7 +395,7 @@ impl LightingMeshRenderer {
         };
 
         for pipeline_entry in self.pipelines.values() {
-            if pipeline_entry.indices.is_empty() {
+            if pipeline_entry.mesh_indices.is_empty() {
                 continue;
             }
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
@@ -399,9 +403,13 @@ impl LightingMeshRenderer {
             if pipeline_entry.has_lighting {
                 render_pass.set_bind_group(3, &self.light_bind_group, &[]);
             }
-            for (i, item_index) in pipeline_entry.indices.iter().enumerate() {
-                let item_index = *item_index as usize;
-                let material_index = i;
+            debug_assert!(
+                pipeline_entry.mesh_indices.len() == pipeline_entry.material_indices.len()
+            );
+            let length = pipeline_entry.mesh_indices.len();
+            for i in 0..length {
+                let item_index = pipeline_entry.mesh_indices[i];
+                let material_index = pipeline_entry.material_indices[i];
                 if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
                     let local_uniform_offset = item_index as wgpu::DynamicOffset
                         * local_uniform_alignment as wgpu::DynamicOffset;
@@ -505,32 +513,54 @@ impl LightingMeshRenderer {
         queue: &wgpu::Queue,
         mesh_items: &[Arc<RenderItem>],
     ) {
+        #[derive(Debug, Clone, Default)]
+        struct TmpPipelineEntry {
+            mesh_indices: Vec<usize>,
+            material_indices: Vec<usize>,
+            material_indices_map: HashMap<Uuid, (usize, Arc<RenderMaterial>)>,
+            has_lighting: bool,
+        }
         {
-            let num_items = mesh_items.len();
-
             for entry in self.pipelines.values_mut() {
-                entry.indices.clear();
+                entry.mesh_indices.clear();
+                entry.material_indices.clear();
             }
-
-            let mut pipelines: HashMap<String, (Vec<u32>, bool)> = HashMap::new();
+            let mut tmp_pipelines: HashMap<String, TmpPipelineEntry> = HashMap::new();
             for (i, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
                     let shader_type_org = material.get_shader_type();
                     let shader_type = get_shader_type_to_type(&shader_type_org);
-                    let has_lighting_ = get_shader_has_lighting(&shader_type, material.render_category);
+                    let has_lighting =
+                        get_shader_has_lighting(&shader_type, material.render_category);
                     //println!("Material {} uses shader type: {}", shader_type_org, shader_type);
-                    let (indices, has_lighting) = pipelines.entry(shader_type).or_insert((Vec::new(), false));
-                    indices.push(i as u32);
-                    *has_lighting |= has_lighting_;
+                    let entry = tmp_pipelines
+                        .entry(shader_type)
+                        .or_insert(TmpPipelineEntry::default());
+                    entry.mesh_indices.push(i);
+                    let material_id = material.get_id();
+                    let new_material_index = entry.material_indices_map.len();
+                    if let Some((material_index, _)) = entry.material_indices_map.get(&material_id)
+                    {
+                        entry.material_indices.push(*material_index);
+                    } else {
+                        entry.material_indices.push(new_material_index);
+                        entry
+                            .material_indices_map
+                            .insert(material_id, (new_material_index, material.clone()));
+                    }
+                    entry.has_lighting |= has_lighting;
                 }
             }
 
-            for (shader_type, (indices, has_lighting)) in pipelines.iter() {
+            for (shader_type, tmp_entry) in tmp_pipelines.iter() {
+                let mesh_indices = &tmp_entry.mesh_indices;
+                let material_indices = &tmp_entry.material_indices;
+                let has_lighting = tmp_entry.has_lighting;
                 let shader_id = get_shader_id_from_type(shader_type);
+                let num_materials = tmp_entry.material_indices_map.len();
                 if !self.pipelines.contains_key(&shader_id) {
                     let material_uniform_size = get_material_uniform_size(shader_type);
                     let shader = get_shader(device, shader_type);
-                    let has_lighting = *has_lighting;
                     self.pipelines.insert(
                         shader_id,
                         self.create_pipeline(
@@ -539,7 +569,7 @@ impl LightingMeshRenderer {
                             &shader,
                             has_lighting,
                             material_uniform_size,
-                            num_items,
+                            num_materials,
                         ),
                     );
                 }
@@ -547,21 +577,24 @@ impl LightingMeshRenderer {
                     .pipelines
                     .get_mut(&shader_id)
                     .expect("Pipeline for basic material not found");
-                entry.allocate_material_uniform_buffer(device, indices.len());
-                entry.indices = indices.clone();
-
-                for (i, item_index) in indices.iter().enumerate() {
-                    let index = *item_index as usize;
-                    let item = &mesh_items[index];
-                    if let Some(material) = item.get_material() {
-                        let material_uniform_buffer =
-                            get_material_uniform_buffer(material.as_ref());
-                        Self::bind_pipeline(device, queue, i, entry, &material_uniform_buffer);
-                    }
+                entry.allocate_material_uniform_buffer(device, material_indices.len());
+                entry.mesh_indices = mesh_indices.clone();
+                entry.material_indices = material_indices.clone();
+                assert!(entry.mesh_indices.len() == entry.material_indices.len());
+                //let length = entry.mesh_indices.len();
+                for (_id, (material_index, material)) in tmp_entry.material_indices_map.iter() {
+                    let material_index = *material_index;
+                    let material_uniform_buffer = get_material_uniform_buffer(material.as_ref());
+                    Self::bind_pipeline(
+                        device,
+                        queue,
+                        material_index,
+                        entry,
+                        &material_uniform_buffer,
+                    );
                 }
             }
         }
-
         self.mesh_items = mesh_items.to_vec();
     }
 
@@ -896,7 +929,7 @@ impl LightingMeshRenderer {
         shader: &wgpu::ShaderModule,
         has_lighting: bool,
         material_uniform_size: usize,
-        num_items: usize,
+        num_materials: usize,
     ) -> PipelineEntry {
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
@@ -1007,7 +1040,7 @@ impl LightingMeshRenderer {
                 device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
             align_to(material_uniform_size as wgpu::BufferAddress, alignment)
         };
-        let required_size = material_uniform_alignment * num_items as wgpu::BufferAddress;
+        let required_size = material_uniform_alignment * num_materials as wgpu::BufferAddress;
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Item Matrices Buffer"),
             size: required_size,
@@ -1035,7 +1068,8 @@ impl LightingMeshRenderer {
             uniform_buffer,
             material_uniform_size,
             material_uniform_alignment,
-            indices: Vec::new(),
+            mesh_indices: Vec::new(),
+            material_indices: Vec::new(),
             has_lighting: has_lighting,
         };
         return entry;
