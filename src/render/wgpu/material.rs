@@ -1,3 +1,6 @@
+use super::texture::RenderTexture;
+
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[repr(u32)]
@@ -17,13 +20,15 @@ pub enum RenderUniformValue {
     Mat4([f32; 16]),
     Int(i32),
     Bool(bool),
+    Texture(Arc<RenderTexture>),
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct RenderMaterial {
     pub id: Uuid,
     pub edition: String,
-    pub ty: String,
+    pub material_type: String,
+    pub shader_type: String,
     pub render_category: RenderCategory,
     pub uniform_values: Vec<(String, RenderUniformValue)>, //key, value
 }
@@ -37,12 +42,12 @@ impl RenderMaterial {
         self.edition.clone()
     }
 
-    pub fn get_type(&self) -> String {
-        self.ty.clone()
+    pub fn get_material_type(&self) -> String {
+        self.material_type.clone()
     }
 
     pub fn get_shader_type(&self) -> String {
-        return self.ty.clone();
+        return self.shader_type.clone();
     }
 
     pub fn get_uniform_value(&self, key: &str) -> Option<&RenderUniformValue> {

@@ -45,6 +45,7 @@ impl InspectorPanel {
                 });
                 ui.separator();
                 if show_type(ui, props, &material_types) {
+                    println!("Material type changed");
                     is_changed = true;
                 }
                 ui.separator();
