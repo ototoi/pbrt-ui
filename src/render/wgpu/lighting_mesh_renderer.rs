@@ -4,6 +4,8 @@ use super::material::RenderCategory;
 use super::material::RenderUniformValue;
 use super::materials::AreaLightDiffuseMaterialUniforms;
 use super::materials::BasicMaterialUniforms;
+use super::materials::MatteMaterialUniforms;
+use super::materials::PlasticMaterialUniforms;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::texture::RenderTexture;
@@ -267,7 +269,17 @@ fn get_shader_type_to_type(shader_type: &str) -> String {
     if shader_type.starts_with("area_light") {
         return AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME.to_string();
     }
-    return BASIC_SURFACE_SHADER_NAME.to_string();
+    match shader_type {
+        "matte_Kd@V" => {
+            return shader_type.to_string();
+        }
+        "plastic_Kd@V_Ks@V_roughness@V" => {
+            return shader_type.to_string();
+        }
+        _ => {
+            return BASIC_SURFACE_SHADER_NAME.to_string();
+        }
+    }
 }
 
 fn get_shader_id_from_type(shader_type: &str) -> Uuid {
@@ -292,6 +304,26 @@ fn get_material_uniform_buffer(material: &RenderMaterial) -> Vec<u8> {
                 scale: get_color_value(material, "scale").unwrap_or([1.0, 1.0, 1.0, 1.0]),
                 _pad1: [0.0; 4],
                 _pad2: [0.0; 4],
+            };
+            let bytes = bytemuck::bytes_of(&uniform);
+            return bytes.to_vec();
+        }
+        "matte_Kd@V" => {
+            let uniform = MatteMaterialUniforms {
+                kd: get_color_value(material, "Kd").unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                _pad1: [0.0; 4],
+                _pad2: [0.0; 4],
+                _pad3: [0.0; 4],
+            };
+            let bytes = bytemuck::bytes_of(&uniform);
+            return bytes.to_vec();
+        }
+        "plastic_Kd@V_Ks@V_roughness@V" => {
+            let uniform = PlasticMaterialUniforms {
+                kd: get_color_value(material, "Kd").unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                ks: get_color_value(material, "Ks").unwrap_or([0.0, 0.0, 0.0, 1.0]),
+                roughness: get_color_value(material, "roughness").unwrap_or([0.1, 0.1, 0.1, 1.0]),
+                _pad1: [0.0; 4],
             };
             let bytes = bytemuck::bytes_of(&uniform);
             return bytes.to_vec();
@@ -330,10 +362,14 @@ fn get_shader_has_lighting(shader_type: &str, _category: RenderCategory) -> bool
 fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
     let source = match shader_type {
         AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => {
-            include_str!("shaders/area_light_diffuse.wgsl")
+            include_str!("shaders/surface/area_light_diffuse.wgsl")
         }
-        BASIC_SURFACE_SHADER_NAME => include_str!("shaders/render_lighting_mesh.wgsl"),
-        _ => include_str!("shaders/render_lighting_mesh.wgsl"),
+        "matte_Kd@V" => include_str!("shaders/surface/matte_Kd@V.wgsl"),
+        "plastic_Kd@V_Ks@V_roughness@V" => {
+            include_str!("shaders/surface/plastic_Kd@V_Ks@V_roughness@V.wgsl")
+        }
+        BASIC_SURFACE_SHADER_NAME => include_str!("shaders/surface/basic_material.wgsl"),
+        _ => include_str!("shaders/surface/basic_material.wgsl"),
     };
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Shader"),

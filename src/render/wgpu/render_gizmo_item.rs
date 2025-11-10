@@ -4,6 +4,7 @@ use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
 use super::render_item::LinesRenderItem;
 use super::render_item::RenderItem;
+use super::render_item::get_shader_type;
 use super::render_resource::RenderResourceManager;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::Node;
@@ -33,10 +34,14 @@ fn get_lines_material(
         "base_color".to_string(),
         RenderUniformValue::Vec4(base_color.clone()),
     ));
+    let edition = edition.to_string();
+    let material_type = "lines".to_string();
+    let shader_type = get_shader_type(&material_type, &uniform_values);
     let render_material = RenderMaterial {
-        id: id,
-        edition: edition.to_string(),
-        ty: "lines".to_string(),
+        id,
+        edition,
+        material_type,
+        shader_type,
         render_category: RenderCategory::Opaque,
         uniform_values,
     };

@@ -4,7 +4,11 @@ use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_item::MeshRenderItem;
 use super::render_item::RenderItem;
+use super::render_item::get_bool;
 use super::render_item::get_color;
+use super::render_item::get_float;
+use super::render_item::get_shader_type;
+use super::render_item::get_texture;
 use super::render_resource::RenderResourceManager;
 use crate::model::scene::Light;
 use crate::model::scene::Material;
@@ -86,7 +90,7 @@ fn get_base_color_value(
     return None;
 }
 
-fn create_render_material_from_material(
+fn create_render_basic_material(
     material: &Material,
     resource_manager: &ResourceManager,
 ) -> RenderMaterial {
@@ -115,15 +119,111 @@ fn create_render_material_from_material(
             .collect();
         let edition = material.get_edition();
         let id = material.get_id();
-        let ty = material.get_type();
+        let material_type = material.get_type();
+        let shader_type = get_shader_type(&material_type, &uniform_values);
         let render_material = RenderMaterial {
             id,
             edition,
-            ty,
+            material_type,
+            shader_type,
             render_category: RenderCategory::Opaque,
             uniform_values,
         };
         return render_material;
+    }
+}
+
+fn create_render_surface_material(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+    keys: &[&str],
+) -> RenderMaterial {
+    let mut uniform_values = Vec::new();
+    let props = material.as_property_map();
+    for key in keys {
+        if let Some(color) = get_color(props, key, resource_manager) {
+            uniform_values.push((key.to_string(), RenderUniformValue::Vec4(color)));
+        } else if let Some(texture) =
+            get_texture(props, key, resource_manager, render_resource_manager)
+        {
+            uniform_values.push((
+                key.to_string(),
+                RenderUniformValue::Texture(texture.clone()),
+            ));
+        } else {
+            //should set default value
+            uniform_values.push((
+                key.to_string(),
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
+            ));
+        }
+    }
+    let edition = material.get_edition();
+    let id = material.get_id();
+    let material_type = material.get_type();
+    let shader_type = get_shader_type(&material_type, &uniform_values);
+    let render_material = RenderMaterial {
+        id,
+        edition,
+        material_type,
+        shader_type,
+        render_category: RenderCategory::Opaque,
+        uniform_values,
+    };
+    return render_material;
+}
+
+fn roughness_to_alpha(roughness: f32) -> f32 {
+    let roughness = f32::max(roughness, 1e-3);
+    let x = f32::ln(roughness);
+    return 1.62142
+        + 0.819955 * x
+        + 0.1734 * x * x
+        + 0.0171201 * x * x * x
+        + 0.000640711 * x * x * x * x;
+}
+
+fn create_render_material_from_material(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> RenderMaterial {
+    let material_type = material.get_type();
+    match material_type.as_str() {
+        "matte" => {
+            return create_render_surface_material(
+                material,
+                resource_manager,
+                render_resource_manager,
+                &["Kd"],
+            ); //sigma, bumpmap
+        }
+        "plastic" => {
+            let remaproughness =
+                get_bool(material.as_property_map(), "remaproughness").unwrap_or(true);
+            let mut render_material = create_render_surface_material(
+                material,
+                resource_manager,
+                render_resource_manager,
+                &["Kd", "Ks"],
+            ); //bumpmap
+            let mut roughness = get_float(material.as_property_map(), "roughness").unwrap_or(0.1);
+            //println!("Plastic material roughness: {}", roughness);
+            if remaproughness {
+                roughness = roughness_to_alpha(roughness);
+            }
+            render_material.uniform_values.push((
+                "roughness".to_string(),
+                RenderUniformValue::Vec4([roughness, roughness, roughness, 1.0]),
+            ));
+            let shader_type = get_shader_type(&material_type, &render_material.uniform_values);
+            render_material.shader_type = shader_type;
+            return render_material;
+        }
+        _ => {
+            return create_render_basic_material(material, resource_manager);
+        }
     }
 }
 
@@ -147,11 +247,13 @@ fn create_render_material_from_light(
             .collect();
         let edition = light.get_edition();
         let id = light.get_id();
-        let ty = format!("area_light_{}", light.get_type());
+        let material_type = format!("area_light_{}", light.get_type());
+        let shader_type = get_shader_type(&material_type, &uniform_values);
         let render_material = RenderMaterial {
             id,
             edition,
-            ty,
+            material_type,
+            shader_type,
             render_category: RenderCategory::Emissive,
             uniform_values,
         };
@@ -189,8 +291,19 @@ pub fn get_render_material(
                 return Some(mat.clone());
             }
         }
-        let render_material = create_render_material_from_material(&material, resource_manager);
+        let render_material = create_render_material_from_material(
+            &material,
+            resource_manager,
+            render_resource_manager,
+        );
         let render_material = Arc::new(render_material);
+
+        //let material_type = render_material.get_material_type();
+        //let shader_type = render_material.get_shader_type();
+        //if material_type == "plastic" {
+        //    println!("Created render material: type={}, shader={}", material_type, shader_type);
+        //}
+
         render_resource_manager.add_material(&render_material);
         return Some(render_material);
     }

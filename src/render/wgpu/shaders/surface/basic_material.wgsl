@@ -635,10 +635,14 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         if (distance < 1e-6) {
             continue;
         }
-        let ndotl = dot(center_to_surface, direction);
-        if (ndotl < 0.0 && twosided == 0) {
+        let dd = dot(center_to_surface, direction);
+        if (dd < 0.0 && twosided == 0) {
             continue;
         }
+        //let ndotl = dot(normal, direction);
+        //if (ndotl >= 0.0 && twosided == 0) {
+        //    continue;
+        //}
  
         if radius > 0.0 {
             let ex = radius * u_axis * 0.5;
@@ -683,10 +687,14 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         if (distance < 1e-6) {
             continue;
         }
-        let ndotl = dot(center_to_surface, direction);
-        if (ndotl <= 0.0 && twosided == 0) {
+        let dd = dot(center_to_surface, direction);
+        if (dd < 0.0 && twosided == 0) {
             continue;
         }
+        //let ndotl = dot(normal, direction);
+        //if (ndotl >= 0.0 && twosided == 0) {
+        //    continue;
+        //}
 
         let a = position - light.u_axis.xyz - light.v_axis.xyz;
         let b = position - light.u_axis.xyz + light.v_axis.xyz;

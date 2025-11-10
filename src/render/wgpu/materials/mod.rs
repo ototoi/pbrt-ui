@@ -1,5 +1,9 @@
-pub mod area_light_diffuse_material;
-pub mod basic_material;
+pub mod area_light_diffuse;
+pub mod basic;
+pub mod matte;
+pub mod plastic;
 
-pub use area_light_diffuse_material::AreaLightDiffuseMaterialUniforms;
-pub use basic_material::BasicMaterialUniforms;
+pub use area_light_diffuse::AreaLightDiffuseMaterialUniforms;
+pub use basic::BasicMaterialUniforms;
+pub use matte::MatteMaterialUniforms;
+pub use plastic::PlasticMaterialUniforms;

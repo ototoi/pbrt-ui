@@ -752,6 +752,9 @@ pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -
                 });
         }
     }
+    if is_changed {
+        props.add_string("string edition", &Uuid::new_v4().to_string());
+    }
     return is_changed;
 }
 

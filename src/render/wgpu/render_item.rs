@@ -1,6 +1,7 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
+use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_gizmo_item::get_render_axis_gizmo_items;
 use super::render_gizmo_item::get_render_grid_gizmo_items;
@@ -9,6 +10,7 @@ use super::render_light_item::get_render_light_items;
 use super::render_mesh_item::get_render_mesh_item;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
+use super::texture::RenderTexture;
 use crate::conversion::spectrum::Spectrum;
 use crate::conversion::texture_node::create_texture_nodes;
 use crate::model::base::Property;
@@ -20,6 +22,7 @@ use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
+use crate::render::wgpu::texture;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -72,6 +75,28 @@ impl RenderItem {
     }
 }
 
+pub fn get_bool(props: &PropertyMap, key: &str) -> Option<bool> {
+    if let Some((_key_type, _key_name, value)) = props.entry(key) {
+        if let Property::Bools(v) = value {
+            if v.len() >= 1 {
+                return Some(v[0]);
+            }
+        }
+    }
+    return None;
+}
+
+pub fn get_float(props: &PropertyMap, key: &str) -> Option<f32> {
+    if let Some((_key_type, _key_name, value)) = props.entry(key) {
+        if let Property::Floats(v) = value {
+            if v.len() >= 1 {
+                return Some(v[0]);
+            }
+        }
+    }
+    return None;
+}
+
 pub fn get_color(
     props: &PropertyMap,
     key: &str,
@@ -122,6 +147,64 @@ pub fn get_color(
         }
     }
     return None;
+}
+
+pub fn get_texture(
+    props: &PropertyMap,
+    key: &str,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<Arc<RenderTexture>> {
+    if let Some((key_type, _key_name, value)) = props.entry(key) {
+        if key_type == "texture" {
+            if let Property::Strings(v) = value {
+                if v.len() >= 1 {
+                    let name = v[0].clone();
+                    if let Some(texture) = resource_manager.find_texture_by_filename(&name) {
+                        let texture = texture.read().unwrap();
+                        let texture_id = texture.get_id();
+                        let texture_edition = texture.get_edition();
+                        if let Some(texture) = render_resource_manager.get_texture(texture_id) {
+                            if texture.edition == texture_edition {
+                                return Some(texture.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return None;
+}
+
+pub fn get_shader_type(
+    material_type: &str,
+    uniform_values: &Vec<(String, RenderUniformValue)>,
+) -> String {
+    let mut s = "".to_string();
+    for (key, val) in uniform_values.iter() {
+        match val {
+            RenderUniformValue::Float(_) => {
+                s.push_str(&format!("_{}@F", key));
+            }
+            RenderUniformValue::Vec4(_) => {
+                s.push_str(&format!("_{}@V", key));
+            }
+            RenderUniformValue::Int(_) => {
+                s.push_str(&format!("_{}@I", key));
+            }
+            RenderUniformValue::Bool(_) => {
+                s.push_str(&format!("_{}@B", key));
+            }
+            RenderUniformValue::Mat4(_) => {
+                s.push_str(&format!("_{}@M", key));
+            }
+            RenderUniformValue::Texture(_) => {
+                s.push_str(&format!("_{}@T", key));
+            }
+        }
+    }
+    return format!("{}{}", material_type, s);
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {
