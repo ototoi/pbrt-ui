@@ -3,6 +3,7 @@ use super::panel::InspectorPanel;
 use super::resource_selector::ResourceSelector;
 use crate::model::base::*;
 use crate::model::scene::LightComponent;
+use crate::model::scene::LightProperties;
 use crate::model::scene::Properties;
 
 use eframe::egui;
@@ -20,7 +21,8 @@ impl InspectorPanel {
         let t = component.get_type();
         let title = LightComponent::get_name_from_type(&t);
         let mut keys = Vec::new();
-        let entries = self.light_properties.get_entries(&t);
+        let light_properties = LightProperties::get_instance();
+        let entries = light_properties.get_entries(&t);
         let light = component.get_light();
         let mut light = light.write().unwrap();
         let props = light.as_property_map_mut();

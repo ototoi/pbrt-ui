@@ -1,6 +1,7 @@
 use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
+use std::cell::LazyCell;
 use std::collections::HashMap;
 
 const TYPES: [&str; 6] = [
@@ -127,7 +128,7 @@ pub struct SamplerProperties(
 );
 
 impl SamplerProperties {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut params = HashMap::new();
         for param in PARAMETERS.iter() {
             let (name, (key_type, key_name, value, range)) = parse_parameter(*param);
@@ -141,6 +142,10 @@ impl SamplerProperties {
 
     pub fn get(&self, name: &str) -> Option<&Vec<(String, String, Property, Option<ValueRange>)>> {
         self.0.get(name)
+    }
+
+    pub fn get_instance() -> LazyCell<Self> {
+        return LazyCell::new(|| SamplerProperties::new());
     }
 }
 

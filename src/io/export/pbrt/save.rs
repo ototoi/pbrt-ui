@@ -4,7 +4,7 @@ use crate::model::base::Matrix4x4;
 use crate::model::base::ParamSet;
 use crate::model::base::Property;
 use crate::model::base::Vector3;
-use crate::model::scene::AcceleratorProperties;
+//use crate::model::scene::AcceleratorProperties;
 use crate::model::scene::AreaLightComponent;
 use crate::model::scene::CameraComponent;
 use crate::model::scene::CameraProperties;
@@ -50,16 +50,6 @@ impl Default for SavePbrtOptions {
 
 struct PbrtSaver {
     options: SavePbrtOptions,
-    camera_properties: CameraProperties,
-    option_properties: OptionProperties,
-    sampler_properties: SamplerProperties,
-    integrator_properties: IntegratorProperties,
-    accelerator_properties: AcceleratorProperties,
-    material_properties: MaterialProperties,
-    texture_properties: TextureProperties,
-    shape_properties: ShapeProperties,
-    light_properties: LightProperties,
-    mapping_properties: MappingProperties,
 }
 
 fn get_world_matrix(node: &Arc<RwLock<Node>>) -> Result<Matrix4x4, PbrtError> {
@@ -137,16 +127,6 @@ impl PbrtSaver {
     pub fn new(options: &SavePbrtOptions) -> Self {
         PbrtSaver {
             options: options.clone(),
-            camera_properties: CameraProperties::new(),
-            option_properties: OptionProperties::new(),
-            sampler_properties: SamplerProperties::new(),
-            integrator_properties: IntegratorProperties::new(),
-            accelerator_properties: AcceleratorProperties::new(),
-            material_properties: MaterialProperties::new(),
-            texture_properties: TextureProperties::new(),
-            shape_properties: ShapeProperties::new(),
-            light_properties: LightProperties::new(),
-            mapping_properties: MappingProperties::new(),
         }
     }
 
@@ -233,7 +213,8 @@ impl PbrtSaver {
                 .props
                 .find_one_string("string type")
                 .ok_or(PbrtError::error("Camera type is not found!"))?;
-            if let Some(props) = self.camera_properties.get(&camera_type) {
+            let camera_properties = CameraProperties::get_instance();
+            if let Some(props) = camera_properties.get(&camera_type) {
                 writer.write(format!("Camera \"{}\"", camera_type).as_bytes())?;
                 for (key_type, key_name, init, _range) in props.iter() {
                     self.write_property(
@@ -258,7 +239,8 @@ impl PbrtSaver {
                 .find_one_string("string type")
                 .ok_or(PbrtError::error("Film type is not found!"))?;
             //println!("Film type: {}", film_type);
-            if let Some(props) = self.option_properties.get("film") {
+            let option_properties = OptionProperties::get_instance();
+            if let Some(props) = option_properties.get("film") {
                 writer.write(format!("Film \"{}\"", film_type).as_bytes())?;
                 for (key_type, key_name, init) in props.iter() {
                     self.write_property(
@@ -293,7 +275,8 @@ impl PbrtSaver {
             .props
             .find_one_string("string type")
             .ok_or(PbrtError::error("Sampler type is not found!"))?;
-        if let Some(props) = self.sampler_properties.get(&sampler_type) {
+        let sampler_properties = SamplerProperties::get_instance();
+        if let Some(props) = sampler_properties.get(&sampler_type) {
             writer.write(format!("Sampler \"{}\"", sampler_type).as_bytes())?;
             for (key_type, key_name, init, _range) in props.iter() {
                 self.write_property(
@@ -323,7 +306,8 @@ impl PbrtSaver {
             .props
             .find_one_string("string type")
             .ok_or(PbrtError::error("Integrator type is not found!"))?;
-        if let Some(props) = self.integrator_properties.get(&integrator_type) {
+        let integrator_properties = IntegratorProperties::get_instance();
+        if let Some(props) = integrator_properties.get(&integrator_type) {
             writer.write(format!("Integrator \"{}\"", integrator_type).as_bytes())?;
             for (key_type, key_name, init, _range) in props.iter() {
                 self.write_property(
@@ -384,6 +368,7 @@ impl PbrtSaver {
                 .map(|m| (m.read().unwrap().get_name().to_ascii_lowercase(), m))
                 .collect::<Vec<_>>();
             materials.sort_by(|a, b| a.0.cmp(&b.0));
+            let material_properties = MaterialProperties::get_instance();
             for (_name, material) in materials.iter() {
                 let material = material.read().unwrap();
                 //let id = material.get_id();
@@ -391,7 +376,7 @@ impl PbrtSaver {
                 let name = material.get_name();
 
                 let ignore_keys = get_material_ignore_keys(&material);
-                if let Some(props) = self.material_properties.get(&t) {
+                if let Some(props) = material_properties.get(&t) {
                     writer.write(
                         format!("{}MakeNamedMaterial \"{}\"", make_indent(indent), name).as_bytes(),
                     )?;
@@ -466,7 +451,8 @@ impl PbrtSaver {
                 }
                 writer.write("\n".as_bytes())?;
                 */
-                if let Some(props) = self.texture_properties.get(&texture_type) {
+                let texture_properties = TextureProperties::get_instance();
+                if let Some(props) = texture_properties.get(&texture_type) {
                     for (key_type, key_name, init, _range) in props.iter() {
                         self.write_property(
                             indent,
@@ -483,7 +469,8 @@ impl PbrtSaver {
                     .find_one_string("string mapping")
                     .unwrap_or("uv".to_string());
                 {
-                    if let Some(props) = self.mapping_properties.get(&mapping_type) {
+                    let mapping_properties = MappingProperties::get_instance();
+                    if let Some(props) = mapping_properties.get(&mapping_type) {
                         for (key_type, key_name, init, _range) in props.iter() {
                             self.write_property(
                                 indent,
@@ -522,13 +509,15 @@ impl PbrtSaver {
                 .as_bytes(),
             )?;
         }
+        let shape_properties = ShapeProperties::get_instance();
+        let light_properties = LightProperties::get_instance();
         if let Some(component) = node.get_component::<ShapeComponent>() {
             if let Some(light_component) = node.get_component::<AreaLightComponent>() {
                 let light = light_component.get_light();
                 let light = light.read().unwrap();
                 let light = light.as_property_map();
                 let t = light.find_one_string("string type").unwrap();
-                if let Some(props) = self.light_properties.get(&t) {
+                if let Some(props) = light_properties.get(&t) {
                     writer.write(
                         format!("{}AreaLightSource \"{}\"", make_indent(indent), t).as_bytes(),
                     )?;
@@ -541,7 +530,7 @@ impl PbrtSaver {
             let shape = component.get_shape();
             let shape = shape.read().unwrap();
             let t = shape.get_type(); //
-            if let Some(props) = self.shape_properties.get(&t) {
+            if let Some(props) = shape_properties.get(&t) {
                 writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
                 for (key_type, key_name, init, _range) in props.iter() {
                     self.write_property(indent, key_type, key_name, init, &shape.props, writer)?;
@@ -553,7 +542,7 @@ impl PbrtSaver {
             let light = light.read().unwrap();
             let light = light.as_property_map();
             let t = light.find_one_string("string type").unwrap();
-            if let Some(props) = self.light_properties.get(&t) {
+            if let Some(props) = light_properties.get(&t) {
                 writer.write(format!("{}LightSource \"{}\"", make_indent(indent), t).as_bytes())?;
                 for (key_type, key_name, init, _range) in props.iter() {
                     self.write_property(indent, key_type, key_name, init, light, writer)?;

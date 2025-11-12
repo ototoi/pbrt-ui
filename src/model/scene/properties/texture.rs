@@ -1,6 +1,7 @@
 use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
+use std::cell::LazyCell;
 use std::collections::HashMap;
 
 const TYPES: [&str; 11] = [
@@ -162,6 +163,10 @@ impl TextureProperties {
 
     pub fn get(&self, name: &str) -> Option<&Vec<(String, String, Property, Option<ValueRange>)>> {
         self.0.get(name)
+    }
+
+    pub fn get_instance() -> LazyCell<Self> {
+        return LazyCell::new(|| TextureProperties::new());
     }
 }
 

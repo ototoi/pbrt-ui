@@ -1,6 +1,7 @@
 use super::common::*;
 use super::value_range::ValueRange;
 use crate::model::base::*;
+use std::cell::LazyCell;
 use std::collections::HashMap;
 
 pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 27] = [
@@ -126,7 +127,7 @@ pub struct LightProperties(
 );
 
 impl LightProperties {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut params = HashMap::new();
         for param in LIGHT_PARAMETERS.iter() {
             let (name, (key_type, key_name, value, range)) = parse_parameter(*param);
@@ -150,6 +151,10 @@ impl LightProperties {
             }
         }
         keys
+    }
+
+    pub fn get_instance() -> LazyCell<Self> {
+        return LazyCell::new(|| LightProperties::new());
     }
 }
 
