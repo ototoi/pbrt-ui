@@ -3,12 +3,6 @@ use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
 
-const TYPES: [&str; 3] = [
-    "bvh",
-    "kdtree",
-    "exhaustive", //
-];
-
 const PARAMETERS: [(&str, &str, &str, &str, &str); 7] = [
     ("bvh", "string", "splitmethod", "middle", ""),
     ("bvh", "integer", "maxnodeprims", "4", "1 100"),
@@ -124,8 +118,8 @@ impl AcceleratorProperties {
 }
 
 impl Properties for AcceleratorProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

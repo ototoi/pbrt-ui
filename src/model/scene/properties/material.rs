@@ -240,8 +240,8 @@ impl MaterialProperties {
 }
 
 impl Properties for MaterialProperties {
-    fn get_types(&self) -> Vec<String> {
-        V3_MATERIAL_NAMES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

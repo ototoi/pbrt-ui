@@ -27,25 +27,36 @@ impl Default for PropertyEntry {
 }
 
 pub trait Properties {
-    fn get_types(&self) -> Vec<String>;
+    fn get_types(&self) -> &Vec<String>;
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>>;
 }
 
 #[derive(Debug, Clone)]
-pub struct BasicProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct BasicProperties {
+    pub params: HashMap<String, Vec<PropertyEntry>>,
+    pub keys: Vec<String>,
+}
 impl BasicProperties {
     pub fn new(props: &[(String, PropertyEntry)]) -> Self {
         let mut params = HashMap::new();
+        let mut keys = Vec::new();
         for (name, entry) in props.iter() {
             params
                 .entry(name.clone())
                 .or_insert_with(Vec::new)
                 .push(entry.clone());
+            if !keys.contains(name) {
+                keys.push(name.clone());
+            }
         }
-        BasicProperties(params)
+        BasicProperties { params, keys }
     }
 
     pub fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
+        self.params.get(name)
+    }
+
+    pub fn get_types(&self) -> &Vec<String> {
+        &self.keys
     }
 }

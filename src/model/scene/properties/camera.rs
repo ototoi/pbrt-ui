@@ -3,8 +3,6 @@ use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
 
-const TYPES: [&str; 4] = ["perspective", "realistic", "orthographic", "environment"];
-
 const PARAMETERS: [(&str, &str, &str, &str, &str); 19] = [
     ("perspective", "float", "fov", "35.0", "0.0 90.0"), //halffov
     (
@@ -146,8 +144,8 @@ impl CameraProperties {
 }
 
 impl Properties for CameraProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

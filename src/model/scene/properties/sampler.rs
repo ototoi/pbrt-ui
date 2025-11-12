@@ -2,16 +2,6 @@ use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
-
-const TYPES: [&str; 6] = [
-    "lowdiscrepancy", //  "02sequence",
-    "maxmindist",
-    "halton",
-    "sobol",
-    "random",
-    "stratified",
-];
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 12] = [
     (
@@ -144,8 +134,8 @@ impl SamplerProperties {
 }
 
 impl Properties for SamplerProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

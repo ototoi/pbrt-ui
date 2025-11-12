@@ -2,9 +2,6 @@ use super::common::*;
 use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
-
-const TYPES: [&str; 3] = ["point", "spot", "goniometric"];
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 27] = [
     ("point", "color", "I", "1.0 1.0 1.0", ""),
@@ -145,8 +142,8 @@ impl LightProperties {
 }
 
 impl Properties for LightProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

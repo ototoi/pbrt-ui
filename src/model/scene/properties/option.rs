@@ -1,7 +1,6 @@
 use super::common::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
 
 const PARAMETERS: [(&str, &str, &str, &str); 6] = [
     ("film", "string", "filename", ""),
@@ -96,8 +95,8 @@ impl OptionProperties {
 }
 
 impl Properties for OptionProperties {
-    fn get_types(&self) -> Vec<String> {
-        vec!["film".to_string()]
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

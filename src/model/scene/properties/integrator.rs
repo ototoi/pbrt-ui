@@ -2,19 +2,6 @@ use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
-
-const TYPES: [&str; 8] = [
-    "whitted",
-    "directlighting",
-    "path",
-    "volpath",
-    "bdpt",
-    "mlt",
-    "ambientocclusion",
-    "sppm",
-    //"aov",
-];
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 22] = [
     ("whitted", "integer", "maxdepth", "5", "1 10"), //
@@ -159,8 +146,8 @@ impl IntegratorProperties {
 }
 
 impl Properties for IntegratorProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

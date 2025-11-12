@@ -2,21 +2,6 @@ use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
-
-const TYPES: [&str; 11] = [
-    "imagemap",
-    "constant",
-    "scale",
-    "mix",
-    "bilerp",
-    "checkerboard",
-    "dots",
-    "fbm",
-    "wrinkled",
-    "marble",
-    "windy",
-];
 
 pub const PARAMETERS: [(&str, &str, &str, &str, &str); 30] = [
     ("imagemap", "string", "filename", "", ""),
@@ -159,8 +144,8 @@ impl TextureProperties {
 }
 
 impl Properties for TextureProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)

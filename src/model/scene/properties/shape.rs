@@ -3,18 +3,6 @@ use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::cell::LazyCell;
 
-const TYPES: [&str; 9] = [
-    "trianglemesh",
-    "plymesh",
-    "sphere",
-    "disk",
-    "cylinder",
-    "cone",
-    "paraboloid",
-    "hyperboloid",
-    "loopsubdiv",
-];
-
 const PARAMETERS: [(&str, &str, &str, &str, &str); 38] = [
     ("trianglemesh", "integer", "indices", "", ""),
     ("trianglemesh", "point", "P", "", ""),
@@ -158,8 +146,8 @@ impl ShapeProperties {
 }
 
 impl Properties for ShapeProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
+    fn get_types(&self) -> &Vec<String> {
+        self.0.get_types()
     }
     fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get_entries(name)
