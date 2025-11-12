@@ -2,7 +2,6 @@ use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
 
 const TYPES: [&str; 3] = [
     "bvh",
@@ -111,22 +110,14 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 }
 
 #[derive(Debug, Clone)]
-pub struct AcceleratorProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct AcceleratorProperties(BasicProperties);
 
 impl AcceleratorProperties {
     fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        AcceleratorProperties(params)
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        AcceleratorProperties(BasicProperties::new(&props))
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
     pub fn get_instance() -> LazyCell<Self> {
         return LazyCell::new(|| AcceleratorProperties::new());
     }
@@ -136,7 +127,7 @@ impl Properties for AcceleratorProperties {
     fn get_types(&self) -> Vec<String> {
         TYPES.iter().map(|s| s.to_string()).collect()
     }
-    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
-        return self.get(name).cloned().unwrap_or_else(|| Vec::new());
+    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
+        self.0.get_entries(name)
     }
 }

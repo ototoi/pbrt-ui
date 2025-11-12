@@ -3,8 +3,6 @@ use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::cell::LazyCell;
 
-use std::collections::HashMap;
-
 pub const V3_MATERIAL_NAMES: [&str; 14] = [
     "matte",
     "plastic",
@@ -226,49 +224,26 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 }
 
 #[derive(Debug, Clone)]
-pub struct MaterialProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct MaterialProperties(BasicProperties);
 
 impl MaterialProperties {
     fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in V3_MATERIAL_PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        Self(params)
-    }
-
-    pub fn get_types(&self) -> Vec<String> {
-        /*
-        let mut types = Vec::new();
-        for (name, _) in self.0.iter() {
-            if !types.contains(name) {
-                types.push(name.to_string());
-            }
-        }
-        return types;
-        */
-        V3_MATERIAL_NAMES
+        let props: Vec<(String, PropertyEntry)> = V3_MATERIAL_PARAMETERS
             .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>()
+            .map(|p| parse_parameter(*p))
+            .collect();
+        MaterialProperties(BasicProperties::new(&props))
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
-    pub fn get_keys(&self, name: &str) -> Vec<(String, String)> {
-        let mut keys = Vec::new();
-        if let Some(params) = self.0.get(name) {
-            for entry in params.iter() {
-                keys.push((entry.key_type.to_string(), entry.key_name.to_string()));
-            }
-        }
-        keys
-    }
-
     pub fn get_instance() -> LazyCell<Self> {
         return LazyCell::new(|| MaterialProperties::new());
+    }
+}
+
+impl Properties for MaterialProperties {
+    fn get_types(&self) -> Vec<String> {
+        V3_MATERIAL_NAMES.iter().map(|s| s.to_string()).collect()
+    }
+    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
+        self.0.get_entries(name)
     }
 }

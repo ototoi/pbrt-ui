@@ -130,22 +130,14 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 }
 
 #[derive(Debug, Clone)]
-pub struct SamplerProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct SamplerProperties(BasicProperties);
 
 impl SamplerProperties {
     fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        SamplerProperties(params)
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        SamplerProperties(BasicProperties::new(&props))
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
     pub fn get_instance() -> LazyCell<Self> {
         return LazyCell::new(|| SamplerProperties::new());
     }
@@ -155,7 +147,7 @@ impl Properties for SamplerProperties {
     fn get_types(&self) -> Vec<String> {
         TYPES.iter().map(|s| s.to_string()).collect()
     }
-    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
-        return self.get(name).cloned().unwrap_or_else(|| Vec::new());
+    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
+        self.0.get_entries(name)
     }
 }

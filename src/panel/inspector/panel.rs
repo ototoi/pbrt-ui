@@ -18,6 +18,7 @@ use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
 use crate::model::scene::Node;
 use crate::model::scene::OptionProperties;
+use crate::model::scene::Properties;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::SamplerComponent;
 use crate::model::scene::SamplerProperties;
@@ -193,7 +194,7 @@ impl InspectorPanel {
         let name = props.find_one_string("string name").unwrap();
         let mut keys = Vec::new();
         let shape_properties = ShapeProperties::get_instance();
-        if let Some(params) = shape_properties.get(&shape_type) {
+        if let Some(params) = shape_properties.get_entries(&shape_type) {
             for entry in params.iter() {
                 if IGNORE_KEYS.contains(&entry.key_name.as_str()) {
                     continue; // Skip keys that should not be shown
@@ -230,7 +231,7 @@ impl InspectorPanel {
         let title = option_type.to_case(Case::Title);
         let mut keys = Vec::new();
         let option_properties = OptionProperties::get_instance();
-        if let Some(params) = option_properties.get(option_type) {
+        if let Some(params) = option_properties.get_entries(option_type) {
             for entry in params.iter() {
                 if props.get(&entry.key_name).is_none() {
                     let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
@@ -290,7 +291,7 @@ impl InspectorPanel {
                     let t = props.find_one_string("string type").unwrap();
 
                     let texture_properties = TextureProperties::get_instance();
-                    if let Some(params) = texture_properties.get(&t) {
+                    if let Some(params) = texture_properties.get_entries(&t) {
                         for entry in params.iter() {
                             if props.get(&entry.key_name).is_none() {
                                 let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
@@ -308,7 +309,7 @@ impl InspectorPanel {
                         .unwrap_or("uv".to_string());
 
                     let mapping_properties = MappingProperties::get_instance();
-                    if let Some(params) = mapping_properties.get(&mapping) {
+                    if let Some(params) = mapping_properties.get_entries(&mapping) {
                         for entry in params.iter() {
                             if props.get(&entry.key_name).is_none() {
                                 let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
@@ -370,7 +371,7 @@ impl InspectorPanel {
                 }
                 let mut keys = Vec::new();
                 let material_properties = MaterialProperties::get_instance();
-                if let Some(params) = material_properties.get(&mat_type) {
+                if let Some(params) = material_properties.get_entries(&mat_type) {
                     for entry in params.iter() {
                         if hide_sigma {
                             if entry.key_name == "sigma_a" || entry.key_name == "sigma_s" {
@@ -409,7 +410,7 @@ impl InspectorPanel {
                 let t = props.find_one_string("string type").unwrap();
                 let mut keys = Vec::new();
                 let shape_properties = ShapeProperties::get_instance();
-                if let Some(params) = shape_properties.get(&t) {
+                if let Some(params) = shape_properties.get_entries(&t) {
                     for entry in params.iter() {
                         if props.get(&entry.key_name).is_none() {
                             let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
