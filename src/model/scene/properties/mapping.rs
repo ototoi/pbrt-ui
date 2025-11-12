@@ -1,3 +1,4 @@
+use super::common::*;
 use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::cell::LazyCell;
@@ -76,9 +77,7 @@ fn parse_range(key_type: &str, range: &str) -> Option<ValueRange> {
     }
 }
 
-fn parse_parameter(
-    param: (&str, &str, &str, &str, &str),
-) -> (String, (String, String, Property, Option<ValueRange>)) {
+fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEntry) {
     let (name, key_type, key_name, value, range) = param;
     let key_type = key_type.to_string();
     let key_name = key_name.to_string();
@@ -91,36 +90,39 @@ fn parse_parameter(
     };
     let range = parse_range(&key_type, range);
 
-    (name.to_string(), (key_type, key_name, value, range))
+    (
+        name.to_string(),
+        PropertyEntry {
+            key_type,
+            key_name,
+            default_value: value,
+            value_range: range,
+        },
+    )
 }
 
 #[derive(Debug, Clone)]
-pub struct MappingProperties(
-    pub HashMap<String, Vec<(String, String, Property, Option<ValueRange>)>>,
-);
+pub struct MappingProperties(pub HashMap<String, Vec<PropertyEntry>>);
 
 impl MappingProperties {
     fn new() -> Self {
         let mut params = HashMap::new();
         for param in PARAMETERS.iter() {
-            let (name, (key_type, key_name, value, range)) = parse_parameter(*param);
-            params
-                .entry(name)
-                .or_insert_with(Vec::new)
-                .push((key_type, key_name, value, range));
+            let (name, entry) = parse_parameter(*param);
+            params.entry(name).or_insert_with(Vec::new).push(entry);
         }
         MappingProperties(params)
     }
 
-    pub fn get(&self, name: &str) -> Option<&Vec<(String, String, Property, Option<ValueRange>)>> {
+    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get(name)
     }
 
     pub fn get_keys(&self, name: &str) -> Vec<(String, String)> {
         let mut keys = Vec::new();
         if let Some(params) = self.0.get(name) {
-            for (key_type, key_name, _, _) in params.iter() {
-                keys.push((key_type.to_string(), key_name.to_string()));
+            for entry in params.iter() {
+                keys.push((entry.key_type.to_string(), entry.key_name.to_string()));
             }
         }
         keys

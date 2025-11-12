@@ -64,17 +64,21 @@ impl InspectorPanel {
                     }
                 }
                 if let Some(params) = material_properties.get(&mat_type) {
-                    for (key_type, key_name, init, range) in params.iter() {
+                    for entry in params.iter() {
                         if hide_sigma {
-                            if key_name == "sigma_a" || key_name == "sigma_s" {
+                            if entry.key_name == "sigma_a" || entry.key_name == "sigma_s" {
                                 continue;
                             }
                         }
-                        if props.get(key_name).is_none() {
-                            let key = PropertyMap::get_key(key_type, key_name);
-                            props.insert(&key, init.clone());
+                        if props.get(&entry.key_name).is_none() {
+                            let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                            props.insert(&key, entry.default_value.clone());
                         }
-                        keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                        keys.push((
+                            entry.key_type.clone(),
+                            entry.key_name.clone(),
+                            entry.value_range.clone(),
+                        ));
                     }
                     if show_properties(index, ui, props, &keys, resource_selector) {
                         is_changed = true;

@@ -29,6 +29,7 @@ use crate::panel::Panel;
 
 use std::any::Any;
 use std::collections::HashMap;
+use std::f32::consts::E;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -36,6 +37,7 @@ use convert_case::{Case, Casing};
 use eframe::egui;
 use eframe::egui::Checkbox;
 use eframe::egui::Widget;
+use tar::Entry;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -192,15 +194,19 @@ impl InspectorPanel {
         let mut keys = Vec::new();
         let shape_properties = ShapeProperties::get_instance();
         if let Some(params) = shape_properties.get(&shape_type) {
-            for (key_type, key_name, init, range) in params.iter() {
-                if IGNORE_KEYS.contains(&key_name.as_str()) {
+            for entry in params.iter() {
+                if IGNORE_KEYS.contains(&entry.key_name.as_str()) {
                     continue; // Skip keys that should not be shown
                 }
-                if props.get(key_name).is_none() {
-                    let key = PropertyMap::get_key(key_type, key_name);
-                    props.insert(&key, init.clone());
+                if props.get(&entry.key_name).is_none() {
+                    let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                    props.insert(&key, entry.default_value.clone());
                 }
-                keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                keys.push((
+                    entry.key_type.clone(),
+                    entry.key_name.clone(),
+                    entry.value_range.clone(),
+                ));
             }
         }
         if show_component_props(index, &name, ui, props, &keys, resource_selector) {
@@ -225,12 +231,16 @@ impl InspectorPanel {
         let mut keys = Vec::new();
         let option_properties = OptionProperties::get_instance();
         if let Some(params) = option_properties.get(option_type) {
-            for (key_type, key_name, init) in params.iter() {
-                if props.get(key_name).is_none() {
-                    let key = PropertyMap::get_key(key_type, key_name);
-                    props.insert(&key, init.clone());
+            for entry in params.iter() {
+                if props.get(&entry.key_name).is_none() {
+                    let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                    props.insert(&key, entry.default_value.clone());
                 }
-                keys.push((key_type.clone(), key_name.clone(), None)); //todo: add range
+                keys.push((
+                    entry.key_type.clone(),
+                    entry.key_name.clone(),
+                    entry.value_range.clone(),
+                ));
             }
         }
         if show_component_props(index, &title, ui, props, &keys, resource_selector) {
@@ -281,12 +291,16 @@ impl InspectorPanel {
 
                     let texture_properties = TextureProperties::get_instance();
                     if let Some(params) = texture_properties.get(&t) {
-                        for (key_type, key_name, init, range) in params.iter() {
-                            if props.get(key_name).is_none() {
-                                let key = PropertyMap::get_key(key_type, key_name);
-                                props.insert(&key, init.clone());
+                        for entry in params.iter() {
+                            if props.get(&entry.key_name).is_none() {
+                                let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                                props.insert(&key, entry.default_value.clone());
                             }
-                            texture_keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                            texture_keys.push((
+                                entry.key_type.clone(),
+                                entry.key_name.clone(),
+                                entry.value_range.clone(),
+                            ));
                         }
                     }
                     let mapping = props
@@ -295,12 +309,16 @@ impl InspectorPanel {
 
                     let mapping_properties = MappingProperties::get_instance();
                     if let Some(params) = mapping_properties.get(&mapping) {
-                        for (key_type, key_name, init, range) in params.iter() {
-                            if props.get(key_name).is_none() {
-                                let key = PropertyMap::get_key(key_type, key_name);
-                                props.insert(&key, init.clone());
+                        for entry in params.iter() {
+                            if props.get(&entry.key_name).is_none() {
+                                let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                                props.insert(&key, entry.default_value.clone());
                             }
-                            mapping_keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                            mapping_keys.push((
+                                entry.key_type.clone(),
+                                entry.key_name.clone(),
+                                entry.value_range.clone(),
+                            ));
                         }
                     }
                 }
@@ -353,17 +371,21 @@ impl InspectorPanel {
                 let mut keys = Vec::new();
                 let material_properties = MaterialProperties::get_instance();
                 if let Some(params) = material_properties.get(&mat_type) {
-                    for (key_type, key_name, init, range) in params.iter() {
+                    for entry in params.iter() {
                         if hide_sigma {
-                            if key_name == "sigma_a" || key_name == "sigma_s" {
+                            if entry.key_name == "sigma_a" || entry.key_name == "sigma_s" {
                                 continue;
                             }
                         }
-                        if props.get(key_name).is_none() {
-                            let key = PropertyMap::get_key(key_type, key_name);
-                            props.insert(&key, init.clone());
+                        if props.get(&entry.key_name).is_none() {
+                            let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                            props.insert(&key, entry.default_value.clone());
                         }
-                        keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                        keys.push((
+                            entry.key_type.clone(),
+                            entry.key_name.clone(),
+                            entry.value_range.clone(),
+                        ));
                     }
                 }
                 //---------------------------------------------------------------------
@@ -388,12 +410,16 @@ impl InspectorPanel {
                 let mut keys = Vec::new();
                 let shape_properties = ShapeProperties::get_instance();
                 if let Some(params) = shape_properties.get(&t) {
-                    for (key_type, key_name, init, range) in params.iter() {
-                        if props.get(key_name).is_none() {
-                            let key = PropertyMap::get_key(key_type, key_name);
-                            props.insert(&key, init.clone());
+                    for entry in params.iter() {
+                        if props.get(&entry.key_name).is_none() {
+                            let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
+                            props.insert(&key, entry.default_value.clone());
                         }
-                        keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                        keys.push((
+                            entry.key_type.clone(),
+                            entry.key_name.clone(),
+                            entry.value_range.clone(),
+                        ));
                     }
                 }
                 //---------------------------------------------------------------------
