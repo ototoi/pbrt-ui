@@ -1,9 +1,8 @@
 use super::common::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
 
-pub const OPTION_PARAMETERS: [(&str, &str, &str, &str); 6] = [
+const PARAMETERS: [(&str, &str, &str, &str); 6] = [
     ("film", "string", "filename", ""),
     ("film", "integer", "xresolution", "1280"),
     ("film", "integer", "yresolution", "720"),
@@ -76,38 +75,21 @@ fn parse_parameter(param: (&str, &str, &str, &str)) -> (String, PropertyEntry) {
             key_name,
             default_value: value,
             value_range: None,
+            ..Default::default()
         },
     )
 }
 
 #[derive(Debug, Clone)]
-pub struct OptionProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct OptionProperties;
 
 impl OptionProperties {
-    fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in OPTION_PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        OptionProperties(params)
+    fn new() -> Properties {
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        Properties::new(&props)
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
-    pub fn get_keys(&self, name: &str) -> Vec<(String, String)> {
-        let mut keys = Vec::new();
-        if let Some(params) = self.0.get(name) {
-            for entry in params.iter() {
-                keys.push((entry.key_type.to_string(), entry.key_name.to_string()));
-            }
-        }
-        keys
-    }
-
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<Properties> {
         return LazyCell::new(|| OptionProperties::new());
     }
 }

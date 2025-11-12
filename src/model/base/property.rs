@@ -6,6 +6,12 @@ pub enum Property {
     Bools(Vec<bool>),
 }
 
+impl Default for Property {
+    fn default() -> Self {
+        Property::Strings(vec![])
+    }
+}
+
 impl From<f32> for Property {
     fn from(value: f32) -> Self {
         Property::Floats(vec![value])

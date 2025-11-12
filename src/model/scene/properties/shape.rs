@@ -2,7 +2,6 @@ use super::common::*;
 use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 38] = [
     ("trianglemesh", "integer", "indices", "", ""),
@@ -127,38 +126,21 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
             key_name,
             default_value: value,
             value_range: range,
+            ..Default::default()
         },
     );
 }
 
 #[derive(Debug, Clone)]
-pub struct ShapeProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct ShapeProperties;
 
 impl ShapeProperties {
-    fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        ShapeProperties(params)
+    fn new() -> Properties {
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        Properties::new(&props)
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
-    pub fn get_keys(&self, name: &str) -> Vec<(String, String)> {
-        let mut keys = Vec::new();
-        if let Some(params) = self.0.get(name) {
-            for entry in params.iter() {
-                keys.push((entry.key_type.to_string(), entry.key_name.to_string()));
-            }
-        }
-        keys
-    }
-
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<Properties> {
         return LazyCell::new(|| ShapeProperties::new());
     }
 }

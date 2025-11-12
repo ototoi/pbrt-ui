@@ -4,6 +4,7 @@ use super::resource_selector::ResourceSelector;
 use crate::model::base::*;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
+use crate::model::scene::Properties;
 
 use eframe::egui;
 use uuid::Uuid;
@@ -33,6 +34,7 @@ impl InspectorPanel {
         let mut is_changed = false;
         let material_properties = MaterialProperties::get_instance();
         let material_types = material_properties.get_types();
+
         let mut name = props
             .find_one_string("string name_")
             .unwrap_or("".to_string());
@@ -63,7 +65,7 @@ impl InspectorPanel {
                         hide_sigma = true;
                     }
                 }
-                if let Some(params) = material_properties.get(&mat_type) {
+                if let Some(params) = material_properties.get_entries(&mat_type) {
                     for entry in params.iter() {
                         if hide_sigma {
                             if entry.key_name == "sigma_a" || entry.key_name == "sigma_s" {

@@ -2,9 +2,6 @@ use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
-
-const TYPES: [&str; 4] = ["perspective", "realistic", "orthographic", "environment"];
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 19] = [
     ("perspective", "float", "fov", "35.0", "0.0 90.0"), //halffov
@@ -127,37 +124,21 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
             key_name,
             default_value: value,
             value_range: range,
+            ..Default::default()
         },
     );
 }
 
 #[derive(Debug, Clone)]
-pub struct CameraProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct CameraProperties;
 
 impl CameraProperties {
-    fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        CameraProperties(params)
+    fn new() -> Properties {
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        Properties::new(&props)
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<Properties> {
         return LazyCell::new(|| CameraProperties::new());
-    }
-}
-
-impl Properties for CameraProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
-    }
-    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
-        return self.get(name).cloned().unwrap_or_else(|| Vec::new());
     }
 }

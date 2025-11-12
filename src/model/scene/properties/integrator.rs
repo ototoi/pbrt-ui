@@ -2,19 +2,6 @@ use super::common::*;
 use super::value_range::*;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
-
-const TYPES: [&str; 8] = [
-    "whitted",
-    "directlighting",
-    "path",
-    "volpath",
-    "bdpt",
-    "mlt",
-    "ambientocclusion",
-    "sppm",
-    //"aov",
-];
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 22] = [
     ("whitted", "integer", "maxdepth", "5", "1 10"), //
@@ -139,37 +126,21 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
             key_type,
             default_value: value,
             value_range: range,
+            ..Default::default()
         },
     );
 }
 
 #[derive(Debug, Clone)]
-pub struct IntegratorProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct IntegratorProperties;
 
 impl IntegratorProperties {
-    pub fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        IntegratorProperties(params)
+    fn new() -> Properties {
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        Properties::new(&props)
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<Properties> {
         return LazyCell::new(|| IntegratorProperties::new());
-    }
-}
-
-impl Properties for IntegratorProperties {
-    fn get_types(&self) -> Vec<String> {
-        TYPES.iter().map(|s| s.to_string()).collect()
-    }
-    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
-        return self.get(name).cloned().unwrap_or_else(|| Vec::new());
     }
 }

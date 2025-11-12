@@ -2,9 +2,8 @@ use super::common::*;
 use super::value_range::ValueRange;
 use crate::model::base::*;
 use std::cell::LazyCell;
-use std::collections::HashMap;
 
-pub const LIGHT_PARAMETERS: [(&str, &str, &str, &str, &str); 27] = [
+const PARAMETERS: [(&str, &str, &str, &str, &str); 27] = [
     ("point", "color", "I", "1.0 1.0 1.0", ""),
     ("point", "color", "scale", "1.0 1.0 1.0", ""),
     ("point", "point", "from", "0.0 0.0 0.0", ""),
@@ -123,70 +122,21 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
             key_type,
             default_value: value,
             value_range: range,
+            ..Default::default()
         },
     );
 }
 
 #[derive(Debug, Clone)]
-pub struct LightProperties(pub HashMap<String, Vec<PropertyEntry>>);
+pub struct LightProperties;
 
 impl LightProperties {
-    fn new() -> Self {
-        let mut params = HashMap::new();
-        for param in LIGHT_PARAMETERS.iter() {
-            let (name, entry) = parse_parameter(*param);
-            params.entry(name).or_insert_with(Vec::new).push(entry);
-        }
-        LightProperties(params)
+    fn new() -> Properties {
+        let props: Vec<(String, PropertyEntry)> =
+            PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
+        Properties::new(&props)
     }
-
-    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get(name)
-    }
-
-    pub fn get_keys(&self, name: &str) -> Vec<(String, String)> {
-        let mut keys = Vec::new();
-        if let Some(params) = self.0.get(name) {
-            for entry in params.iter() {
-                keys.push((entry.key_type.to_string(), entry.key_name.to_string()));
-            }
-        }
-        keys
-    }
-
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<Properties> {
         return LazyCell::new(|| LightProperties::new());
-    }
-}
-
-impl Properties for LightProperties {
-    fn get_types(&self) -> Vec<String> {
-        vec![
-            "point",
-            "spot",
-            "goniometric",
-            "projection",
-            "distant",
-            "infinite",
-            "diffuse",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
-    }
-
-    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
-        let mut entries = Vec::new();
-        if let Some(params) = self.0.get(name) {
-            for entry in params.iter() {
-                entries.push(PropertyEntry {
-                    key_type: entry.key_type.to_string(),
-                    key_name: entry.key_name.to_string(),
-                    default_value: entry.default_value.clone(),
-                    value_range: entry.value_range.clone(),
-                });
-            }
-        }
-        entries
     }
 }
