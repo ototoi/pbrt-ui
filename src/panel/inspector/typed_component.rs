@@ -30,7 +30,11 @@ impl InspectorPanel {
                 let t = props.find_one_string("string type").unwrap();
                 let mut keys = Vec::new();
                 let entries = properties.get_entries(&t);
-                for (key_type, key_name, init, range) in entries.iter() {
+                for entry in entries.iter() {
+                    let key_type = &entry.key_type;
+                    let key_name = &entry.key_name;
+                    let init = &entry.default_value;
+                    let range = &entry.value_range;
                     if props.get(key_name).is_none() {
                         let key = PropertyMap::get_key(key_type, key_name);
                         props.insert(&key, init.clone());

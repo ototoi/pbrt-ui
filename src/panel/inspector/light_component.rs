@@ -26,8 +26,12 @@ impl InspectorPanel {
         let light = component.get_light();
         let mut light = light.write().unwrap();
         let props = light.as_property_map_mut();
-        for (key_type, key_name, init, range) in entries.iter() {
-            if props.get(key_name).is_none() {
+        for entry in entries.iter() {
+            let key_type = &entry.key_type;
+            let key_name = &entry.key_name;
+            let init = &entry.default_value;
+            let range = &entry.value_range;
+            if props.get(&key_name).is_none() {
                 let key = PropertyMap::get_key(key_type, key_name);
                 props.insert(&key, init.clone());
             }

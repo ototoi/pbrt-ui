@@ -216,12 +216,12 @@ impl PbrtSaver {
             let camera_properties = CameraProperties::get_instance();
             if let Some(props) = camera_properties.get(&camera_type) {
                 writer.write(format!("Camera \"{}\"", camera_type).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
+                for entry in props.iter() {
                     self.write_property(
                         0,
-                        key_type,
-                        key_name,
-                        init,
+                        entry.key_type.as_str(),
+                        entry.key_name.as_str(),
+                        &entry.default_value,
                         &camera_component.props,
                         writer,
                     )?;
@@ -242,12 +242,12 @@ impl PbrtSaver {
             let option_properties = OptionProperties::get_instance();
             if let Some(props) = option_properties.get("film") {
                 writer.write(format!("Film \"{}\"", film_type).as_bytes())?;
-                for (key_type, key_name, init) in props.iter() {
+                for entry in props.iter() {
                     self.write_property(
                         0,
-                        key_type,
-                        key_name,
-                        init,
+                        &entry.key_type,
+                        &entry.key_name,
+                        &entry.default_value,
                         &film_component.props,
                         writer,
                     )?;
@@ -278,12 +278,12 @@ impl PbrtSaver {
         let sampler_properties = SamplerProperties::get_instance();
         if let Some(props) = sampler_properties.get(&sampler_type) {
             writer.write(format!("Sampler \"{}\"", sampler_type).as_bytes())?;
-            for (key_type, key_name, init, _range) in props.iter() {
+            for entry in props.iter() {
                 self.write_property(
                     0,
-                    key_type,
-                    key_name,
-                    init,
+                    &entry.key_type,
+                    &entry.key_name,
+                    &entry.default_value,
                     &sampler_component.props,
                     writer,
                 )?;
@@ -309,12 +309,12 @@ impl PbrtSaver {
         let integrator_properties = IntegratorProperties::get_instance();
         if let Some(props) = integrator_properties.get(&integrator_type) {
             writer.write(format!("Integrator \"{}\"", integrator_type).as_bytes())?;
-            for (key_type, key_name, init, _range) in props.iter() {
+            for entry in props.iter() {
                 self.write_property(
                     0,
-                    key_type,
-                    key_name,
-                    init,
+                    &entry.key_type,
+                    &entry.key_name,
+                    &entry.default_value,
                     &integrator_component.props,
                     writer,
                 )?;
@@ -382,11 +382,18 @@ impl PbrtSaver {
                     )?;
                     writer.write(format!(" \"string type\" [\"{}\"]", t).as_bytes())?;
                     //writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        if ignore_keys.contains(key_name) {
+                    for entry in props.iter() {
+                        if ignore_keys.contains(&entry.key_name) {
                             continue;
                         }
-                        self.write_property(0, key_type, key_name, init, &material.props, writer)?;
+                        self.write_property(
+                            0,
+                            &entry.key_type,
+                            &entry.key_name,
+                            &entry.default_value,
+                            &material.props,
+                            writer,
+                        )?;
                     }
                     writer.write("\n".as_bytes())?;
                 }
@@ -453,12 +460,12 @@ impl PbrtSaver {
                 */
                 let texture_properties = TextureProperties::get_instance();
                 if let Some(props) = texture_properties.get(&texture_type) {
-                    for (key_type, key_name, init, _range) in props.iter() {
+                    for entry in props.iter() {
                         self.write_property(
                             indent,
-                            key_type,
-                            key_name,
-                            init,
+                            &entry.key_type,
+                            &entry.key_name,
+                            &entry.default_value,
                             &texture.props,
                             writer,
                         )?;
@@ -471,12 +478,12 @@ impl PbrtSaver {
                 {
                     let mapping_properties = MappingProperties::get_instance();
                     if let Some(props) = mapping_properties.get(&mapping_type) {
-                        for (key_type, key_name, init, _range) in props.iter() {
+                        for entry in props.iter() {
                             self.write_property(
                                 indent,
-                                key_type,
-                                key_name,
-                                init,
+                                &entry.key_type,
+                                &entry.key_name,
+                                &entry.default_value,
                                 &texture.props,
                                 writer,
                             )?;
@@ -521,8 +528,15 @@ impl PbrtSaver {
                     writer.write(
                         format!("{}AreaLightSource \"{}\"", make_indent(indent), t).as_bytes(),
                     )?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, light, writer)?;
+                    for entry in props.iter() {
+                        self.write_property(
+                            indent,
+                            &entry.key_type,
+                            &entry.key_name,
+                            &entry.default_value,
+                            light,
+                            writer,
+                        )?;
                     }
                     writer.write("\n".as_bytes())?;
                 }
@@ -532,8 +546,15 @@ impl PbrtSaver {
             let t = shape.get_type(); //
             if let Some(props) = shape_properties.get(&t) {
                 writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
-                    self.write_property(indent, key_type, key_name, init, &shape.props, writer)?;
+                for entry in props.iter() {
+                    self.write_property(
+                        indent,
+                        &entry.key_type,
+                        &entry.key_name,
+                        &entry.default_value,
+                        &shape.props,
+                        writer,
+                    )?;
                 }
                 writer.write("\n".as_bytes())?;
             }
@@ -544,8 +565,15 @@ impl PbrtSaver {
             let t = light.find_one_string("string type").unwrap();
             if let Some(props) = light_properties.get(&t) {
                 writer.write(format!("{}LightSource \"{}\"", make_indent(indent), t).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
-                    self.write_property(indent, key_type, key_name, init, light, writer)?;
+                for entry in props.iter() {
+                    self.write_property(
+                        indent,
+                        &entry.key_type,
+                        &entry.key_name,
+                        &entry.default_value,
+                        light,
+                        writer,
+                    )?;
                 }
                 writer.write("\n".as_bytes())?;
             }

@@ -104,9 +104,7 @@ fn parse_range(key_type: &str, range: &str) -> Option<ValueRange> {
     }
 }
 
-fn parse_parameter(
-    param: (&str, &str, &str, &str, &str),
-) -> (String, (String, String, Property, Option<ValueRange>)) {
+fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEntry) {
     let (name, key_type, key_name, value, range) = param;
     let key_type = key_type.to_string();
     let key_name = key_name.to_string();
@@ -118,36 +116,39 @@ fn parse_parameter(
         _ => panic!("Unknown parameter type"),
     };
     let range = parse_range(&key_type, range);
-    (name.to_string(), (key_type, key_name, value, range))
+    return (
+        name.to_string(),
+        PropertyEntry {
+            key_name,
+            key_type,
+            default_value: value,
+            value_range: range,
+        },
+    );
 }
 
 #[derive(Debug, Clone)]
-pub struct LightProperties(
-    pub HashMap<String, Vec<(String, String, Property, Option<ValueRange>)>>,
-);
+pub struct LightProperties(pub HashMap<String, Vec<PropertyEntry>>);
 
 impl LightProperties {
     fn new() -> Self {
         let mut params = HashMap::new();
         for param in LIGHT_PARAMETERS.iter() {
-            let (name, (key_type, key_name, value, range)) = parse_parameter(*param);
-            params
-                .entry(name)
-                .or_insert_with(Vec::new)
-                .push((key_type, key_name, value, range));
+            let (name, entry) = parse_parameter(*param);
+            params.entry(name).or_insert_with(Vec::new).push(entry);
         }
         LightProperties(params)
     }
 
-    pub fn get(&self, name: &str) -> Option<&Vec<(String, String, Property, Option<ValueRange>)>> {
+    pub fn get(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
         self.0.get(name)
     }
 
     pub fn get_keys(&self, name: &str) -> Vec<(String, String)> {
         let mut keys = Vec::new();
         if let Some(params) = self.0.get(name) {
-            for (key_type, key_name, _, _) in params.iter() {
-                keys.push((key_type.to_string(), key_name.to_string()));
+            for entry in params.iter() {
+                keys.push((entry.key_type.to_string(), entry.key_name.to_string()));
             }
         }
         keys
@@ -174,16 +175,16 @@ impl Properties for LightProperties {
         .collect()
     }
 
-    fn get_entries(&self, name: &str) -> Vec<(String, String, Property, Option<ValueRange>)> {
+    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
         let mut entries = Vec::new();
         if let Some(params) = self.0.get(name) {
-            for (key_type, key_name, value, range) in params.iter() {
-                entries.push((
-                    key_type.to_string(),
-                    key_name.to_string(),
-                    value.clone(),
-                    range.clone(),
-                ));
+            for entry in params.iter() {
+                entries.push(PropertyEntry {
+                    key_type: entry.key_type.to_string(),
+                    key_name: entry.key_name.to_string(),
+                    default_value: entry.default_value.clone(),
+                    value_range: entry.value_range.clone(),
+                });
             }
         }
         entries
