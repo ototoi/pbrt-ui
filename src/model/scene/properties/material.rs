@@ -1,5 +1,6 @@
 use super::value_range::ValueRange;
 use crate::model::base::*;
+use std::cell::LazyCell;
 
 use std::collections::HashMap;
 
@@ -222,7 +223,7 @@ pub struct MaterialProperties(
 );
 
 impl MaterialProperties {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut params = HashMap::new();
         for param in V3_MATERIAL_PARAMETERS.iter() {
             let (name, (key_type, key_name, value, range)) = parse_parameter(*param);
@@ -262,5 +263,9 @@ impl MaterialProperties {
             }
         }
         keys
+    }
+
+    pub fn get_instance() -> LazyCell<Self> {
+        return LazyCell::new(|| MaterialProperties::new());
     }
 }

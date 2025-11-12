@@ -3,6 +3,7 @@ use super::panel::InspectorPanel;
 use super::resource_selector::ResourceSelector;
 use crate::model::base::*;
 use crate::model::scene::MaterialComponent;
+use crate::model::scene::MaterialProperties;
 
 use eframe::egui;
 use uuid::Uuid;
@@ -30,7 +31,8 @@ impl InspectorPanel {
         resource_selector: &ResourceSelector,
     ) -> bool {
         let mut is_changed = false;
-        let material_types = self.material_properties.get_types();
+        let material_properties = MaterialProperties::get_instance();
+        let material_types = material_properties.get_types();
         let mut name = props
             .find_one_string("string name_")
             .unwrap_or("".to_string());
@@ -45,7 +47,6 @@ impl InspectorPanel {
                 });
                 ui.separator();
                 if show_type(ui, props, &material_types) {
-                    println!("Material type changed");
                     is_changed = true;
                 }
                 ui.separator();
@@ -62,7 +63,7 @@ impl InspectorPanel {
                         hide_sigma = true;
                     }
                 }
-                if let Some(params) = self.material_properties.get(&mat_type) {
+                if let Some(params) = material_properties.get(&mat_type) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if hide_sigma {
                             if key_name == "sigma_a" || key_name == "sigma_s" {

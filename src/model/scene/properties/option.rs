@@ -1,4 +1,5 @@
 use crate::model::base::*;
+use std::cell::LazyCell;
 use std::collections::HashMap;
 
 pub const OPTION_PARAMETERS: [(&str, &str, &str, &str); 6] = [
@@ -74,7 +75,7 @@ fn parse_parameter(param: (&str, &str, &str, &str)) -> (String, (String, String,
 pub struct OptionProperties(pub HashMap<String, Vec<(String, String, Property)>>);
 
 impl OptionProperties {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut params = HashMap::new();
         for param in OPTION_PARAMETERS.iter() {
             let (name, (key_type, key_name, value)) = parse_parameter(*param);
@@ -98,5 +99,9 @@ impl OptionProperties {
             }
         }
         keys
+    }
+
+    pub fn get_instance() -> LazyCell<Self> {
+        return LazyCell::new(|| OptionProperties::new());
     }
 }

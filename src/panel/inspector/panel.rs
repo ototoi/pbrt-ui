@@ -42,16 +42,6 @@ use uuid::Uuid;
 pub struct InspectorPanel {
     pub is_open: bool,
     pub app_controller: Arc<RwLock<AppController>>,
-    pub material_properties: MaterialProperties,
-    pub shape_properties: ShapeProperties,
-    pub light_properties: LightProperties,
-    pub option_properties: OptionProperties,
-    pub camera_properties: CameraProperties,
-    pub accelerator_properties: AcceleratorProperties,
-    pub sampler_properties: SamplerProperties,
-    pub integrator_properties: IntegratorProperties,
-    pub texture_properties: TextureProperties,
-    pub mapping_properties: MappingProperties,
     pub texture_id_map: Arc<RwLock<HashMap<Uuid, (String, egui::TextureId)>>>,
 }
 
@@ -60,16 +50,6 @@ impl InspectorPanel {
         Self {
             is_open: true,
             app_controller: controller.clone(),
-            material_properties: MaterialProperties::new(),
-            shape_properties: ShapeProperties::new(),
-            light_properties: LightProperties::new(),
-            option_properties: OptionProperties::new(),
-            camera_properties: CameraProperties::new(),
-            accelerator_properties: AcceleratorProperties::new(),
-            sampler_properties: SamplerProperties::new(),
-            integrator_properties: IntegratorProperties::new(),
-            texture_properties: TextureProperties::new(),
-            mapping_properties: MappingProperties::new(),
             texture_id_map: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -134,41 +114,45 @@ impl InspectorPanel {
             } else if let Some(component) = component.downcast_mut::<MaterialComponent>() {
                 self.show_material_component(i, ui, component, resource_selector);
             } else if let Some(component) = component.downcast_mut::<CameraComponent>() {
+                let camera_properties = CameraProperties::get_instance();
                 self.show_typed_component(
                     i,
                     ui,
                     "Camera",
                     &mut component.props,
-                    &self.camera_properties,
+                    &(*camera_properties),
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<FilmComponent>() {
                 self.show_option_component(i, ui, "film", &mut component.props, resource_selector);
             } else if let Some(component) = component.downcast_mut::<SamplerComponent>() {
+                let sampler_properties = SamplerProperties::get_instance();
                 self.show_typed_component(
                     i,
                     ui,
                     "Sampler",
                     &mut component.props,
-                    &self.sampler_properties,
+                    &(*sampler_properties),
                     &resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<IntegratorComponent>() {
+                let integrator_properties = IntegratorProperties::get_instance();
                 self.show_typed_component(
                     i,
                     ui,
                     "Integrator",
                     &mut component.props,
-                    &self.integrator_properties,
+                    &(*integrator_properties),
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<AcceleratorComponent>() {
+                let accelerator_properties = AcceleratorProperties::get_instance();
                 self.show_typed_component(
                     i,
                     ui,
                     "Accelerator",
                     &mut component.props,
-                    &self.accelerator_properties,
+                    &(*accelerator_properties),
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<CoordinateSystemComponent>() {
@@ -206,7 +190,8 @@ impl InspectorPanel {
         let shape_type = props.find_one_string("string type").unwrap();
         let name = props.find_one_string("string name").unwrap();
         let mut keys = Vec::new();
-        if let Some(params) = self.shape_properties.get(&shape_type) {
+        let shape_properties = ShapeProperties::get_instance();
+        if let Some(params) = shape_properties.get(&shape_type) {
             for (key_type, key_name, init, range) in params.iter() {
                 if IGNORE_KEYS.contains(&key_name.as_str()) {
                     continue; // Skip keys that should not be shown
@@ -238,7 +223,8 @@ impl InspectorPanel {
         let mut is_changed = false;
         let title = option_type.to_case(Case::Title);
         let mut keys = Vec::new();
-        if let Some(params) = self.option_properties.get(option_type) {
+        let option_properties = OptionProperties::get_instance();
+        if let Some(params) = option_properties.get(option_type) {
             for (key_type, key_name, init) in params.iter() {
                 if props.get(key_name).is_none() {
                     let key = PropertyMap::get_key(key_type, key_name);
@@ -293,7 +279,8 @@ impl InspectorPanel {
                     let props = texture.as_property_map_mut();
                     let t = props.find_one_string("string type").unwrap();
 
-                    if let Some(params) = self.texture_properties.get(&t) {
+                    let texture_properties = TextureProperties::get_instance();
+                    if let Some(params) = texture_properties.get(&t) {
                         for (key_type, key_name, init, range) in params.iter() {
                             if props.get(key_name).is_none() {
                                 let key = PropertyMap::get_key(key_type, key_name);
@@ -306,7 +293,8 @@ impl InspectorPanel {
                         .find_one_string("string mapping")
                         .unwrap_or("uv".to_string());
 
-                    if let Some(params) = self.mapping_properties.get(&mapping) {
+                    let mapping_properties = MappingProperties::get_instance();
+                    if let Some(params) = mapping_properties.get(&mapping) {
                         for (key_type, key_name, init, range) in params.iter() {
                             if props.get(key_name).is_none() {
                                 let key = PropertyMap::get_key(key_type, key_name);
@@ -363,7 +351,8 @@ impl InspectorPanel {
                     }
                 }
                 let mut keys = Vec::new();
-                if let Some(params) = self.material_properties.get(&mat_type) {
+                let material_properties = MaterialProperties::get_instance();
+                if let Some(params) = material_properties.get(&mat_type) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if hide_sigma {
                             if key_name == "sigma_a" || key_name == "sigma_s" {
@@ -385,7 +374,7 @@ impl InspectorPanel {
                     ui.text_edit_singleline(&mut name);
                 });
                 ui.separator();
-                show_type(ui, props, &self.material_properties.get_types());
+                show_type(ui, props, &material_properties.get_types());
                 ui.separator();
                 self.show_material_preview(ui, 300.0, props);
                 ui.separator();
@@ -397,7 +386,8 @@ impl InspectorPanel {
                 let props = mesh.as_property_map_mut();
                 let t = props.find_one_string("string type").unwrap();
                 let mut keys = Vec::new();
-                if let Some(params) = self.shape_properties.get(&t) {
+                let shape_properties = ShapeProperties::get_instance();
+                if let Some(params) = shape_properties.get(&t) {
                     for (key_type, key_name, init, range) in params.iter() {
                         if props.get(key_name).is_none() {
                             let key = PropertyMap::get_key(key_type, key_name);

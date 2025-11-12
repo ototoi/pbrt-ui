@@ -1,5 +1,6 @@
 use super::value_range::ValueRange;
 use crate::model::base::*;
+use std::cell::LazyCell;
 use std::collections::HashMap;
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 8] = [
@@ -99,7 +100,7 @@ pub struct MappingProperties(
 );
 
 impl MappingProperties {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut params = HashMap::new();
         for param in PARAMETERS.iter() {
             let (name, (key_type, key_name, value, range)) = parse_parameter(*param);
@@ -123,5 +124,9 @@ impl MappingProperties {
             }
         }
         keys
+    }
+
+    pub fn get_instance() -> LazyCell<Self> {
+        return LazyCell::new(|| MappingProperties::new());
     }
 }
