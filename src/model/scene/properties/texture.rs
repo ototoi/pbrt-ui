@@ -174,16 +174,16 @@ impl Properties for TextureProperties {
     fn get_types(&self) -> Vec<String> {
         TYPES.iter().map(|s| s.to_string()).collect()
     }
-    fn get_entries(&self, name: &str) -> Vec<(String, String, Property, Option<ValueRange>)> {
+    fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
         let mut entries = Vec::new();
         if let Some(params) = self.0.get(name) {
             for (key_type, key_name, value, range) in params.iter() {
-                entries.push((
-                    key_type.to_string(),
-                    key_name.to_string(),
-                    value.clone(),
-                    range.clone(),
-                ));
+                entries.push(PropertyEntry {
+                    key_type: key_type.to_string(),
+                    key_name: key_name.to_string(),
+                    default_value: value.clone(),
+                    value_range: range.clone(),
+                });
             }
         }
         entries
