@@ -102,24 +102,15 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 }
 
 #[derive(Debug, Clone)]
-pub struct MappingProperties(BasicProperties);
+pub struct MappingProperties;
 
 impl MappingProperties {
-    fn new() -> Self {
+    fn new() -> BasicProperties {
         let props: Vec<(String, PropertyEntry)> =
             PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
-        MappingProperties(BasicProperties::new(&props))
+        BasicProperties::new(&props)
     }
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<BasicProperties> {
         return LazyCell::new(|| MappingProperties::new());
-    }
-}
-
-impl Properties for MappingProperties {
-    fn get_types(&self) -> &Vec<String> {
-        self.0.get_types()
-    }
-    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get_entries(name)
     }
 }

@@ -60,3 +60,12 @@ impl BasicProperties {
         &self.keys
     }
 }
+
+impl Properties for BasicProperties {
+    fn get_types(&self) -> &Vec<String> {
+        &self.keys
+    }
+    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
+        self.params.get(name)
+    }
+}

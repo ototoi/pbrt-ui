@@ -224,26 +224,17 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 }
 
 #[derive(Debug, Clone)]
-pub struct MaterialProperties(BasicProperties);
+pub struct MaterialProperties;
 
 impl MaterialProperties {
-    fn new() -> Self {
+    fn new() -> BasicProperties {
         let props: Vec<(String, PropertyEntry)> = V3_MATERIAL_PARAMETERS
             .iter()
             .map(|p| parse_parameter(*p))
             .collect();
-        MaterialProperties(BasicProperties::new(&props))
+        BasicProperties::new(&props)
     }
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<BasicProperties> {
         return LazyCell::new(|| MaterialProperties::new());
-    }
-}
-
-impl Properties for MaterialProperties {
-    fn get_types(&self) -> &Vec<String> {
-        self.0.get_types()
-    }
-    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get_entries(name)
     }
 }

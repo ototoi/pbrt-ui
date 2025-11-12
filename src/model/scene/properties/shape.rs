@@ -132,24 +132,15 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 }
 
 #[derive(Debug, Clone)]
-pub struct ShapeProperties(BasicProperties);
+pub struct ShapeProperties;
 
 impl ShapeProperties {
-    fn new() -> Self {
+    fn new() -> BasicProperties {
         let props: Vec<(String, PropertyEntry)> =
             PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
-        ShapeProperties(BasicProperties::new(&props))
+        BasicProperties::new(&props)
     }
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<BasicProperties> {
         return LazyCell::new(|| ShapeProperties::new());
-    }
-}
-
-impl Properties for ShapeProperties {
-    fn get_types(&self) -> &Vec<String> {
-        self.0.get_types()
-    }
-    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get_entries(name)
     }
 }

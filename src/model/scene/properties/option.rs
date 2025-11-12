@@ -81,24 +81,15 @@ fn parse_parameter(param: (&str, &str, &str, &str)) -> (String, PropertyEntry) {
 }
 
 #[derive(Debug, Clone)]
-pub struct OptionProperties(BasicProperties);
+pub struct OptionProperties;
 
 impl OptionProperties {
-    fn new() -> Self {
+    fn new() -> BasicProperties {
         let props: Vec<(String, PropertyEntry)> =
             PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
-        OptionProperties(BasicProperties::new(&props))
+        BasicProperties::new(&props)
     }
-    pub fn get_instance() -> LazyCell<Self> {
+    pub fn get_instance() -> LazyCell<BasicProperties> {
         return LazyCell::new(|| OptionProperties::new());
-    }
-}
-
-impl Properties for OptionProperties {
-    fn get_types(&self) -> &Vec<String> {
-        self.0.get_types()
-    }
-    fn get_entries(&self, name: &str) -> Option<&Vec<PropertyEntry>> {
-        self.0.get_entries(name)
     }
 }
