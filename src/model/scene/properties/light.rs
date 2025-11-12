@@ -123,6 +123,7 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
             key_type,
             default_value: value,
             value_range: range,
+            ..Default::default()
         },
     );
 }
@@ -176,17 +177,6 @@ impl Properties for LightProperties {
     }
 
     fn get_entries(&self, name: &str) -> Vec<PropertyEntry> {
-        let mut entries = Vec::new();
-        if let Some(params) = self.0.get(name) {
-            for entry in params.iter() {
-                entries.push(PropertyEntry {
-                    key_type: entry.key_type.to_string(),
-                    key_name: entry.key_name.to_string(),
-                    default_value: entry.default_value.clone(),
-                    value_range: entry.value_range.clone(),
-                });
-            }
-        }
-        entries
+        return self.get(name).cloned().unwrap_or_else(|| Vec::new());
     }
 }

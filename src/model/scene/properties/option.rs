@@ -76,6 +76,7 @@ fn parse_parameter(param: (&str, &str, &str, &str)) -> (String, PropertyEntry) {
             key_name,
             default_value: value,
             value_range: None,
+            ..Default::default()
         },
     )
 }

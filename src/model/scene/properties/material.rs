@@ -220,6 +220,7 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
             key_name,
             default_value: value,
             value_range: range,
+            ..Default::default()
         },
     );
 }
