@@ -13,7 +13,7 @@ impl InspectorPanel {
         ui: &mut egui::Ui,
         title: &str,
         props: &mut PropertyMap,
-        properties: &impl Properties,
+        properties: &Properties,
         resource_selector: &ResourceSelector,
     ) {
         egui::TopBottomPanel::top(format!("{}_{}", title, index))

@@ -105,12 +105,12 @@ fn parse_parameter(param: (&str, &str, &str, &str, &str)) -> (String, PropertyEn
 pub struct MappingProperties;
 
 impl MappingProperties {
-    fn new() -> BasicProperties {
+    fn new() -> Properties {
         let props: Vec<(String, PropertyEntry)> =
             PARAMETERS.iter().map(|p| parse_parameter(*p)).collect();
-        BasicProperties::new(&props)
+        Properties::new(&props)
     }
-    pub fn get_instance() -> LazyCell<BasicProperties> {
+    pub fn get_instance() -> LazyCell<Properties> {
         return LazyCell::new(|| MappingProperties::new());
     }
 }
