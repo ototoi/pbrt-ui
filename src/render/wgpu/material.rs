@@ -24,13 +24,19 @@ pub enum RenderUniformValue {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct RenderMaterialPass {
+    pub shader_type: String,
+    pub render_category: RenderCategory,    //
+    pub uniform_values: Vec<u8>,            //
+}
+
+
+#[derive(Debug, Default, Clone)]
 pub struct RenderMaterial {
     pub id: Uuid,
     pub edition: String,
     pub material_type: String,
-    pub shader_type: String,
-    pub render_category: RenderCategory,
-    pub uniform_values: Vec<(String, RenderUniformValue)>, //key, value
+    pub passes: Vec<RenderMaterialPass>,
 }
 
 impl RenderMaterial {
@@ -47,12 +53,6 @@ impl RenderMaterial {
     }
 
     pub fn get_shader_type(&self) -> String {
-        return self.shader_type.clone();
-    }
-
-    pub fn get_uniform_value(&self, key: &str) -> Option<&RenderUniformValue> {
-        self.uniform_values
-            .iter()
-            .find_map(|(k, v)| if k == key { Some(v) } else { None })
+        return self.passes[0].shader_type.clone();
     }
 }

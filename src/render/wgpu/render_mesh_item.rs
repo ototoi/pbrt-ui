@@ -90,6 +90,8 @@ fn get_base_color_value(
     return None;
 }
 
+/* 
+
 fn create_render_basic_material(
     material: &Material,
     resource_manager: &ResourceManager,
@@ -173,6 +175,7 @@ fn create_render_surface_material(
     };
     return render_material;
 }
+*/
 
 fn roughness_to_alpha(roughness: f32) -> f32 {
     let roughness = f32::max(roughness, 1e-3);
@@ -189,15 +192,27 @@ fn create_render_material_from_material(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> RenderMaterial {
+    todo!();
     let material_type = material.get_type();
     match material_type.as_str() {
         "matte" => {
-            return create_render_surface_material(
+            let sigma = get_float(material.as_property_map(), "sigma").unwrap_or(0.0);
+            let mut render_material = create_render_surface_material(
                 material,
                 resource_manager,
                 render_resource_manager,
                 &["Kd"],
             ); //sigma, bumpmap
+
+            let diffuse_model = if sigma == 0.0 {
+                "lambert".to_string()
+            } else {
+                "orennayar".to_string()
+            };
+            let shader_type =
+                format!("matte_{}_none", diffuse_model);
+            render_material.shader_type = shader_type;
+            return render_material;
         }
         "plastic" => {
             let remaproughness =

@@ -178,7 +178,7 @@ pub fn get_texture(
 }
 
 pub fn get_shader_type(
-    material_type: &str,
+    shader_type: &str,
     uniform_values: &Vec<(String, RenderUniformValue)>,
 ) -> String {
     let mut s = "".to_string();
@@ -204,7 +204,7 @@ pub fn get_shader_type(
             }
         }
     }
-    return format!("{}{}", material_type, s);
+    return format!("{}{}", shader_type, s);
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {

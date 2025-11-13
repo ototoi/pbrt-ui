@@ -270,7 +270,7 @@ fn get_shader_type_to_type(shader_type: &str) -> String {
         return AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME.to_string();
     }
     match shader_type {
-        "matte_Kd@V" => {
+        "matte_lambert_none_Kd@V" => {
             return shader_type.to_string();
         }
         "plastic_Kd@V_Ks@V_roughness@V" => {
@@ -308,7 +308,7 @@ fn get_material_uniform_buffer(material: &RenderMaterial) -> Vec<u8> {
             let bytes = bytemuck::bytes_of(&uniform);
             return bytes.to_vec();
         }
-        "matte_Kd@V" => {
+        "matte_lambert_none_Kd@V" => {
             let uniform = MatteMaterialUniforms {
                 kd: get_color_value(material, "Kd").unwrap_or([1.0, 1.0, 1.0, 1.0]),
                 _pad1: [0.0; 4],
@@ -364,7 +364,7 @@ fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
         AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => {
             include_str!("shaders/surface/area_light_diffuse.wgsl")
         }
-        "matte_Kd@V" => include_str!("shaders/surface/matte_Kd@V.wgsl"),
+        "matte_lambert_none_Kd@V" => include_str!("shaders/surface/matte_lambert_none_Kd@V.wgsl"),
         "plastic_Kd@V_Ks@V_roughness@V" => {
             include_str!("shaders/surface/plastic_Kd@V_Ks@V_roughness@V.wgsl")
         }
