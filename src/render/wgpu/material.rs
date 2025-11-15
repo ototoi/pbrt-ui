@@ -26,10 +26,9 @@ pub enum RenderUniformValue {
 #[derive(Debug, Default, Clone)]
 pub struct RenderPass {
     pub shader_type: String,
-    pub render_category: RenderCategory,    //
-    pub uniform_values: Vec<u8>,            //
+    pub render_category: RenderCategory, //
+    pub uniform_values: Vec<u8>,         //
 }
-
 
 #[derive(Debug, Default, Clone)]
 pub struct RenderMaterial {

@@ -233,55 +233,6 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-fn get_color_value(material: &RenderMaterial, key: &str) -> Option<[f32; 4]> {
-    if let Some(value) = material.get_uniform_value(key) {
-        if let RenderUniformValue::Vec4(color) = value {
-            return Some(*color);
-        }
-        if let RenderUniformValue::Float(f) = value {
-            return Some([*f, *f, *f, 1.0]);
-        }
-    }
-    None
-}
-
-fn get_base_color(material: &RenderMaterial) -> [f32; 4] {
-    let keys = ["Kd", "base_color"];
-    for key in keys {
-        if let Some(value) = get_color_value(material, key) {
-            return value;
-        }
-    }
-    [1.0, 0.0, 1.0, 1.0] // Default color
-}
-
-fn get_specular_color(material: &RenderMaterial) -> [f32; 4] {
-    let keys = ["Ks", "specular_color"];
-    for key in keys {
-        if let Some(value) = get_color_value(material, key) {
-            return value;
-        }
-    }
-    [0.0, 0.0, 0.0, 1.0] // Default color for specular
-}
-
-fn get_shader_type_to_type(shader_type: &str) -> String {
-    if shader_type.starts_with("area_light") {
-        return AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME.to_string();
-    }
-    match shader_type {
-        "matte_lambert_none_Kd@V" => {
-            return shader_type.to_string();
-        }
-        "plastic_Kd@V_Ks@V_roughness@V" => {
-            return shader_type.to_string();
-        }
-        _ => {
-            return BASIC_SURFACE_SHADER_NAME.to_string();
-        }
-    }
-}
-
 fn get_shader_id_from_type(shader_type: &str) -> Uuid {
     return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
 }
@@ -293,7 +244,7 @@ fn get_material_uniform_size(shader_type: &str) -> usize {
         _ => size_of::<BasicMaterialUniforms>(),
     }
 }
-
+/*
 fn get_material_uniform_buffer(material: &RenderMaterial) -> Vec<u8> {
     let shader_type = material.get_shader_type();
     let shader_type = get_shader_type_to_type(&shader_type);
@@ -350,6 +301,7 @@ fn get_material_uniform_buffer(material: &RenderMaterial) -> Vec<u8> {
         }
     }
 }
+*/
 
 fn get_shader_has_lighting(shader_type: &str, _category: RenderCategory) -> bool {
     match shader_type {
@@ -562,8 +514,10 @@ impl LightingMeshRenderer {
                 entry.material_indices.clear();
             }
             let mut tmp_pipelines: HashMap<String, TmpPipelineEntry> = HashMap::new();
-            for (i, item) in mesh_items.iter().enumerate() {
+            for (mesh_index, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
+
+                    /*
                     let shader_type_org = material.get_shader_type();
                     let shader_type = get_shader_type_to_type(&shader_type_org);
                     let has_lighting =
@@ -585,6 +539,7 @@ impl LightingMeshRenderer {
                             .insert(material_id, (new_material_index, material.clone()));
                     }
                     entry.has_lighting |= has_lighting;
+                    */
                 }
             }
 
@@ -618,9 +573,11 @@ impl LightingMeshRenderer {
                 entry.material_indices = material_indices.clone();
                 assert!(entry.mesh_indices.len() == entry.material_indices.len());
                 //let length = entry.mesh_indices.len();
+                /*
                 for (_id, (material_index, material)) in tmp_entry.material_indices_map.iter() {
                     let material_index = *material_index;
-                    let material_uniform_buffer = get_material_uniform_buffer(material.as_ref());
+                    todo!()
+                    let material_uniform_buffer =
                     Self::bind_pipeline(
                         device,
                         queue,
@@ -629,6 +586,7 @@ impl LightingMeshRenderer {
                         &material_uniform_buffer,
                     );
                 }
+                */
             }
         }
         self.mesh_items = mesh_items.to_vec();

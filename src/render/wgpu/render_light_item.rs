@@ -11,6 +11,7 @@ use super::material::RenderUniformValue;
 use super::render_item::LinesRenderItem;
 use super::render_item::RenderItem;
 use super::render_item::RenderLightItem;
+use super::render_item::create_render_pass;
 use super::render_item::get_color;
 use super::render_resource::RenderResourceManager;
 use super::texture::RenderTexture;
@@ -33,6 +34,7 @@ use crate::model::scene::Shape;
 use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
+use crate::render::wgpu::material::RenderCategory;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -856,10 +858,16 @@ fn get_lines_material(
         "base_color".to_string(),
         RenderUniformValue::Vec4(base_color.clone()),
     ));
+    let passes = vec![create_render_pass(
+        "lines",
+        RenderCategory::Opaque,
+        &uniform_values,
+        render_resource_manager,
+    )];
     let render_material = RenderMaterial {
         id: id,
         edition: edition.to_string(),
-        uniform_values,
+        passes,
         ..Default::default()
     };
     let render_material = Arc::new(render_material);

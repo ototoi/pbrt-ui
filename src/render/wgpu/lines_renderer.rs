@@ -2,6 +2,7 @@ use crate::render::wgpu::material::RenderUniformValue;
 
 use super::lines::RenderLinesVertex;
 use super::render_item::RenderItem;
+use super::render_item::get_color;
 use std::sync::Arc;
 
 use eframe::wgpu;
@@ -100,9 +101,10 @@ impl LinesRenderer {
                 let matrix = item.get_matrix();
 
                 let mut base_color = [1.0, 1.0, 0.0, 1.0]; // Default color for Lines
+                /*
                 if let RenderItem::Lines(line_item) = item.as_ref() {
                     if let Some(material) = line_item.material.as_ref() {
-                        if let Some(value) = material.get_uniform_value("base_color") {
+                        if let Some(value) = get_color(material."base_color") {
                             if let RenderUniformValue::Vec4(color) = value {
                                 base_color = [
                                     color[0] as f32,
@@ -114,6 +116,7 @@ impl LinesRenderer {
                         }
                     }
                 }
+                */
 
                 let uniform = LocalUniforms {
                     local_to_world: matrix.to_cols_array_2d(),

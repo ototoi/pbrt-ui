@@ -1,6 +1,8 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
+use super::material::RenderCategory;
 use super::material::RenderMaterial;
+use super::material::RenderPass;
 use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_gizmo_item::get_render_axis_gizmo_items;
@@ -205,6 +207,25 @@ pub fn get_shader_type(
         }
     }
     return format!("{}{}", shader_type, s);
+}
+
+fn create_uniform_value_bytes(uniform_values: &[(String, RenderUniformValue)]) -> Vec<u8> {
+    todo!()
+}
+
+pub fn create_render_pass(
+    shader_type: &str,
+    render_category: RenderCategory,
+    uniform_values: &[(String, RenderUniformValue)],
+    _render_resource_manager: &mut RenderResourceManager,
+) -> RenderPass {
+    let uniform_values_bytes = create_uniform_value_bytes(uniform_values);
+    let render_pass = RenderPass {
+        shader_type: shader_type.to_string(),
+        render_category,
+        uniform_values: uniform_values_bytes,
+    };
+    return render_pass;
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {

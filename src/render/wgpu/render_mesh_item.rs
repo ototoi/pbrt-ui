@@ -5,6 +5,7 @@ use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_item::MeshRenderItem;
 use super::render_item::RenderItem;
+use super::render_item::create_render_pass;
 use super::render_item::get_bool;
 use super::render_item::get_color;
 use super::render_item::get_float;
@@ -78,6 +79,7 @@ fn get_base_diffuse_key(material: &Material) -> Option<String> {
     return None;
 }
 
+/*
 fn get_base_color_value(
     material: &Material,
     key: &str,
@@ -89,8 +91,6 @@ fn get_base_color_value(
     }
     return None;
 }
-
-/*
 
 fn create_render_basic_material(
     material: &Material,
@@ -220,26 +220,6 @@ fn create_render_material_from_material(
 }
 */
 
-fn create_uniform_value_bytes(uniform_values: &[(String, RenderUniformValue)]) -> Vec<u8> {
-    todo!()
-}
-
-fn create_surface_render_pass(
-    shader_type: &str,
-    render_category: RenderCategory,
-    uniform_values: &[(String, RenderUniformValue)],
-    _resource_manager: &ResourceManager,
-    _render_resource_manager: &mut RenderResourceManager,
-) -> RenderPass {
-    let uniform_values_bytes = create_uniform_value_bytes(uniform_values);
-    let render_pass = RenderPass {
-        shader_type: shader_type.to_string(),
-        render_category,
-        uniform_values: uniform_values_bytes
-    };
-    return render_pass;
-}
-
 fn create_basic_render_pass(
     material: &Material,
     resource_manager: &ResourceManager,
@@ -259,11 +239,10 @@ fn create_basic_render_pass(
             RenderUniformValue::Vec4(specular_color),
         ),
     ];
-    let render_pass = create_surface_render_pass(
+    let render_pass = create_render_pass(
         "basic",
         RenderCategory::Opaque,
         &uniform_values,
-        resource_manager,
         render_resource_manager,
     );
     return render_pass;
@@ -321,11 +300,10 @@ fn create_render_material_from_light(
     match material_type.as_str() {
         _ => {
             //basic material
-            let pass = create_surface_render_pass(
+            let pass = create_render_pass(
                 "arealight",
                 RenderCategory::Emissive,
                 &uniform_values,
-                resource_manager,
                 render_resource_manager,
             );
             passes.push(pass);
