@@ -24,7 +24,7 @@ pub enum RenderUniformValue {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct RenderMaterialPass {
+pub struct RenderPass {
     pub shader_type: String,
     pub render_category: RenderCategory,    //
     pub uniform_values: Vec<u8>,            //
@@ -36,7 +36,7 @@ pub struct RenderMaterial {
     pub id: Uuid,
     pub edition: String,
     pub material_type: String,
-    pub passes: Vec<RenderMaterialPass>,
+    pub passes: Vec<RenderPass>,
 }
 
 impl RenderMaterial {
