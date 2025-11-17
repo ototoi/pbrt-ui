@@ -100,7 +100,8 @@ impl LinesRenderer {
             for (i, item) in render_items.iter().enumerate() {
                 let matrix = item.get_matrix();
 
-                let mut base_color = [1.0, 1.0, 0.0, 1.0]; // Default color for Lines
+                let base_color = [1.0, 1.0, 0.0, 1.0]; // Default color for Lines
+
                 /*
                 if let RenderItem::Lines(line_item) = item.as_ref() {
                     if let Some(material) = line_item.material.as_ref() {

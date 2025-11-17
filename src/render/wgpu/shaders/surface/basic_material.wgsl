@@ -88,16 +88,14 @@ var<uniform> local_uniforms: LocalUniforms;
 // material definitions
 
 // material uniforms
-struct BasicMaterialUniforms {
+struct MaterialUniforms {
     kd: vec4<f32>,
     ks: vec4<f32>,
-    _pad1: vec4<f32>,
-    _pad2: vec4<f32>,
 }
 
 @group(2)
 @binding(0)
-var<uniform> material_uniforms: BasicMaterialUniforms;
+var<uniform> material_uniforms: MaterialUniforms;
 
 fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
     return r * INV_PI;

@@ -26,6 +26,8 @@ use crate::render::scene_item::*;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use bytemuck::{Pod, Zeroable};
+
 use eframe::wgpu;
 
 pub fn get_mesh(
@@ -62,8 +64,12 @@ fn get_base_diffuse_key(material: &Material) -> Option<String> {
         "metal" => {
             return "k".to_string().into();
         }
-        "glass" | "mirror" => {
-            return "Kr".to_string().into();
+        "glass" => {
+            return "Kt".to_string().into();
+        }
+        "mirror" => {
+            //no diffuse component
+            return None;
         }
         "substrate" => {
             return "Kd".to_string().into();
@@ -220,14 +226,16 @@ fn create_render_material_from_material(
 }
 */
 
-fn create_basic_render_pass(
+fn create_basic_render_passes(
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> RenderPass {
-    let diffuse_key = get_base_diffuse_key(material).unwrap();
-    let diffuse_color =
-        get_color(&material.props, &diffuse_key, resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+) -> Vec<RenderPass> {
+    let diffuse_color = if let Some(key) = get_base_diffuse_key(material) {
+        get_color(&material.props, &key, resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0])
+    } else {
+        [1.0, 1.0, 1.0, 1.0]
+    };
     let specular_color = [1.0, 1.0, 1.0, 1.0];
     let uniform_values = vec![
         (
@@ -245,7 +253,16 @@ fn create_basic_render_pass(
         &uniform_values,
         render_resource_manager,
     );
-    return render_pass;
+    return vec![render_pass];
+}
+
+fn create_matte_render_passes(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<RenderPass> {
+    let passes = create_basic_render_passes(material, resource_manager, render_resource_manager);
+    return passes;
 }
 
 fn create_render_material_from_material(
@@ -258,11 +275,15 @@ fn create_render_material_from_material(
     let edition = material.get_edition();
     let mut passes = vec![];
     match material_type.as_str() {
+        "matte" => {
+            let new_passes =
+                create_matte_render_passes(material, resource_manager, render_resource_manager);
+            passes.extend(new_passes);
+        }
         _ => {
-            //basic material
-            let pass =
-                create_basic_render_pass(material, resource_manager, render_resource_manager);
-            passes.push(pass);
+            let new_passes =
+                create_basic_render_passes(material, resource_manager, render_resource_manager);
+            passes.extend(new_passes);
         }
     }
     let render_material = RenderMaterial {

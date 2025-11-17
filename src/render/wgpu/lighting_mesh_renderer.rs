@@ -1,23 +1,19 @@
 use super::ltc::DEFAULT_LTC_UUID;
 use super::ltc::create_default_ltc_texture;
 use super::material::RenderCategory;
-use super::material::RenderUniformValue;
-use super::materials::AreaLightDiffuseMaterialUniforms;
-use super::materials::BasicMaterialUniforms;
-use super::materials::MatteMaterialUniforms;
-use super::materials::PlasticMaterialUniforms;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
-use crate::render::wgpu::material::RenderMaterial;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 //use eframe::egui;
 //use eframe::egui_wgpu;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
+use eframe::wgpu::wgc::pipeline;
 use uuid::Uuid;
 use wgpu::util::align_to;
 
@@ -30,10 +26,6 @@ const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
 const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
-
-const MIN_MATERIAL_BUFFER_NUM: usize = 8;
-const AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME: &str = "area_light";
-const BASIC_SURFACE_SHADER_NAME: &str = "basic_material";
 
 const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0x00000000_0000_0000_FFFF_000000000000);
 
@@ -212,7 +204,7 @@ pub struct LightingMeshRenderer {
     // Textures used in the materials
     textures: HashMap<Uuid, Arc<RenderTexture>>,
     // Material entries
-    pipelines: HashMap<Uuid, PipelineEntry>,
+    pipelines: HashMap<Uuid, Arc<RwLock<PipelineEntry>>>,
 }
 
 fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -237,91 +229,20 @@ fn get_shader_id_from_type(shader_type: &str) -> Uuid {
     return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
 }
 
-fn get_material_uniform_size(shader_type: &str) -> usize {
-    match shader_type {
-        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => size_of::<AreaLightDiffuseMaterialUniforms>(),
-        BASIC_SURFACE_SHADER_NAME => size_of::<BasicMaterialUniforms>(),
-        _ => size_of::<BasicMaterialUniforms>(),
+fn get_shader_has_lighting(category: RenderCategory) -> bool {
+    if category == RenderCategory::Emissive {
+        return false;
     }
-}
-/*
-fn get_material_uniform_buffer(material: &RenderMaterial) -> Vec<u8> {
-    let shader_type = material.get_shader_type();
-    let shader_type = get_shader_type_to_type(&shader_type);
-    match shader_type.as_str() {
-        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => {
-            let uniform = AreaLightDiffuseMaterialUniforms {
-                l: get_color_value(material, "L").unwrap_or([1.0, 1.0, 1.0, 1.0]),
-                scale: get_color_value(material, "scale").unwrap_or([1.0, 1.0, 1.0, 1.0]),
-                _pad1: [0.0; 4],
-                _pad2: [0.0; 4],
-            };
-            let bytes = bytemuck::bytes_of(&uniform);
-            return bytes.to_vec();
-        }
-        "matte_lambert_none_Kd@V" => {
-            let uniform = MatteMaterialUniforms {
-                kd: get_color_value(material, "Kd").unwrap_or([1.0, 1.0, 1.0, 1.0]),
-                _pad1: [0.0; 4],
-                _pad2: [0.0; 4],
-                _pad3: [0.0; 4],
-            };
-            let bytes = bytemuck::bytes_of(&uniform);
-            return bytes.to_vec();
-        }
-        "plastic_Kd@V_Ks@V_roughness@V" => {
-            let uniform = PlasticMaterialUniforms {
-                kd: get_color_value(material, "Kd").unwrap_or([1.0, 1.0, 1.0, 1.0]),
-                ks: get_color_value(material, "Ks").unwrap_or([0.0, 0.0, 0.0, 1.0]),
-                roughness: get_color_value(material, "roughness").unwrap_or([0.1, 0.1, 0.1, 1.0]),
-                _pad1: [0.0; 4],
-            };
-            let bytes = bytemuck::bytes_of(&uniform);
-            return bytes.to_vec();
-        }
-        BASIC_SURFACE_SHADER_NAME => {
-            let uniform = BasicMaterialUniforms {
-                kd: get_base_color(material),
-                ks: get_specular_color(material),
-                _pad1: [0.0; 4],
-                _pad2: [0.0; 4],
-            };
-            let bytes = bytemuck::bytes_of(&uniform);
-            return bytes.to_vec();
-        }
-        _ => {
-            let uniform = BasicMaterialUniforms {
-                kd: get_base_color(material),
-                ks: get_specular_color(material),
-                _pad1: [0.0; 4],
-                _pad2: [0.0; 4],
-            };
-            let bytes = bytemuck::bytes_of(&uniform);
-            return bytes.to_vec();
-        }
-    }
-}
-*/
-
-fn get_shader_has_lighting(shader_type: &str, _category: RenderCategory) -> bool {
-    match shader_type {
-        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => false,
-        BASIC_SURFACE_SHADER_NAME => true,
-        _ => true,
-    }
+    return true;
 }
 
 fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
-    let source = match shader_type {
-        AREA_LIGHT_DIFFUSE_SURFACE_SHADER_NAME => {
-            include_str!("shaders/surface/area_light_diffuse.wgsl")
+    let source = if shader_type.starts_with("arealight") {
+        include_str!("shaders/surface/arealight_diffuse.wgsl")
+    } else {
+        match shader_type {
+            _ => include_str!("shaders/surface/basic_material.wgsl"),
         }
-        "matte_lambert_none_Kd@V" => include_str!("shaders/surface/matte_lambert_none_Kd@V.wgsl"),
-        "plastic_Kd@V_Ks@V_roughness@V" => {
-            include_str!("shaders/surface/plastic_Kd@V_Ks@V_roughness@V.wgsl")
-        }
-        BASIC_SURFACE_SHADER_NAME => include_str!("shaders/surface/basic_material.wgsl"),
-        _ => include_str!("shaders/surface/basic_material.wgsl"),
     };
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Shader"),
@@ -382,10 +303,23 @@ impl LightingMeshRenderer {
             )
         };
 
+        let mut pipelines = vec![];
         for pipeline_entry in self.pipelines.values() {
-            if pipeline_entry.mesh_indices.is_empty() {
-                continue;
+            {
+                let pipeline_entry = pipeline_entry.read().unwrap();
+                if pipeline_entry.mesh_indices.is_empty() {
+                    continue;
+                }
             }
+            pipelines.push(pipeline_entry.clone());
+        }
+
+        //TODO: sort pipelines to minimize pipeline switches
+
+        for pipeline_entry in pipelines.iter() {
+            let pipeline_entry = pipeline_entry.read().unwrap();
+            debug_assert!(!pipeline_entry.mesh_indices.is_empty());
+            
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
             if pipeline_entry.has_lighting {
@@ -505,41 +439,38 @@ impl LightingMeshRenderer {
         struct TmpPipelineEntry {
             mesh_indices: Vec<usize>,
             material_indices: Vec<usize>,
-            material_indices_map: HashMap<Uuid, (usize, Arc<RenderMaterial>)>,
+            material_indices_map: HashMap<Uuid, (usize, Vec<u8>)>,
             has_lighting: bool,
         }
         {
             for entry in self.pipelines.values_mut() {
+                let mut entry = entry.write().unwrap();
                 entry.mesh_indices.clear();
                 entry.material_indices.clear();
             }
             let mut tmp_pipelines: HashMap<String, TmpPipelineEntry> = HashMap::new();
             for (mesh_index, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
-
-                    /*
-                    let shader_type_org = material.get_shader_type();
-                    let shader_type = get_shader_type_to_type(&shader_type_org);
-                    let has_lighting =
-                        get_shader_has_lighting(&shader_type, material.render_category);
-                    //println!("Material {} uses shader type: {}", shader_type_org, shader_type);
-                    let entry = tmp_pipelines
-                        .entry(shader_type)
-                        .or_insert(TmpPipelineEntry::default());
-                    entry.mesh_indices.push(i);
-                    let material_id = material.get_id();
-                    let new_material_index = entry.material_indices_map.len();
-                    if let Some((material_index, _)) = entry.material_indices_map.get(&material_id)
-                    {
-                        entry.material_indices.push(*material_index);
-                    } else {
-                        entry.material_indices.push(new_material_index);
-                        entry
-                            .material_indices_map
-                            .insert(material_id, (new_material_index, material.clone()));
+                    for pass in material.passes.iter() {
+                        let shader_type = pass.shader_type.clone();
+                        let has_lighting = get_shader_has_lighting(pass.render_category);
+                        let entry = tmp_pipelines
+                            .entry(shader_type)
+                            .or_insert(TmpPipelineEntry::default());
+                        entry.mesh_indices.push(mesh_index);
+                        let pass_id = pass.id;
+                        let new_material_index = entry.material_indices_map.len();
+                        if let Some((material_index, _)) = entry.material_indices_map.get(&pass_id)
+                        {
+                            entry.material_indices.push(*material_index);
+                        } else {
+                            entry.material_indices.push(new_material_index);
+                            entry
+                                .material_indices_map
+                                .insert(pass_id, (new_material_index, pass.uniform_values.clone()));
+                        }
+                        entry.has_lighting |= has_lighting;
                     }
-                    entry.has_lighting |= has_lighting;
-                    */
                 }
             }
 
@@ -549,44 +480,45 @@ impl LightingMeshRenderer {
                 let has_lighting = tmp_entry.has_lighting;
                 let shader_id = get_shader_id_from_type(shader_type);
                 let num_materials = tmp_entry.material_indices_map.len();
+                if num_materials == 0 {
+                    continue;
+                }
+                let (_, data) = tmp_entry.material_indices_map.values().next().unwrap();
+                let uniform_size = data.len();
+
                 if !self.pipelines.contains_key(&shader_id) {
-                    let material_uniform_size = get_material_uniform_size(shader_type);
                     let shader = get_shader(device, shader_type);
-                    self.pipelines.insert(
-                        shader_id,
-                        self.create_pipeline(
-                            device,
-                            queue,
-                            &shader,
-                            has_lighting,
-                            material_uniform_size,
-                            num_materials,
-                        ),
+                    let pipeline = self.create_pipeline(
+                        device,
+                        queue,
+                        &shader,
+                        has_lighting,
+                        uniform_size,
+                        num_materials,
                     );
+                    let pipeline = Arc::new(RwLock::new(pipeline));
+                    self.pipelines.insert(shader_id, pipeline);
                 }
                 let entry = self
                     .pipelines
                     .get_mut(&shader_id)
                     .expect("Pipeline for basic material not found");
+                let mut entry = entry.write().unwrap();
                 entry.allocate_material_uniform_buffer(device, material_indices.len());
                 entry.mesh_indices = mesh_indices.clone();
                 entry.material_indices = material_indices.clone();
                 assert!(entry.mesh_indices.len() == entry.material_indices.len());
-                //let length = entry.mesh_indices.len();
-                /*
-                for (_id, (material_index, material)) in tmp_entry.material_indices_map.iter() {
-                    let material_index = *material_index;
-                    todo!()
-                    let material_uniform_buffer =
-                    Self::bind_pipeline(
-                        device,
-                        queue,
-                        material_index,
-                        entry,
-                        &material_uniform_buffer,
-                    );
+                let alignenment = entry.material_uniform_alignment as usize;
+                let mut uniform_values: Vec<u8> = vec![0; alignenment * num_materials];
+                for (_id, (pass_index, pass_uniform_values)) in
+                    tmp_entry.material_indices_map.iter()
+                {
+                    let pass_index = *pass_index;
+                    let start = pass_index as usize * entry.material_uniform_alignment as usize;
+                    let end = start + pass_uniform_values.len();
+                    uniform_values[start..end].copy_from_slice(&pass_uniform_values);
                 }
-                */
+                queue.write_buffer(&entry.uniform_buffer, 0, &uniform_values[..]);
             }
         }
         self.mesh_items = mesh_items.to_vec();
@@ -1068,25 +1000,6 @@ impl LightingMeshRenderer {
         };
         return entry;
     }
-
-    fn bind_pipeline(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        i: usize,
-        pipeline: &PipelineEntry,
-        material_uniform_buffer: &[u8],
-    ) {
-        let uniform_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            align_to(
-                material_uniform_buffer.len() as wgpu::BufferAddress,
-                alignment,
-            )
-        };
-        let offset = i as wgpu::BufferAddress * uniform_alignment;
-        queue.write_buffer(&pipeline.uniform_buffer, offset, material_uniform_buffer);
-    }
 }
 
 impl LightingMeshRenderer {
@@ -1429,24 +1342,6 @@ impl LightingMeshRenderer {
     }
 
     pub fn init(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        if self.pipelines.is_empty() {
-            let shader_type = BASIC_SURFACE_SHADER_NAME;
-            let render_category = RenderCategory::Opaque;
-            let shader_id = get_shader_id_from_type(shader_type);
-            let uniform_size = get_material_uniform_size(shader_type);
-            let shader = get_shader(device, shader_type);
-            let has_lighting = get_shader_has_lighting(shader_type, render_category);
-            self.pipelines.insert(
-                shader_id,
-                self.create_pipeline(
-                    device,
-                    queue,
-                    &shader,
-                    has_lighting,
-                    uniform_size,
-                    MIN_MATERIAL_BUFFER_NUM,
-                ),
-            );
-        }
+        // Initialize pipelines or other resources if needed
     }
 }

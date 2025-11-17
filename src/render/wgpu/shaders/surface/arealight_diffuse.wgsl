@@ -27,8 +27,6 @@ var<uniform> local_uniforms: LocalUniforms;
 struct AreaLightDiffuseMaterialUniforms {
     l: vec4<f32>,
     scale: vec4<f32>,
-    _pad1: vec4<f32>,
-    _pad2: vec4<f32>,
 }
 
 @group(2)

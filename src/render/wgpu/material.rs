@@ -25,9 +25,20 @@ pub enum RenderUniformValue {
 
 #[derive(Debug, Default, Clone)]
 pub struct RenderPass {
+    pub id: Uuid,
     pub shader_type: String,
     pub render_category: RenderCategory, //
     pub uniform_values: Vec<u8>,         //
+}
+
+impl RenderPass {
+    pub fn get_id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn get_shader_type(&self) -> String {
+        self.shader_type.clone()
+    }
 }
 
 #[derive(Debug, Default, Clone)]
