@@ -4,6 +4,7 @@ use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
 use super::render_item::LinesRenderItem;
 use super::render_item::RenderItem;
+use super::render_item::create_render_pass;
 use super::render_item::get_shader_type;
 use super::render_resource::RenderResourceManager;
 use crate::model::scene::CoordinateSystemComponent;
@@ -36,14 +37,17 @@ fn get_lines_material(
     ));
     let edition = edition.to_string();
     let material_type = "lines".to_string();
-    let shader_type = get_shader_type(&material_type, &uniform_values);
+    let passes = vec![create_render_pass(
+        "lines",
+        RenderCategory::Opaque,
+        &uniform_values,
+        render_resource_manager,
+    )];
     let render_material = RenderMaterial {
         id,
         edition,
         material_type,
-        shader_type,
-        render_category: RenderCategory::Opaque,
-        uniform_values,
+        passes,
     };
     let render_material = Arc::new(render_material);
     render_resource_manager.add_material(&render_material);

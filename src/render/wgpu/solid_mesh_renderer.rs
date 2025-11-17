@@ -72,6 +72,7 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
 }
 
 fn get_base_color(item: &RenderItem) -> [f32; 4] {
+    /*
     match item {
         RenderItem::Mesh(mesh_item) => {
             if let Some(material) = &mesh_item.material {
@@ -85,6 +86,7 @@ fn get_base_color(item: &RenderItem) -> [f32; 4] {
         }
         _ => {} // Default color for other items
     }
+    */
     return [1.0, 0.0, 1.0, 1.0]; // Default color for Solid
 }
 

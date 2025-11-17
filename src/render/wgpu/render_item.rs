@@ -1,6 +1,8 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
+use super::material::RenderCategory;
 use super::material::RenderMaterial;
+use super::material::RenderPass;
 use super::material::RenderUniformValue;
 use super::mesh::RenderMesh;
 use super::render_gizmo_item::get_render_axis_gizmo_items;
@@ -22,10 +24,13 @@ use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
-use crate::render::wgpu::texture;
+//use crate::render::wgpu::texture;
 
 use std::sync::Arc;
 use std::sync::RwLock;
+
+use uuid::Uuid;
+//use bytemuck::{Pod, Zeroable};
 
 use eframe::wgpu;
 
@@ -178,7 +183,7 @@ pub fn get_texture(
 }
 
 pub fn get_shader_type(
-    material_type: &str,
+    shader_type: &str,
     uniform_values: &Vec<(String, RenderUniformValue)>,
 ) -> String {
     let mut s = "".to_string();
@@ -204,7 +209,94 @@ pub fn get_shader_type(
             }
         }
     }
-    return format!("{}{}", material_type, s);
+    return format!("{}{}", shader_type, s);
+}
+
+fn create_uniform_value_bytes(
+    uniform_values: &[(String, RenderUniformValue)],
+) -> (Vec<(String, String)>, Vec<u8>) {
+    let mut type_variables: Vec<(String, String)> = Vec::new();
+    let mut bytes: Vec<u8> = Vec::new();
+    let mut padding_count = 1;
+    let mut remain = 0;
+    for (name, value) in uniform_values.iter() {
+        assert!(remain >= 0);
+        match value {
+            RenderUniformValue::Float(v) => {
+                bytes.extend_from_slice(bytemuck::bytes_of(v));
+                if remain == 0 {
+                    remain = 16; //std140 vec4 alignment
+                }
+                remain -= 4;
+                type_variables.push(("f32".to_string(), name.clone())); //
+            }
+            RenderUniformValue::Vec4(v) => {
+                if remain != 0 {
+                    for _ in 0..remain {
+                        bytes.extend_from_slice(bytemuck::bytes_of(&0.0f32));
+                        type_variables.push(("f32".to_string(), format!("_pad{}", padding_count))); //
+                        padding_count += 1;
+                    }
+                    remain = 0;
+                }
+                bytes.extend_from_slice(bytemuck::bytes_of(v));
+                type_variables.push(("vec4<f32>".to_string(), name.clone())); //
+            }
+            RenderUniformValue::Int(v) => {
+                bytes.extend_from_slice(bytemuck::bytes_of(v));
+                if remain == 0 {
+                    remain = 16; //std140 vec4 alignment
+                }
+                remain -= 4;
+                type_variables.push(("i32".to_string(), name.clone())); //
+            }
+            RenderUniformValue::Bool(v) => {
+                let int_value: u32 = if *v { 1 } else { 0 };
+                bytes.extend_from_slice(bytemuck::bytes_of(&int_value));
+                if remain == 0 {
+                    remain = 16; //std140 vec4 alignment
+                }
+                remain -= 4;
+                type_variables.push(("u32".to_string(), name.clone())); //
+            }
+            RenderUniformValue::Mat4(v) => {
+                if remain != 0 {
+                    for _ in 0..remain {
+                        bytes.extend_from_slice(bytemuck::bytes_of(&0.0f32));
+                        type_variables.push(("f32".to_string(), format!("_pad{}", padding_count))); //
+                        padding_count += 1;
+                    }
+                    remain = 0;
+                }
+                bytes.extend_from_slice(bytemuck::bytes_of(v));
+                type_variables.push(("mat4x4<f32>".to_string(), name.clone())); //
+            }
+            RenderUniformValue::Texture(_v) => {
+                let scale_offset: [f32; 4] = [1.0, 1.0, 0.0, 0.0];
+                bytes.extend_from_slice(bytemuck::bytes_of(&scale_offset));
+                type_variables.push(("vec4<f32>".to_string(), format!("{}_uv_factor", name))); //
+            }
+        }
+    }
+
+    return (type_variables, bytes);
+}
+
+pub fn create_render_pass(
+    shader_type: &str,
+    render_category: RenderCategory,
+    uniform_values: &[(String, RenderUniformValue)],
+    _render_resource_manager: &mut RenderResourceManager,
+) -> RenderPass {
+    let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
+    //println!("Create Render Pass: shader_type={}, uniform_values={:?}", shader_type, _uniform_values_types);
+    let render_pass = RenderPass {
+        id: Uuid::new_v4(),
+        shader_type: shader_type.to_string(),
+        render_category,
+        uniform_values: uniform_values_bytes,
+    };
+    return render_pass;
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {
