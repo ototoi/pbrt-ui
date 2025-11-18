@@ -7,11 +7,7 @@ struct GlobalUniforms {
 
 struct LocalUniforms {
     local_to_world: mat4x4<f32>,
-    world_to_local: mat4x4<f32>, // inverse of world to camera
-    _pad1: vec4<f32>,
-    _pad2: vec4<f32>,
-    _pad3: vec4<f32>,
-    _pad4: vec4<f32>,
+    world_to_local: mat4x4<f32>, // inverse of world to cameraå
 }
 
 struct LightUniforms {
@@ -456,54 +452,6 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     return Lo_i;
 }
 
-/*
-fn TestInTriangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, p: vec3<f32>) -> bool {
-    let n1 = cross(b - a, p - b);
-    let n2 = cross(c - b, p - c);
-    let n3 = cross(a - c, p - a);
-    let d0 = dot(n1, n2);
-    let d1 = dot(n2, n3);
-    return d0 > 0.0 && d1 > 0.0;
-}
-
-fn ClosestPointOnLineSegment(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
-    let ab = b - a;
-    let t = dot(p - a, ab) / dot(ab, ab);
-    return a + saturate(t) * ab;
-}
-
-fn ClosestPointOutsideRectangle(a: vec3<f32>, b: vec3<f32>, p: vec3<f32>, cp: vec4<f32>) -> vec4<f32> {
-    let closest_point = ClosestPointOnLineSegment(a, b, p);
-    let l = p - closest_point;
-    let distance = dot(l, l);
-    let pp = vec4<f32>(closest_point, distance);
-    return select(cp, pp, pp.w < cp.w);
-}
-
-fn ClosestPointOnRectangle(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, p: vec3<f32>) -> vec3<f32> {
-    if !TestInTriangle(a, b, c, p) && !TestInTriangle(a, c, d, p) {
-        var cp = vec4<f32>(p, MAX_FLOAT);
-        cp = ClosestPointOutsideRectangle(a, b, p, cp);
-        cp = ClosestPointOutsideRectangle(b, c, p, cp);
-        cp = ClosestPointOutsideRectangle(c, d, p, cp);
-        cp = ClosestPointOutsideRectangle(d, a, p, cp);
-        return cp.xyz;
-    } else {
-        return p;
-    }
-    return (a + b + c + d) * 0.25;
-}
-
-fn ClosestPointOnDisk(center: vec3<f32>, radius: f32, p: vec3<f32>) -> vec3<f32> {
-    let d = p - center;
-    let dist = length(d);
-    if dist > radius {
-        return center + d * (radius / dist);
-    } else {
-        return p;
-    }
-}
-*/
 //-------------------------------------------------------
 fn spherical_texture_lookup(direction: vec3<f32>) -> vec2<f32> {
     // Assumes direction is normalized

@@ -4,6 +4,7 @@ use crate::model::base::Property;
 use crate::model::base::Quaternion;
 use crate::model::base::Vector3;
 use crate::model::scene::CameraComponent;
+use crate::model::scene::CameraProperties;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
@@ -85,8 +86,9 @@ impl SceneView {
     ) {
         let available_rect = ui.available_rect_before_wrap();
         let available_size = available_rect.size();
+        //let camera_props = CameraProperties::get_instance().get_entries("perspective");
 
-        let mut znear = 0.01f32;
+        let mut znear = 1.0f32;
         let mut zfar = 10000.0f32;
         let mut fov = 90.0f32.to_radians();
         let mut w2c = Matrix4x4::identity();

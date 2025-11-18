@@ -31,9 +31,6 @@ struct LocalUniforms {
     local_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
     world_to_local: [[f32; 4]; 4], // 4 * 4 * 4 = 64
     base_color: [f32; 4],          // Base color for the mesh
-    _pad1: [f32; 4],               // Padding to ensure alignment
-    _pad2: [f32; 4],               // Padding to ensure alignment
-    _pad3: [f32; 4],               // Padding to ensure alignment
 }
 
 #[derive(Debug, Clone)]
@@ -132,9 +129,6 @@ impl SolidMeshRenderer {
                         local_to_world: local_to_world.to_cols_array_2d(),
                         world_to_local: world_to_local.to_cols_array_2d(),
                         base_color: get_base_color(item),
-                        _pad1: [0.0; 4], // Padding to ensure alignment
-                        _pad2: [0.0; 4], // Padding to ensure alignment
-                        _pad3: [0.0; 4], // Padding to ensure alignment
                     };
                     let offset = i as wgpu::BufferAddress * local_uniform_alignment;
                     queue.write_buffer(
