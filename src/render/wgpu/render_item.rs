@@ -278,6 +278,14 @@ fn create_uniform_value_bytes(
             }
         }
     }
+    if remain != 0 {
+        for _ in 0..remain {
+            bytes.extend_from_slice(bytemuck::bytes_of(&0.0f32));
+            type_variables.push(("f32".to_string(), format!("_pad{}", padding_count))); //
+            padding_count += 1;
+        }
+        remain = 0;
+    }
 
     return (type_variables, bytes);
 }
@@ -289,7 +297,10 @@ pub fn create_render_pass(
     _render_resource_manager: &mut RenderResourceManager,
 ) -> RenderPass {
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
-    //println!("Create Render Pass: shader_type={}, uniform_values={:?}", shader_type, _uniform_values_types);
+    println!(
+        "Create Render Pass: shader_type={}, uniform_values={:?}",
+        shader_type, _uniform_values_types
+    );
     let render_pass = RenderPass {
         id: Uuid::new_v4(),
         shader_type: shader_type.to_string(),

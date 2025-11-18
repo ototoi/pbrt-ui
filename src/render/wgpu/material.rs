@@ -8,9 +8,10 @@ use uuid::Uuid;
 pub enum RenderCategory {
     #[default]
     Opaque = 1000, //use for opaque surfaces
-    Emissive = 1500,    //use for light diffuse no lighting
-    Masked = 2500,      //use for masked surfaces
-    Transparent = 3000, //use for transparent surfaces
+    Emissive = 1500,            //use for light diffuse no lighting
+    Masked = 2500,              //use for masked surfaces
+    Transparent = 3000,         //use for transparent surfaces
+    TransparentSpecular = 3500, //use for transparent emissive surfaces
 }
 
 #[derive(Debug, Clone)]

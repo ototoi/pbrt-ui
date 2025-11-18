@@ -136,6 +136,7 @@ struct PipelineEntry {
     pub material_uniform_alignment: wgpu::BufferAddress,
     pub mesh_indices: Vec<usize>,
     pub material_indices: Vec<usize>,
+    pub sort_order: u32,
     pub has_lighting: bool,
 }
 
@@ -237,6 +238,14 @@ fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
         include_str!("shaders/surface/arealight_diffuse.wgsl")
     } else {
         match shader_type {
+            "lambertian_none_kd@V" => include_str!("shaders/surface/lambertian_none_kd@V.wgsl"),
+            "lambertian_ggx_kd@V_ks@V_roughness@F" => {
+                include_str!("shaders/surface/lambertian_ggx_kd@V_ks@V_roughness@F.wgsl")
+            }
+            "transmission_none_kt@V" => include_str!("shaders/surface/transmission_none_kt@V.wgsl"),
+            "none_ggx_kr@V_roughness@F" => {
+                include_str!("shaders/surface/none_ggx_kr@V_roughness@F.wgsl")
+            }
             _ => include_str!("shaders/surface/basic_material.wgsl"),
         }
     };
@@ -301,18 +310,21 @@ impl LightingMeshRenderer {
 
         let mut pipelines = vec![];
         for pipeline_entry in self.pipelines.values() {
+            let mut sort_order = 0;
             {
                 let pipeline_entry = pipeline_entry.read().unwrap();
                 if pipeline_entry.mesh_indices.is_empty() {
                     continue;
                 }
+                sort_order = pipeline_entry.sort_order;
             }
-            pipelines.push(pipeline_entry.clone());
+            pipelines.push((sort_order, pipeline_entry.clone()));
         }
 
-        //TODO: sort pipelines to minimize pipeline switches
+        //TODO: sort pipelines to minimize pipeline switching
+        pipelines.sort_by(|a, b| a.0.cmp(&b.0));
 
-        for pipeline_entry in pipelines.iter() {
+        for (_sort_order, pipeline_entry) in pipelines.iter() {
             let pipeline_entry = pipeline_entry.read().unwrap();
             debug_assert!(!pipeline_entry.mesh_indices.is_empty());
 
@@ -436,7 +448,7 @@ impl LightingMeshRenderer {
             mesh_indices: Vec<usize>,
             material_indices: Vec<usize>,
             material_indices_map: HashMap<Uuid, (usize, Vec<u8>)>,
-            has_lighting: bool,
+            render_category: RenderCategory,
         }
         {
             for entry in self.pipelines.values_mut() {
@@ -449,7 +461,6 @@ impl LightingMeshRenderer {
                 if let Some(material) = item.get_material() {
                     for pass in material.passes.iter() {
                         let shader_type = pass.shader_type.clone();
-                        let has_lighting = get_shader_has_lighting(pass.render_category);
                         let entry = tmp_pipelines
                             .entry(shader_type)
                             .or_insert(TmpPipelineEntry::default());
@@ -465,7 +476,7 @@ impl LightingMeshRenderer {
                                 .material_indices_map
                                 .insert(pass_id, (new_material_index, pass.uniform_values.clone()));
                         }
-                        entry.has_lighting |= has_lighting;
+                        entry.render_category = pass.render_category;
                     }
                 }
             }
@@ -473,7 +484,7 @@ impl LightingMeshRenderer {
             for (shader_type, tmp_entry) in tmp_pipelines.iter() {
                 let mesh_indices = &tmp_entry.mesh_indices;
                 let material_indices = &tmp_entry.material_indices;
-                let has_lighting = tmp_entry.has_lighting;
+                let render_category = tmp_entry.render_category;
                 let shader_id = get_shader_id_from_type(shader_type);
                 let num_materials = tmp_entry.material_indices_map.len();
                 if num_materials == 0 {
@@ -488,7 +499,7 @@ impl LightingMeshRenderer {
                         device,
                         queue,
                         &shader,
-                        has_lighting,
+                        render_category,
                         uniform_size,
                         num_materials,
                     );
@@ -849,10 +860,13 @@ impl LightingMeshRenderer {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
         shader: &wgpu::ShaderModule,
-        has_lighting: bool,
+        render_category: RenderCategory,
         material_uniform_size: usize,
         num_materials: usize,
     ) -> PipelineEntry {
+        let has_lighting = get_shader_has_lighting(render_category);
+        let sort_order = render_category as u32;
+
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -923,6 +937,27 @@ impl LightingMeshRenderer {
         //let color_texture_format = wgpu::TextureFormat::Rgba16Float;
         //let depth_texture_format = wgpu::TextureFormat::Depth32Float;
 
+        let mut blendstate = wgpu::BlendState::REPLACE;
+        if render_category == RenderCategory::Transparent {
+            blendstate = wgpu::BlendState::ALPHA_BLENDING;
+        } else if render_category == RenderCategory::TransparentSpecular {
+            blendstate = wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent::OVER,
+            };
+        }
+
+        let mut depth_write_enabled = true;
+        if render_category == RenderCategory::Transparent
+            || render_category == RenderCategory::TransparentSpecular
+        {
+            depth_write_enabled = false;
+        }
+
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Lighting Pipeline"),
             layout: Some(&pipeline_layout),
@@ -938,7 +973,7 @@ impl LightingMeshRenderer {
                 //targets: &[Some(wgpu_render_state.target_format.into())],
                 targets: &[Some(wgpu::ColorTargetState {
                     format: color_texture_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(blendstate),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -946,7 +981,7 @@ impl LightingMeshRenderer {
             primitive: primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: depth_texture_format,
-                depth_write_enabled: true,
+                depth_write_enabled: depth_write_enabled,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
@@ -992,7 +1027,8 @@ impl LightingMeshRenderer {
             material_uniform_alignment,
             mesh_indices: Vec::new(),
             material_indices: Vec::new(),
-            has_lighting: has_lighting,
+            sort_order,
+            has_lighting,
         };
         return entry;
     }
