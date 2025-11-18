@@ -26,7 +26,12 @@ struct GlobalUniforms {
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct LocalUniforms {
     local_to_world: [[f32; 4]; 4],
-    base_color: [f32; 4], // RGBA
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+struct MaterialUniforms {
+    base_color: [f32; 4],
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +45,10 @@ pub struct LinesRenderer {
     local_bind_group: wgpu::BindGroup,
     local_uniform_buffer: wgpu::Buffer,
     local_uniform_alignment: wgpu::BufferAddress,
+    material_bind_group_layout: wgpu::BindGroupLayout,
+    material_bind_group: wgpu::BindGroup,
+    material_uniform_buffer: wgpu::Buffer,
+    material_uniform_alignment: wgpu::BufferAddress,
     //
     render_items: Vec<Arc<RenderItem>>,
 }
@@ -50,6 +59,23 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         let alignment = device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
         //let alignment = 64;
         align_to(local_uniform_size, alignment)
+    };
+    let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Item Matrices Buffer"),
+        size: required_size,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+        mapped_at_creation: false,
+    });
+    return buffer;
+}
+
+fn create_material_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
+    let material_uniform_size = std::mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress; // 4x4 matrix
+    let uniform_alignment = {
+        let alignment = device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+        //let alignment = 64;
+        align_to(material_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -97,38 +123,56 @@ impl LinesRenderer {
                 self.local_uniform_buffer = new_buffer;
                 self.local_bind_group = new_bind_group;
             }
+
+            let material_uniform_alignment = self.material_uniform_alignment;
+            if self.material_uniform_buffer.size()
+                < (num_items as wgpu::BufferAddress * material_uniform_alignment)
+            {
+                let new_buffer = create_material_uniform_buffer(device, num_items);
+                let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Lines Material Bind Group"),
+                    layout: &self.material_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &new_buffer,
+                            offset: 0,
+                            size: wgpu::BufferSize::new(size_of::<MaterialUniforms>() as _),
+                        }),
+                    }],
+                });
+                self.material_uniform_buffer = new_buffer;
+                self.material_bind_group = new_bind_group;
+            }
+
             for (i, item) in render_items.iter().enumerate() {
                 let matrix = item.get_matrix();
 
-                let base_color = [1.0, 1.0, 0.0, 1.0]; // Default color for Lines
-
-                /*
                 if let RenderItem::Lines(line_item) = item.as_ref() {
                     if let Some(material) = line_item.material.as_ref() {
-                        if let Some(value) = get_color(material."base_color") {
-                            if let RenderUniformValue::Vec4(color) = value {
-                                base_color = [
-                                    color[0] as f32,
-                                    color[1] as f32,
-                                    color[2] as f32,
-                                    color[3] as f32,
-                                ];
-                            }
+                        if material.passes.len() > 0 {
+                            let offset = i as wgpu::BufferAddress * self.material_uniform_alignment;
+                            let uniform_buffer = &material.passes[0].uniform_values;
+                            queue.write_buffer(
+                                &self.material_uniform_buffer,
+                                offset,
+                                &uniform_buffer,
+                            );
                         }
                     }
                 }
-                */
 
-                let uniform = LocalUniforms {
-                    local_to_world: matrix.to_cols_array_2d(),
-                    base_color,
-                };
-                let offset = i as wgpu::BufferAddress * local_uniform_alignment;
-                queue.write_buffer(
-                    &self.local_uniform_buffer,
-                    offset,
-                    bytemuck::bytes_of(&uniform),
-                );
+                {
+                    let uniform = LocalUniforms {
+                        local_to_world: matrix.to_cols_array_2d(),
+                    };
+                    let offset = i as wgpu::BufferAddress * local_uniform_alignment;
+                    queue.write_buffer(
+                        &self.local_uniform_buffer,
+                        offset,
+                        bytemuck::bytes_of(&uniform),
+                    );
+                }
             }
         }
 
@@ -151,13 +195,21 @@ impl LinesRenderer {
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
         if !self.render_items.is_empty() {
             let local_uniform_alignment = self.local_uniform_alignment;
+            let material_uniform_alignment = self.material_uniform_alignment;
             render_pass.set_pipeline(&self.pipeline); //
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
             for (i, item) in self.render_items.iter().enumerate() {
                 let i = i as wgpu::DynamicOffset;
                 if let RenderItem::Lines(line_item) = item.as_ref() {
                     let local_uniform_offset = i * local_uniform_alignment as wgpu::DynamicOffset;
+                    let material_uniform_offset =
+                        i * material_uniform_alignment as wgpu::DynamicOffset;
                     render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    render_pass.set_bind_group(
+                        2,
+                        &self.material_bind_group,
+                        &[material_uniform_offset],
+                    );
                     render_pass.set_vertex_buffer(0, line_item.lines.vertex_buffer.slice(..));
                     render_pass.draw(0..line_item.lines.vertex_count, 0..1);
                 }
@@ -217,9 +269,28 @@ impl LinesRenderer {
                 }],
             });
 
+        let material_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Material Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: wgpu::BufferSize::new(size_of::<MaterialUniforms>() as _),
+                    },
+                    count: None,
+                }],
+            });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Lines Pipeline Layout"),
-            bind_group_layouts: &[&global_bind_group_layout, &local_bind_group_layout],
+            bind_group_layouts: &[
+                &global_bind_group_layout,
+                &local_bind_group_layout,
+                &material_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -299,6 +370,28 @@ impl LinesRenderer {
             }],
         });
 
+        let material_uniform_size = size_of::<MaterialUniforms>() as wgpu::BufferAddress; // base_color: vec4<f32>
+        let material_uniform_alignment = {
+            let alignment =
+                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+            //let alignment = 64;
+            align_to(material_uniform_size, alignment)
+        };
+
+        let material_uniform_buffer = create_local_uniform_buffer(device, MIN_LOCAL_BUFFER_NUM);
+        let material_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Lines Material Bind Group"),
+            layout: &material_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &material_uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(size_of::<MaterialUniforms>() as _),
+                }),
+            }],
+        });
+
         let render_items = Vec::new();
 
         return LinesRenderer {
@@ -310,6 +403,10 @@ impl LinesRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
+            material_bind_group_layout,
+            material_bind_group,
+            material_uniform_buffer,
+            material_uniform_alignment,
             render_items,
         };
     }

@@ -6,7 +6,6 @@ pub mod lines;
 pub mod lines_renderer;
 pub mod ltc;
 pub mod material;
-pub mod materials;
 pub mod matrix;
 pub mod mesh;
 pub mod render_gizmo_item;

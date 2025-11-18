@@ -7,11 +7,7 @@ struct GlobalUniforms {
 
 struct LocalUniforms {
     local_to_world: mat4x4<f32>,
-    world_to_local: mat4x4<f32>, // inverse of world to camera
-    _pad1: vec4<f32>,
-    _pad2: vec4<f32>,
-    _pad3: vec4<f32>,
-    _pad4: vec4<f32>,
+    world_to_local: mat4x4<f32>, // inverse of world to cameraå
 }
 
 // global uniforms
@@ -24,14 +20,14 @@ var<uniform> global_uniforms: GlobalUniforms;
 @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
 
-struct AreaLightDiffuseMaterialUniforms {
+struct MaterialUniforms {
     l: vec4<f32>,
     scale: vec4<f32>,
 }
 
 @group(2)
 @binding(0)
-var<uniform> material_uniforms: AreaLightDiffuseMaterialUniforms;
+var<uniform> material_uniforms: MaterialUniforms;
 //-------------------------------------------------------
 const MAX_FLOAT: f32 = 1e+10;
 const PI: f32 = 3.14159265359;

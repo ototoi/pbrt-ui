@@ -43,10 +43,6 @@ struct GlobalUniforms {
 struct LocalUniforms {
     local_to_world: [[f32; 4]; 4], // 4 * 4 * 4 = 64
     world_to_local: [[f32; 4]; 4], // 4 * 4 * 4 = 64
-    _pad1: [f32; 4],
-    _pad2: [f32; 4],
-    _pad3: [f32; 4],
-    _pad4: [f32; 4],
 }
 
 #[repr(C)]
@@ -319,7 +315,7 @@ impl LightingMeshRenderer {
         for pipeline_entry in pipelines.iter() {
             let pipeline_entry = pipeline_entry.read().unwrap();
             debug_assert!(!pipeline_entry.mesh_indices.is_empty());
-            
+
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
             if pipeline_entry.has_lighting {

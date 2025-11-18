@@ -5,6 +5,9 @@ struct GlobalUniforms {
 
 struct LocalUniforms {
     local_to_world: mat4x4<f32>,
+}
+
+struct MaterialUniforms {
     base_color: vec4<f32>,
 }
 
@@ -17,6 +20,10 @@ var<uniform> global_uniforms: GlobalUniforms;
 @group(1)
 @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
+
+@group(2)
+@binding(0)
+var<uniform> material_uniforms: MaterialUniforms;
 
 struct VertexOut {
     @location(0) color: vec4<f32>,
@@ -31,7 +38,7 @@ fn vs_main(
     let transform = global_uniforms.camera_to_clip * global_uniforms.world_to_camera * local_uniforms.local_to_world;
 
     out.position = transform * vec4<f32>(position, 1.0);
-    out.color = local_uniforms.base_color;
+    out.color = material_uniforms.base_color;
 
     return out;
 }
