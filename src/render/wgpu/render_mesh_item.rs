@@ -85,103 +85,6 @@ fn get_base_diffuse_key(material: &Material) -> Option<String> {
     return None;
 }
 
-/*
-fn get_base_color_value(
-    material: &Material,
-    key: &str,
-    resource_manager: &ResourceManager,
-) -> Option<RenderUniformValue> {
-    let props = material.as_property_map();
-    if let Some(color) = get_color(props, key, resource_manager) {
-        return Some(RenderUniformValue::Vec4(color));
-    }
-    return None;
-}
-
-fn create_render_basic_material(
-    material: &Material,
-    resource_manager: &ResourceManager,
-) -> RenderMaterial {
-    let mut uniform_values_map = HashMap::new();
-    uniform_values_map.insert(
-        "base_color".to_string(),
-        RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
-    );
-    if let Some(base_color_key) = get_base_color_key(material) {
-        if let Some(value) = get_base_color_value(material, &base_color_key, resource_manager) {
-            uniform_values_map.insert("base_color".to_string(), value.clone());
-        }
-    }
-    {
-        let keys = ["Kd", "Ks", "Kt", "Kr"];
-        for key in keys {
-            if let Some(value) = get_base_color_value(material, key, resource_manager) {
-                uniform_values_map.insert(key.to_string(), value.clone());
-            }
-        }
-    }
-    {
-        let uniform_values: Vec<(String, RenderUniformValue)> = uniform_values_map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        let edition = material.get_edition();
-        let id = material.get_id();
-        let material_type = material.get_type();
-        let shader_type = get_shader_type(&material_type, &uniform_values);
-        let render_material = RenderMaterial {
-            id,
-            edition,
-            material_type,
-            shader_type,
-            render_category: RenderCategory::Opaque,
-            uniform_values,
-        };
-        return render_material;
-    }
-}
-
-fn create_render_surface_material(
-    material: &Material,
-    resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
-    keys: &[&str],
-) -> RenderMaterial {
-    let mut uniform_values = Vec::new();
-    let props = material.as_property_map();
-    for key in keys {
-        if let Some(color) = get_color(props, key, resource_manager) {
-            uniform_values.push((key.to_string(), RenderUniformValue::Vec4(color)));
-        } else if let Some(texture) =
-            get_texture(props, key, resource_manager, render_resource_manager)
-        {
-            uniform_values.push((
-                key.to_string(),
-                RenderUniformValue::Texture(texture.clone()),
-            ));
-        } else {
-            //should set default value
-            uniform_values.push((
-                key.to_string(),
-                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
-            ));
-        }
-    }
-    let edition = material.get_edition();
-    let id = material.get_id();
-    let material_type = material.get_type();
-    let shader_type = get_shader_type(&material_type, &uniform_values);
-    let render_material = RenderMaterial {
-        id,
-        edition,
-        material_type,
-        shader_type,
-        render_category: RenderCategory::Opaque,
-        uniform_values,
-    };
-    return render_material;
-}
-
 fn roughness_to_alpha(roughness: f32) -> f32 {
     let roughness = f32::max(roughness, 1e-3);
     let x = f32::ln(roughness);
@@ -191,40 +94,6 @@ fn roughness_to_alpha(roughness: f32) -> f32 {
         + 0.0171201 * x * x * x
         + 0.000640711 * x * x * x * x;
 }
-
-fn create_render_material_from_material(
-    material: &Material,
-    resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
-) -> RenderMaterial {
-    todo!();
-    let material_type = material.get_type();
-    match material_type.as_str() {
-        "matte" => {
-            let sigma = get_float(material.as_property_map(), "sigma").unwrap_or(0.0);
-            let mut render_material = create_render_surface_material(
-                material,
-                resource_manager,
-                render_resource_manager,
-                &["Kd"],
-            ); //sigma, bumpmap
-
-            let diffuse_model = if sigma == 0.0 {
-                "lambert".to_string()
-            } else {
-                "orennayar".to_string()
-            };
-            let shader_type =
-                format!("matte_{}_none", diffuse_model);
-            render_material.shader_type = shader_type;
-            return render_material;
-        }
-        _ => {
-            return create_render_basic_material(material, resource_manager);
-        }
-    }
-}
-*/
 
 fn create_basic_render_passes(
     material: &Material,
@@ -261,7 +130,105 @@ fn create_matte_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<RenderPass> {
-    let passes = create_basic_render_passes(material, resource_manager, render_resource_manager);
+    let diffuse_color =
+        get_color(&material.props, "Kd", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+    let uniform_values = vec![("kd".to_string(), RenderUniformValue::Vec4(diffuse_color))];
+    let shader_type = format!("lambertian_none_kd@V");
+    let render_pass = create_render_pass(
+        &shader_type,
+        RenderCategory::Opaque,
+        &uniform_values,
+        render_resource_manager,
+    );
+    return vec![render_pass];
+}
+
+fn create_plastic_render_passes(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<RenderPass> {
+    let diffuse_color =
+        get_color(&material.props, "Kd", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let specular_color =
+        get_color(&material.props, "Ks", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let mut roughness = get_float(&material.props, "roughness").unwrap_or(0.1);
+    let remaproughness = get_bool(&material.props, "remaproughness").unwrap_or(true);
+    if remaproughness {
+        roughness = roughness_to_alpha(roughness);
+    }
+
+    let uniform_values = vec![
+        ("kd".to_string(), RenderUniformValue::Vec4(diffuse_color)),
+        ("ks".to_string(), RenderUniformValue::Vec4(specular_color)),
+        (
+            "roughness".to_string(),
+            RenderUniformValue::Float(roughness),
+        ),
+    ];
+    let shader_type = format!("lambertian_ggx_kd@V_ks@V_roughness@F");
+    let render_pass = create_render_pass(
+        &shader_type,
+        RenderCategory::Opaque,
+        &uniform_values,
+        render_resource_manager,
+    );
+    return vec![render_pass];
+}
+
+fn create_uber_render_passes(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<RenderPass> {
+    return create_plastic_render_passes(material, resource_manager, render_resource_manager);
+}
+
+fn create_glass_render_passes(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<RenderPass> {
+    let diffuse_color =
+        get_color(&material.props, "Kt", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let specular_color =
+        get_color(&material.props, "Kr", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let mut roughness = get_float(&material.props, "uroughness").unwrap_or(0.1); //use uroughness
+    let remaproughness = get_bool(&material.props, "remaproughness").unwrap_or(true);
+    if remaproughness {
+        roughness = roughness_to_alpha(roughness);
+    }
+
+    let mut passes = vec![];
+    {
+        let uniform_values = vec![("kt".to_string(), RenderUniformValue::Vec4(diffuse_color))];
+        let shader_type = format!("transmission_none_kt@V");
+        let render_pass = create_render_pass(
+            &shader_type,
+            RenderCategory::Transparent,
+            &uniform_values,
+            render_resource_manager,
+        );
+        passes.push(render_pass);
+    }
+    {
+        let uniform_values = vec![
+            ("kr".to_string(), RenderUniformValue::Vec4(specular_color)),
+            (
+                "roughness".to_string(),
+                RenderUniformValue::Float(roughness),
+            ),
+        ];
+        let shader_type = format!("none_ggx_kr@V_roughness@F");
+        let render_pass = create_render_pass(
+            &shader_type,
+            RenderCategory::TransparentSpecular,
+            &uniform_values,
+            render_resource_manager,
+        );
+        passes.push(render_pass);
+    }
     return passes;
 }
 
@@ -278,6 +245,21 @@ fn create_render_material_from_material(
         "matte" => {
             let new_passes =
                 create_matte_render_passes(material, resource_manager, render_resource_manager);
+            passes.extend(new_passes);
+        }
+        "plastic" => {
+            let new_passes =
+                create_plastic_render_passes(material, resource_manager, render_resource_manager);
+            passes.extend(new_passes);
+        }
+        "uber" => {
+            let new_passes =
+                create_uber_render_passes(material, resource_manager, render_resource_manager);
+            passes.extend(new_passes);
+        }
+        "glass" => {
+            let new_passes =
+                create_glass_render_passes(material, resource_manager, render_resource_manager);
             passes.extend(new_passes);
         }
         _ => {
