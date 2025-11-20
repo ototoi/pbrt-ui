@@ -179,7 +179,7 @@ pub fn get_texture(
                         if let Some(render_texture) =
                             render_resource_manager.get_texture(texture_id)
                         {
-                            //println!("Get Render Texture from Cache: key={}, name={}", key, name);
+                            // println!("Get Render Texture from Cache: key={}, name={}", key, name);
                             //if render_texture.edition == texture_edition {
                             return Some(render_texture.clone());
                             //}
@@ -305,7 +305,7 @@ pub fn create_render_pass(
     render_category: RenderCategory,
     uniform_values: &[(String, RenderUniformValue)],
     _render_resource_manager: &mut RenderResourceManager,
-) -> RenderPass {
+) -> Arc<RenderPass> {
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
     /*
     println!(
@@ -323,10 +323,10 @@ pub fn create_render_pass(
         id: Uuid::new_v4(),
         shader_type: shader_type.to_string(),
         render_category,
-        uniform_values: uniform_values_bytes,
+        uniform_values: Arc::new(uniform_values_bytes),
         textures,
     };
-    return render_pass;
+    return Arc::new(render_pass);
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {

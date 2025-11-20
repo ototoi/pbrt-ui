@@ -85,12 +85,7 @@ var<uniform> local_uniforms: LocalUniforms;
 
 // material uniforms
 struct MaterialUniforms {
-    kd: vec4<f32>,// texture uv
-    ks: vec4<f32>,
-    roughness: f32,
-    _pad1: f32,
-    _pad2: f32,
-    _pad3: f32,
+    kd: vec4<f32>,
 }
 
 @group(2)
@@ -105,12 +100,12 @@ var kd_texture: texture_2d<f32>;
 @binding(2)
 var kd_sampler: sampler;
 
-
 fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
     let kd_uv = material_uniforms.kd.xy * uv + material_uniforms.kd.zw;
     let diff = textureSample(kd_texture, kd_sampler, kd_uv).rgb;
     return diff;
 }
+
 
 fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
     return r * INV_PI;
@@ -533,7 +528,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let N = normal;
     let NdotV = saturate(dot(N, V));
 
-    let roughness = max(material_uniforms.roughness, 0.08); // cannot < 0.08
+    let roughness = max(0.1, 0.5); // cannot < 0.08
     var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
     ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
 
@@ -549,8 +544,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let kd_uv = material_uniforms.kd.xy * in.uv + material_uniforms.kd.zw;
     let diff = textureSample(kd_texture, kd_sampler, kd_uv).rgb;
     let m_diff = diff;
-    let spec = material_uniforms.ks.rgb;
-    let m_spec = spec;
 
     var color = vec3<f32>(0.0);
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
@@ -574,7 +567,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             let distance = length(light_to_surface);
             let attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
             var wi = tbn * -normalize(light_to_surface);
-            color += shade(intensity, wo, wi, in.uv);
+            color += shade(intensity * attenuation, wo, wi, in.uv);
         } else {
             let light_to_surface = in.w_position - position;
             let distance = length(light_to_surface);
@@ -620,10 +613,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
             let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
             let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
-            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+            //let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
 
             var attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
-            color += intensity * attenuation * (m_diff * diffuse + m_spec * specular);
+            color += intensity * attenuation * (m_diff * diffuse);
         } else {
             var closest_point = position;
             let light_to_surface = in.w_position - closest_point;
@@ -668,10 +661,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
         let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
         let diffuse = LTC_Evaluate_Polygon(N, V, P, IDENTITY_MAT3, lightPoints);
-        let specular = LTC_Evaluate_Polygon(N, V, P, Minv, lightPoints);
+        //let specular = LTC_Evaluate_Polygon(N, V, P, Minv, lightPoints);
         
         let attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
-        color += intensity * attenuation * (m_diff * diffuse + m_spec * specular);
+        color += intensity * attenuation * (m_diff * diffuse);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 
@@ -692,6 +685,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let wi = tbn * r;
         color += shade(intensity * val, wo, wi, in.uv);
     }
-
+    
     return vec4<f32>(color, 1.0);
 }
