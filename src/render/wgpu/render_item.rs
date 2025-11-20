@@ -25,7 +25,6 @@ use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
-use crate::render;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
 //use crate::render::wgpu::texture;
@@ -34,8 +33,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::vec;
 
-use eframe::glow::Texture;
-use eframe::wgpu::wgc::device::resource;
 use uuid::Uuid;
 //use bytemuck::{Pod, Zeroable};
 
@@ -103,6 +100,17 @@ pub fn get_float(props: &PropertyMap, key: &str) -> Option<f32> {
         if let Property::Floats(v) = value {
             if v.len() >= 1 {
                 return Some(v[0]);
+            }
+        }
+    }
+    return None;
+}
+
+pub fn get_string(props: &PropertyMap, key: &str) -> Option<String> {
+    if let Some((_key_type, _key_name, value)) = props.entry(key) {
+        if let Property::Strings(v) = value {
+            if v.len() >= 1 {
+                return Some(v[0].clone());
             }
         }
     }
@@ -281,8 +289,8 @@ fn create_uniform_value_bytes(
                 bytes.extend_from_slice(bytemuck::bytes_of(v));
                 type_variables.push(("mat4x4<f32>".to_string(), name.clone())); //
             }
-            RenderUniformValue::Texture(_v) => {
-                let scale_offset: [f32; 4] = [1.0, 1.0, 0.0, 0.0];
+            RenderUniformValue::Texture(v) => {
+                let scale_offset: [f32; 4] = [v.scale[0], v.scale[1], v.delta[0], v.delta[1]];
                 bytes.extend_from_slice(bytemuck::bytes_of(&scale_offset));
                 type_variables.push(("vec4<f32>".to_string(), format!("{}_uv_factor", name))); //
             }
@@ -381,6 +389,8 @@ fn get_texture_from_image(
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
+    // y-flip
+    let image = image::imageops::flip_vertical(image);
     let image_raw = image.as_raw();
     queue.write_texture(
         texture.as_image_copy(),
@@ -393,6 +403,15 @@ fn get_texture_from_image(
         size,
     );
     return texture;
+}
+
+fn convert_address_mode(wrap: &str) -> wgpu::AddressMode {
+    match wrap {
+        "repeat" => wgpu::AddressMode::Repeat,
+        "black" => wgpu::AddressMode::ClampToBorder,
+        "clamp" => wgpu::AddressMode::ClampToEdge,
+        _ => wgpu::AddressMode::Repeat,
+    }
 }
 
 fn create_render_textures(
@@ -413,6 +432,16 @@ fn create_render_textures(
                 continue;
             }
         }
+        let wrap = get_string(texture.as_property_map(), "wrap").unwrap_or("repeat".to_string());
+        let swrap = get_string(texture.as_property_map(), "swrap").unwrap_or(wrap.clone());
+        let twrap = get_string(texture.as_property_map(), "twrap").unwrap_or(wrap.clone());
+        let address_mode_u = convert_address_mode(&swrap);
+        let address_mode_v = convert_address_mode(&twrap);
+        let uscale = get_float(texture.as_property_map(), "uscale").unwrap_or(1.0);
+        let vscale = get_float(texture.as_property_map(), "vscale").unwrap_or(1.0);
+        let udelta = get_float(texture.as_property_map(), "udelta").unwrap_or(0.0);
+        let vdelta = get_float(texture.as_property_map(), "vdelta").unwrap_or(0.0);
+
         if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
             let texture_node = texture_node.read().unwrap();
             if let Some(image) = texture_node.image_variants.get(&purpose) {
@@ -422,8 +451,8 @@ fn create_render_textures(
                 let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     label: Some("Render Texture Sampler"),
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_u: address_mode_u,
+                    address_mode_v: address_mode_v,
                     min_filter: wgpu::FilterMode::Linear,
                     mag_filter: wgpu::FilterMode::Linear,
                     ..Default::default()
@@ -435,6 +464,8 @@ fn create_render_textures(
                     texture,
                     view,
                     sampler,
+                    scale: [uscale, vscale],
+                    delta: [udelta, vdelta],
                 };
                 let render_texture = Arc::new(render_texture);
                 render_resource_manager.add_texture(&render_texture);

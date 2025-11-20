@@ -742,6 +742,8 @@ fn get_render_texture(
                     texture,
                     view,
                     sampler,
+                    scale: [1.0, 1.0],
+                    delta: [0.0, 0.0],
                 };
                 let render_texture = Arc::new(render_texture);
                 render_resource_manager.add_texture(&render_texture);

@@ -88,6 +88,8 @@ pub fn create_ltc_texture(
         texture,
         view,
         sampler,
+        scale: [1.0, 1.0],
+        delta: [0.0, 0.0],
     };
     return render_texture;
 }

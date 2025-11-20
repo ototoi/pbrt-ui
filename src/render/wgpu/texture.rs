@@ -8,6 +8,8 @@ pub struct RenderTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub scale: [f32; 2],
+    pub delta: [f32; 2],
 }
 
 impl RenderTexture {

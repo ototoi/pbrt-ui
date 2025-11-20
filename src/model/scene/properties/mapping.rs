@@ -3,14 +3,14 @@ use std::cell::LazyCell;
 use std::collections::HashMap;
 
 const PARAMETERS: [(&str, &str, &str, &str, &str); 8] = [
-    ("uv", "float", "uscale", "1.0", "0.0 100.0"),
-    ("uv", "float", "vscale", "1.0", "0.0 100.0"),
-    ("uv", "float", "udelta", "0.0", "0.0 100.0"),
-    ("uv", "float", "vdelta", "0.0", "0.0 100.0"),
+    ("uv", "float", "uscale", "1.0", "-2.0 2.0"),
+    ("uv", "float", "vscale", "1.0", "-2.0 2.0"),
+    ("uv", "float", "udelta", "0.0", "-1.0 1.0"),
+    ("uv", "float", "vdelta", "0.0", "-1.0 1.0"),
     ("planar", "vector", "v1", "1.0 0.0 0.0", ""),
     ("planar", "vector", "v2", "0.0 0.0 0.0", ""),
-    ("planar", "float", "udelta", "0.0", "0.0 100.0"),
-    ("planar", "float", "vdelta", "0.0", "0.0 100.0"),
+    ("planar", "float", "udelta", "0.0", "-1.0 1.0"),
+    ("planar", "float", "vdelta", "0.0", "-1.0 1.0"),
 ];
 
 #[derive(Debug, Clone)]
