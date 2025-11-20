@@ -29,7 +29,8 @@ pub struct RenderPass {
     pub id: Uuid,
     pub shader_type: String,
     pub render_category: RenderCategory, //
-    pub uniform_values: Vec<u8>,         //
+    pub uniform_values: Arc<Vec<u8>>,    //
+    pub textures: Vec<Arc<RenderTexture>>,
 }
 
 impl RenderPass {
@@ -47,7 +48,7 @@ pub struct RenderMaterial {
     pub id: Uuid,
     pub edition: String,
     pub material_type: String,
-    pub passes: Vec<RenderPass>,
+    pub passes: Vec<Arc<RenderPass>>,
 }
 
 impl RenderMaterial {

@@ -14,6 +14,9 @@ use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use super::texture::RenderTexture;
 use crate::conversion::spectrum::Spectrum;
+use crate::conversion::texture_node::DynaImage;
+use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::create_image_variants;
 use crate::conversion::texture_node::create_texture_nodes;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
@@ -22,13 +25,17 @@ use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
+use crate::render;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
 //use crate::render::wgpu::texture;
 
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::vec;
 
+use eframe::glow::Texture;
+use eframe::wgpu::wgc::device::resource;
 use uuid::Uuid;
 //use bytemuck::{Pod, Zeroable};
 
@@ -165,14 +172,17 @@ pub fn get_texture(
             if let Property::Strings(v) = value {
                 if v.len() >= 1 {
                     let name = v[0].clone();
-                    if let Some(texture) = resource_manager.find_texture_by_filename(&name) {
+                    if let Some(texture) = resource_manager.find_texture_by_name(&name) {
                         let texture = texture.read().unwrap();
                         let texture_id = texture.get_id();
-                        let texture_edition = texture.get_edition();
-                        if let Some(texture) = render_resource_manager.get_texture(texture_id) {
-                            if texture.edition == texture_edition {
-                                return Some(texture.clone());
-                            }
+                        //let texture_edition = texture.get_edition();
+                        if let Some(render_texture) =
+                            render_resource_manager.get_texture(texture_id)
+                        {
+                            // println!("Get Render Texture from Cache: key={}, name={}", key, name);
+                            //if render_texture.edition == texture_edition {
+                            return Some(render_texture.clone());
+                            //}
                         }
                     }
                 }
@@ -284,7 +294,7 @@ fn create_uniform_value_bytes(
             type_variables.push(("f32".to_string(), format!("_pad{}", padding_count))); //
             padding_count += 1;
         }
-        remain = 0;
+        //remain = 0;
     }
 
     return (type_variables, bytes);
@@ -295,19 +305,28 @@ pub fn create_render_pass(
     render_category: RenderCategory,
     uniform_values: &[(String, RenderUniformValue)],
     _render_resource_manager: &mut RenderResourceManager,
-) -> RenderPass {
+) -> Arc<RenderPass> {
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
+    /*
     println!(
         "Create Render Pass: shader_type={}, uniform_values={:?}",
         shader_type, _uniform_values_types
     );
+    */
+    let mut textures = vec![];
+    for (_name, value) in uniform_values.iter() {
+        if let RenderUniformValue::Texture(texture) = value {
+            textures.push(texture.clone());
+        }
+    }
     let render_pass = RenderPass {
         id: Uuid::new_v4(),
         shader_type: shader_type.to_string(),
         render_category,
-        uniform_values: uniform_values_bytes,
+        uniform_values: Arc::new(uniform_values_bytes),
+        textures,
     };
-    return render_pass;
+    return Arc::new(render_pass);
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {
@@ -337,6 +356,93 @@ fn get_resource_cache_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceCa
     return component.get_resource_cache_manager();
 }
 
+fn get_image_data(image: &DynaImage) -> image::Rgba32FImage {
+    return image.to_rgba32f();
+}
+
+fn get_texture_from_image(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    image: &image::Rgba32FImage,
+) -> wgpu::Texture {
+    let dimensions = image.dimensions();
+    let size = wgpu::Extent3d {
+        width: dimensions.0,
+        height: dimensions.1,
+        depth_or_array_layers: 1,
+    };
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Render Texture"),
+        size: size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba32Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    let image_raw = image.as_raw();
+    queue.write_texture(
+        texture.as_image_copy(),
+        bytemuck::cast_slice(image_raw),
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * 4 * dimensions.0),
+            rows_per_image: None,
+        },
+        size,
+    );
+    return texture;
+}
+
+fn create_render_textures(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    resource_manager: &ResourceManager,
+    resource_cache_manager: &ResourceCacheManager,
+    render_resource_manager: &mut RenderResourceManager,
+    purpose: TexturePurpose,
+) {
+    for (_id, texture) in resource_manager.textures.iter() {
+        let texture = texture.read().unwrap();
+        let texture_id = texture.get_id();
+        let texture_edition = texture.get_edition();
+        if let Some(render_texture) = render_resource_manager.get_texture(texture_id) {
+            if texture_edition == render_texture.edition {
+                //println!("Skip Create Render Texture from Cache: id={}", id);
+                continue;
+            }
+        }
+        if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
+            let texture_node = texture_node.read().unwrap();
+            if let Some(image) = texture_node.image_variants.get(&purpose) {
+                let image = image.read().unwrap();
+                let image_data = get_image_data(&image);
+                let texture = get_texture_from_image(device, queue, &image_data);
+                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("Render Texture Sampler"),
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
+
+                let render_texture = RenderTexture {
+                    id: texture_id,
+                    edition: texture_edition.clone(),
+                    texture,
+                    view,
+                    sampler,
+                };
+                let render_texture = Arc::new(render_texture);
+                render_resource_manager.add_texture(&render_texture);
+            }
+        }
+    }
+}
+
 pub fn get_render_items(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -352,10 +458,22 @@ pub fn get_render_items(
     let render_resource_manager = get_render_resource_manager(node);
     let mut render_resource_manager = render_resource_manager.write().unwrap();
 
-    //
-    create_texture_nodes(&resource_manager, &mut resource_cache_manager);
-    //register_ltc_textures(device, queue, &mut render_resource_manager);
-    //
+    if mode == RenderMode::Lighting {
+        create_texture_nodes(&resource_manager, &mut resource_cache_manager);
+        create_image_variants(
+            &resource_manager,
+            &mut resource_cache_manager,
+            TexturePurpose::Render,
+        );
+        create_render_textures(
+            device,
+            queue,
+            &resource_manager,
+            &resource_cache_manager,
+            &mut render_resource_manager,
+            TexturePurpose::Render,
+        );
+    }
 
     for item in scene_items.iter() {
         match item.category {

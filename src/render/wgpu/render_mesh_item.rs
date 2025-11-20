@@ -26,8 +26,6 @@ use crate::render::scene_item::*;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use bytemuck::{Pod, Zeroable};
-
 use eframe::wgpu;
 
 pub fn get_mesh(
@@ -99,7 +97,7 @@ fn create_basic_render_passes(
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderPass> {
+) -> Vec<Arc<RenderPass>> {
     let diffuse_color = if let Some(key) = get_base_diffuse_key(material) {
         get_color(&material.props, &key, resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0])
     } else {
@@ -129,12 +127,33 @@ fn create_matte_render_passes(
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderPass> {
-    let diffuse_color =
-        get_color(&material.props, "Kd", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-
-    let uniform_values = vec![("kd".to_string(), RenderUniformValue::Vec4(diffuse_color))];
-    let shader_type = format!("lambertian_none_kd@V");
+) -> Vec<Arc<RenderPass>> {
+    let keys = ["Kd"];
+    let mut uniform_values = vec![];
+    for key in keys {
+        if let Some(color) = get_color(&material.props, key, resource_manager) {
+            uniform_values.push((key.to_lowercase(), RenderUniformValue::Vec4(color)));
+        } else if let Some(texture) = get_texture(
+            &material.props,
+            key,
+            resource_manager,
+            render_resource_manager,
+        ) {
+            let texture = render_resource_manager
+                .get_texture(texture.get_id())
+                .unwrap();
+            uniform_values.push((
+                key.to_lowercase(),
+                RenderUniformValue::Texture(texture.clone()),
+            ));
+        } else {
+            uniform_values.push((
+                key.to_lowercase(),
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
+            ));
+        }
+    }
+    let shader_type = get_shader_type("lambertian_none", &uniform_values);
     let render_pass = create_render_pass(
         &shader_type,
         RenderCategory::Opaque,
@@ -148,26 +167,44 @@ fn create_plastic_render_passes(
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderPass> {
-    let diffuse_color =
-        get_color(&material.props, "Kd", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-    let specular_color =
-        get_color(&material.props, "Ks", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+) -> Vec<Arc<RenderPass>> {
+    let keys = ["Kd", "Ks"];
+    let mut uniform_values = vec![];
+    for key in keys {
+        if let Some(color) = get_color(&material.props, key, resource_manager) {
+            uniform_values.push((key.to_lowercase(), RenderUniformValue::Vec4(color)));
+        } else if let Some(texture) = get_texture(
+            &material.props,
+            key,
+            resource_manager,
+            render_resource_manager,
+        ) {
+            let texture = render_resource_manager
+                .get_texture(texture.get_id())
+                .unwrap();
+            uniform_values.push((
+                key.to_lowercase(),
+                RenderUniformValue::Texture(texture.clone()),
+            ));
+        } else {
+            uniform_values.push((
+                key.to_lowercase(),
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
+            ));
+        }
+    }
     let mut roughness = get_float(&material.props, "roughness").unwrap_or(0.1);
     let remaproughness = get_bool(&material.props, "remaproughness").unwrap_or(true);
     if remaproughness {
         roughness = roughness_to_alpha(roughness);
     }
+    uniform_values.push((
+        "roughness".to_string(),
+        RenderUniformValue::Float(roughness),
+    ));
 
-    let uniform_values = vec![
-        ("kd".to_string(), RenderUniformValue::Vec4(diffuse_color)),
-        ("ks".to_string(), RenderUniformValue::Vec4(specular_color)),
-        (
-            "roughness".to_string(),
-            RenderUniformValue::Float(roughness),
-        ),
-    ];
-    let shader_type = format!("lambertian_ggx_kd@V_ks@V_roughness@F");
+    let shader_type = get_shader_type("lambertian_ggx", &uniform_values);
+    //println!("{}: Plastic Shader Type: {}", material.get_name(),shader_type);
     let render_pass = create_render_pass(
         &shader_type,
         RenderCategory::Opaque,
@@ -181,7 +218,15 @@ fn create_uber_render_passes(
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderPass> {
+) -> Vec<Arc<RenderPass>> {
+    return create_plastic_render_passes(material, resource_manager, render_resource_manager);
+}
+
+fn create_substrate_render_passes(
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<Arc<RenderPass>> {
     return create_plastic_render_passes(material, resource_manager, render_resource_manager);
 }
 
@@ -189,7 +234,7 @@ fn create_glass_render_passes(
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
-) -> Vec<RenderPass> {
+) -> Vec<Arc<RenderPass>> {
     let diffuse_color =
         get_color(&material.props, "Kt", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
     let specular_color =
@@ -257,6 +302,12 @@ fn create_render_material_from_material(
                 create_uber_render_passes(material, resource_manager, render_resource_manager);
             passes.extend(new_passes);
         }
+        "substrate" => {
+            let new_passes =
+                create_substrate_render_passes(material, resource_manager, render_resource_manager);
+            passes.extend(new_passes);
+        }
+
         "glass" => {
             let new_passes =
                 create_glass_render_passes(material, resource_manager, render_resource_manager);
