@@ -131,8 +131,10 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
 #[derive(Debug, Clone)]
 struct MaterialBindGroupEntry {
     pub id: Uuid,
-    pub binding_group: wgpu::BindGroup,
+    pub bind_group: wgpu::BindGroup,
+    #[allow(dead_code)]
     pub uniform_buffer: wgpu::Buffer,
+    #[allow(dead_code)]
     pub textures: Vec<Arc<RenderTexture>>,
 }
 
@@ -144,7 +146,7 @@ struct PipelineEntry {
     pub mesh_indices: Vec<usize>,
     pub material_indices: Vec<usize>,
     pub sort_order: u32,
-    pub has_lighting: bool,
+    pub enable_lighting: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -309,7 +311,7 @@ impl LightingMeshRenderer {
 
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-            if pipeline_entry.has_lighting {
+            if pipeline_entry.enable_lighting {
                 render_pass.set_bind_group(3, &self.light_bind_group, &[]);
             }
             debug_assert!(
@@ -328,7 +330,7 @@ impl LightingMeshRenderer {
                     //material params
                     render_pass.set_bind_group(
                         2,
-                        &pipeline_entry.material_bind_groups[material_index].binding_group,
+                        &pipeline_entry.material_bind_groups[material_index].bind_group,
                         &[],
                     );
                     render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
@@ -453,12 +455,13 @@ impl LightingMeshRenderer {
             layout: layout,
             entries: &entries,
         });
-
+        let id = render_pass.id;
+        let textures = render_pass.textures.clone();
         return MaterialBindGroupEntry {
-            id: render_pass.id,
-            binding_group: bind_group,
+            id,
+            bind_group,
             uniform_buffer,
-            textures: render_pass.textures.clone(),
+            textures,
         };
     }
 
@@ -541,18 +544,16 @@ impl LightingMeshRenderer {
                 passes.sort_by(|a, b| a.0.cmp(&b.0));
                 for (_, pass) in passes.iter() {
                     let id = pass.id;
-                    if let Some(existing) = prev_bind_groups.get(&id) {
-                        entry.material_bind_groups.push(existing.clone());
+                    if let Some(bind_group_entry) = prev_bind_groups.get(&id) {
+                        entry.material_bind_groups.push(bind_group_entry.clone());
                     } else {
-                        let material_bind_group_entry = Self::create_material_bind_group(
+                        let bind_group_entry = Self::create_material_bind_group(
                             device,
                             queue,
                             &entry.material_bind_group_layout,
                             pass,
                         );
-                        entry
-                            .material_bind_groups
-                            .push(Arc::new(material_bind_group_entry));
+                        entry.material_bind_groups.push(Arc::new(bind_group_entry));
                     }
                 }
             }
@@ -1050,7 +1051,7 @@ impl LightingMeshRenderer {
             mesh_indices: Vec::new(),
             material_indices: Vec::new(),
             sort_order,
-            has_lighting,
+            enable_lighting: has_lighting,
         };
         return entry;
     }
