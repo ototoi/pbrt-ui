@@ -30,6 +30,7 @@ pub struct RenderPass {
     pub shader_type: String,
     pub render_category: RenderCategory, //
     pub uniform_values: Vec<u8>,         //
+    pub textures: Vec<Arc<RenderTexture>>,
 }
 
 impl RenderPass {

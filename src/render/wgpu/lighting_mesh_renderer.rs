@@ -242,6 +242,9 @@ fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
             "lambertian_ggx_kd@V_ks@V_roughness@F" => {
                 include_str!("shaders/surface/lambertian_ggx_kd@V_ks@V_roughness@F.wgsl")
             }
+            "lambertian_ggx_kd@T_ks@V_roughness@F" => {
+                include_str!("shaders/surface/lambertian_ggx_kd@T_ks@V_roughness@F.wgsl")
+            }
             "transmission_none_kt@V" => include_str!("shaders/surface/transmission_none_kt@V.wgsl"),
             "none_ggx_kr@V_roughness@F" => {
                 include_str!("shaders/surface/none_ggx_kr@V_roughness@F.wgsl")
@@ -502,6 +505,7 @@ impl LightingMeshRenderer {
                         render_category,
                         uniform_size,
                         num_materials,
+                        &vec![],
                     );
                     let pipeline = Arc::new(RwLock::new(pipeline));
                     self.pipelines.insert(shader_id, pipeline);
@@ -863,6 +867,7 @@ impl LightingMeshRenderer {
         render_category: RenderCategory,
         material_uniform_size: usize,
         num_materials: usize,
+        textures: &[Vec<Arc<RenderTexture>>],
     ) -> PipelineEntry {
         let has_lighting = get_shader_has_lighting(render_category);
         let sort_order = render_category as u32;
@@ -894,19 +899,34 @@ impl LightingMeshRenderer {
             ],
         }];
 
+        let mut material_bind_group_entries = vec![wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: true,
+                min_binding_size: wgpu::BufferSize::new(material_uniform_size as _),
+            },
+            count: None,
+        }];
+        let texture_size = textures.len();
+        for i in 0..texture_size {
+            material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: 1 + i as u32,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            });
+        }
+
         let material_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Material Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(material_uniform_size as _),
-                    },
-                    count: None,
-                }],
+                entries: &material_bind_group_entries,
             });
 
         let mut bind_group_layouts = vec![
