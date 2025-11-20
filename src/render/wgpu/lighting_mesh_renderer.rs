@@ -130,6 +130,7 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
 
 #[derive(Debug, Clone)]
 struct MaterialBindGroupEntry {
+    pub id: Uuid,
     pub binding_group: wgpu::BindGroup,
     pub uniform_buffer: wgpu::Buffer,
     pub textures: Vec<Arc<RenderTexture>>,
@@ -419,7 +420,7 @@ impl LightingMeshRenderer {
         _queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         render_pass: &RenderPass,
-    ) -> (wgpu::BindGroup, wgpu::Buffer, Vec<Arc<RenderTexture>>) {
+    ) -> MaterialBindGroupEntry {
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Material Uniform Buffer"),
             contents: &render_pass.uniform_values,
@@ -435,26 +436,17 @@ impl LightingMeshRenderer {
             }),
         }];
 
+        let material_binding_offset = 1;
         for (i, texture) in render_pass.textures.iter().enumerate() {
             entries.push(wgpu::BindGroupEntry {
-                binding: (i + 1) as u32,
+                binding: (material_binding_offset + 2 * i + 0) as u32,
                 resource: wgpu::BindingResource::TextureView(&texture.view),
             });
             entries.push(wgpu::BindGroupEntry {
-                binding: (i + 1 + render_pass.textures.len()) as u32,
+                binding: (material_binding_offset + 2 * i + 1) as u32,
                 resource: wgpu::BindingResource::Sampler(&texture.sampler),
             });
         }
-
-        /*
-        let layout = &self
-            .pipelines
-            .get(&get_shader_id_from_type(&render_pass.shader_type))
-            .expect("Pipeline for basic material not found")
-            .read()
-            .unwrap()
-            .material_bind_group_layout;
-        */
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Material Bind Group"),
@@ -462,7 +454,12 @@ impl LightingMeshRenderer {
             entries: &entries,
         });
 
-        return (bind_group, uniform_buffer, render_pass.textures.clone());
+        return MaterialBindGroupEntry {
+            id: render_pass.id,
+            binding_group: bind_group,
+            uniform_buffer,
+            textures: render_pass.textures.clone(),
+        };
     }
 
     pub fn prepare_materials(
@@ -478,10 +475,14 @@ impl LightingMeshRenderer {
             material_indices_map: HashMap<Uuid, (usize, Arc<RenderPass>)>,
         }
         {
+            let mut prev_bind_groups = HashMap::new(); //store existing bind groups to reuse
             for entry in self.pipelines.values_mut() {
                 let mut entry = entry.write().unwrap();
                 entry.mesh_indices.clear();
                 entry.material_indices.clear();
+                for bind_group in entry.material_bind_groups.iter() {
+                    prev_bind_groups.insert(bind_group.id, bind_group.clone());
+                }
                 entry.material_bind_groups.clear();
             }
             let mut tmp_pipelines: HashMap<String, TmpPipelineEntry> = HashMap::new();
@@ -533,26 +534,26 @@ impl LightingMeshRenderer {
                 entry.material_indices = material_indices.clone();
                 assert!(entry.mesh_indices.len() == entry.material_indices.len());
                 //create material bind groups
-                let mut materials = Vec::with_capacity(num_materials);
-                for (_material_id, (material_index, pass)) in tmp_entry.material_indices_map.iter()
-                {
-                    materials.push((material_index, pass));
+                let mut passes = Vec::with_capacity(num_materials);
+                for (_, (index, pass)) in tmp_entry.material_indices_map.iter() {
+                    passes.push((index, pass));
                 }
-                materials.sort_by(|a, b| a.0.cmp(&b.0));
-                for (_material_index, pass) in materials.iter() {
-                    let (binding_group, uniform_buffer, textures) =
-                        Self::create_material_bind_group(
+                passes.sort_by(|a, b| a.0.cmp(&b.0));
+                for (_, pass) in passes.iter() {
+                    let id = pass.id;
+                    if let Some(existing) = prev_bind_groups.get(&id) {
+                        entry.material_bind_groups.push(existing.clone());
+                    } else {
+                        let material_bind_group_entry = Self::create_material_bind_group(
                             device,
                             queue,
                             &entry.material_bind_group_layout,
                             pass,
                         );
-                    let material_entry = MaterialBindGroupEntry {
-                        binding_group,
-                        uniform_buffer,
-                        textures,
-                    };
-                    entry.material_bind_groups.push(Arc::new(material_entry));
+                        entry
+                            .material_bind_groups
+                            .push(Arc::new(material_bind_group_entry));
+                    }
                 }
             }
         }
@@ -936,7 +937,7 @@ impl LightingMeshRenderer {
         let texture_size = pass.textures.len();
         for i in 0..texture_size {
             material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: material_binding_offset + i as u32,
+                binding: material_binding_offset + (2 * i + 0) as u32,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
@@ -946,7 +947,7 @@ impl LightingMeshRenderer {
                 count: None,
             });
             material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: material_binding_offset + (i + 1) as u32,
+                binding: material_binding_offset + (2 * i + 1) as u32,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
@@ -1042,33 +1043,6 @@ impl LightingMeshRenderer {
         });
 
         // Create a uniform buffer for material properties
-        /*
-        let material_uniform_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            align_to(material_uniform_size as wgpu::BufferAddress, alignment)
-        };
-        let required_size = material_uniform_alignment * num_materials as wgpu::BufferAddress;
-        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Item Matrices Buffer"),
-            size: required_size,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: false,
-        });
-        let material_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Lighting Local Bind Group"),
-            layout: &material_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &uniform_buffer,
-                    offset: 0,
-                    size: wgpu::BufferSize::new(material_uniform_size as _),
-                }),
-            }],
-        });
-        */
-
         let entry = PipelineEntry {
             pipeline,
             material_bind_group_layout,
