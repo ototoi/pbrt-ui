@@ -160,6 +160,10 @@ fn get_dependent_image(
 }
 
 fn load_imagemap_texture_image(texture: &Texture, purpose: TexturePurpose) -> Option<DynaImage> {
+    // let scale = get_float(texture.as_property_map(), "scale").unwrap_or(1.0); --- IGNORE ---
+    // if scale != 1.0 { --- IGNORE ---
+    //     println!("Imagemap scale other than 1.0 is not supported yet."); --- IGNORE ---
+    // } --- IGNORE ---
     if let Some(path) = texture.get_fullpath() {
         if let Ok(image) = image::open(path) {
             let image = resize_image_for_purpose(image, purpose);

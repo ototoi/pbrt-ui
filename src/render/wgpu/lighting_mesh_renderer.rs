@@ -1334,6 +1334,8 @@ impl LightingMeshRenderer {
             texture: default_light_texture,
             view: default_light_texture_view,
             sampler: default_light_sampler,
+            scale: [1.0, 1.0],
+            delta: [0.0, 0.0],
         };
         let default_light_texture = Arc::new(default_light_texture);
 
