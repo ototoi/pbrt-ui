@@ -1,3 +1,4 @@
+pub mod copy_shaders;
 pub mod light;
 pub mod lighting_mesh_renderer;
 pub mod lighting_renderer;

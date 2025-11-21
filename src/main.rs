@@ -48,6 +48,17 @@ fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
 fn main() -> eframe::Result {
     //env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
+    // Copy shader files to cache directory
+    match pbrt_ui::render::wgpu::copy_shaders::copy_shaders_to_cache() {
+        Ok(path) => {
+            println!("Shaders copied to cache: {:?}", path);
+        }
+        Err(e) => {
+            eprintln!("Failed to copy shaders to cache: {}", e);
+            // Continue execution even if shader copy fails
+        }
+    }
+
     let window_size = [1920.0, 1080.0];
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size(window_size),
