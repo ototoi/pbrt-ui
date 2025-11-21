@@ -147,7 +147,7 @@ Add a predefined symbol before processing.
 Check if a symbol is currently defined.
 
 ### `preprocessor.process(source)`
-Process WGSL source code and return the preprocessed output.
+Process source code and return the preprocessed output.
 
 ## Testing
 
