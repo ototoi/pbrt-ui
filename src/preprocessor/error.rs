@@ -10,19 +10,19 @@ pub type PreprocessorResult<T> = Result<T, PreprocessorError>;
 pub enum PreprocessorError {
     /// Parse error with line number and description
     ParseError { line: usize, message: String },
-    
+
     /// File not found for include directive
     FileNotFound { path: String, line: usize },
-    
+
     /// Circular dependency detected in includes
     CircularDependency { path: String, chain: Vec<String> },
-    
+
     /// IO error reading file
     IoError { path: String, message: String },
-    
+
     /// Undefined symbol referenced
     UndefinedSymbol { symbol: String, line: usize },
-    
+
     /// Invalid macro usage
     InvalidMacro { message: String, line: usize },
 }

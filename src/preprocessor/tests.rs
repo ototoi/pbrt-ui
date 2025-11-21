@@ -12,7 +12,7 @@ fn test_simple_define() {
 let radius = 10.0;
 let circumference = 2.0 * PI * radius;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("2.0 * 3.14159 * radius"));
 }
@@ -25,7 +25,7 @@ fn test_multiple_defines() {
 #define HEIGHT 600
 let area = WIDTH * HEIGHT;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("800 * 600"));
 }
@@ -37,7 +37,7 @@ fn test_macro_with_params() {
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 let maximum = MAX(x, y);
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("((x) > (y) ? (x) : (y))"));
 }
@@ -49,7 +49,7 @@ fn test_macro_with_multiple_params() {
 #define CLAMP(val, min, max) ((val) < (min) ? (min) : ((val) > (max) ? (max) : (val)))
 let clamped = CLAMP(value, 0.0, 1.0);
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("((value) < (0.0) ? (0.0) : ((value) > (1.0) ? (1.0) : (value)))"));
 }
@@ -58,14 +58,14 @@ let clamped = CLAMP(value, 0.0, 1.0);
 fn test_ifdef_defined() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
-    
+
     let source = r#"
 #ifdef DEBUG
 let debug_mode = true;
 #endif
 let normal_code = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("debug_mode"));
     assert!(result.contains("normal_code"));
@@ -74,14 +74,14 @@ let normal_code = 1;
 #[test]
 fn test_ifdef_not_defined() {
     let mut preprocessor = Preprocessor::new();
-    
+
     let source = r#"
 #ifdef DEBUG
 let debug_mode = true;
 #endif
 let normal_code = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(!result.contains("debug_mode"));
     assert!(result.contains("normal_code"));
@@ -90,14 +90,14 @@ let normal_code = 1;
 #[test]
 fn test_ifndef_not_defined() {
     let mut preprocessor = Preprocessor::new();
-    
+
     let source = r#"
 #ifndef RELEASE
 let debug_mode = true;
 #endif
 let normal_code = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("debug_mode"));
     assert!(result.contains("normal_code"));
@@ -107,14 +107,14 @@ let normal_code = 1;
 fn test_ifndef_defined() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("RELEASE", "1");
-    
+
     let source = r#"
 #ifndef RELEASE
 let debug_mode = true;
 #endif
 let normal_code = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(!result.contains("debug_mode"));
     assert!(result.contains("normal_code"));
@@ -125,7 +125,7 @@ fn test_nested_conditionals() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("FEATURE_A", "1");
     preprocessor.define("FEATURE_B", "1");
-    
+
     let source = r#"
 #ifdef FEATURE_A
 let feature_a = true;
@@ -135,7 +135,7 @@ let feature_b = true;
 #endif
 let normal_code = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("feature_a"));
     assert!(result.contains("feature_b"));
@@ -147,7 +147,7 @@ fn test_nested_conditionals_partial() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("FEATURE_A", "1");
     // FEATURE_B is not defined
-    
+
     let source = r#"
 #ifdef FEATURE_A
 let feature_a = true;
@@ -158,7 +158,7 @@ let after_b = true;
 #endif
 let normal_code = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("feature_a"));
     assert!(!result.contains("feature_b"));
@@ -171,13 +171,13 @@ fn test_include_simple() {
     let temp_dir = TempDir::new().unwrap();
     let include_path = temp_dir.path().join("common.wgsl");
     fs::write(&include_path, "let included_value = 42;").unwrap();
-    
+
     let mut preprocessor = Preprocessor::with_base_path(temp_dir.path());
     let source = r#"
 #include "common.wgsl"
 let main_value = 100;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("included_value"));
     assert!(result.contains("main_value"));
@@ -188,13 +188,13 @@ fn test_include_with_defines() {
     let temp_dir = TempDir::new().unwrap();
     let include_path = temp_dir.path().join("config.wgsl");
     fs::write(&include_path, "#define SIZE 256").unwrap();
-    
+
     let mut preprocessor = Preprocessor::with_base_path(temp_dir.path());
     let source = r#"
 #include "config.wgsl"
 let array_size = SIZE;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("array_size = 256"));
 }
@@ -202,22 +202,22 @@ let array_size = SIZE;
 #[test]
 fn test_circular_dependency() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create file A that includes file B
     let file_a = temp_dir.path().join("a.wgsl");
     fs::write(&file_a, r#"#include "b.wgsl""#).unwrap();
-    
+
     // Create file B that includes file A
     let file_b = temp_dir.path().join("b.wgsl");
     fs::write(&file_b, r#"#include "a.wgsl""#).unwrap();
-    
+
     let mut preprocessor = Preprocessor::with_base_path(temp_dir.path());
     let source = r#"#include "a.wgsl""#;
-    
+
     let result = preprocessor.process(source);
     assert!(result.is_err());
     match result {
-        Err(PreprocessorError::CircularDependency { .. }) => {},
+        Err(PreprocessorError::CircularDependency { .. }) => {}
         _ => panic!("Expected CircularDependency error"),
     }
 }
@@ -227,11 +227,11 @@ fn test_file_not_found() {
     let temp_dir = TempDir::new().unwrap();
     let mut preprocessor = Preprocessor::with_base_path(temp_dir.path());
     let source = r#"#include "nonexistent.wgsl""#;
-    
+
     let result = preprocessor.process(source);
     assert!(result.is_err());
     match result {
-        Err(PreprocessorError::IoError { .. }) => {},
+        Err(PreprocessorError::IoError { .. }) => {}
         _ => panic!("Expected IoError"),
     }
 }
@@ -243,13 +243,13 @@ fn test_unclosed_ifdef() {
 #ifdef DEBUG
 let debug_mode = true;
 "#;
-    
+
     let result = preprocessor.process(source);
     assert!(result.is_err());
     match result {
         Err(PreprocessorError::ParseError { message, .. }) => {
             assert!(message.contains("unclosed"));
-        },
+        }
         _ => panic!("Expected ParseError for unclosed conditional"),
     }
 }
@@ -261,13 +261,13 @@ fn test_unexpected_endif() {
 let value = 1;
 #endif
 "#;
-    
+
     let result = preprocessor.process(source);
     assert!(result.is_err());
     match result {
         Err(PreprocessorError::ParseError { message, .. }) => {
             assert!(message.contains("Unexpected #endif"));
-        },
+        }
         _ => panic!("Expected ParseError for unexpected endif"),
     }
 }
@@ -279,11 +279,11 @@ fn test_macro_wrong_arg_count() {
 #define ADD(a, b) ((a) + (b))
 let result = ADD(1);
 "#;
-    
+
     let result = preprocessor.process(source);
     assert!(result.is_err());
     match result {
-        Err(PreprocessorError::InvalidMacro { .. }) => {},
+        Err(PreprocessorError::InvalidMacro { .. }) => {}
         _ => panic!("Expected InvalidMacro error"),
     }
 }
@@ -295,7 +295,7 @@ fn test_define_empty_value() {
 #define EMPTY
 let value = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("let value = 1"));
 }
@@ -304,11 +304,11 @@ let value = 1;
 fn test_predefined_symbol() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("VERSION", "100");
-    
+
     let source = r#"
 let version = VERSION;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("version = 100"));
 }
@@ -316,17 +316,21 @@ let version = VERSION;
 #[test]
 fn test_complex_example() {
     let temp_dir = TempDir::new().unwrap();
-    
+
     // Create a common header file
     let common_path = temp_dir.path().join("common.wgsl");
-    fs::write(&common_path, r#"
+    fs::write(
+        &common_path,
+        r#"
 #define PI 3.14159
 #define TWO_PI (2.0 * PI)
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     let mut preprocessor = Preprocessor::with_base_path(temp_dir.path());
     preprocessor.define("USE_OPTIMIZATIONS", "1");
-    
+
     let source = r#"
 #include "common.wgsl"
 #define SQUARE(x) ((x) * (x))
@@ -338,7 +342,7 @@ let optimized = true;
 let circle_area = SQUARE(radius) * PI;
 let full_rotation = TWO_PI;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("optimized = true"));
     assert!(result.contains("((radius) * (radius)) * 3.14159"));
@@ -353,7 +357,7 @@ fn test_macro_nested_calls() {
 #define QUAD(x) DOUBLE(DOUBLE(x))
 let result = QUAD(5);
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     // After first expansion: DOUBLE(DOUBLE(5))
     // After second pass: DOUBLE(((5) * 2))
@@ -372,7 +376,7 @@ fn main() {
     let y = VALUE;
 }
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("// This is a comment"));
     assert!(result.contains("fn main()"));
@@ -386,7 +390,7 @@ fn test_macro_no_args() {
 #define RESET() 0
 let value = RESET();
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("let value = 0"));
 }
@@ -399,7 +403,7 @@ fn test_identifier_starting_with_number() {
 #define 1ABC invalid
 let value = 1;
 "#;
-    
+
     // Should fail to parse the directive
     let result = preprocessor.process(source);
     assert!(result.is_err());
@@ -409,22 +413,22 @@ let value = 1;
 fn test_multiple_base_paths() {
     let temp_dir1 = TempDir::new().unwrap();
     let temp_dir2 = TempDir::new().unwrap();
-    
+
     // Create a file in the second directory
     let file2_path = temp_dir2.path().join("lib2.wgsl");
     fs::write(&file2_path, "let lib2_value = 42;").unwrap();
-    
+
     // Create a file in the first directory
     let file1_path = temp_dir1.path().join("lib1.wgsl");
     fs::write(&file1_path, "let lib1_value = 100;").unwrap();
-    
+
     let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
     let source = r#"
 #include "lib1.wgsl"
 #include "lib2.wgsl"
 let main_value = 1;
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("lib1_value = 100"));
     assert!(result.contains("lib2_value = 42"));
@@ -435,25 +439,25 @@ let main_value = 1;
 fn test_add_base_path() {
     let temp_dir1 = TempDir::new().unwrap();
     let temp_dir2 = TempDir::new().unwrap();
-    
+
     // Create files in different directories
     let file1_path = temp_dir1.path().join("first.wgsl");
     fs::write(&file1_path, "let first_value = 1;").unwrap();
-    
+
     let file2_path = temp_dir2.path().join("second.wgsl");
     fs::write(&file2_path, "let second_value = 2;").unwrap();
-    
+
     // Start with first directory only
     let mut preprocessor = Preprocessor::with_base_path(temp_dir1.path());
-    
+
     // Add second directory
     preprocessor.add_base_path(temp_dir2.path());
-    
+
     let source = r#"
 #include "first.wgsl"
 #include "second.wgsl"
 "#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("first_value = 1"));
     assert!(result.contains("second_value = 2"));
@@ -463,18 +467,18 @@ fn test_add_base_path() {
 fn test_path_priority() {
     let temp_dir1 = TempDir::new().unwrap();
     let temp_dir2 = TempDir::new().unwrap();
-    
+
     // Create the same filename in both directories with different content
     let file1_path = temp_dir1.path().join("common.wgsl");
     fs::write(&file1_path, "let from_first = 1;").unwrap();
-    
+
     let file2_path = temp_dir2.path().join("common.wgsl");
     fs::write(&file2_path, "let from_second = 2;").unwrap();
-    
+
     // First directory should have priority
     let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
     let source = r#"#include "common.wgsl""#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("from_first = 1"));
     assert!(!result.contains("from_second"));
@@ -484,14 +488,14 @@ fn test_path_priority() {
 fn test_fallback_to_second_path() {
     let temp_dir1 = TempDir::new().unwrap();
     let temp_dir2 = TempDir::new().unwrap();
-    
+
     // File only exists in second directory
     let file2_path = temp_dir2.path().join("only_in_second.wgsl");
     fs::write(&file2_path, "let second_only = 42;").unwrap();
-    
+
     let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
     let source = r#"#include "only_in_second.wgsl""#;
-    
+
     let result = preprocessor.process(source).unwrap();
     assert!(result.contains("second_only = 42"));
 }
@@ -500,22 +504,22 @@ fn test_fallback_to_second_path() {
 fn test_circular_dependency_multi_path() {
     let temp_dir1 = TempDir::new().unwrap();
     let temp_dir2 = TempDir::new().unwrap();
-    
+
     // Create file A in first directory that includes file B
     let file_a = temp_dir1.path().join("a.wgsl");
     fs::write(&file_a, r#"#include "b.wgsl""#).unwrap();
-    
+
     // Create file B in second directory that includes file A
     let file_b = temp_dir2.path().join("b.wgsl");
     fs::write(&file_b, r#"#include "a.wgsl""#).unwrap();
-    
+
     let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
     let source = r#"#include "a.wgsl""#;
-    
+
     let result = preprocessor.process(source);
     assert!(result.is_err());
     match result {
-        Err(PreprocessorError::CircularDependency { .. }) => {},
+        Err(PreprocessorError::CircularDependency { .. }) => {}
         _ => panic!("Expected CircularDependency error"),
     }
 }
