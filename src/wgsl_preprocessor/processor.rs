@@ -140,7 +140,7 @@ impl Preprocessor {
     }
     
     /// Process an include directive
-    fn process_include(&mut self, path: &str, line: usize) -> PreprocessorResult<String> {
+    fn process_include(&mut self, path: &str, _line: usize) -> PreprocessorResult<String> {
         // Resolve the include path
         let resolved_path = self.base_path.join(path);
         

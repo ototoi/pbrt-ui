@@ -3,11 +3,11 @@
 use nom::{
     IResult,
     branch::alt,
-    bytes::complete::{tag, take_until, take_while, take_while1},
-    character::complete::{char, multispace0, multispace1, space0, space1, alphanumeric1, line_ending},
-    combinator::{opt, recognize, map, value},
+    bytes::complete::{tag, take_until, take_while},
+    character::complete::{char, space0, space1, alphanumeric1},
+    combinator::{opt, recognize, map},
     multi::{many0, separated_list0},
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{delimited, tuple},
 };
 
 /// Represents a preprocessor directive
