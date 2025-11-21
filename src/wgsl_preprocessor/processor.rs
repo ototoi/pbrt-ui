@@ -182,7 +182,6 @@ impl Preprocessor {
         // Keep applying substitutions until no more changes occur
         while changed && iterations < MAX_ITERATIONS {
             changed = false;
-            let old_result = result.clone();
             
             // First, substitute simple defines
             for (name, value) in &self.defines {

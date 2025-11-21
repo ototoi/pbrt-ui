@@ -4,7 +4,7 @@ use nom::{
     IResult,
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
-    character::complete::{char, space0, space1, alphanumeric1},
+    character::complete::{char, space0, space1, alphanumeric1, alpha1},
     combinator::{opt, recognize, map},
     multi::{many0, separated_list0},
     sequence::{delimited, tuple},
@@ -35,7 +35,7 @@ pub enum Directive {
 /// Parse an identifier (alphanumeric + underscore, starting with letter or underscore)
 fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(tuple((
-        alt((alphanumeric1, tag("_"))),
+        alt((tag("_"), recognize(alpha1))),
         many0(alt((alphanumeric1, tag("_")))),
     )))(input)
 }

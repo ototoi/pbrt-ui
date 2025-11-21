@@ -378,3 +378,29 @@ fn main() {
     assert!(result.contains("fn main()"));
     assert!(result.contains("let y = 42"));
 }
+
+#[test]
+fn test_macro_no_args() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#define RESET() 0
+let value = RESET();
+"#;
+    
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("let value = 0"));
+}
+
+#[test]
+fn test_identifier_starting_with_number() {
+    let mut preprocessor = Preprocessor::new();
+    // This should NOT be parsed as a valid identifier define
+    let source = r#"
+#define 1ABC invalid
+let value = 1;
+"#;
+    
+    // Should fail to parse the directive
+    let result = preprocessor.process(source);
+    assert!(result.is_err());
+}
