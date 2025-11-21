@@ -25,7 +25,6 @@ egui_extras = "0.32.0"
 bytemuck = "1.23.1"
 glam = { version = "0.30.4", features = ["bytemuck", "serde"] }
 wgpu-types = "26.0.0"
-include_dir = "0.7.4"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wgpu = { version = "25.0.2", default-features = true, features = ["vulkan"] }
