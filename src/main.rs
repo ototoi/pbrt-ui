@@ -8,6 +8,7 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::wgpu;
 use pbrt_ui::app::PbrtUIApp;
+use pbrt_ui::render::wgpu::copy_shaders;
 
 fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
     let mut wgpu_setup = eframe::egui_wgpu::WgpuSetup::default();
