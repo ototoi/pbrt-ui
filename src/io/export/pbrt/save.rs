@@ -1,36 +1,36 @@
+use super::super::copy_utility;
 use crate::error::PbrtError;
-use crate::models::base::Matrix4x4;
-use crate::models::base::ParamSet;
-use crate::models::base::Property;
-use crate::models::base::Vector3;
-use crate::models::scene::AcceleratorProperties;
-use crate::models::scene::AreaLightComponent;
-use crate::models::scene::CameraComponent;
-use crate::models::scene::CameraProperties;
-use crate::models::scene::FilmComponent;
-use crate::models::scene::IntegratorComponent;
-use crate::models::scene::IntegratorProperties;
-use crate::models::scene::LightComponent;
-use crate::models::scene::LightProperties;
-use crate::models::scene::MappingProperties;
-use crate::models::scene::MaterialComponent;
-use crate::models::scene::MaterialProperties;
-use crate::models::scene::MeshComponent;
-use crate::models::scene::MeshProperties;
-use crate::models::scene::Node;
-use crate::models::scene::OptionProperties;
-use crate::models::scene::ResourcesComponent;
-use crate::models::scene::SamplerComponent;
-use crate::models::scene::SamplerProperties;
-use crate::models::scene::ShapeComponent;
-use crate::models::scene::ShapeProperties;
-use crate::models::scene::TextureProperties;
-use crate::models::scene::TransformComponent;
+use crate::model::base::Matrix4x4;
+use crate::model::base::ParamSet;
+use crate::model::base::Property;
+use crate::model::base::Vector3;
+//use crate::model::scene::AcceleratorProperties;
+use crate::model::scene::AreaLightComponent;
+use crate::model::scene::CameraComponent;
+use crate::model::scene::CameraProperties;
+use crate::model::scene::FilmComponent;
+use crate::model::scene::IntegratorComponent;
+use crate::model::scene::IntegratorProperties;
+use crate::model::scene::LightComponent;
+use crate::model::scene::LightProperties;
+use crate::model::scene::MappingProperties;
+use crate::model::scene::Material;
+use crate::model::scene::MaterialComponent;
+use crate::model::scene::MaterialProperties;
+use crate::model::scene::Node;
+use crate::model::scene::OptionProperties;
+use crate::model::scene::Properties;
+use crate::model::scene::ResourceComponent;
+use crate::model::scene::SamplerComponent;
+use crate::model::scene::SamplerProperties;
+use crate::model::scene::ShapeComponent;
+use crate::model::scene::ShapeProperties;
+use crate::model::scene::TextureProperties;
+use crate::model::scene::TransformComponent;
 
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -51,17 +51,6 @@ impl Default for SavePbrtOptions {
 
 struct PbrtSaver {
     options: SavePbrtOptions,
-    camera_properties: CameraProperties,
-    option_properties: OptionProperties,
-    sampler_properties: SamplerProperties,
-    integrator_properties: IntegratorProperties,
-    accelerator_properties: AcceleratorProperties,
-    material_properties: MaterialProperties,
-    texture_properties: TextureProperties,
-    shape_properties: ShapeProperties,
-    light_properties: LightProperties,
-    mesh_properties: MeshProperties,
-    mapping_properties: MappingProperties,
 }
 
 fn get_world_matrix(node: &Arc<RwLock<Node>>) -> Result<Matrix4x4, PbrtError> {
@@ -122,21 +111,23 @@ fn write_transform(
     Ok(())
 }
 
+fn get_material_ignore_keys(material: &Material) -> Vec<String> {
+    let mut ignore_keys = Vec::new();
+    if material.get_type() == "subsurface" {
+        if let Some(name_value) = material.props.find_one_string("string name") {
+            if !name_value.is_empty() {
+                ignore_keys.push("sigma_a".to_string());
+                ignore_keys.push("sigma_s".to_string());
+            }
+        }
+    }
+    ignore_keys
+}
+
 impl PbrtSaver {
     pub fn new(options: &SavePbrtOptions) -> Self {
         PbrtSaver {
             options: options.clone(),
-            camera_properties: CameraProperties::new(),
-            option_properties: OptionProperties::new(),
-            sampler_properties: SamplerProperties::new(),
-            integrator_properties: IntegratorProperties::new(),
-            accelerator_properties: AcceleratorProperties::new(),
-            material_properties: MaterialProperties::new(),
-            texture_properties: TextureProperties::new(),
-            shape_properties: ShapeProperties::new(),
-            light_properties: LightProperties::new(),
-            mesh_properties: MeshProperties::new(),
-            mapping_properties: MappingProperties::new(),
         }
     }
 
@@ -223,14 +214,18 @@ impl PbrtSaver {
                 .props
                 .find_one_string("string type")
                 .ok_or(PbrtError::error("Camera type is not found!"))?;
-            if let Some(props) = self.camera_properties.get(&camera_type) {
+            let camera_properties = CameraProperties::get_instance();
+            if let Some(entries) = camera_properties.get_entries(&camera_type) {
                 writer.write(format!("Camera \"{}\"", camera_type).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
+                for entry in entries.iter() {
+                    if !entry.output_to_file {
+                        continue;
+                    }
                     self.write_property(
                         0,
-                        key_type,
-                        key_name,
-                        init,
+                        entry.key_type.as_str(),
+                        entry.key_name.as_str(),
+                        &entry.default_value,
                         &camera_component.props,
                         writer,
                     )?;
@@ -248,14 +243,18 @@ impl PbrtSaver {
                 .find_one_string("string type")
                 .ok_or(PbrtError::error("Film type is not found!"))?;
             //println!("Film type: {}", film_type);
-            if let Some(props) = self.option_properties.get("film") {
+            let option_properties = OptionProperties::get_instance();
+            if let Some(entries) = option_properties.get_entries("film") {
                 writer.write(format!("Film \"{}\"", film_type).as_bytes())?;
-                for (key_type, key_name, init) in props.iter() {
+                for entry in entries.iter() {
+                    if !entry.output_to_file {
+                        continue;
+                    }
                     self.write_property(
                         0,
-                        key_type,
-                        key_name,
-                        init,
+                        &entry.key_type,
+                        &entry.key_name,
+                        &entry.default_value,
                         &film_component.props,
                         writer,
                     )?;
@@ -283,14 +282,18 @@ impl PbrtSaver {
             .props
             .find_one_string("string type")
             .ok_or(PbrtError::error("Sampler type is not found!"))?;
-        if let Some(props) = self.sampler_properties.get(&sampler_type) {
+        let sampler_properties = SamplerProperties::get_instance();
+        if let Some(entries) = sampler_properties.get_entries(&sampler_type) {
             writer.write(format!("Sampler \"{}\"", sampler_type).as_bytes())?;
-            for (key_type, key_name, init, _range) in props.iter() {
+            for entry in entries.iter() {
+                if !entry.output_to_file {
+                    continue;
+                }
                 self.write_property(
                     0,
-                    key_type,
-                    key_name,
-                    init,
+                    &entry.key_type,
+                    &entry.key_name,
+                    &entry.default_value,
                     &sampler_component.props,
                     writer,
                 )?;
@@ -313,14 +316,18 @@ impl PbrtSaver {
             .props
             .find_one_string("string type")
             .ok_or(PbrtError::error("Integrator type is not found!"))?;
-        if let Some(props) = self.integrator_properties.get(&integrator_type) {
+        let integrator_properties = IntegratorProperties::get_instance();
+        if let Some(entries) = integrator_properties.get_entries(&integrator_type) {
             writer.write(format!("Integrator \"{}\"", integrator_type).as_bytes())?;
-            for (key_type, key_name, init, _range) in props.iter() {
+            for entry in entries.iter() {
+                if !entry.output_to_file {
+                    continue;
+                }
                 self.write_property(
                     0,
-                    key_type,
-                    key_name,
-                    init,
+                    &entry.key_type,
+                    &entry.key_name,
+                    &entry.default_value,
                     &integrator_component.props,
                     writer,
                 )?;
@@ -359,32 +366,50 @@ impl PbrtSaver {
     ) -> Result<(), PbrtError> {
         let indent = 1;
         let node = node.read().unwrap();
-        if let Some(resouces_component) = node.get_component::<ResourcesComponent>() {
-            if resouces_component.materials.is_empty() {
+        if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
+            let resource_manager = resouces_component.get_resource_manager();
+            let resource_manager = resource_manager.read().unwrap();
+            if resource_manager.materials.is_empty() {
                 return Ok(());
             }
             if self.options.pretty_print {
                 writer.write(format!("{}# Materials\n", make_indent(indent)).as_bytes())?;
             }
-            let mut materials = resouces_component
+            let mut materials = resource_manager
                 .materials
                 .values()
                 .map(|m| (m.read().unwrap().get_name().to_ascii_lowercase(), m))
                 .collect::<Vec<_>>();
             materials.sort_by(|a, b| a.0.cmp(&b.0));
+            let material_properties = MaterialProperties::get_instance();
             for (_name, material) in materials.iter() {
                 let material = material.read().unwrap();
-                let id = material.get_id();
+                //let id = material.get_id();
                 let t = material.get_type();
                 let name = material.get_name();
-                if let Some(props) = self.material_properties.get(&t) {
+
+                let ignore_keys = get_material_ignore_keys(&material);
+                if let Some(entries) = material_properties.get_entries(&t) {
                     writer.write(
                         format!("{}MakeNamedMaterial \"{}\"", make_indent(indent), name).as_bytes(),
                     )?;
                     writer.write(format!(" \"string type\" [\"{}\"]", t).as_bytes())?;
-                    writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(0, key_type, key_name, init, &material.props, writer)?;
+                    //writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
+                    for entry in entries.iter() {
+                        if !entry.output_to_file {
+                            continue;
+                        }
+                        if ignore_keys.contains(&entry.key_name) {
+                            continue;
+                        }
+                        self.write_property(
+                            0,
+                            &entry.key_type,
+                            &entry.key_name,
+                            &entry.default_value,
+                            &material.props,
+                            writer,
+                        )?;
                     }
                     writer.write("\n".as_bytes())?;
                 }
@@ -400,14 +425,22 @@ impl PbrtSaver {
     ) -> Result<(), PbrtError> {
         let mut indent = 1;
         let node = node.read().unwrap();
-        if let Some(resouces_component) = node.get_component::<ResourcesComponent>() {
-            if resouces_component.textures.is_empty() {
+        if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
+            let resource_manager = resouces_component.get_resource_manager();
+            let resource_manager = resource_manager.read().unwrap();
+            if resource_manager.textures.is_empty() {
                 return Ok(());
             }
             if self.options.pretty_print {
                 writer.write(format!("{}# Textures\n", make_indent(indent)).as_bytes())?;
             }
-            for (id, texture) in resouces_component.textures.iter() {
+            let mut textures = Vec::new();
+            for texture in resource_manager.textures.values() {
+                let order = texture.read().unwrap().get_order();
+                textures.push((order, texture.clone()));
+            }
+            textures.sort_by(|a, b| a.0.cmp(&b.0));
+            for (_order, texture) in textures.iter() {
                 let texture = texture.read().unwrap();
                 let texture_type = texture.get_type();
                 let texture_name = texture.get_name();
@@ -426,7 +459,7 @@ impl PbrtSaver {
                     )
                     .as_bytes(),
                 )?;
-                writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
+                //writer.write(format!(" \"string id\" [\"{}\"]", id.to_string()).as_bytes())?;
                 /*
                 writer.write("\n".as_bytes())?;
                 for (key_type, key_name, init) in texture.props.0.iter() {
@@ -441,29 +474,38 @@ impl PbrtSaver {
                 }
                 writer.write("\n".as_bytes())?;
                 */
-                if let Some(props) = self.texture_properties.get(&texture_type) {
-                    for (key_type, key_name, init, _range) in props.iter() {
+                let texture_properties = TextureProperties::get_instance();
+                if let Some(entries) = texture_properties.get_entries(&texture_type) {
+                    for entry in entries.iter() {
+                        if !entry.output_to_file {
+                            continue;
+                        }
                         self.write_property(
                             indent,
-                            key_type,
-                            key_name,
-                            init,
+                            &entry.key_type,
+                            &entry.key_name,
+                            &entry.default_value,
                             &texture.props,
                             writer,
                         )?;
                     }
                 }
-                if let Some(mapping_type) =
-                    texture.as_property_map().find_one_string("string mapping")
+                let mapping_type = texture
+                    .as_property_map()
+                    .find_one_string("string mapping")
+                    .unwrap_or("uv".to_string());
                 {
-                    //println!("mapping_type: {}", mapping_type);
-                    if let Some(props) = self.mapping_properties.get(&mapping_type) {
-                        for (key_type, key_name, init, _range) in props.iter() {
+                    let mapping_properties = MappingProperties::get_instance();
+                    if let Some(entries) = mapping_properties.get_entries(&mapping_type) {
+                        for entry in entries.iter() {
+                            if !entry.output_to_file {
+                                continue;
+                            }
                             self.write_property(
                                 indent,
-                                key_type,
-                                key_name,
-                                init,
+                                &entry.key_type,
+                                &entry.key_name,
+                                &entry.default_value,
                                 &texture.props,
                                 writer,
                             )?;
@@ -496,51 +538,73 @@ impl PbrtSaver {
                 .as_bytes(),
             )?;
         }
-        if let Some(mesh_component) = node.get_component::<MeshComponent>() {
+        let shape_properties = ShapeProperties::get_instance();
+        let light_properties = LightProperties::get_instance();
+        if let Some(component) = node.get_component::<ShapeComponent>() {
             if let Some(light_component) = node.get_component::<AreaLightComponent>() {
-                let light = &light_component.props;
+                let light = light_component.get_light();
+                let light = light.read().unwrap();
+                let light = light.as_property_map();
                 let t = light.find_one_string("string type").unwrap();
-                if let Some(props) = self.light_properties.get(&t) {
+                if let Some(entries) = light_properties.get_entries(&t) {
                     writer.write(
                         format!("{}AreaLightSource \"{}\"", make_indent(indent), t).as_bytes(),
                     )?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, light, writer)?;
+                    for entry in entries.iter() {
+                        if !entry.output_to_file {
+                            continue;
+                        }
+                        self.write_property(
+                            indent,
+                            &entry.key_type,
+                            &entry.key_name,
+                            &entry.default_value,
+                            light,
+                            writer,
+                        )?;
                     }
                     writer.write("\n".as_bytes())?;
                 }
             }
-            //Shape "plymesh" "string filename" "xxxx.ply"
-            if let Some(mesh) = mesh_component.mesh.as_ref() {
-                let mesh = mesh.read().unwrap();
-                let t = mesh.get_type(); //
-                if let Some(props) = self.mesh_properties.get(&t) {
-                    writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
+            let shape = component.get_shape();
+            let shape = shape.read().unwrap();
+            let t = shape.get_type(); //
+            if let Some(entries) = shape_properties.get_entries(&t) {
+                writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
+                for entry in entries.iter() {
+                    if !entry.output_to_file {
+                        continue;
                     }
-                    writer.write("\n".as_bytes())?;
+                    self.write_property(
+                        indent,
+                        &entry.key_type,
+                        &entry.key_name,
+                        &entry.default_value,
+                        &shape.props,
+                        writer,
+                    )?;
                 }
-            };
-        } else if let Some(c) = node.get_component::<ShapeComponent>() {
-            if let Some(mesh) = c.mesh.as_ref() {
-                let mesh = mesh.read().unwrap();
-                let t = mesh.get_type(); //
-                if let Some(props) = self.shape_properties.get(&t) {
-                    writer.write(format!("{}Shape \"{}\"", make_indent(indent), t).as_bytes())?;
-                    for (key_type, key_name, init, _range) in props.iter() {
-                        self.write_property(indent, key_type, key_name, init, &mesh.props, writer)?;
-                    }
-                    writer.write("\n".as_bytes())?;
-                }
-            };
-        } else if let Some(c) = node.get_component::<LightComponent>() {
-            let light = &c.props;
+                writer.write("\n".as_bytes())?;
+            }
+        } else if let Some(light_component) = node.get_component::<LightComponent>() {
+            let light = light_component.get_light();
+            let light = light.read().unwrap();
+            let light = light.as_property_map();
             let t = light.find_one_string("string type").unwrap();
-            if let Some(props) = self.light_properties.get(&t) {
+            if let Some(entries) = light_properties.get_entries(&t) {
                 writer.write(format!("{}LightSource \"{}\"", make_indent(indent), t).as_bytes())?;
-                for (key_type, key_name, init, _range) in props.iter() {
-                    self.write_property(indent, key_type, key_name, init, light, writer)?;
+                for entry in entries.iter() {
+                    if !entry.output_to_file {
+                        continue;
+                    }
+                    self.write_property(
+                        indent,
+                        &entry.key_type,
+                        &entry.key_name,
+                        &entry.default_value,
+                        light,
+                        writer,
+                    )?;
                 }
                 writer.write("\n".as_bytes())?;
             }
@@ -554,23 +618,25 @@ impl PbrtSaver {
         node: &Arc<RwLock<Node>>,
         writer: &mut dyn Write,
     ) -> Result<(), PbrtError> {
-        writer.write(format!("{}AttributeBegin\n", make_indent(indent)).as_bytes())?;
-        {
-            let node = node.read().unwrap();
-            let t = node
-                .get_component::<TransformComponent>()
-                .ok_or(PbrtError::error("Transform is not found!"))?;
-            write_transform(indent + 1, &t.get_local_matrix(), writer)?;
-        }
-        {
-            self.write_geomtry(indent + 1, node, writer)?;
-        }
+        if node.read().unwrap().is_enabled() {
+            writer.write(format!("{}AttributeBegin\n", make_indent(indent)).as_bytes())?;
+            {
+                let node = node.read().unwrap();
+                let t = node
+                    .get_component::<TransformComponent>()
+                    .ok_or(PbrtError::error("Transform is not found!"))?;
+                write_transform(indent + 1, &t.get_local_matrix(), writer)?;
+            }
+            {
+                self.write_geomtry(indent + 1, node, writer)?;
+            }
 
-        let node = node.read().unwrap();
-        for child in node.children.iter() {
-            self.write_node(indent + 1, child, writer)?;
+            let node = node.read().unwrap();
+            for child in node.children.iter() {
+                self.write_node(indent + 1, child, writer)?;
+            }
+            writer.write(format!("{}AttributeEnd\n", make_indent(indent)).as_bytes())?;
         }
-        writer.write(format!("{}AttributeEnd\n", make_indent(indent)).as_bytes())?;
         Ok(())
     }
 
@@ -584,18 +650,20 @@ impl PbrtSaver {
             writer.write(format!("{}# Geometries\n", make_indent(indent)).as_bytes())?;
         }
         let node = node.read().unwrap(); //world
-        let t = node
-            .get_component::<TransformComponent>()
-            .ok_or(PbrtError::error("Transform is not found!"))?;
-        write_transform(0, &t.get_local_matrix(), writer)?;
-        for child in node.children.iter() {
-            {
-                let node = child.read().unwrap();
-                if node.get_component::<CameraComponent>().is_some() {
-                    continue;
+        if node.is_enabled() {
+            let t = node
+                .get_component::<TransformComponent>()
+                .ok_or(PbrtError::error("Transform is not found!"))?;
+            write_transform(0, &t.get_local_matrix(), writer)?;
+            for child in node.children.iter() {
+                {
+                    let node = child.read().unwrap();
+                    if node.get_component::<CameraComponent>().is_some() {
+                        continue;
+                    }
                 }
+                self.write_node(1, child, writer)?;
             }
-            self.write_node(1, child, writer)?;
         }
         Ok(())
     }
@@ -624,14 +692,17 @@ impl PbrtSaver {
             return Ok(());
         }
         let node = node.read().unwrap();
-        if let Some(resouces_component) = node.get_component::<ResourcesComponent>() {
+        if let Some(resouces_component) = node.get_component::<ResourceComponent>() {
+            let resource_manager = resouces_component.get_resource_manager();
+            let resource_manager = resource_manager.read().unwrap();
+
             let out_dir = std::path::Path::new(path)
                 .parent()
                 .ok_or(PbrtError::error("Invalid path!"))?;
             std::fs::create_dir_all(out_dir)?;
             let mut copy_paths = Vec::new();
             //
-            for (_id, texture) in resouces_component.textures.iter() {
+            for (_id, texture) in resource_manager.textures.iter() {
                 let texture = texture.read().unwrap();
                 let texture_type = texture.get_type();
                 if texture_type != "imagemap" {
@@ -653,7 +724,7 @@ impl PbrtSaver {
                 }
             }
             //
-            for (_id, mesh) in resouces_component.meshes.iter() {
+            for (_id, mesh) in resource_manager.meshes.iter() {
                 let mesh = mesh.read().unwrap();
                 let mesh_type = mesh.get_type();
                 if mesh_type != "plymesh" {
@@ -675,7 +746,7 @@ impl PbrtSaver {
                 }
             }
 
-            for (_id, other_resource) in resouces_component.other_resources.iter() {
+            for (_id, other_resource) in resource_manager.other_resources.iter() {
                 let other_resource = other_resource.read().unwrap();
                 let filename = other_resource.get_filename();
                 let fullpath = other_resource.get_fullpath();
@@ -694,14 +765,10 @@ impl PbrtSaver {
             }
 
             for (src_path, dst_path) in copy_paths.iter() {
-                let odir = dst_path.parent().ok_or(PbrtError::error("Invalid path!"))?;
-                std::fs::create_dir_all(odir)?;
-                if !dst_path.exists() {
-                    std::fs::copy(src_path, dst_path)?;
-                    log::info!(
-                        "Copy resource from {} to {}",
-                        src_path.display(),
-                        dst_path.display()
+                if let Err(e) = copy_utility::copy_file(src_path, dst_path) {
+                    println!(
+                        "Failed to copy resource from {:?} to {:?}: {}",
+                        src_path, dst_path, e
                     );
                 }
             }

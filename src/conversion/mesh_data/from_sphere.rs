@@ -1,0 +1,82 @@
+use super::mesh_data::MeshData;
+use crate::model::base::Vector3;
+use crate::model::scene::Shape;
+
+pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
+    //let mesh_type = shape.get_type();
+    //assert!(mesh_type == "sphere", "Mesh type is not sphere");
+    let radius = shape
+        .as_property_map()
+        .find_one_float("radius")
+        .unwrap_or(1.0);
+    let udiv = shape.as_property_map().find_one_int("udiv").unwrap_or(32);
+    let vdiv = shape.as_property_map().find_one_int("vdiv").unwrap_or(16);
+
+    let radius = radius.max(0.0001); // Ensure radius is not zero to avoid division by zero
+
+    let mut indices: Vec<i32> = Vec::new();
+    let mut positions: Vec<f32> = Vec::new();
+    let mut normals: Vec<f32> = Vec::new();
+    let mut uvs: Vec<f32> = Vec::new();
+    let mut tangents: Vec<f32> = Vec::new();
+    for iu in 0..=udiv {
+        for iv in 0..=vdiv {
+            let u = iu as f32 / udiv as f32;
+            let v = iv as f32 / vdiv as f32;
+
+            let theta = u * std::f32::consts::PI * 2.0;
+            let phi = v * std::f32::consts::PI;
+
+            let x = theta.sin() * phi.sin();
+            let y = theta.cos() * phi.sin();
+            let z = phi.cos();
+
+            positions.push(radius * x);
+            positions.push(radius * y);
+            positions.push(radius * z);
+
+            let n = Vector3::new(theta.sin(), theta.cos(), 0.0).normalize();
+            let tangent = Vector3::cross(&Vector3::new(0.0, 0.0, -1.0), &n).normalize();
+
+            normals.push(x);
+            normals.push(y);
+            normals.push(z);
+
+            // Tangents are not calculated for spheres, but we can push a placeholder
+            tangents.push(tangent.x);
+            tangents.push(tangent.y);
+            tangents.push(tangent.z);
+
+            uvs.push(u);
+            uvs.push(v);
+        }
+    }
+
+    for iu in 0..udiv {
+        for iv in 0..vdiv {
+            let ix0 = iu * (vdiv + 1);
+            let ix1 = (iu + 1) * (vdiv + 1);
+
+            let i0 = ix0 + iv;
+            let i1 = ix1 + iv;
+            let i2 = ix1 + (iv + 1);
+            let i3 = ix0 + (iv + 1);
+
+            indices.push(i0 as i32);
+            indices.push(i1 as i32);
+            indices.push(i2 as i32);
+            indices.push(i0 as i32);
+            indices.push(i2 as i32);
+            indices.push(i3 as i32);
+        }
+    }
+
+    let mesh_data = MeshData {
+        positions,
+        normals,
+        uvs,
+        indices,
+        tangents,
+    };
+    return Some(mesh_data);
+}

@@ -1,15 +1,17 @@
-use crate::controllers::AppController;
+use crate::controller::AppController;
+use crate::io::export;
 use crate::io::export::pbrt::*;
 use crate::io::import::pbrt::*;
-use crate::models::scene::SceneComponent;
-use crate::panels::HierarchyPanel;
-use crate::panels::InspectorPanel;
-use crate::panels::ManagePanel;
-use crate::panels::Panel;
-use crate::panels::PreferencesWindow;
-use crate::panels::ViewsPanel;
+use crate::model::scene::SceneComponent;
+use crate::panel::HierarchyPanel;
+use crate::panel::InspectorPanel;
+use crate::panel::ManagePanel;
+use crate::panel::Panel;
+use crate::panel::PreferencesWindow;
+use crate::panel::ViewsPanel;
 
 use eframe::egui;
+use eframe::egui::UiKind;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -24,6 +26,8 @@ pub struct PbrtUIApp {
 
 impl PbrtUIApp {
     pub fn new<'a>(cc: &'a eframe::CreationContext<'a>) -> Self {
+        //let max_storage_buffer_binding_size = cc.wgpu_render_state.as_ref().unwrap().device.limits().max_storage_buffer_binding_size;
+        //println!("Max storage buffer binding size: {}", max_storage_buffer_binding_size);
         let mut controller = AppController::new();
         controller.load_config();
         let controller = Arc::new(RwLock::new(controller));
@@ -66,9 +70,9 @@ enum MenuCommand {
 impl PbrtUIApp {
     pub fn show_top_menu(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 self.show_top_menu_file(ctx, ui);
-                //self.show_top_menu_edit(ui);
+                self.show_top_menu_edit(ui);
                 self.show_top_menu_panels(ui);
             });
         });
@@ -78,40 +82,68 @@ impl PbrtUIApp {
         let mut commands = Vec::new();
         ui.menu_button("File", |ui| {
             if ui.button("Import").clicked() {
+                let config = self.controller.read().unwrap().get_config();
+                let import_directory = config.read().unwrap().import_file_directory.clone();
+                let import_directory = PathBuf::from(import_directory);
+                if !import_directory.exists() {
+                    let _ = std::fs::create_dir_all(&import_directory);
+                }
+
                 let mut dialog = rfd::FileDialog::new()
                     .set_title("Import PBRT File")
                     .add_filter("PBRT", &["pbrt", "pbrt.gz"]);
-                if let Some(current_path) = self.get_current_scene_path() {
-                    let current_path = PathBuf::from(current_path);
-                    if current_path.exists() {
-                        dialog = dialog.set_directory(current_path.parent().unwrap());
-                    }
+
+                if import_directory.exists() {
+                    dialog = dialog.set_directory(import_directory);
                 }
 
                 if let Some(path) = dialog.pick_file() {
                     if path.exists() {
+                        if let Some(parent) = path.parent() {
+                            let mut config = config.write().unwrap();
+                            config.import_file_directory = parent.to_str().unwrap().to_string();
+                        }
                         let path = path.to_str().unwrap().to_string();
                         commands.push(MenuCommand::Import(path));
                     }
                 }
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
             if ui.button("Export").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
+                let config = self.controller.read().unwrap().get_config();
+                let export_directory = config.read().unwrap().export_file_directory.clone();
+                let export_directory = PathBuf::from(export_directory);
+
+                if !export_directory.exists() {
+                    let _ = std::fs::create_dir_all(&export_directory);
+                }
+
+                let mut dialog = rfd::FileDialog::new()
                     .set_title("Export PBRT File")
-                    .add_filter("PBRT", &["pbrt", "pbrt.gz"])
-                    .save_file()
-                {
+                    .add_filter("PBRT", &["pbrt", "pbrt.gz"]);
+
+                if export_directory.exists() {
+                    dialog = dialog.set_directory(export_directory);
+                }
+
+                if let Some(path) = dialog.save_file() {
+                    if let Some(parent) = path.parent() {
+                        if parent.exists() {
+                            let mut config = config.write().unwrap();
+                            config.export_file_directory = parent.to_str().unwrap().to_string();
+                        }
+                    }
+
                     let path = path.to_str().unwrap().to_string();
                     commands.push(MenuCommand::Export(path));
                 }
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
             //
             ui.separator();
             if ui.button("Preferences").clicked() {
                 // Open preferences window
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
                 if let Some(preferences) =
                     self.windows.iter_mut().find(|w| w.name() == "Preferences")
                 {
@@ -122,7 +154,7 @@ impl PbrtUIApp {
             ui.separator();
             if ui.button("Quit").clicked() {
                 commands.push(MenuCommand::Quit);
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
         });
 
@@ -204,10 +236,37 @@ impl PbrtUIApp {
 
     pub fn show_top_menu_edit(&mut self, ui: &mut egui::Ui) {
         ui.menu_button("Edit", |ui| {
-            //if ui.button("Dummy").clicked() {
-            // Open a file
-            //    ui.close_menu();
-            //}
+            if ui.button("Undo").clicked() {
+                // Handle undo action
+                ui.close_kind(UiKind::Menu);
+            }
+            if ui.button("Redo").clicked() {
+                // Handle redo action
+                ui.close_kind(UiKind::Menu);
+            }
+            ui.separator();
+            ui.menu_button("Add...", |ui| {
+                ui.menu_button("Geometry", |ui| {
+                    if ui.button("Sphere").clicked() {
+                        // Handle adding a sphere
+                        ui.close_kind(UiKind::Menu);
+                    }
+                    if ui.button("Cube").clicked() {
+                        // Handle adding a cube
+                        ui.close_kind(UiKind::Menu);
+                    }
+                    if ui.button("Plane").clicked() {
+                        // Handle adding a plane
+                        ui.close_kind(UiKind::Menu);
+                    }
+                });
+                ui.menu_button("Light", |ui| {
+                    if ui.button("Point Light").clicked() {
+                        // Handle adding a point light
+                        ui.close_kind(UiKind::Menu);
+                    }
+                });
+            });
         });
     }
 

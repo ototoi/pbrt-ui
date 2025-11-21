@@ -1,9 +1,9 @@
 pub mod app;
-pub mod base;
-pub mod controllers;
+pub mod controller;
+pub mod conversion;
 pub mod error;
 pub mod io;
-pub mod models;
-pub mod panels;
-pub mod renderers;
+pub mod model;
+pub mod panel;
+pub mod render;
 pub mod preprocessor;

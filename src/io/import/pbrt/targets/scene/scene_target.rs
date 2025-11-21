@@ -2,34 +2,34 @@ use super::super::super::parse::ParseTarget;
 use super::graphics_state::GraphicsState;
 use super::render_options::RenderOptions;
 use super::transform::Transform;
+use super::transform::TransformBit;
 use super::transform::TransformSet;
-use crate::models::base::Matrix4x4;
-use crate::models::base::ParamSet;
-use crate::models::base::Property;
-use crate::models::base::Vector3;
-use crate::models::scene;
-use crate::models::scene::AcceleratorComponent;
-use crate::models::scene::AreaLightComponent;
-use crate::models::scene::CameraComponent;
-use crate::models::scene::Component;
-use crate::models::scene::CoordinateSystemComponent;
-use crate::models::scene::FilmComponent;
-use crate::models::scene::IntegratorComponent;
-use crate::models::scene::LightComponent;
-use crate::models::scene::MaterialComponent;
-use crate::models::scene::MeshComponent;
-use crate::models::scene::Node;
-use crate::models::scene::OtherResource;
-use crate::models::scene::ResourceObject;
-use crate::models::scene::ResourcesComponent;
-use crate::models::scene::SamplerComponent;
-use crate::models::scene::ShapeComponent;
-use crate::models::scene::SubdivComponent;
-use crate::models::scene::TransformComponent;
+use crate::model::base::Matrix4x4;
+use crate::model::base::ParamSet;
+use crate::model::base::Property;
+use crate::model::base::Vector3;
+use crate::model::scene;
+use crate::model::scene::AcceleratorComponent;
+use crate::model::scene::AnimationComponent;
+use crate::model::scene::AreaLightComponent;
+use crate::model::scene::CameraComponent;
+use crate::model::scene::Component;
+use crate::model::scene::CoordinateSystemComponent;
+use crate::model::scene::FilmComponent;
+use crate::model::scene::IntegratorComponent;
+use crate::model::scene::LightComponent;
+use crate::model::scene::MaterialComponent;
+use crate::model::scene::Node;
+use crate::model::scene::OtherResource;
+use crate::model::scene::ResourceComponent;
+use crate::model::scene::ResourceObject;
+use crate::model::scene::SamplerComponent;
+use crate::model::scene::ShapeComponent;
+use crate::model::scene::TransformComponent;
 
-use crate::models::scene::Material;
-use crate::models::scene::Mesh;
-use crate::models::scene::Texture;
+use crate::model::scene::Material;
+use crate::model::scene::Shape;
+use crate::model::scene::Texture;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -53,17 +53,31 @@ pub struct SceneTarget {
     graphics_states: Vec<GraphicsState>,
     render_options: RenderOptions,
     named_coordinate_systems: HashMap<String, TransformSet>,
-    meshes: HashMap<String, Arc<RwLock<Mesh>>>,
+    meshes: HashMap<String, Arc<RwLock<Shape>>>,
     textures: HashMap<Uuid, Arc<RwLock<Texture>>>,
+    image_textures: HashMap<String, Arc<RwLock<Texture>>>,
     materials: HashMap<Uuid, Arc<RwLock<Material>>>,
     resources: HashMap<String, Arc<RwLock<dyn ResourceObject>>>,
     work_dirs: Vec<String>,
 }
 
-pub fn create_default_material() -> Arc<RwLock<Material>> {
+fn create_default_material() -> Arc<RwLock<Material>> {
     let params = ParamSet::new();
     //params.insert("Kd", Property::Floats(vec![0.5, 0.5, 0.5]));
     Arc::new(RwLock::new(Material::new("Matte", "matte", &params)))
+}
+
+fn coordinate_system(d1: &Vector3) -> (Vector3, Vector3, Vector3) {
+    let v1 = d1.normalize();
+    if f32::abs(v1.x) > f32::abs(v1.y) {
+        let v2 = Vector3::new(-v1.z, 0.0, v1.x).normalize();
+        let v3 = Vector3::cross(&v1, &v2).normalize();
+        return (v1, v2, v3);
+    } else {
+        let v2 = Vector3::new(0.0, v1.z, -v1.y).normalize();
+        let v3 = Vector3::cross(&v1, &v2).normalize();
+        return (v1, v2, v3);
+    }
 }
 
 impl Default for SceneTarget {
@@ -84,6 +98,7 @@ impl Default for SceneTarget {
             named_coordinate_systems: HashMap::new(),
             meshes: HashMap::new(),
             textures: HashMap::new(),
+            image_textures: HashMap::new(),
             materials: materials,
             resources: HashMap::new(),
             work_dirs: Vec::new(),
@@ -139,12 +154,21 @@ impl SceneTarget {
             let tex = texture.read().unwrap();
             (tex.get_id(), tex.get_name())
         };
-        let attr = self.graphics_states.last_mut().unwrap();
-        if let Some(_) = attr.textures.get(&name) {
-            log::warn!("Texture {} already exists", name);
+
+        // Set define order of the texture
+        {
+            let order = self.textures.len(); //
+            let mut texture = texture.write().unwrap();
+            texture.set_order(order as i32);
         }
-        attr.textures.insert(name.to_string(), texture.clone());
-        self.textures.insert(id, texture.clone());
+
+        let attr = self.graphics_states.last_mut().unwrap();
+        if let Some(_existed) = attr.textures.get(&name) {
+            log::warn!("Texture {} already exists", name);
+        } else {
+            attr.textures.insert(name.to_string(), texture.clone());
+            self.textures.insert(id, texture.clone());
+        }
     }
 
     fn register_other_resources(&mut self, params: &ParamSet) {
@@ -160,14 +184,46 @@ impl SceneTarget {
                             .unwrap()
                             .to_string();
                         let fullpath = fullpath.to_str().unwrap().to_string();
-                        let mut new_params = ParamSet::default();
-                        new_params.add_string("string type", "bsdffile"); //
-                        new_params.add_string("string filename", &filename);
-                        new_params.add_string("string fullpath", &fullpath);
-                        let resource =
-                            Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
-                        self.resources
-                            .insert(fullpath.to_string(), resource.clone());
+                        if !self.resources.contains_key(&fullpath) {
+                            let mut new_params = ParamSet::default();
+                            new_params.add_string("string type", "bsdffile"); //
+                            new_params.add_string("string filename", &filename);
+                            new_params.add_string("string fullpath", &fullpath);
+                            let resource =
+                                Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                            self.resources
+                                .insert(fullpath.to_string(), resource.clone());
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("filename error: {}", e);
+                    }
+                }
+            }
+        }
+
+        if let Some(filename) = params.find_one_string("string lensfile") {
+            if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+                match std::path::absolute(fullpath) {
+                    Ok(fullpath) => {
+                        let name = fullpath
+                            .as_path()
+                            .file_stem()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_string();
+                        let fullpath = fullpath.to_str().unwrap().to_string();
+                        if !self.resources.contains_key(&fullpath) {
+                            let mut new_params = ParamSet::default();
+                            new_params.add_string("string type", "lensfile"); //
+                            new_params.add_string("string filename", &filename);
+                            new_params.add_string("string fullpath", &fullpath);
+                            let resource =
+                                Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                            self.resources
+                                .insert(fullpath.to_string(), resource.clone());
+                        }
                     }
                     Err(e) => {
                         log::warn!("filename error: {}", e);
@@ -191,16 +247,19 @@ impl SceneTarget {
                                         .unwrap()
                                         .to_string();
                                     let fullpath = fullpath.to_str().unwrap().to_string();
-                                    let mut new_params = ParamSet::default();
-                                    new_params.add_string("string type", "spd"); //
-                                    new_params.add_string("string filename", &filename);
-                                    new_params.add_string("string fullpath", &fullpath);
-                                    let resource = Arc::new(RwLock::new(OtherResource::new(
-                                        &name,
-                                        &new_params,
-                                    )));
-                                    self.resources
-                                        .insert(fullpath.to_string(), resource.clone());
+                                    if !self.resources.contains_key(&fullpath) {
+                                        let mut new_params = ParamSet::default();
+                                        new_params.add_string("string type", "spd"); //
+                                        new_params.add_string("string filename", &filename);
+                                        new_params.add_string("string fullpath", &fullpath);
+
+                                        let resource = Arc::new(RwLock::new(OtherResource::new(
+                                            &name,
+                                            &new_params,
+                                        )));
+                                        self.resources
+                                            .insert(fullpath.to_string(), resource.clone());
+                                    }
                                 }
                                 Err(e) => {
                                     log::warn!("filename error: {}", e);
@@ -225,20 +284,24 @@ impl SceneTarget {
                             .to_string();
                         let fullpath = fullpath.to_str().unwrap().to_string();
 
-                        let transform = Matrix4x4::identity();
-                        let mut new_params = ParamSet::default();
-                        new_params.add_string("string filename", &filename);
-                        new_params.add_string("string fullpath", &fullpath);
-                        let texture = Arc::new(RwLock::new(Texture::new(
-                            &name,
-                            "spectrum",
-                            "imagemap",
-                            Some(&fullpath),
-                            &new_params,
-                            &transform,
-                        )));
-                        self.textures
-                            .insert(texture.read().unwrap().get_id(), texture.clone());
+                        if !self.image_textures.contains_key(&fullpath) {
+                            let transform = Matrix4x4::identity();
+                            let mut new_params = ParamSet::default();
+                            new_params.add_string("string filename", &filename);
+                            new_params.add_string("string fullpath", &fullpath);
+                            let texture = Arc::new(RwLock::new(Texture::new(
+                                &name,
+                                "spectrum",
+                                "imagemap",
+                                Some(&fullpath),
+                                &new_params,
+                                &transform,
+                            )));
+                            self.textures
+                                .insert(texture.read().unwrap().get_id(), texture.clone());
+                            self.image_textures
+                                .insert(fullpath.to_string(), texture.clone());
+                        }
                     }
                     Err(e) => {
                         log::warn!("filename error: {}", e);
@@ -248,59 +311,61 @@ impl SceneTarget {
         }
     }
 
-    fn make_shape(&mut self, name: &str, params: &ParamSet) -> Option<Arc<RwLock<Node>>> {
-        match name {
-            "trianglemesh" => {
-                let node = self.create_child_node("Mesh");
-                {
-                    let mut node = node.write().unwrap();
-                    {
-                        let mesh_name = format!("Mesh_{}", self.meshes.len() + 1);
-                        let component = MeshComponent::new(name, &mesh_name, params);
-                        //if let Some(mesh) = component.mesh.as_ref() {
-                        //    self.meshes
-                        //        .insert(mesh.read().unwrap().get_id(), mesh.clone());
-                        //}
-                        node.add_component(component);
-                    }
-                }
-                return Some(node);
-            }
-            "plymesh" => {
-                if let Some(filename) = params.find_one_string("filename") {
-                    //println!("PlyMesh filename A: {}", filename);
+    fn add_fullpath_params(&self, params: &mut ParamSet) {
+        let mut new_props = vec![];
+        for (key_type, key_name) in params.get_keys().iter() {
+            if key_type == "spectrum" {
+                if let Some(filename) = params.find_one_string(&key_name) {
                     if let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                        //println!("PlyMesh filename B: {}", fullpath);
                         match std::path::absolute(fullpath) {
                             Ok(fullpath) => {
-                                //println!("PlyMesh filename C: {}", filename);
                                 let fullpath = fullpath.to_str().unwrap().to_string();
-                                //println!("PlyMesh filename D: {}", fullpath);
+                                let new_key = format!("{} {}_fullpath", key_type, key_name);
+                                new_props.push((new_key.clone(), Property::from(fullpath.clone())));
+                            }
+                            Err(_) => {
+                                //
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (key, value) in new_props.iter() {
+            params.insert(key, value.clone());
+        }
+    }
+
+    fn make_shape(&mut self, name: &str, params: &ParamSet) -> Option<Arc<RwLock<Node>>> {
+        let shape_type = name.to_string();
+        match shape_type.as_str() {
+            "plymesh" => {
+                let title = ShapeComponent::get_name_from_type(name);
+                if let Some(filename) = params.find_one_string("filename") {
+                    if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+                        match std::path::absolute(fullpath) {
+                            Ok(fullpath) => {
+                                let fullpath = fullpath.to_str().unwrap().to_string();
+                                let filename = Path::new(&fullpath)
+                                    .file_stem()
+                                    .unwrap()
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string();
                                 let mut params = params.clone();
                                 params.insert("string fullpath", Property::from(fullpath.clone()));
-                                let node = self.create_child_node("Mesh");
+                                let node = self.create_child_node(&title);
                                 {
                                     let mut node = node.write().unwrap();
-                                    {
-                                        if let Some(mesh) = self.meshes.get(&fullpath) {
-                                            let component = MeshComponent {
-                                                mesh: Some(mesh.clone()),
-                                            };
-                                            node.add_component(component);
-                                        } else {
-                                            let filename = Path::new(&fullpath)
-                                                .file_stem()
-                                                .unwrap()
-                                                .to_str()
-                                                .unwrap()
-                                                .to_string();
-                                            let component =
-                                                MeshComponent::new(name, &filename, &params);
-                                            if let Some(mesh) = component.mesh.as_ref() {
-                                                self.meshes.insert(fullpath.clone(), mesh.clone());
-                                            }
-                                            node.add_component(component);
-                                        }
+                                    if let Some(mesh) = self.meshes.get(&fullpath) {
+                                        let component = ShapeComponent::with_shape(&mesh);
+                                        node.add_component(component);
+                                    } else {
+                                        let component =
+                                            ShapeComponent::new(&shape_type, &filename, &params);
+                                        let mesh = component.get_shape();
+                                        self.meshes.insert(fullpath.clone(), mesh);
+                                        node.add_component(component);
                                     }
                                 }
                                 return Some(node);
@@ -312,27 +377,14 @@ impl SceneTarget {
                     }
                 }
             }
-            "sphere" | "disk" | "cylinder" | "cone" | "paraboloid" | "hyperboloid" => {
+            "trianglemesh" | "sphere" | "disk" | "cylinder" | "cone" | "paraboloid"
+            | "hyperboloid" | "loopsubdiv" => {
                 let title = ShapeComponent::get_name_from_type(name);
                 let node = self.create_child_node(&title);
                 {
                     let mut node = node.write().unwrap();
-                    {
-                        let component = ShapeComponent::new(name, params);
-                        node.add_component(component);
-                    }
-                }
-                return Some(node);
-            }
-            "loopsubdiv" => {
-                let title = SubdivComponent::get_name_from_type(name);
-                let node = self.create_child_node(&title);
-                {
-                    let mut node = node.write().unwrap();
-                    {
-                        let component = SubdivComponent::new(name, params);
-                        node.add_component(component);
-                    }
+                    let component = ShapeComponent::new(&shape_type, &title, params);
+                    node.add_component(component);
                 }
                 return Some(node);
             }
@@ -438,10 +490,27 @@ impl ParseTarget for SceneTarget {
             log::warn!("Coordinate system {} not found", name);
         }
     }
-    fn active_transform_all(&mut self) {}
-    fn active_transform_end_time(&mut self) {}
-    fn active_transform_start_time(&mut self) {}
-    fn transform_times(&mut self, start: f32, end: f32) {}
+
+    fn active_transform_all(&mut self) {
+        let ts = self.get_current_transform();
+        ts.set_transform_bit(TransformBit::All);
+    }
+
+    fn active_transform_end_time(&mut self) {
+        let ts = self.get_current_transform();
+        ts.set_transform_bit(TransformBit::End);
+    }
+
+    fn active_transform_start_time(&mut self) {
+        let ts = self.get_current_transform();
+        ts.set_transform_bit(TransformBit::Start);
+    }
+
+    fn transform_times(&mut self, start: f32, end: f32) {
+        let opts = &mut self.render_options;
+        opts.transform_start_time = start;
+        opts.transform_end_time = end;
+    }
 
     fn pixel_filter(&mut self, name: &str, params: &ParamSet) {
         let opts = &mut self.render_options;
@@ -474,6 +543,7 @@ impl ParseTarget for SceneTarget {
     }
 
     fn camera(&mut self, name: &str, params: &ParamSet) {
+        self.register_other_resources(params);
         let opts = &mut self.render_options;
         opts.camera_name = name.to_string();
         opts.camera_params = params.clone();
@@ -557,6 +627,9 @@ impl ParseTarget for SceneTarget {
     }
 
     fn texture(&mut self, name: &str, _type: &str, tex_name: &str, params: &ParamSet) {
+        let mut params = params.clone();
+        self.register_other_resources(&params);
+        self.add_fullpath_params(&mut params);
         let t = self.get_current_transform().clone();
         let transform = t.get_world_matrix();
         if tex_name == "imagemap" {
@@ -568,7 +641,7 @@ impl ParseTarget for SceneTarget {
                         Ok(fullpath) => {
                             let fullpath = fullpath.to_str();
                             let texture = Arc::new(RwLock::new(Texture::new(
-                                name, _type, tex_name, fullpath, params, &transform,
+                                name, _type, tex_name, fullpath, &params, &transform,
                             )));
                             self.register_texture(&texture);
                         }
@@ -580,7 +653,7 @@ impl ParseTarget for SceneTarget {
             }
         } else {
             let texture = Arc::new(RwLock::new(Texture::new(
-                name, _type, tex_name, None, params, &transform,
+                name, _type, tex_name, None, &params, &transform,
             )));
             self.register_texture(&texture);
         }
@@ -633,9 +706,83 @@ impl ParseTarget for SceneTarget {
         self.register_other_resources(params);
         let title = LightComponent::get_name_from_type(name);
         let node = self.create_child_node(&title);
+        let mut params = params.clone();
+        if name == "point" {
+            let mut has_value = false;
+            if let Some(props) = params.get("point from") {
+                has_value = true;
+                if let Property::Floats(values) = props {
+                    if values.len() == 3 {
+                        let from = Matrix4x4::translate(values[0], values[1], values[2]);
+                        {
+                            let mut node = node.write().unwrap();
+                            if let Some(component) = node.get_component_mut::<TransformComponent>()
+                            {
+                                let local_matrix = self.get_current_local_matrix();
+                                let local_matrix = from * local_matrix;
+                                component.set_local_matrix(local_matrix);
+                            }
+                        }
+                    } else {
+                        log::warn!("Light 'from' parameter should have 3 values");
+                    }
+                }
+            }
+            if has_value {
+                params.remove("point from");
+            }
+        } else if name == "spot" || name == "distant" {
+            let mut remove_keys = Vec::new();
+            let mut matrix = Matrix4x4::identity();
+            {
+                let mut from = Vector3::zero();
+                if let Some(props) = params.get("point from") {
+                    remove_keys.push("point from".to_string());
+                    if let Property::Floats(values) = props {
+                        if values.len() == 3 {
+                            from = Vector3::new(values[0], values[1], values[2]);
+                        } else {
+                            log::warn!("Light 'from' parameter should have 3 values");
+                        }
+                    }
+                }
+                let mut to = Vector3::new(0.0, 0.0, 1.0);
+                if let Some(props) = params.get("point to") {
+                    remove_keys.push("point to".to_string());
+                    if let Property::Floats(values) = props {
+                        if values.len() == 3 {
+                            to = Vector3::new(values[0], values[1], values[2]);
+                        } else {
+                            log::warn!("Light 'to' parameter should have 3 values");
+                        }
+                    }
+                }
+                let dir = to - from;
+                let (dir, du, dv) = coordinate_system(&dir);
+                let dir_to_z = Matrix4x4::new(
+                    du.x, du.y, du.z, 0.0, dv.x, dv.y, dv.z, 0., dir.x, dir.y, dir.z, 0.0, 0.0,
+                    0.0, 0.0, 1.0,
+                );
+                matrix = Matrix4x4::translate(from.x, from.y, from.z) * dir_to_z.transpose();
+            }
+            if !remove_keys.is_empty() {
+                {
+                    let mut node = node.write().unwrap();
+                    if let Some(component) = node.get_component_mut::<TransformComponent>() {
+                        let local_matrix = self.get_current_local_matrix();
+                        let local_matrix = local_matrix * matrix;
+                        component.set_local_matrix(local_matrix);
+                    }
+                }
+                for keys in remove_keys.iter() {
+                    params.remove(keys);
+                }
+            }
+        }
+
         {
             let mut node = node.write().unwrap();
-            let component = LightComponent::new(name, params);
+            let component = LightComponent::new(name, &params);
             node.add_component(component);
         }
     }
@@ -647,19 +794,45 @@ impl ParseTarget for SceneTarget {
     }
 
     fn shape(&mut self, name: &str, params: &ParamSet) {
-        if let Some(node) = self.make_shape(name, params) {
-            let mut node = node.write().unwrap();
-            let attr = self.graphics_states.last_mut().unwrap();
-            {
+        let ts = self.get_current_transform().clone();
+        if !ts.is_animated() {
+            if let Some(node) = self.make_shape(name, params) {
+                let mut node = node.write().unwrap();
+                let attr = self.graphics_states.last().unwrap();
                 if let Some(material) = attr.current_material.as_ref() {
                     let component = MaterialComponent::from_material(material);
                     node.add_component(component);
                 }
+                if let Some((light_type, light_params)) = attr.area_light.as_ref() {
+                    node.set_name("AreaLight");
+                    let component = AreaLightComponent::new(&light_type, light_params);
+                    node.add_component(component);
+                }
             }
-            if let Some((light_type, light_params)) = attr.area_light.as_ref() {
-                node.set_name("AreaLight");
-                let component = AreaLightComponent::new(&light_type, light_params);
-                node.add_component(component);
+        } else {
+            {
+                let attr = self.graphics_states.last().unwrap();
+                if let Some(_) = attr.area_light.as_ref() {
+                    log::warn!("Area light source cannot be animated");
+                }
+            }
+            if let Some(node) = self.make_shape(name, params) {
+                let mut node = node.write().unwrap();
+                let attr = self.graphics_states.last().unwrap();
+                if let Some(material) = attr.current_material.as_ref() {
+                    let component = MaterialComponent::from_material(material);
+                    node.add_component(component);
+                }
+                {
+                    let m0 = ts.transforms[0].m; //world todo
+                    let m1 = ts.transforms[1].m; //world todo
+                    //
+
+                    let start_time = self.render_options.transform_start_time;
+                    let end_time = self.render_options.transform_end_time;
+                    let component = AnimationComponent::new(&m0, start_time, &m1, end_time);
+                    node.add_component(component);
+                }
             }
         }
     }
@@ -781,23 +954,33 @@ impl SceneTarget {
         }
 
         {
-            let mut resources = ResourcesComponent::new();
-            for (id, material) in self.materials.iter() {
-                resources.materials.insert(id.clone(), material.clone());
-            }
-            for (_path, mesh) in self.meshes.iter() {
-                let id = mesh.read().unwrap().get_id();
-                resources.meshes.insert(id, mesh.clone());
-            }
-            for (id, texture) in self.textures.iter() {
-                resources.textures.insert(id.clone(), texture.clone());
-            }
-            for (_path, resource) in self.resources.iter() {
-                let id = resource.read().unwrap().get_id();
-                resources.other_resources.insert(id, resource.clone());
+            let resource_component = ResourceComponent::new();
+            {
+                let resource_manager = resource_component.get_resource_manager();
+                let mut resource_manager = resource_manager.write().unwrap();
+                for (id, material) in self.materials.iter() {
+                    resource_manager
+                        .materials
+                        .insert(id.clone(), material.clone());
+                }
+                for (_path, mesh) in self.meshes.iter() {
+                    let id = mesh.read().unwrap().get_id();
+                    resource_manager.meshes.insert(id, mesh.clone());
+                }
+                for (id, texture) in self.textures.iter() {
+                    resource_manager
+                        .textures
+                        .insert(id.clone(), texture.clone());
+                }
+                for (_path, resource) in self.resources.iter() {
+                    let id = resource.read().unwrap().get_id();
+                    resource_manager
+                        .other_resources
+                        .insert(id, resource.clone());
+                }
             }
             let mut root_node = root_node.write().unwrap();
-            root_node.add_component(resources);
+            root_node.add_component(resource_component);
         }
         return root_node;
     }

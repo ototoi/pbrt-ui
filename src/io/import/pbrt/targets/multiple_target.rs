@@ -1,5 +1,5 @@
 use super::super::parse::ParseTarget;
-use crate::models::base::ParamSet;
+use crate::model::base::ParamSet;
 
 use std::sync::Arc;
 use std::sync::RwLock;
