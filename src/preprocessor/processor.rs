@@ -14,8 +14,8 @@ pub struct Preprocessor {
     /// Defined macros with parameters
     macros: HashMap<String, (Vec<String>, String)>,
     
-    /// Base path for resolving includes
-    base_path: PathBuf,
+    /// Base paths for resolving includes
+    base_paths: Vec<PathBuf>,
     
     /// Set of currently included files (for circular dependency detection)
     include_stack: HashSet<PathBuf>,
@@ -27,7 +27,7 @@ impl Preprocessor {
         Self {
             defines: HashMap::new(),
             macros: HashMap::new(),
-            base_path: PathBuf::from("."),
+            base_paths: vec![PathBuf::from(".")],
             include_stack: HashSet::new(),
         }
     }
@@ -37,9 +37,24 @@ impl Preprocessor {
         Self {
             defines: HashMap::new(),
             macros: HashMap::new(),
-            base_path: base_path.as_ref().to_path_buf(),
+            base_paths: vec![base_path.as_ref().to_path_buf()],
             include_stack: HashSet::new(),
         }
+    }
+    
+    /// Create a preprocessor with multiple base paths for includes
+    pub fn with_base_paths<P: AsRef<Path>>(base_paths: impl IntoIterator<Item = P>) -> Self {
+        Self {
+            defines: HashMap::new(),
+            macros: HashMap::new(),
+            base_paths: base_paths.into_iter().map(|p| p.as_ref().to_path_buf()).collect(),
+            include_stack: HashSet::new(),
+        }
+    }
+    
+    /// Add a base path for resolving includes
+    pub fn add_base_path<P: AsRef<Path>>(&mut self, base_path: P) {
+        self.base_paths.push(base_path.as_ref().to_path_buf());
     }
     
     /// Add a predefined symbol
@@ -141,22 +156,38 @@ impl Preprocessor {
     
     /// Process an include directive
     fn process_include(&mut self, path: &str, _line: usize) -> PreprocessorResult<String> {
-        // Resolve the include path
-        let resolved_path = self.base_path.join(path);
+        // Try to resolve the include path from all base paths
+        let mut resolved_path = None;
+        let mut last_error = None;
         
-        // Check for circular dependencies
-        if self.include_stack.contains(&resolved_path) {
-            return Err(PreprocessorError::CircularDependency {
-                path: path.to_string(),
-                chain: self.include_stack.iter().map(|p| p.to_string_lossy().to_string()).collect(),
-            });
+        for base_path in &self.base_paths {
+            let candidate_path = base_path.join(path);
+            
+            // Check for circular dependencies
+            if self.include_stack.contains(&candidate_path) {
+                return Err(PreprocessorError::CircularDependency {
+                    path: path.to_string(),
+                    chain: self.include_stack.iter().map(|p| p.to_string_lossy().to_string()).collect(),
+                });
+            }
+            
+            // Try to read the file
+            match fs::read_to_string(&candidate_path) {
+                Ok(content) => {
+                    resolved_path = Some((candidate_path, content));
+                    break;
+                }
+                Err(e) => {
+                    last_error = Some(e);
+                }
+            }
         }
         
-        // Read the file
-        let content = fs::read_to_string(&resolved_path).map_err(|e| {
+        // If no file was found in any base path, return an error
+        let (resolved_path, content) = resolved_path.ok_or_else(|| {
             PreprocessorError::IoError {
                 path: path.to_string(),
-                message: e.to_string(),
+                message: last_error.map(|e| e.to_string()).unwrap_or_else(|| "File not found in any base path".to_string()),
             }
         })?;
         
