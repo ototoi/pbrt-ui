@@ -20,13 +20,10 @@ fn main() {
         );
     }
 
-    // Tell cargo to rerun this build script if any file in the shaders directory changes
-    println!("cargo:rerun-if-changed=src/render/wgpu/shaders");
-
-    // Also watch individual files to ensure proper incremental rebuilds
+    // Watch individual files to ensure proper incremental rebuilds
     if let Err(e) = watch_dir_files(&shader_src) {
-        eprintln!(
-            "Warning: Failed to set up file watching for {:?}: {}",
+        panic!(
+            "Failed to set up file watching for {:?}: {}",
             shader_src, e
         );
     }
