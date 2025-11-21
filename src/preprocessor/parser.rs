@@ -4,8 +4,8 @@ use nom::{
     IResult,
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
-    character::complete::{char, space0, space1, alphanumeric1, alpha1},
-    combinator::{opt, recognize, map},
+    character::complete::{alpha1, alphanumeric1, char, space0, space1},
+    combinator::{map, opt, recognize},
     multi::{many0, separated_list0},
     sequence::{delimited, tuple},
 };
@@ -15,19 +15,23 @@ use nom::{
 pub enum Directive {
     /// #define NAME VALUE
     Define { name: String, value: String },
-    
+
     /// #define NAME(params) body
-    DefineMacro { name: String, params: Vec<String>, body: String },
-    
+    DefineMacro {
+        name: String,
+        params: Vec<String>,
+        body: String,
+    },
+
     /// #ifdef NAME
     IfDef { name: String },
-    
+
     /// #ifndef NAME
     IfNDef { name: String },
-    
+
     /// #endif
     EndIf,
-    
+
     /// #include "path" or #include <path>
     Include { path: String },
 }
@@ -57,11 +61,14 @@ fn parse_define_simple(input: &str) -> IResult<&str, Directive> {
     let (input, name) = identifier(input)?;
     let (input, _) = ws(input)?;
     let (input, value) = until_eol(input)?;
-    
-    Ok((input, Directive::Define {
-        name: name.to_string(),
-        value: value.trim().to_string(),
-    }))
+
+    Ok((
+        input,
+        Directive::Define {
+            name: name.to_string(),
+            value: value.trim().to_string(),
+        },
+    ))
 }
 
 /// Parse macro parameters like (a, b, c)
@@ -71,11 +78,11 @@ fn parse_macro_params(input: &str) -> IResult<&str, Vec<String>> {
         map(
             opt(separated_list0(
                 delimited(space0, char(','), space0),
-                map(identifier, |s| s.to_string())
+                map(identifier, |s| s.to_string()),
             )),
-            |opt_list| opt_list.unwrap_or_default()
+            |opt_list| opt_list.unwrap_or_default(),
         ),
-        char(')')
+        char(')'),
     )(input)
 }
 
@@ -87,12 +94,15 @@ fn parse_define_macro(input: &str) -> IResult<&str, Directive> {
     let (input, params) = parse_macro_params(input)?;
     let (input, _) = ws(input)?;
     let (input, body) = until_eol(input)?;
-    
-    Ok((input, Directive::DefineMacro {
-        name: name.to_string(),
-        params,
-        body: body.trim().to_string(),
-    }))
+
+    Ok((
+        input,
+        Directive::DefineMacro {
+            name: name.to_string(),
+            params,
+            body: body.trim().to_string(),
+        },
+    ))
 }
 
 /// Parse #define (either simple or macro)
@@ -105,10 +115,13 @@ fn parse_ifdef(input: &str) -> IResult<&str, Directive> {
     let (input, _) = tag("#ifdef")(input)?;
     let (input, _) = space1(input)?;
     let (input, name) = identifier(input)?;
-    
-    Ok((input, Directive::IfDef {
-        name: name.to_string(),
-    }))
+
+    Ok((
+        input,
+        Directive::IfDef {
+            name: name.to_string(),
+        },
+    ))
 }
 
 /// Parse #ifndef directive
@@ -116,16 +129,19 @@ fn parse_ifndef(input: &str) -> IResult<&str, Directive> {
     let (input, _) = tag("#ifndef")(input)?;
     let (input, _) = space1(input)?;
     let (input, name) = identifier(input)?;
-    
-    Ok((input, Directive::IfNDef {
-        name: name.to_string(),
-    }))
+
+    Ok((
+        input,
+        Directive::IfNDef {
+            name: name.to_string(),
+        },
+    ))
 }
 
 /// Parse #endif directive
 fn parse_endif(input: &str) -> IResult<&str, Directive> {
     let (input, _) = tag("#endif")(input)?;
-    
+
     Ok((input, Directive::EndIf))
 }
 
@@ -144,10 +160,13 @@ fn parse_include(input: &str) -> IResult<&str, Directive> {
     let (input, _) = tag("#include")(input)?;
     let (input, _) = space1(input)?;
     let (input, path) = alt((parse_include_quoted, parse_include_angled))(input)?;
-    
-    Ok((input, Directive::Include {
-        path: path.to_string(),
-    }))
+
+    Ok((
+        input,
+        Directive::Include {
+            path: path.to_string(),
+        },
+    ))
 }
 
 /// Parse any preprocessor directive
