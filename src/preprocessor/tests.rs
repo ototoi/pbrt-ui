@@ -404,3 +404,118 @@ let value = 1;
     let result = preprocessor.process(source);
     assert!(result.is_err());
 }
+
+#[test]
+fn test_multiple_base_paths() {
+    let temp_dir1 = TempDir::new().unwrap();
+    let temp_dir2 = TempDir::new().unwrap();
+    
+    // Create a file in the second directory
+    let file2_path = temp_dir2.path().join("lib2.wgsl");
+    fs::write(&file2_path, "let lib2_value = 42;").unwrap();
+    
+    // Create a file in the first directory
+    let file1_path = temp_dir1.path().join("lib1.wgsl");
+    fs::write(&file1_path, "let lib1_value = 100;").unwrap();
+    
+    let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
+    let source = r#"
+#include "lib1.wgsl"
+#include "lib2.wgsl"
+let main_value = 1;
+"#;
+    
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("lib1_value = 100"));
+    assert!(result.contains("lib2_value = 42"));
+    assert!(result.contains("main_value = 1"));
+}
+
+#[test]
+fn test_add_base_path() {
+    let temp_dir1 = TempDir::new().unwrap();
+    let temp_dir2 = TempDir::new().unwrap();
+    
+    // Create files in different directories
+    let file1_path = temp_dir1.path().join("first.wgsl");
+    fs::write(&file1_path, "let first_value = 1;").unwrap();
+    
+    let file2_path = temp_dir2.path().join("second.wgsl");
+    fs::write(&file2_path, "let second_value = 2;").unwrap();
+    
+    // Start with first directory only
+    let mut preprocessor = Preprocessor::with_base_path(temp_dir1.path());
+    
+    // Add second directory
+    preprocessor.add_base_path(temp_dir2.path());
+    
+    let source = r#"
+#include "first.wgsl"
+#include "second.wgsl"
+"#;
+    
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("first_value = 1"));
+    assert!(result.contains("second_value = 2"));
+}
+
+#[test]
+fn test_path_priority() {
+    let temp_dir1 = TempDir::new().unwrap();
+    let temp_dir2 = TempDir::new().unwrap();
+    
+    // Create the same filename in both directories with different content
+    let file1_path = temp_dir1.path().join("common.wgsl");
+    fs::write(&file1_path, "let from_first = 1;").unwrap();
+    
+    let file2_path = temp_dir2.path().join("common.wgsl");
+    fs::write(&file2_path, "let from_second = 2;").unwrap();
+    
+    // First directory should have priority
+    let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
+    let source = r#"#include "common.wgsl""#;
+    
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("from_first = 1"));
+    assert!(!result.contains("from_second"));
+}
+
+#[test]
+fn test_fallback_to_second_path() {
+    let temp_dir1 = TempDir::new().unwrap();
+    let temp_dir2 = TempDir::new().unwrap();
+    
+    // File only exists in second directory
+    let file2_path = temp_dir2.path().join("only_in_second.wgsl");
+    fs::write(&file2_path, "let second_only = 42;").unwrap();
+    
+    let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
+    let source = r#"#include "only_in_second.wgsl""#;
+    
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("second_only = 42"));
+}
+
+#[test]
+fn test_circular_dependency_multi_path() {
+    let temp_dir1 = TempDir::new().unwrap();
+    let temp_dir2 = TempDir::new().unwrap();
+    
+    // Create file A in first directory that includes file B
+    let file_a = temp_dir1.path().join("a.wgsl");
+    fs::write(&file_a, r#"#include "b.wgsl""#).unwrap();
+    
+    // Create file B in second directory that includes file A
+    let file_b = temp_dir2.path().join("b.wgsl");
+    fs::write(&file_b, r#"#include "a.wgsl""#).unwrap();
+    
+    let mut preprocessor = Preprocessor::with_base_paths(vec![temp_dir1.path(), temp_dir2.path()]);
+    let source = r#"#include "a.wgsl""#;
+    
+    let result = preprocessor.process(source);
+    assert!(result.is_err());
+    match result {
+        Err(PreprocessorError::CircularDependency { .. }) => {},
+        _ => panic!("Expected CircularDependency error"),
+    }
+}
