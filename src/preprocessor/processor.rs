@@ -185,9 +185,18 @@ impl Preprocessor {
         
         // If no file was found in any base path, return an error
         let (resolved_path, content) = resolved_path.ok_or_else(|| {
+            let searched_paths: Vec<String> = self.base_paths
+                .iter()
+                .map(|bp| bp.join(path).to_string_lossy().to_string())
+                .collect();
+            let message = if let Some(err) = last_error {
+                format!("{} (searched in: {})", err, searched_paths.join(", "))
+            } else {
+                format!("File not found in any base path (searched: {})", searched_paths.join(", "))
+            };
             PreprocessorError::IoError {
                 path: path.to_string(),
-                message: last_error.map(|e| e.to_string()).unwrap_or_else(|| "File not found in any base path".to_string()),
+                message,
             }
         })?;
         
