@@ -1,7 +1,7 @@
 use include_dir::{include_dir, Dir};
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // Statically include the shader files at build time
 static SHADERS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/render/wgpu/shaders");
@@ -45,11 +45,14 @@ pub fn copy_shaders_to_cache() -> io::Result<PathBuf> {
 ///
 /// # Errors
 /// Returns an `io::Error` if directory creation or file writing fails
-fn copy_dir_recursive(embedded_dir: &Dir, dest_path: &PathBuf) -> io::Result<()> {
+fn copy_dir_recursive(embedded_dir: &Dir, dest_path: &Path) -> io::Result<()> {
     // Copy all files in the current directory
     for file in embedded_dir.files() {
         // Get just the file name, not the full path
-        let file_name = file.path().file_name().unwrap();
+        let file_name = file
+            .path()
+            .file_name()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid file name"))?;
         let file_path = dest_path.join(file_name);
         
         // Write the file contents
@@ -58,7 +61,11 @@ fn copy_dir_recursive(embedded_dir: &Dir, dest_path: &PathBuf) -> io::Result<()>
 
     // Recursively process subdirectories
     for subdir in embedded_dir.dirs() {
-        let subdir_path = dest_path.join(subdir.path().file_name().unwrap());
+        let subdir_name = subdir
+            .path()
+            .file_name()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid directory name"))?;
+        let subdir_path = dest_path.join(subdir_name);
         
         // Create the subdirectory
         fs::create_dir_all(&subdir_path)?;
