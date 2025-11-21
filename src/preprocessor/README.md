@@ -1,6 +1,6 @@
-# WGSL Preprocessor
+# Preprocessor
 
-A C-like preprocessor for WGSL (WebGPU Shading Language) written in Rust using the `nom` parser combinator library.
+A C-like preprocessor written in Rust using the `nom` parser combinator library.
 
 ## Features
 
@@ -14,14 +14,14 @@ A C-like preprocessor for WGSL (WebGPU Shading Language) written in Rust using t
   - Support for nested conditionals
   
 - **`#include`** - File inclusion
-  - Include external WGSL files
+  - Include external files
   - Circular dependency detection
   - Support for both `"quoted"` and `<angled>` paths
 
 ## Usage
 
 ```rust
-use pbrt_ui::wgsl_preprocessor::Preprocessor;
+use pbrt_ui::preprocessor::Preprocessor;
 
 fn main() {
     let mut preprocessor = Preprocessor::new();
@@ -51,20 +51,20 @@ fn main() {
 
 ### Simple Constants
 
-```wgsl
+```
 #define WIDTH 800
 #define HEIGHT 600
 let screen_size = vec2<f32>(WIDTH, HEIGHT);
 ```
 
 Output:
-```wgsl
+```
 let screen_size = vec2<f32>(800, 600);
 ```
 
 ### Macros with Parameters
 
-```wgsl
+```
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define CLAMP(v, min, max) MAX(MIN(v, max), min)
 
@@ -73,7 +73,7 @@ let clamped_value = CLAMP(x, 0.0, 1.0);
 
 ### Conditional Compilation
 
-```wgsl
+```
 #define USE_TEXTURE
 #ifdef USE_TEXTURE
 fn sample_color() -> vec4<f32> {
@@ -89,8 +89,8 @@ fn sample_color() -> vec4<f32> {
 
 ### File Inclusion
 
-**common.wgsl:**
-```wgsl
+**common.h:**
+```
 #define PI 3.14159265359
 #define TWO_PI (2.0 * PI)
 
@@ -100,9 +100,9 @@ struct Camera {
 }
 ```
 
-**main.wgsl:**
-```wgsl
-#include "common.wgsl"
+**main.c:**
+```
+#include "common.h"
 
 @group(0) @binding(0) var<uniform> camera: Camera;
 
@@ -116,7 +116,7 @@ fn get_rotation_angle() -> f32 {
 The preprocessor provides detailed error messages:
 
 ```rust
-use pbrt_ui::wgsl_preprocessor::{Preprocessor, PreprocessorError};
+use pbrt_ui::preprocessor::{Preprocessor, PreprocessorError};
 
 let mut preprocessor = Preprocessor::new();
 let source = "#ifdef UNDEFINED\ncode\n"; // Missing #endif
@@ -164,7 +164,7 @@ The implementation includes comprehensive unit tests covering:
 
 Run tests with:
 ```bash
-cargo test wgsl_preprocessor
+cargo test preprocessor
 ```
 
 ## Implementation Details

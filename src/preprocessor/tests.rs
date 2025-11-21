@@ -1,4 +1,4 @@
-//! Tests for the WGSL preprocessor
+//! Tests for the preprocessor
 
 use super::*;
 use std::fs;
