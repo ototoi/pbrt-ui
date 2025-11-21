@@ -1,12 +1,12 @@
-//! WGSL Preprocessor implementation
+//! Preprocessor implementation
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::fs;
-use crate::wgsl_preprocessor::error::{PreprocessorError, PreprocessorResult};
-use crate::wgsl_preprocessor::parser::{parse_directive, Directive};
+use crate::preprocessor::error::{PreprocessorError, PreprocessorResult};
+use crate::preprocessor::parser::{parse_directive, Directive};
 
-/// A preprocessor for WGSL code that handles C-like directives
+/// A preprocessor that handles C-like directives
 pub struct Preprocessor {
     /// Defined symbols (from #define)
     defines: HashMap<String, String>,
@@ -52,7 +52,7 @@ impl Preprocessor {
         self.defines.contains_key(name) || self.macros.contains_key(name)
     }
     
-    /// Process WGSL source code
+    /// Process source code
     pub fn process(&mut self, source: &str) -> PreprocessorResult<String> {
         let mut output = String::new();
         let mut lines = source.lines().enumerate();

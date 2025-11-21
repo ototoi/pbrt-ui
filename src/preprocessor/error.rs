@@ -1,4 +1,4 @@
-//! Error types for the WGSL preprocessor
+//! Error types for the preprocessor
 
 use std::fmt;
 

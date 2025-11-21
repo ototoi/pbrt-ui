@@ -1,6 +1,6 @@
-//! WGSL Preprocessor
+//! Preprocessor
 //! 
-//! A C-like preprocessor for WGSL (WebGPU Shading Language) that handles:
+//! A C-like preprocessor that handles:
 //! - `#define` directives for constant and macro definitions
 //! - `#ifdef` and `#ifndef` for conditional compilation
 //! - `#include` for file inclusion with circular dependency detection

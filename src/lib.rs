@@ -6,4 +6,4 @@ pub mod io;
 pub mod models;
 pub mod panels;
 pub mod renderers;
-pub mod wgsl_preprocessor;
+pub mod preprocessor;
