@@ -18,7 +18,9 @@ impl LinearToSrgbRenderer {
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Linear To SRGB Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/copy_texture.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("../../../assets/shaders/copy_texture.wgsl").into(),
+            ),
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

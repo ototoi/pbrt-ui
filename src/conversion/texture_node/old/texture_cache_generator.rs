@@ -31,8 +31,7 @@ fn create_texture_cache_path(src: &str, size: TextureCacheSize) -> String {
     let dir = dirs::cache_dir()
         .unwrap()
         .join("pbrt_ui")
-        .join("cache")
-        .join("texture")
+        .join("textures")
         .join(size.to_string());
     let src_path = std::path::PathBuf::from(src);
     let extension = src_path

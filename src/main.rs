@@ -52,7 +52,7 @@ fn main() -> eframe::Result {
     // Copy shader files to cache directory
     match copy_shaders_to_cache() {
         Ok(path) => {
-            println!("Shaders copied to cache: {:?}", path);
+            //println!("Shaders copied to cache: {:?}", path);
         }
         Err(e) => {
             eprintln!("Failed to copy shaders to cache: {}", e);

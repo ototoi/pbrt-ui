@@ -1,10 +1,9 @@
-use include_dir::{Dir, include_dir};
+use eframe::egui::output;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-// Statically include the shader files at build time
-static SHADERS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/render/wgpu/shaders");
+use crate::assets::Assets;
 
 /// Copies embedded shader files to the user's cache directory.
 ///
@@ -20,23 +19,36 @@ static SHADERS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/render/wgpu/shad
 /// - The cache directory cannot be determined
 /// - Directory creation fails
 /// - File writing fails
-pub fn copy_shaders_to_cache() -> io::Result<PathBuf> {
+pub fn copy_shaders_to_cache() -> io::Result<String> {
     // Get the user's cache directory
     let cache_dir = dirs::cache_dir()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Cache directory not found"))?;
 
     // Create the pbrt_ui/shaders subdirectory path
-    let shaders_cache_path = cache_dir.join("pbrt_ui").join("shaders");
+    let cache_path = cache_dir.join("pbrt_ui");
 
     // Ensure the directory hierarchy exists
-    fs::create_dir_all(&shaders_cache_path)?;
+    fs::create_dir_all(&cache_path)?;
 
+    //let shaders_dir = Assets::get("shaders").ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Shaders directory not found in assets"))?;
     // Recursively copy all shader files from the embedded directory
-    copy_dir_recursive(&SHADERS_DIR, &shaders_cache_path)?;
-
-    Ok(shaders_cache_path)
+    for file in Assets::iter() {
+        if file.starts_with("shaders/") {
+            //println!("Copying shader file: {}", file);
+            if let Some(embedded_file) = Assets::get(&file) {
+                let output_path = cache_path.join(file.to_string());
+                // println!("Writing shader file to: {:?}", output_path);
+                let dirname = output_path.parent().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::Other, "Failed to get parent directory")
+                })?;
+                fs::create_dir_all(dirname)?;
+                fs::write(&output_path, embedded_file.data.as_ref())?;
+            }
+        }
+    }
+    Ok(cache_path.to_string_lossy().to_string())
 }
-
+/*
 /// Recursively copies files from an embedded directory to a filesystem path.
 ///
 /// # Arguments
@@ -76,3 +88,4 @@ fn copy_dir_recursive(embedded_dir: &Dir, dest_path: &Path) -> io::Result<()> {
 
     Ok(())
 }
+*/
