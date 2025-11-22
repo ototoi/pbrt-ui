@@ -32,6 +32,9 @@ pub enum Directive {
     /// #endif
     EndIf,
 
+    /// #else
+    Else,
+
     /// #include "path" or #include <path>
     Include { path: String },
 }
@@ -145,6 +148,13 @@ fn parse_endif(input: &str) -> IResult<&str, Directive> {
     Ok((input, Directive::EndIf))
 }
 
+/// Parse #else directive
+fn parse_else(input: &str) -> IResult<&str, Directive> {
+    let (input, _) = tag("#else")(input)?;
+
+    Ok((input, Directive::Else))
+}
+
 /// Parse #include directive with quoted path
 fn parse_include_quoted(input: &str) -> IResult<&str, &str> {
     delimited(char('"'), take_until("\""), char('"'))(input)
@@ -177,6 +187,7 @@ pub fn parse_directive(input: &str) -> IResult<&str, Directive> {
         parse_ifdef,
         parse_ifndef,
         parse_endif,
+        parse_else,
     ))(input)
 }
 

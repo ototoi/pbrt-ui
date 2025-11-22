@@ -122,6 +122,26 @@ impl Preprocessor {
                                 skip_depth = skip_depth.saturating_sub(1);
                             }
                         }
+                        Directive::Else => {
+                            if conditional_stack.is_empty() {
+                                return Err(PreprocessorError::ParseError {
+                                    line: line_number,
+                                    message: "Unexpected #else without matching #ifdef or #ifndef"
+                                        .to_string(),
+                                });
+                            }
+                            let condition = conditional_stack.last_mut().unwrap();
+                            if skip_depth == 0 {
+                                // We were including, now we skip
+                                skip_depth += 1;
+                                *condition = !*condition;
+                            } else if skip_depth == 1 {
+                                // We were skipping, now we include
+                                skip_depth -= 1;
+                                *condition = !*condition;
+                            }
+                            // If skip_depth > 1, we remain skipping
+                        }
                         Directive::Include { path } => {
                             if skip_depth == 0 {
                                 let included_content = self.process_include(&path, line_number)?;
