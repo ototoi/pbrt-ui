@@ -226,7 +226,9 @@ impl LinesRenderer {
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Lines Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_lines.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("../../../assets/shaders/render_lines.wgsl").into(),
+            ),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {

@@ -207,7 +207,9 @@ impl SolidMeshRenderer {
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Solid Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_solid_mesh.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("../../../assets/shaders/render_solid_mesh.wgsl").into(),
+            ),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {

@@ -35,6 +35,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::vec;
 
+use eframe::egui::cache;
 use uuid::Uuid;
 //use bytemuck::{Pod, Zeroable};
 
@@ -314,26 +315,32 @@ fn get_shader_id_from_type(shader_type: &str) -> Uuid {
     return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
 }
 
-fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
-    let source = if shader_type.starts_with("arealight") {
-        include_str!("shaders/surface/arealight_diffuse.wgsl")
-    } else {
-        match shader_type {
-            "lambertian_none_kd@V" => include_str!("shaders/surface/lambertian_none_kd@V.wgsl"),
-            "lambertian_none_kd@T" => include_str!("shaders/surface/lambertian_none_kd@T.wgsl"),
-            "lambertian_ggx_kd@V_ks@V_roughness@F" => {
-                include_str!("shaders/surface/lambertian_ggx_kd@V_ks@V_roughness@F.wgsl")
+fn get_shader_source(shader_type: &str) -> String {
+    let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
+    if shader_type.starts_with("arealight") {
+        let source = cache_dir.join("surface").join("arealight_diffuse.wgsl");
+        if source.exists() {
+            if let Ok(code) = std::fs::read_to_string(source) {
+                return code;
             }
-            "lambertian_ggx_kd@T_ks@V_roughness@F" => {
-                include_str!("shaders/surface/lambertian_ggx_kd@T_ks@V_roughness@F.wgsl")
-            }
-            "transmission_none_kt@V" => include_str!("shaders/surface/transmission_none_kt@V.wgsl"),
-            "none_ggx_kr@V_roughness@F" => {
-                include_str!("shaders/surface/none_ggx_kr@V_roughness@F.wgsl")
-            }
-            _ => include_str!("shaders/surface/basic_material.wgsl"),
         }
-    };
+    } else {
+        let source = cache_dir
+            .join("surface")
+            .join(format!("{}.wgsl", shader_type));
+        if source.exists() {
+            if let Ok(code) = std::fs::read_to_string(source) {
+                return code;
+            }
+        }
+    }
+    let source = cache_dir.join("surface").join("basic_material.wgsl");
+    let code = std::fs::read_to_string(source).unwrap();
+    return code;
+}
+
+fn get_shader_module(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
+    let source = get_shader_source(shader_type);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Shader"),
         source: wgpu::ShaderSource::Wgsl(source.into()),
@@ -353,7 +360,7 @@ pub fn create_render_shader(
     if let Some(shader) = render_resource_manager.get_shader(shader_id) {
         return shader.clone();
     }
-    let shader_module = get_shader(device, &shader_type);
+    let shader_module = get_shader_module(device, &shader_type);
     let render_shader = RenderShader {
         id: shader_id,
         shader: Arc::new(shader_module),
