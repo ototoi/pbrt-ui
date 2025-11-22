@@ -14,6 +14,7 @@ pub mod render_item;
 pub mod render_light_item;
 pub mod render_mesh_item;
 pub mod render_resource;
+pub mod shader;
 pub mod solid_mesh_renderer;
 pub mod solid_renderer;
 pub mod texture;

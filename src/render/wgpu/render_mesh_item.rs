@@ -9,7 +9,6 @@ use super::render_item::create_render_pass;
 use super::render_item::get_bool;
 use super::render_item::get_color;
 use super::render_item::get_float;
-use super::render_item::get_shader_type;
 use super::render_item::get_texture;
 use super::render_resource::RenderResourceManager;
 use crate::model::scene::Light;
@@ -94,6 +93,8 @@ fn roughness_to_alpha(roughness: f32) -> f32 {
 }
 
 fn create_basic_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -115,6 +116,8 @@ fn create_basic_render_passes(
         ),
     ];
     let render_pass = create_render_pass(
+        device,
+        queue,
         "basic",
         RenderCategory::Opaque,
         &uniform_values,
@@ -124,6 +127,8 @@ fn create_basic_render_passes(
 }
 
 fn create_matte_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -153,9 +158,10 @@ fn create_matte_render_passes(
             ));
         }
     }
-    let shader_type = get_shader_type("lambertian_none", &uniform_values);
     let render_pass = create_render_pass(
-        &shader_type,
+        device,
+        queue,
+        "lambertian_none",
         RenderCategory::Opaque,
         &uniform_values,
         render_resource_manager,
@@ -164,6 +170,8 @@ fn create_matte_render_passes(
 }
 
 fn create_plastic_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -202,11 +210,11 @@ fn create_plastic_render_passes(
         "roughness".to_string(),
         RenderUniformValue::Float(roughness),
     ));
-
-    let shader_type = get_shader_type("lambertian_ggx", &uniform_values);
     //println!("{}: Plastic Shader Type: {}", material.get_name(),shader_type);
     let render_pass = create_render_pass(
-        &shader_type,
+        device,
+        queue,
+        "lambertian_ggx",
         RenderCategory::Opaque,
         &uniform_values,
         render_resource_manager,
@@ -215,22 +223,40 @@ fn create_plastic_render_passes(
 }
 
 fn create_uber_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    return create_plastic_render_passes(material, resource_manager, render_resource_manager);
+    return create_plastic_render_passes(
+        device,
+        queue,
+        material,
+        resource_manager,
+        render_resource_manager,
+    );
 }
 
 fn create_substrate_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    return create_plastic_render_passes(material, resource_manager, render_resource_manager);
+    return create_plastic_render_passes(
+        device,
+        queue,
+        material,
+        resource_manager,
+        render_resource_manager,
+    );
 }
 
 fn create_glass_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -248,9 +274,10 @@ fn create_glass_render_passes(
     let mut passes = vec![];
     {
         let uniform_values = vec![("kt".to_string(), RenderUniformValue::Vec4(diffuse_color))];
-        let shader_type = format!("transmission_none_kt@V");
         let render_pass = create_render_pass(
-            &shader_type,
+            device,
+            queue,
+            "transmission_none",
             RenderCategory::Transparent,
             &uniform_values,
             render_resource_manager,
@@ -265,9 +292,10 @@ fn create_glass_render_passes(
                 RenderUniformValue::Float(roughness),
             ),
         ];
-        let shader_type = format!("none_ggx_kr@V_roughness@F");
         let render_pass = create_render_pass(
-            &shader_type,
+            device,
+            queue,
+            "none_ggx",
             RenderCategory::TransparentSpecular,
             &uniform_values,
             render_resource_manager,
@@ -278,6 +306,8 @@ fn create_glass_render_passes(
 }
 
 fn create_render_material_from_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     material: &Material,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -288,34 +318,64 @@ fn create_render_material_from_material(
     let mut passes = vec![];
     match material_type.as_str() {
         "matte" => {
-            let new_passes =
-                create_matte_render_passes(material, resource_manager, render_resource_manager);
+            let new_passes = create_matte_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
             passes.extend(new_passes);
         }
         "plastic" => {
-            let new_passes =
-                create_plastic_render_passes(material, resource_manager, render_resource_manager);
+            let new_passes = create_plastic_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
             passes.extend(new_passes);
         }
         "uber" => {
-            let new_passes =
-                create_uber_render_passes(material, resource_manager, render_resource_manager);
+            let new_passes = create_uber_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
             passes.extend(new_passes);
         }
         "substrate" => {
-            let new_passes =
-                create_substrate_render_passes(material, resource_manager, render_resource_manager);
+            let new_passes = create_substrate_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
             passes.extend(new_passes);
         }
 
         "glass" => {
-            let new_passes =
-                create_glass_render_passes(material, resource_manager, render_resource_manager);
+            let new_passes = create_glass_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
             passes.extend(new_passes);
         }
         _ => {
-            let new_passes =
-                create_basic_render_passes(material, resource_manager, render_resource_manager);
+            let new_passes = create_basic_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
             passes.extend(new_passes);
         }
     }
@@ -329,6 +389,8 @@ fn create_render_material_from_material(
 }
 
 fn create_render_material_from_light(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     light: &Light,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -353,8 +415,9 @@ fn create_render_material_from_light(
     let mut passes = vec![];
     match material_type.as_str() {
         _ => {
-            //basic material
             let pass = create_render_pass(
+                device,
+                queue,
                 "arealight",
                 RenderCategory::Emissive,
                 &uniform_values,
@@ -373,6 +436,8 @@ fn create_render_material_from_light(
 }
 
 pub fn get_render_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     node: &Arc<RwLock<Node>>,
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
@@ -388,8 +453,13 @@ pub fn get_render_material(
                 return Some(mat.clone());
             }
         }
-        let render_material =
-            create_render_material_from_light(&light, resource_manager, render_resource_manager);
+        let render_material = create_render_material_from_light(
+            device,
+            queue,
+            &light,
+            resource_manager,
+            render_resource_manager,
+        );
         let render_material = Arc::new(render_material);
         render_resource_manager.add_material(&render_material);
         return Some(render_material);
@@ -404,6 +474,8 @@ pub fn get_render_material(
             }
         }
         let render_material = create_render_material_from_material(
+            device,
+            queue,
             &material,
             resource_manager,
             render_resource_manager,
@@ -433,7 +505,13 @@ pub fn get_render_mesh_item(
     if let Some(mesh) = get_mesh(device, queue, &item.node, render_resource_manager) {
         let matrix = glam::Mat4::from(item.matrix);
         let material = if mode == RenderMode::Lighting {
-            get_render_material(&item.node, &resource_manager, render_resource_manager)
+            get_render_material(
+                device,
+                queue,
+                &item.node,
+                &resource_manager,
+                render_resource_manager,
+            )
         } else {
             None
         };
