@@ -19,6 +19,8 @@ use eframe::wgpu;
 use uuid::Uuid;
 
 fn get_lines_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     id: Uuid,
     edition: &str,
     render_resource_manager: &mut RenderResourceManager,
@@ -38,6 +40,8 @@ fn get_lines_material(
     let edition = edition.to_string();
     let material_type = "lines".to_string();
     let passes = vec![create_render_pass(
+        device,
+        queue,
         "lines",
         RenderCategory::Opaque,
         &uniform_values,
@@ -110,7 +114,8 @@ pub fn get_render_axis_gizmo_items(
                 _ => continue,
             };
             let matrix = glam::Mat4::IDENTITY; // World axes are at the origin
-            let material = get_lines_material(id, &edition, render_resource_manager, &color);
+            let material =
+                get_lines_material(device, queue, id, &edition, render_resource_manager, &color);
             let render_item = LinesRenderItem {
                 lines,
                 material,
@@ -217,7 +222,8 @@ pub fn get_render_grid_gizmo_items(
     }
     if let Some(lines) = render_lines {
         let color = [0.5, 0.5, 0.5, 1.0]; // Gray color for the grid
-        let material = get_lines_material(id, &edition, render_resource_manager, &color);
+        let material =
+            get_lines_material(device, queue, id, &edition, render_resource_manager, &color);
         let matrix = glam::Mat4::IDENTITY; // Grid is at the origin
         let render_item = LinesRenderItem {
             lines,

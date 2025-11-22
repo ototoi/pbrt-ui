@@ -1,4 +1,4 @@
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -54,7 +54,7 @@ fn copy_dir_recursive(embedded_dir: &Dir, dest_path: &Path) -> io::Result<()> {
             .file_name()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid file name"))?;
         let file_path = dest_path.join(file_name);
-        
+
         // Write the file contents
         fs::write(&file_path, file.contents())?;
     }
@@ -66,10 +66,10 @@ fn copy_dir_recursive(embedded_dir: &Dir, dest_path: &Path) -> io::Result<()> {
             .file_name()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid directory name"))?;
         let subdir_path = dest_path.join(subdir_name);
-        
+
         // Create the subdirectory
         fs::create_dir_all(&subdir_path)?;
-        
+
         // Recursively copy the subdirectory
         copy_dir_recursive(subdir, &subdir_path)?;
     }

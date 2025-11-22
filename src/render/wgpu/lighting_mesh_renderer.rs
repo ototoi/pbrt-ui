@@ -4,6 +4,7 @@ use super::material::RenderCategory;
 use super::material::RenderPass;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
+use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use crate::render::wgpu::material::RenderMaterial;
@@ -117,6 +118,25 @@ struct InfiniteLight {
     inv_matrix: [[f32; 4]; 4], // Inverse matrix for the light texture
 }
 
+#[derive(Debug, Clone)]
+struct TmpPipelineEntry {
+    pub shader: Arc<RenderShader>,
+    pub mesh_indices: Vec<usize>,
+    pub material_indices: Vec<usize>,
+    pub material_indices_map: HashMap<Uuid, (usize, Arc<RenderPass>)>,
+}
+
+impl TmpPipelineEntry {
+    pub fn new(shader: &Arc<RenderShader>) -> Self {
+        Self {
+            shader: shader.clone(),
+            mesh_indices: Vec::new(),
+            material_indices: Vec::new(),
+            material_indices_map: HashMap::new(),
+        }
+    }
+}
+
 fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
     let up = if direction.abs().dot(glam::vec3(0.0, 1.0, 0.0)) < 0.999 {
         glam::vec3(0.0, 1.0, 0.0)
@@ -199,42 +219,11 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-fn get_shader_id_from_type(shader_type: &str) -> Uuid {
-    return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
-}
-
 fn get_shader_has_lighting(category: RenderCategory) -> bool {
     if category == RenderCategory::Emissive {
         return false;
     }
     return true;
-}
-
-fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
-    let source = if shader_type.starts_with("arealight") {
-        include_str!("shaders/surface/arealight_diffuse.wgsl")
-    } else {
-        match shader_type {
-            "lambertian_none_kd@V" => include_str!("shaders/surface/lambertian_none_kd@V.wgsl"),
-            "lambertian_none_kd@T" => include_str!("shaders/surface/lambertian_none_kd@T.wgsl"),
-            "lambertian_ggx_kd@V_ks@V_roughness@F" => {
-                include_str!("shaders/surface/lambertian_ggx_kd@V_ks@V_roughness@F.wgsl")
-            }
-            "lambertian_ggx_kd@T_ks@V_roughness@F" => {
-                include_str!("shaders/surface/lambertian_ggx_kd@T_ks@V_roughness@F.wgsl")
-            }
-            "transmission_none_kt@V" => include_str!("shaders/surface/transmission_none_kt@V.wgsl"),
-            "none_ggx_kr@V_roughness@F" => {
-                include_str!("shaders/surface/none_ggx_kr@V_roughness@F.wgsl")
-            }
-            _ => include_str!("shaders/surface/basic_material.wgsl"),
-        }
-    };
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Shader"),
-        source: wgpu::ShaderSource::Wgsl(source.into()),
-    });
-    return shader;
 }
 
 impl LightingMeshRenderer {
@@ -471,12 +460,6 @@ impl LightingMeshRenderer {
         queue: &wgpu::Queue,
         mesh_items: &[Arc<RenderItem>],
     ) {
-        #[derive(Debug, Clone, Default)]
-        struct TmpPipelineEntry {
-            mesh_indices: Vec<usize>,
-            material_indices: Vec<usize>,
-            material_indices_map: HashMap<Uuid, (usize, Arc<RenderPass>)>,
-        }
         {
             let mut prev_bind_groups = HashMap::new(); //store existing bind groups to reuse
             for entry in self.pipelines.values_mut() {
@@ -488,14 +471,15 @@ impl LightingMeshRenderer {
                 }
                 entry.material_bind_groups.clear();
             }
-            let mut tmp_pipelines: HashMap<String, TmpPipelineEntry> = HashMap::new();
+            let mut tmp_pipelines: HashMap<Uuid, TmpPipelineEntry> = HashMap::new();
             for (mesh_index, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
                     for pass in material.passes.iter() {
-                        let shader_type = pass.shader_type.clone();
+                        let shader = pass.shader.clone();
+                        let shader_id = shader.id;
                         let entry = tmp_pipelines
-                            .entry(shader_type)
-                            .or_insert(TmpPipelineEntry::default());
+                            .entry(shader_id)
+                            .or_insert(TmpPipelineEntry::new(&shader));
                         entry.mesh_indices.push(mesh_index);
                         let pass_id = pass.id;
                         let new_material_index = entry.material_indices_map.len();
@@ -512,10 +496,9 @@ impl LightingMeshRenderer {
                 }
             }
 
-            for (shader_type, tmp_entry) in tmp_pipelines.iter() {
+            for (shader_id, tmp_entry) in tmp_pipelines.iter() {
                 let mesh_indices = &tmp_entry.mesh_indices;
                 let material_indices = &tmp_entry.material_indices;
-                let shader_id = get_shader_id_from_type(shader_type);
                 let num_materials = tmp_entry.material_indices_map.len();
                 if num_materials == 0 {
                     continue;
@@ -523,8 +506,9 @@ impl LightingMeshRenderer {
                 let (_, pass) = tmp_entry.material_indices_map.values().next().unwrap();
 
                 if !self.pipelines.contains_key(&shader_id) {
-                    let shader = get_shader(device, shader_type);
-                    let pipeline = self.create_pipeline(device, queue, &shader, pass);
+                    let shader = tmp_entry.shader.clone();
+                    let shader_id = shader.id;
+                    let pipeline = self.create_pipeline(device, queue, &shader.shader, pass);
                     let pipeline = Arc::new(RwLock::new(pipeline));
                     self.pipelines.insert(shader_id, pipeline);
                 }

@@ -844,6 +844,8 @@ fn get_infinite_light_item(
 }
 
 fn get_lines_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     id: Uuid,
     edition: &str,
     render_resource_manager: &mut RenderResourceManager,
@@ -861,6 +863,8 @@ fn get_lines_material(
         RenderUniformValue::Vec4(base_color.clone()),
     ));
     let passes = vec![create_render_pass(
+        device,
+        queue,
         "lines",
         RenderCategory::Opaque,
         &uniform_values,
@@ -878,6 +882,8 @@ fn get_lines_material(
 }
 
 fn get_light_gizmo_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     node: &Arc<RwLock<Node>>,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderMaterial>> {
@@ -890,7 +896,14 @@ fn get_light_gizmo_material(
         let light_id = Uuid::new_v3(&Uuid::NAMESPACE_OID, light_type.as_bytes());
         let edition = "".to_string();
         let base_color = [1.0, 1.0, 0.0, 1.0]; // Default Yellow color for light gizmo
-        return get_lines_material(light_id, &edition, render_resource_manager, &base_color);
+        return get_lines_material(
+            device,
+            queue,
+            light_id,
+            &edition,
+            render_resource_manager,
+            &base_color,
+        );
     }
     return None;
 }
@@ -1040,7 +1053,7 @@ pub fn get_render_light_gizmo_item(
             matrix = Matrix4x4::translate(offset.x, offset.y, offset.z) * matrix;
         }
         let matrix = glam::Mat4::from(matrix);
-        let material = get_light_gizmo_material(&item.node, render_resource_manager);
+        let material = get_light_gizmo_material(device, queue, &item.node, render_resource_manager);
         let render_item = LinesRenderItem {
             lines,
             material,

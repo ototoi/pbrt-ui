@@ -12,6 +12,7 @@ use super::render_light_item::get_render_light_items;
 use super::render_mesh_item::get_render_mesh_item;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
+use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::conversion::spectrum::Spectrum;
 use crate::conversion::texture_node::DynaImage;
@@ -27,6 +28,7 @@ use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
+use crate::render::wgpu::shader;
 //use crate::render::wgpu::texture;
 
 use std::sync::Arc;
@@ -308,12 +310,74 @@ fn create_uniform_value_bytes(
     return (type_variables, bytes);
 }
 
+fn get_shader_id_from_type(shader_type: &str) -> Uuid {
+    return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
+}
+
+fn get_shader(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
+    let source = if shader_type.starts_with("arealight") {
+        include_str!("shaders/surface/arealight_diffuse.wgsl")
+    } else {
+        match shader_type {
+            "lambertian_none_kd@V" => include_str!("shaders/surface/lambertian_none_kd@V.wgsl"),
+            "lambertian_none_kd@T" => include_str!("shaders/surface/lambertian_none_kd@T.wgsl"),
+            "lambertian_ggx_kd@V_ks@V_roughness@F" => {
+                include_str!("shaders/surface/lambertian_ggx_kd@V_ks@V_roughness@F.wgsl")
+            }
+            "lambertian_ggx_kd@T_ks@V_roughness@F" => {
+                include_str!("shaders/surface/lambertian_ggx_kd@T_ks@V_roughness@F.wgsl")
+            }
+            "transmission_none_kt@V" => include_str!("shaders/surface/transmission_none_kt@V.wgsl"),
+            "none_ggx_kr@V_roughness@F" => {
+                include_str!("shaders/surface/none_ggx_kr@V_roughness@F.wgsl")
+            }
+            _ => include_str!("shaders/surface/basic_material.wgsl"),
+        }
+    };
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Shader"),
+        source: wgpu::ShaderSource::Wgsl(source.into()),
+    });
+    return shader;
+}
+
+pub fn create_render_shader(
+    device: &wgpu::Device,
+    _queue: &wgpu::Queue,
+    shader_type: &str,
+    uniform_values: &[(String, RenderUniformValue)],
+    render_resource_manager: &mut RenderResourceManager,
+) -> Arc<RenderShader> {
+    let shader_type = get_shader_type(shader_type, &uniform_values.to_vec());
+    let shader_id = get_shader_id_from_type(&shader_type);
+    if let Some(shader) = render_resource_manager.get_shader(shader_id) {
+        return shader.clone();
+    }
+    let shader_module = get_shader(device, &shader_type);
+    let render_shader = RenderShader {
+        id: shader_id,
+        shader: Arc::new(shader_module),
+    };
+    let render_shader = Arc::new(render_shader);
+    render_resource_manager.add_shader(&render_shader);
+    return render_shader;
+}
+
 pub fn create_render_pass(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     shader_type: &str,
     render_category: RenderCategory,
     uniform_values: &[(String, RenderUniformValue)],
-    _render_resource_manager: &mut RenderResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
 ) -> Arc<RenderPass> {
+    let shader = create_render_shader(
+        device,
+        queue,
+        shader_type,
+        uniform_values,
+        render_resource_manager,
+    );
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
     /*
     println!(
@@ -329,7 +393,7 @@ pub fn create_render_pass(
     }
     let render_pass = RenderPass {
         id: Uuid::new_v4(),
-        shader_type: shader_type.to_string(),
+        shader,
         render_category,
         uniform_values: Arc::new(uniform_values_bytes),
         textures,
