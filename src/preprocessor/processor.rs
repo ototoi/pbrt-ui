@@ -77,8 +77,17 @@ impl Preprocessor {
         let parse_result = evaluator::parse_expr(expr);
         match parse_result {
             Ok((_, parsed_expr)) => {
-                // Evaluate the parsed expression
-                evaluator::evaluate(&parsed_expr, &self.defines)
+                // Create a HashSet containing all defined names (both defines and macros)
+                let mut all_defined_names = HashSet::new();
+                for name in self.defines.keys() {
+                    all_defined_names.insert(name.clone());
+                }
+                for name in self.macros.keys() {
+                    all_defined_names.insert(name.clone());
+                }
+                
+                // Evaluate the parsed expression with both defines and all_defined_names
+                evaluator::evaluate(&parsed_expr, &self.defines, &all_defined_names)
             }
             Err(_) => {
                 Err(PreprocessorError::ParseError {
