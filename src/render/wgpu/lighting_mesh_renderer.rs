@@ -994,8 +994,11 @@ impl LightingMeshRenderer {
             depth_write_enabled = false;
         }
 
+        let name = pass.shader.name.clone();
+        let label = format!("Lighting Pipeline {}", name);
+
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Lighting Pipeline"),
+            label: Some(label.as_str()),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
