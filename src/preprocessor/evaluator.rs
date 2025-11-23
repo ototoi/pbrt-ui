@@ -21,6 +21,8 @@ pub enum Expr {
     Integer(i64),
     /// Identifier (symbol/define name)
     Identifier(String),
+    /// Defined operator (checks if symbol exists)
+    Defined(String),
     /// Logical NOT
     Not(Box<Expr>),
     /// Logical AND
@@ -61,11 +63,38 @@ fn parse_identifier(input: &str) -> IResult<&str, Expr> {
     )(input)
 }
 
+/// Parse the defined operator: defined(SYMBOL) or defined SYMBOL
+fn parse_defined(input: &str) -> IResult<&str, Expr> {
+    let (input, _) = space0(input)?;
+    let (input, _) = tag("defined")(input)?;
+    let (input, _) = space0(input)?;
+    
+    // Try to parse with parentheses first: defined(SYMBOL)
+    if let Ok((input, _)) = char::<_, nom::error::Error<_>>('(')(input) {
+        let (input, _) = space0(input)?;
+        let (input, symbol) = recognize(tuple((
+            alt((tag("_"), recognize(alpha1))),
+            many0(alt((alphanumeric1, tag("_")))),
+        )))(input)?;
+        let (input, _) = space0(input)?;
+        let (input, _) = char(')')(input)?;
+        Ok((input, Expr::Defined(symbol.to_string())))
+    } else {
+        // Parse without parentheses: defined SYMBOL
+        let (input, symbol) = recognize(tuple((
+            alt((tag("_"), recognize(alpha1))),
+            many0(alt((alphanumeric1, tag("_")))),
+        )))(input)?;
+        Ok((input, Expr::Defined(symbol.to_string())))
+    }
+}
+
 /// Parse a primary expression (integer, identifier, or parenthesized expression)
 fn parse_primary(input: &str) -> IResult<&str, Expr> {
     let (input, _) = space0(input)?;
     alt((
         parse_integer,
+        parse_defined,
         parse_identifier,
         delimited(
             char('('),
@@ -178,6 +207,10 @@ pub fn evaluate(expr: &Expr, defines: &std::collections::HashMap<String, String>
                 // Undefined symbols are treated as false (0)
                 Ok(false)
             }
+        }
+        Expr::Defined(name) => {
+            // Return true if the symbol is present in the defines table
+            Ok(defines.contains_key(name))
         }
         Expr::Not(inner) => {
             let val = evaluate(inner, defines)?;
@@ -415,6 +448,171 @@ mod tests {
         defines.insert("A".to_string(), "1".to_string());
         defines.insert("B".to_string(), "1".to_string());
         defines.insert("C".to_string(), "0".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+    }
+
+    #[test]
+    fn test_parse_defined_with_parens() {
+        let result = parse_expr("defined(FOO)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        assert_eq!(expr, Expr::Defined("FOO".to_string()));
+    }
+
+    #[test]
+    fn test_parse_defined_without_parens() {
+        let result = parse_expr("defined FOO");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        assert_eq!(expr, Expr::Defined("FOO".to_string()));
+    }
+
+    #[test]
+    fn test_parse_defined_with_spaces() {
+        let result = parse_expr("defined ( FOO )");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        assert_eq!(expr, Expr::Defined("FOO".to_string()));
+    }
+
+    #[test]
+    fn test_evaluate_defined_true() {
+        let expr = Expr::Defined("DEBUG".to_string());
+        let mut defines = HashMap::new();
+        defines.insert("DEBUG".to_string(), "1".to_string());
+        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+    }
+
+    #[test]
+    fn test_evaluate_defined_false() {
+        let expr = Expr::Defined("DEBUG".to_string());
+        let defines = HashMap::new();
+        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+    }
+
+    #[test]
+    fn test_evaluate_defined_with_empty_value() {
+        let expr = Expr::Defined("EMPTY".to_string());
+        let mut defines = HashMap::new();
+        defines.insert("EMPTY".to_string(), "".to_string());
+        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+    }
+
+    #[test]
+    fn test_parse_defined_in_and_expression() {
+        let result = parse_expr("defined(FOO) && defined(BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        assert_eq!(
+            expr,
+            Expr::And(
+                Box::new(Expr::Defined("FOO".to_string())),
+                Box::new(Expr::Defined("BAR".to_string()))
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_defined_in_or_expression() {
+        let result = parse_expr("defined(FOO) || defined(BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        assert_eq!(
+            expr,
+            Expr::Or(
+                Box::new(Expr::Defined("FOO".to_string())),
+                Box::new(Expr::Defined("BAR".to_string()))
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_not_defined() {
+        let result = parse_expr("!defined(FOO)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        assert_eq!(
+            expr,
+            Expr::Not(Box::new(Expr::Defined("FOO".to_string())))
+        );
+    }
+
+    #[test]
+    fn test_evaluate_defined_and_both_true() {
+        let result = parse_expr("defined(FOO) && defined(BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let mut defines = HashMap::new();
+        defines.insert("FOO".to_string(), "1".to_string());
+        defines.insert("BAR".to_string(), "1".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+    }
+
+    #[test]
+    fn test_evaluate_defined_and_one_false() {
+        let result = parse_expr("defined(FOO) && defined(BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let mut defines = HashMap::new();
+        defines.insert("FOO".to_string(), "1".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+    }
+
+    #[test]
+    fn test_evaluate_defined_or_one_true() {
+        let result = parse_expr("defined(FOO) || defined(BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let mut defines = HashMap::new();
+        defines.insert("FOO".to_string(), "1".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+    }
+
+    #[test]
+    fn test_evaluate_defined_or_both_false() {
+        let result = parse_expr("defined(FOO) || defined(BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let defines = HashMap::new();
+        
+        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+    }
+
+    #[test]
+    fn test_parse_complex_with_defined() {
+        let result = parse_expr("(defined(FOO) && BAR > 0) || !defined(BAZ)");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_evaluate_complex_with_defined() {
+        let result = parse_expr("(defined(FOO) && BAR > 0) || !defined(BAZ)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let mut defines = HashMap::new();
+        defines.insert("FOO".to_string(), "1".to_string());
+        defines.insert("BAR".to_string(), "5".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+    }
+
+    #[test]
+    fn test_evaluate_defined_with_identifier_value() {
+        let result = parse_expr("defined(VERSION) && VERSION == 2");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let mut defines = HashMap::new();
+        defines.insert("VERSION".to_string(), "2".to_string());
         
         assert_eq!(evaluate(&expr, &defines).unwrap(), true);
     }
