@@ -85,16 +85,14 @@ impl Preprocessor {
                 for name in self.macros.keys() {
                     all_defined_names.insert(name.clone());
                 }
-                
+
                 // Evaluate the parsed expression with both defines and all_defined_names
                 evaluator::evaluate(&parsed_expr, &self.defines, &all_defined_names)
             }
-            Err(_) => {
-                Err(PreprocessorError::ParseError {
-                    line: 0,
-                    message: format!("Failed to parse condition expression: {}", expr),
-                })
-            }
+            Err(_) => Err(PreprocessorError::ParseError {
+                line: 0,
+                message: format!("Failed to parse condition expression: {}", expr),
+            }),
         }
     }
 
@@ -148,8 +146,9 @@ impl Preprocessor {
                             if conditional_stack.is_empty() {
                                 return Err(PreprocessorError::ParseError {
                                     line: line_number,
-                                    message: "Unexpected #elif without matching #if, #ifdef, or #ifndef"
-                                        .to_string(),
+                                    message:
+                                        "Unexpected #elif without matching #if, #ifdef, or #ifndef"
+                                            .to_string(),
                                 });
                             }
                             let elif_cond = self.evaluate_condition(&expr)?;
