@@ -1018,3 +1018,54 @@ let normal_code = 1;
     assert!(result.contains("empty_is_defined = true"));
     assert!(result.contains("normal_code = 1"));
 }
+
+#[test]
+fn test_ifdef_with_macro() {
+    let mut preprocessor = Preprocessor::new();
+    // Define a function macro
+    let source = r#"
+#define BAR(x) ((x) * 2)
+#ifdef BAR
+let bar_is_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("bar_is_defined = true"), "BAR macro should be recognized as defined in #ifdef");
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_with_macro() {
+    let mut preprocessor = Preprocessor::new();
+    // Define a function macro
+    let source = r#"
+#define FOO(x) ((x) + 1)
+#if defined(FOO)
+let foo_is_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("foo_is_defined = true"), "FOO macro should be recognized as defined in #if defined()");
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_mixed_defines_and_macros() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#define FOO
+#define BAR(x) ((x) * 2)
+#if defined(FOO) && defined(BAR)
+let both_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("both_defined = true"), "Both FOO and BAR should be recognized as defined");
+    assert!(result.contains("normal_code = 1"));
+}
