@@ -161,7 +161,7 @@ fn create_matte_render_passes(
     let render_pass = create_render_pass(
         device,
         queue,
-        "lambertian_none",
+        "lambertian",
         RenderCategory::Opaque,
         &uniform_values,
         render_resource_manager,
@@ -357,7 +357,7 @@ fn create_render_material_from_material(
             );
             passes.extend(new_passes);
         }
-
+        /*
         "glass" => {
             let new_passes = create_glass_render_passes(
                 device,
@@ -368,6 +368,7 @@ fn create_render_material_from_material(
             );
             passes.extend(new_passes);
         }
+        */
         _ => {
             let new_passes = create_basic_render_passes(
                 device,
@@ -418,7 +419,7 @@ fn create_render_material_from_light(
             let pass = create_render_pass(
                 device,
                 queue,
-                "arealight",
+                "arealight_diffuse",
                 RenderCategory::Emissive,
                 &uniform_values,
                 render_resource_manager,

@@ -6,6 +6,7 @@ use eframe::wgpu;
 #[derive(Debug, Clone)]
 pub struct RenderShader {
     pub id: Uuid,
+    pub name: String,
     pub shader: Arc<wgpu::ShaderModule>,
 }
 

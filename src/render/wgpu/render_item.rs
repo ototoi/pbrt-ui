@@ -26,16 +26,16 @@ use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceManager;
+use crate::preprocessor::Preprocessor;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
-use crate::render::wgpu::shader;
+
 //use crate::render::wgpu::texture;
 
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::vec;
 
-use eframe::egui::cache;
 use uuid::Uuid;
 //use bytemuck::{Pod, Zeroable};
 
@@ -205,7 +205,7 @@ pub fn get_texture(
 
 pub fn get_shader_type(
     shader_type: &str,
-    uniform_values: &Vec<(String, RenderUniformValue)>,
+    uniform_values: &[(String, RenderUniformValue)],
 ) -> String {
     let mut s = "".to_string();
     for (key, val) in uniform_values.iter() {
@@ -315,33 +315,94 @@ fn get_shader_id_from_type(shader_type: &str) -> Uuid {
     return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
 }
 
-fn get_shader_source(shader_type: &str) -> String {
+fn get_fallback_shader_source() -> String {
     let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
-    if shader_type.starts_with("arealight") {
-        let source = cache_dir.join("surface").join("arealight_diffuse.wgsl");
-        if source.exists() {
-            if let Ok(code) = std::fs::read_to_string(source) {
-                return code;
-            }
-        }
-    } else {
-        let source = cache_dir
-            .join("surface")
-            .join(format!("{}.wgsl", shader_type));
-        if source.exists() {
-            if let Ok(code) = std::fs::read_to_string(source) {
-                return code;
-            }
-        } else {
-        }
-    }
-    let source = cache_dir.join("surface").join("basic_material.wgsl");
-    let code = std::fs::read_to_string(source).unwrap();
+    let shader_path = cache_dir.join("basic_material.wgsl");
+    let code = std::fs::read_to_string(shader_path).expect("Failed to read fallback shader source");
     return code;
 }
 
-fn get_shader_module(device: &wgpu::Device, shader_type: &str) -> wgpu::ShaderModule {
-    let source = get_shader_source(shader_type);
+fn create_defines(uniform_values: &[(String, RenderUniformValue)]) -> Vec<(String, String)> {
+    let mut defines = Vec::new();
+    for (name, value) in uniform_values.iter() {
+        match value {
+            RenderUniformValue::Texture(_) => {
+                //ex. USE_TEXTURE_KD
+                defines.push((
+                    format!("USE_TEXTURE_{}", name.to_uppercase()),
+                    "1".to_string(),
+                ));
+            }
+            _ => {}
+        }
+    }
+    return defines;
+}
+
+fn generate_shader_source(
+    shader_type: &str,
+    uniform_values: &[(String, RenderUniformValue)],
+) -> Option<String> {
+    let modified_shader_type = get_shader_type(shader_type, &uniform_values.to_vec());
+    let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
+    let prebuilt_shader_path = cache_dir
+        .join("prebuilt")
+        .join(format!("{}.wgsl", shader_type));
+
+    let defines = create_defines(&uniform_values);
+    if prebuilt_shader_path.exists() {
+        let base_path = dirs::cache_dir()
+            .unwrap()
+            .join("pbrt_ui")
+            .join("shaders")
+            .join("include");
+        let mut pp = Preprocessor::with_base_path(base_path);
+        for (key, value) in defines.iter() {
+            pp.define(key, value);
+        }
+        let input_data = std::fs::read_to_string(prebuilt_shader_path).unwrap();
+        match pp.process(&input_data) {
+            Ok(processed_data) => {
+                if true {
+                    let output_path = cache_dir
+                        .join("debug")
+                        .join(format!("{}.wgsl", modified_shader_type));
+                    std::fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+                    std::fs::write(&output_path, &processed_data).unwrap();
+                }
+                return Some(processed_data);
+            }
+            Err(e) => {
+                log::error!("Shader preprocessor error: {}", e);
+            }
+        }
+    }
+    return None;
+}
+
+fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniformValue)]) -> String {
+    let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
+    let shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
+    if shader_path.exists() {
+        if let Ok(code) = std::fs::read_to_string(shader_path) {
+            return code;
+        }
+    }
+
+    if let Some(generated_source) = generate_shader_source(shader_type, uniform_values) {
+        return generated_source;
+    }
+
+    // fallback to basic_material.wgsl
+    return get_fallback_shader_source();
+}
+
+fn get_shader_module(
+    device: &wgpu::Device,
+    shader_type: &str,
+    uniform_values: &[(String, RenderUniformValue)],
+) -> wgpu::ShaderModule {
+    let source = get_shader_source(shader_type, uniform_values);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(format!("Shader : {}", shader_type).as_str()),
         source: wgpu::ShaderSource::Wgsl(source.into()),
@@ -356,55 +417,16 @@ pub fn create_render_shader(
     uniform_values: &[(String, RenderUniformValue)],
     render_resource_manager: &mut RenderResourceManager,
 ) -> Arc<RenderShader> {
-    let org_shader_type = shader_type.to_string();
-    let shader_type = get_shader_type(shader_type, &uniform_values.to_vec());
-    let shader_id = get_shader_id_from_type(&shader_type);
+    //let org_shader_type = shader_type.to_string();
+    let modified_shader_type = get_shader_type(shader_type, uniform_values);
+    let shader_id = get_shader_id_from_type(&modified_shader_type);
     if let Some(shader) = render_resource_manager.get_shader(shader_id) {
         return shader.clone();
     }
-
-    if shader_type.starts_with("lambertian_none") {
-        let input_path = dirs::cache_dir()
-            .unwrap()
-            .join("pbrt_ui")
-            .join("shaders")
-            .join("prebuild")
-            .join(format!("{}.wgsl", org_shader_type));
-        let output_path = dirs::cache_dir()
-            .unwrap()
-            .join("pbrt_ui")
-            .join("shaders")
-            .join("debug")
-            .join("surface")
-            .join(format!("{}.wgsl", shader_type));
-        println!(
-            "Copy prebuild shader from {:?} to {:?}",
-            input_path, output_path
-        );
-        std::fs::create_dir_all(output_path.parent().unwrap()).unwrap();
-        if input_path.exists() {
-            let base_path = dirs::cache_dir()
-                .unwrap()
-                .join("pbrt_ui")
-                .join("shaders")
-                .join("include");
-            let mut pp = crate::preprocessor::Preprocessor::with_base_path(base_path);
-            let input_data = std::fs::read_to_string(input_path).unwrap();
-            match pp.process(&input_data) {
-                Ok(processed_data) => {
-                    std::fs::write(&output_path, processed_data).unwrap();
-                }
-                Err(e) => {
-                    println!("Shader preprocessor error: {}", e);
-                }
-            }
-            //std::fs::write(output_shader_path, input_data).unwrap();
-        }
-    }
-
-    let shader_module = get_shader_module(device, &shader_type);
+    let shader_module = get_shader_module(device, &shader_type, uniform_values);
     let render_shader = RenderShader {
         id: shader_id,
+        name: modified_shader_type.clone(),
         shader: Arc::new(shader_module),
     };
     let render_shader = Arc::new(render_shader);
