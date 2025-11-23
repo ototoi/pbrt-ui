@@ -779,3 +779,242 @@ let not_equal = true;
     assert!(result.contains("equal = true"));
     assert!(result.contains("not_equal = true"));
 }
+
+#[test]
+fn test_if_defined_with_parens() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    
+    let source = r#"
+#if defined(DEBUG)
+let debug_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_enabled = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_without_parens() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("FEATURE_X", "1");
+    
+    let source = r#"
+#if defined FEATURE_X
+let feature_x_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("feature_x_enabled = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_false() {
+    let mut preprocessor = Preprocessor::new();
+    // DEBUG is not defined
+    
+    let source = r#"
+#if defined(DEBUG)
+let debug_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("debug_enabled"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_not_defined() {
+    let mut preprocessor = Preprocessor::new();
+    // RELEASE is not defined
+    
+    let source = r#"
+#if !defined(RELEASE)
+let debug_mode = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_mode = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_and_condition() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    preprocessor.define("VERBOSE", "1");
+    
+    let source = r#"
+#if defined(DEBUG) && defined(VERBOSE)
+let debug_verbose = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_verbose = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_and_condition_false() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    // VERBOSE is not defined
+    
+    let source = r#"
+#if defined(DEBUG) && defined(VERBOSE)
+let debug_verbose = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("debug_verbose"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_or_condition() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    // VERBOSE is not defined
+    
+    let source = r#"
+#if defined(DEBUG) || defined(VERBOSE)
+let either_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("either_enabled = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_or_condition_false() {
+    let mut preprocessor = Preprocessor::new();
+    // Neither DEBUG nor VERBOSE is defined
+    
+    let source = r#"
+#if defined(DEBUG) || defined(VERBOSE)
+let either_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("either_enabled"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_with_value_check() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    preprocessor.define("LEVEL", "3");
+    
+    let source = r#"
+#if defined(DEBUG) && LEVEL > 2
+let high_level_debug = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("high_level_debug = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_defined() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("FEATURE_B", "1");
+    
+    let source = r#"
+#if defined(FEATURE_A)
+let feature_a = true;
+#elif defined(FEATURE_B)
+let feature_b = true;
+#elif defined(FEATURE_C)
+let feature_c = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("feature_a"));
+    assert!(result.contains("feature_b = true"));
+    assert!(!result.contains("feature_c"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_defined_none_match() {
+    let mut preprocessor = Preprocessor::new();
+    // No features defined
+    
+    let source = r#"
+#if defined(FEATURE_A)
+let feature_a = true;
+#elif defined(FEATURE_B)
+let feature_b = true;
+#elif defined(FEATURE_C)
+let feature_c = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("feature_a"));
+    assert!(!result.contains("feature_b"));
+    assert!(!result.contains("feature_c"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_complex_defined_expression() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("PLATFORM", "LINUX");
+    preprocessor.define("DEBUG", "1");
+    preprocessor.define("VERSION", "2");
+    
+    let source = r#"
+#if (defined(PLATFORM) && defined(DEBUG)) || VERSION > 1
+let complex_condition = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("complex_condition = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_defined_with_empty_value() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("EMPTY", "");
+    
+    let source = r#"
+#if defined(EMPTY)
+let empty_is_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("empty_is_defined = true"));
+    assert!(result.contains("normal_code = 1"));
+}
