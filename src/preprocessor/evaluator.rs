@@ -45,7 +45,7 @@ pub enum Expr {
 fn parse_integer(input: &str) -> IResult<&str, Expr> {
     map(
         preceded(space0, digit1),
-        |s: &str| Expr::Integer(s.parse().expect("digit1 guarantees valid integer string"))
+        |s: &str| Expr::Integer(s.parse().expect("nom's digit1 parser guarantees valid decimal digits"))
     )(input)
 }
 
@@ -113,7 +113,7 @@ fn parse_comparison(input: &str) -> IResult<&str, Expr> {
                 3 => Expr::GreaterEqual(Box::new(left), Box::new(right)),
                 4 => Expr::LessThan(Box::new(left), Box::new(right)),
                 5 => Expr::GreaterThan(Box::new(left), Box::new(right)),
-                _ => unreachable!(),
+                _ => unreachable!("operator index must be 0-5 based on alt() above"),
             };
             Ok((input, expr))
         }
