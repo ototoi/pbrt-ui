@@ -190,7 +190,16 @@ pub fn parse_expr(input: &str) -> IResult<&str, Expr> {
 }
 
 /// Evaluate an expression to a boolean value
-pub fn evaluate(expr: &Expr, defines: &std::collections::HashMap<String, String>) -> PreprocessorResult<bool> {
+/// 
+/// # Arguments
+/// * `expr` - The expression to evaluate
+/// * `defines` - HashMap of defined symbols with their values (for value lookups)
+/// * `all_defined_names` - HashSet of all defined names (includes both defines and macros, for `defined()` checks)
+pub fn evaluate(
+    expr: &Expr, 
+    defines: &std::collections::HashMap<String, String>,
+    all_defined_names: &std::collections::HashSet<String>
+) -> PreprocessorResult<bool> {
     match expr {
         Expr::Integer(val) => Ok(*val != 0),
         Expr::Identifier(name) => {
@@ -209,58 +218,62 @@ pub fn evaluate(expr: &Expr, defines: &std::collections::HashMap<String, String>
             }
         }
         Expr::Defined(name) => {
-            // Return true if the symbol is present in the defines table
-            Ok(defines.contains_key(name))
+            // Return true if the symbol is present in either defines or macros
+            Ok(all_defined_names.contains(name))
         }
         Expr::Not(inner) => {
-            let val = evaluate(inner, defines)?;
+            let val = evaluate(inner, defines, all_defined_names)?;
             Ok(!val)
         }
         Expr::And(left, right) => {
-            let left_val = evaluate(left, defines)?;
-            let right_val = evaluate(right, defines)?;
+            let left_val = evaluate(left, defines, all_defined_names)?;
+            let right_val = evaluate(right, defines, all_defined_names)?;
             Ok(left_val && right_val)
         }
         Expr::Or(left, right) => {
-            let left_val = evaluate(left, defines)?;
-            let right_val = evaluate(right, defines)?;
+            let left_val = evaluate(left, defines, all_defined_names)?;
+            let right_val = evaluate(right, defines, all_defined_names)?;
             Ok(left_val || right_val)
         }
         Expr::Equal(left, right) => {
-            let left_num = evaluate_to_number(left, defines)?;
-            let right_num = evaluate_to_number(right, defines)?;
+            let left_num = evaluate_to_number(left, defines, all_defined_names)?;
+            let right_num = evaluate_to_number(right, defines, all_defined_names)?;
             Ok(left_num == right_num)
         }
         Expr::NotEqual(left, right) => {
-            let left_num = evaluate_to_number(left, defines)?;
-            let right_num = evaluate_to_number(right, defines)?;
+            let left_num = evaluate_to_number(left, defines, all_defined_names)?;
+            let right_num = evaluate_to_number(right, defines, all_defined_names)?;
             Ok(left_num != right_num)
         }
         Expr::LessThan(left, right) => {
-            let left_num = evaluate_to_number(left, defines)?;
-            let right_num = evaluate_to_number(right, defines)?;
+            let left_num = evaluate_to_number(left, defines, all_defined_names)?;
+            let right_num = evaluate_to_number(right, defines, all_defined_names)?;
             Ok(left_num < right_num)
         }
         Expr::GreaterThan(left, right) => {
-            let left_num = evaluate_to_number(left, defines)?;
-            let right_num = evaluate_to_number(right, defines)?;
+            let left_num = evaluate_to_number(left, defines, all_defined_names)?;
+            let right_num = evaluate_to_number(right, defines, all_defined_names)?;
             Ok(left_num > right_num)
         }
         Expr::LessEqual(left, right) => {
-            let left_num = evaluate_to_number(left, defines)?;
-            let right_num = evaluate_to_number(right, defines)?;
+            let left_num = evaluate_to_number(left, defines, all_defined_names)?;
+            let right_num = evaluate_to_number(right, defines, all_defined_names)?;
             Ok(left_num <= right_num)
         }
         Expr::GreaterEqual(left, right) => {
-            let left_num = evaluate_to_number(left, defines)?;
-            let right_num = evaluate_to_number(right, defines)?;
+            let left_num = evaluate_to_number(left, defines, all_defined_names)?;
+            let right_num = evaluate_to_number(right, defines, all_defined_names)?;
             Ok(left_num >= right_num)
         }
     }
 }
 
 /// Helper to evaluate an expression to a numeric value
-fn evaluate_to_number(expr: &Expr, defines: &std::collections::HashMap<String, String>) -> PreprocessorResult<i64> {
+fn evaluate_to_number(
+    expr: &Expr, 
+    defines: &std::collections::HashMap<String, String>,
+    all_defined_names: &std::collections::HashSet<String>
+) -> PreprocessorResult<i64> {
     match expr {
         Expr::Integer(val) => Ok(*val),
         Expr::Identifier(name) => {
@@ -276,7 +289,7 @@ fn evaluate_to_number(expr: &Expr, defines: &std::collections::HashMap<String, S
         }
         _ => {
             // For other expression types, evaluate to bool then convert to number
-            let bool_val = evaluate(expr, defines)?;
+            let bool_val = evaluate(expr, defines, all_defined_names)?;
             Ok(if bool_val { 1 } else { 0 })
         }
     }
@@ -285,7 +298,12 @@ fn evaluate_to_number(expr: &Expr, defines: &std::collections::HashMap<String, S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
+
+    /// Helper function to create a HashSet of all defined names from a HashMap
+    fn make_all_defined(defines: &HashMap<String, String>) -> HashSet<String> {
+        defines.keys().cloned().collect()
+    }
 
     #[test]
     fn test_parse_integer() {
@@ -375,14 +393,14 @@ mod tests {
     fn test_evaluate_integer_true() {
         let expr = Expr::Integer(1);
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
     fn test_evaluate_integer_false() {
         let expr = Expr::Integer(0);
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
     }
 
     #[test]
@@ -390,21 +408,21 @@ mod tests {
         let expr = Expr::Identifier("DEBUG".to_string());
         let mut defines = HashMap::new();
         defines.insert("DEBUG".to_string(), "1".to_string());
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
     fn test_evaluate_identifier_undefined() {
         let expr = Expr::Identifier("DEBUG".to_string());
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
     }
 
     #[test]
     fn test_evaluate_not() {
         let expr = Expr::Not(Box::new(Expr::Integer(0)));
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -414,7 +432,7 @@ mod tests {
             Box::new(Expr::Integer(1))
         );
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -424,7 +442,7 @@ mod tests {
             Box::new(Expr::Integer(1))
         );
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -434,7 +452,7 @@ mod tests {
             Box::new(Expr::Integer(5))
         );
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -449,7 +467,7 @@ mod tests {
         defines.insert("B".to_string(), "1".to_string());
         defines.insert("C".to_string(), "0".to_string());
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -481,14 +499,14 @@ mod tests {
         let expr = Expr::Defined("DEBUG".to_string());
         let mut defines = HashMap::new();
         defines.insert("DEBUG".to_string(), "1".to_string());
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
     fn test_evaluate_defined_false() {
         let expr = Expr::Defined("DEBUG".to_string());
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
     }
 
     #[test]
@@ -496,7 +514,7 @@ mod tests {
         let expr = Expr::Defined("EMPTY".to_string());
         let mut defines = HashMap::new();
         defines.insert("EMPTY".to_string(), "".to_string());
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -548,7 +566,7 @@ mod tests {
         defines.insert("FOO".to_string(), "1".to_string());
         defines.insert("BAR".to_string(), "1".to_string());
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -560,7 +578,7 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
     }
 
     #[test]
@@ -572,7 +590,7 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -583,7 +601,7 @@ mod tests {
         
         let defines = HashMap::new();
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), false);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
     }
 
     #[test]
@@ -602,7 +620,7 @@ mod tests {
         defines.insert("FOO".to_string(), "1".to_string());
         defines.insert("BAR".to_string(), "5".to_string());
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 
     #[test]
@@ -614,6 +632,6 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("VERSION".to_string(), "2".to_string());
         
-        assert_eq!(evaluate(&expr, &defines).unwrap(), true);
+        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
 }
