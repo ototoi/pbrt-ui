@@ -4,19 +4,24 @@ A C-like preprocessor written in Rust using the `nom` parser combinator library.
 
 ## Features
 
-- **`#define`** - Define constants and macros
+- `#define` directives for constants and macro definitions
   - Simple defines: `#define PI 3.14159`
-  - Macros with parameters: `#define MAX(a, b) ((a) > (b) ? (a) : (b))`
+  - Macros with parameters: `#define SQUARE(x) ((x) * (x))`
   - Recursive macro expansion
-  
-- **`#ifdef` / `#ifndef`** - Conditional compilation
-  - Check if a symbol is defined
-  - Support for nested conditionals
-  
-- **`#include`** - File inclusion
-  - Include external files
-  - Circular dependency detection
-  - Support for both `"quoted"` and `<angled>` paths
+- Conditional compilation:
+  - `#ifdef`, `#ifndef`, `#if`, `#else`, `#elif` directives
+  - `defined()` operator is supported inside conditions (e.g. `#if defined(DEBUG)`)
+  - Full support for nested and complex conditionals
+- `#include` for file inclusion
+  - Include external files from multiple or dynamically added base paths
+  - Circular dependency detection (prevents infinite loops)
+  - Supports both `"quoted"` and `<angled>` paths
+- Predefined symbol insertion and existence checks via API
+- Comprehensive error handling for parse errors and circular dependencies
+- Extensive unit tests covering all features and error cases, including:
+  - Macro expansion and nesting
+  - Conditional logic (`#if`, `#else`, and `defined`)
+  - File inclusion and multi-path resolving
 
 ## Usage
 
@@ -140,6 +145,12 @@ Create a new preprocessor with the current directory as base path.
 ### `Preprocessor::with_base_path(path)`
 Create a preprocessor with a specific base path for resolving includes.
 
+### `Preprocessor::with_base_paths(paths)`
+Create a preprocessor with multiple base paths for resolving includes.
+
+### `preprocessor.add_base_path(path)`
+Dynamically add a base path for resolving includes after creation.
+
 ### `preprocessor.define(name, value)`
 Add a predefined symbol before processing.
 
@@ -156,9 +167,10 @@ The implementation includes comprehensive unit tests covering:
 - Simple and complex defines
 - Macro expansion with parameters
 - Nested macro calls
-- Conditional compilation
+- Conditional compilation (`#ifdef`, `#ifndef`, `#if`, `#else`, `#elif`)
 - Nested conditionals
-- File inclusion
+- File inclusion with multiple base paths
+- Dynamic base path addition
 - Circular dependency detection
 - Various error cases
 
