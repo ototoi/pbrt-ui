@@ -558,7 +558,7 @@ let normal_code = 1;
 fn test_if_with_define() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
-    
+
     let source = r#"
 #if DEBUG
 let debug_mode = true;
@@ -575,7 +575,7 @@ let normal_code = 1;
 fn test_if_with_undefined_symbol() {
     let mut preprocessor = Preprocessor::new();
     // DEBUG is not defined
-    
+
     let source = r#"
 #if DEBUG
 let debug_mode = true;
@@ -593,7 +593,7 @@ fn test_if_with_logical_and() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("A", "1");
     preprocessor.define("B", "1");
-    
+
     let source = r#"
 #if A && B
 let both_defined = true;
@@ -610,7 +610,7 @@ fn test_if_with_logical_and_false() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("A", "1");
     // B is not defined
-    
+
     let source = r#"
 #if A && B
 let both_defined = true;
@@ -627,7 +627,7 @@ fn test_if_with_logical_or() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("A", "1");
     // B is not defined
-    
+
     let source = r#"
 #if A || B
 let either_defined = true;
@@ -643,7 +643,7 @@ let normal_code = 1;
 fn test_if_with_logical_not() {
     let mut preprocessor = Preprocessor::new();
     // DEBUG is not defined
-    
+
     let source = r#"
 #if !DEBUG
 let not_debug = true;
@@ -661,7 +661,7 @@ fn test_if_with_parentheses() {
     preprocessor.define("A", "1");
     preprocessor.define("B", "0");
     preprocessor.define("C", "1");
-    
+
     let source = r#"
 #if (A && B) || C
 let result_true = true;
@@ -676,7 +676,7 @@ let normal_code = 1;
 #[test]
 fn test_elif_first_true() {
     let mut preprocessor = Preprocessor::new();
-    
+
     let source = r#"
 #if 1
 let first = true;
@@ -695,7 +695,7 @@ let normal_code = 1;
 #[test]
 fn test_elif_second_true() {
     let mut preprocessor = Preprocessor::new();
-    
+
     let source = r#"
 #if 0
 let first = true;
@@ -714,7 +714,7 @@ let normal_code = 1;
 #[test]
 fn test_elif_both_false() {
     let mut preprocessor = Preprocessor::new();
-    
+
     let source = r#"
 #if 0
 let first = true;
@@ -734,7 +734,7 @@ let normal_code = 1;
 fn test_elif_with_defines() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("VERSION", "2");
-    
+
     let source = r#"
 #if VERSION == 1
 let version_one = true;
@@ -757,7 +757,7 @@ let normal_code = 1;
 fn test_if_comparison_operators() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("VALUE", "5");
-    
+
     let source = r#"
 #if VALUE > 3
 let greater = true;
@@ -784,7 +784,7 @@ let not_equal = true;
 fn test_if_defined_with_parens() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
-    
+
     let source = r#"
 #if defined(DEBUG)
 let debug_enabled = true;
@@ -801,7 +801,7 @@ let normal_code = 1;
 fn test_if_defined_without_parens() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("FEATURE_X", "1");
-    
+
     let source = r#"
 #if defined FEATURE_X
 let feature_x_enabled = true;
@@ -818,7 +818,7 @@ let normal_code = 1;
 fn test_if_defined_false() {
     let mut preprocessor = Preprocessor::new();
     // DEBUG is not defined
-    
+
     let source = r#"
 #if defined(DEBUG)
 let debug_enabled = true;
@@ -835,7 +835,7 @@ let normal_code = 1;
 fn test_if_not_defined() {
     let mut preprocessor = Preprocessor::new();
     // RELEASE is not defined
-    
+
     let source = r#"
 #if !defined(RELEASE)
 let debug_mode = true;
@@ -853,7 +853,7 @@ fn test_if_defined_and_condition() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
     preprocessor.define("VERBOSE", "1");
-    
+
     let source = r#"
 #if defined(DEBUG) && defined(VERBOSE)
 let debug_verbose = true;
@@ -871,7 +871,7 @@ fn test_if_defined_and_condition_false() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
     // VERBOSE is not defined
-    
+
     let source = r#"
 #if defined(DEBUG) && defined(VERBOSE)
 let debug_verbose = true;
@@ -889,7 +889,7 @@ fn test_if_defined_or_condition() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
     // VERBOSE is not defined
-    
+
     let source = r#"
 #if defined(DEBUG) || defined(VERBOSE)
 let either_enabled = true;
@@ -906,7 +906,7 @@ let normal_code = 1;
 fn test_if_defined_or_condition_false() {
     let mut preprocessor = Preprocessor::new();
     // Neither DEBUG nor VERBOSE is defined
-    
+
     let source = r#"
 #if defined(DEBUG) || defined(VERBOSE)
 let either_enabled = true;
@@ -924,7 +924,7 @@ fn test_if_defined_with_value_check() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("DEBUG", "1");
     preprocessor.define("LEVEL", "3");
-    
+
     let source = r#"
 #if defined(DEBUG) && LEVEL > 2
 let high_level_debug = true;
@@ -941,7 +941,7 @@ let normal_code = 1;
 fn test_elif_defined() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("FEATURE_B", "1");
-    
+
     let source = r#"
 #if defined(FEATURE_A)
 let feature_a = true;
@@ -964,7 +964,7 @@ let normal_code = 1;
 fn test_elif_defined_none_match() {
     let mut preprocessor = Preprocessor::new();
     // No features defined
-    
+
     let source = r#"
 #if defined(FEATURE_A)
 let feature_a = true;
@@ -989,7 +989,7 @@ fn test_complex_defined_expression() {
     preprocessor.define("PLATFORM", "LINUX");
     preprocessor.define("DEBUG", "1");
     preprocessor.define("VERSION", "2");
-    
+
     let source = r#"
 #if (defined(PLATFORM) && defined(DEBUG)) || VERSION > 1
 let complex_condition = true;
@@ -1006,7 +1006,7 @@ let normal_code = 1;
 fn test_defined_with_empty_value() {
     let mut preprocessor = Preprocessor::new();
     preprocessor.define("EMPTY", "");
-    
+
     let source = r#"
 #if defined(EMPTY)
 let empty_is_defined = true;
@@ -1032,7 +1032,10 @@ let normal_code = 1;
 "#;
 
     let result = preprocessor.process(source).unwrap();
-    assert!(result.contains("bar_is_defined = true"), "BAR macro should be recognized as defined in #ifdef");
+    assert!(
+        result.contains("bar_is_defined = true"),
+        "BAR macro should be recognized as defined in #ifdef"
+    );
     assert!(result.contains("normal_code = 1"));
 }
 
@@ -1049,7 +1052,10 @@ let normal_code = 1;
 "#;
 
     let result = preprocessor.process(source).unwrap();
-    assert!(result.contains("foo_is_defined = true"), "FOO macro should be recognized as defined in #if defined()");
+    assert!(
+        result.contains("foo_is_defined = true"),
+        "FOO macro should be recognized as defined in #if defined()"
+    );
     assert!(result.contains("normal_code = 1"));
 }
 
@@ -1066,6 +1072,9 @@ let normal_code = 1;
 "#;
 
     let result = preprocessor.process(source).unwrap();
-    assert!(result.contains("both_defined = true"), "Both FOO and BAR should be recognized as defined");
+    assert!(
+        result.contains("both_defined = true"),
+        "Both FOO and BAR should be recognized as defined"
+    );
     assert!(result.contains("normal_code = 1"));
 }

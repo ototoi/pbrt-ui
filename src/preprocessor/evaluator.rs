@@ -8,10 +8,10 @@ use nom::{
     IResult,
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, digit1, space0, alpha1, alphanumeric1},
+    character::complete::{alpha1, alphanumeric1, char, digit1, space0},
     combinator::{map, opt, recognize},
     multi::many0,
-    sequence::{delimited, tuple, preceded},
+    sequence::{delimited, preceded, tuple},
 };
 
 /// Represents a parsed expression
@@ -45,10 +45,12 @@ pub enum Expr {
 
 /// Parse an integer literal
 fn parse_integer(input: &str) -> IResult<&str, Expr> {
-    map(
-        preceded(space0, digit1),
-        |s: &str| Expr::Integer(s.parse().expect("nom's digit1 parser guarantees valid decimal digits"))
-    )(input)
+    map(preceded(space0, digit1), |s: &str| {
+        Expr::Integer(
+            s.parse()
+                .expect("nom's digit1 parser guarantees valid decimal digits"),
+        )
+    })(input)
 }
 
 /// Parse an identifier
@@ -59,7 +61,7 @@ fn parse_identifier(input: &str) -> IResult<&str, Expr> {
             alt((tag("_"), recognize(alpha1))),
             many0(alt((alphanumeric1, tag("_")))),
         ))),
-        |s: &str| Expr::Identifier(s.to_string())
+        |s: &str| Expr::Identifier(s.to_string()),
     )(input)
 }
 
@@ -68,7 +70,7 @@ fn parse_defined(input: &str) -> IResult<&str, Expr> {
     let (input, _) = space0(input)?;
     let (input, _) = tag("defined")(input)?;
     let (input, _) = space0(input)?;
-    
+
     // Try to parse with parentheses first: defined(SYMBOL)
     if let Ok((input, _)) = char::<_, nom::error::Error<_>>('(')(input) {
         let (input, _) = space0(input)?;
@@ -96,11 +98,7 @@ fn parse_primary(input: &str) -> IResult<&str, Expr> {
         parse_integer,
         parse_defined,
         parse_identifier,
-        delimited(
-            char('('),
-            parse_or_expr,
-            preceded(space0, char(')')),
-        ),
+        delimited(char('('), parse_or_expr, preceded(space0, char(')'))),
     ))(input)
 }
 
@@ -108,10 +106,9 @@ fn parse_primary(input: &str) -> IResult<&str, Expr> {
 fn parse_unary(input: &str) -> IResult<&str, Expr> {
     let (input, _) = space0(input)?;
     alt((
-        map(
-            preceded(char('!'), parse_unary),
-            |expr| Expr::Not(Box::new(expr))
-        ),
+        map(preceded(char('!'), parse_unary), |expr| {
+            Expr::Not(Box::new(expr))
+        }),
         parse_primary,
     ))(input)
 }
@@ -120,7 +117,7 @@ fn parse_unary(input: &str) -> IResult<&str, Expr> {
 fn parse_comparison(input: &str) -> IResult<&str, Expr> {
     let (input, left) = parse_unary(input)?;
     let (input, _) = space0(input)?;
-    
+
     // Try to parse a comparison operator and create the appropriate expression
     // Parse the operator first, then construct the expression once
     let op_result: IResult<&str, i32> = alt((
@@ -131,7 +128,7 @@ fn parse_comparison(input: &str) -> IResult<&str, Expr> {
         map(char('<'), |_| 4),
         map(char('>'), |_| 5),
     ))(input);
-    
+
     match op_result {
         Ok((input, op)) => {
             let (input, right) = parse_unary(input)?;
@@ -153,7 +150,7 @@ fn parse_comparison(input: &str) -> IResult<&str, Expr> {
 /// Parse AND expressions (left-associative, iterative)
 fn parse_and_expr(input: &str) -> IResult<&str, Expr> {
     let (mut input, mut left) = parse_comparison(input)?;
-    
+
     loop {
         let (i, _) = space0(input)?;
         if let Ok((i, _)) = tag::<_, _, nom::error::Error<_>>("&&")(i) {
@@ -169,7 +166,7 @@ fn parse_and_expr(input: &str) -> IResult<&str, Expr> {
 /// Parse OR expressions (left-associative, iterative)
 fn parse_or_expr(input: &str) -> IResult<&str, Expr> {
     let (mut input, mut left) = parse_and_expr(input)?;
-    
+
     loop {
         let (i, _) = space0(input)?;
         if let Ok((i, _)) = tag::<_, _, nom::error::Error<_>>("||")(i) {
@@ -190,15 +187,15 @@ pub fn parse_expr(input: &str) -> IResult<&str, Expr> {
 }
 
 /// Evaluate an expression to a boolean value
-/// 
+///
 /// # Arguments
 /// * `expr` - The expression to evaluate
 /// * `defines` - HashMap of defined symbols with their values (for value lookups)
 /// * `all_defined_names` - HashSet of all defined names (includes both defines and macros, for `defined()` checks)
 pub fn evaluate(
-    expr: &Expr, 
+    expr: &Expr,
     defines: &std::collections::HashMap<String, String>,
-    all_defined_names: &std::collections::HashSet<String>
+    all_defined_names: &std::collections::HashSet<String>,
 ) -> PreprocessorResult<bool> {
     match expr {
         Expr::Integer(val) => Ok(*val != 0),
@@ -270,18 +267,20 @@ pub fn evaluate(
 
 /// Helper to evaluate an expression to a numeric value
 fn evaluate_to_number(
-    expr: &Expr, 
+    expr: &Expr,
     defines: &std::collections::HashMap<String, String>,
-    all_defined_names: &std::collections::HashSet<String>
+    all_defined_names: &std::collections::HashSet<String>,
 ) -> PreprocessorResult<i64> {
     match expr {
         Expr::Integer(val) => Ok(*val),
         Expr::Identifier(name) => {
             if let Some(value) = defines.get(name) {
-                value.parse::<i64>().map_err(|_| PreprocessorError::ParseError {
-                    line: 0,
-                    message: format!("Cannot convert '{}' to number", value),
-                })
+                value
+                    .parse::<i64>()
+                    .map_err(|_| PreprocessorError::ParseError {
+                        line: 0,
+                        message: format!("Cannot convert '{}' to number", value),
+                    })
             } else {
                 // Undefined symbols are treated as 0
                 Ok(0)
@@ -326,7 +325,10 @@ mod tests {
         let result = parse_expr("!DEBUG");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        assert_eq!(expr, Expr::Not(Box::new(Expr::Identifier("DEBUG".to_string()))));
+        assert_eq!(
+            expr,
+            Expr::Not(Box::new(Expr::Identifier("DEBUG".to_string())))
+        );
     }
 
     #[test]
@@ -393,14 +395,20 @@ mod tests {
     fn test_evaluate_integer_true() {
         let expr = Expr::Integer(1);
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
     fn test_evaluate_integer_false() {
         let expr = Expr::Integer(0);
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            false
+        );
     }
 
     #[test]
@@ -408,51 +416,60 @@ mod tests {
         let expr = Expr::Identifier("DEBUG".to_string());
         let mut defines = HashMap::new();
         defines.insert("DEBUG".to_string(), "1".to_string());
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
     fn test_evaluate_identifier_undefined() {
         let expr = Expr::Identifier("DEBUG".to_string());
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            false
+        );
     }
 
     #[test]
     fn test_evaluate_not() {
         let expr = Expr::Not(Box::new(Expr::Integer(0)));
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
     fn test_evaluate_and() {
-        let expr = Expr::And(
-            Box::new(Expr::Integer(1)),
-            Box::new(Expr::Integer(1))
-        );
+        let expr = Expr::And(Box::new(Expr::Integer(1)), Box::new(Expr::Integer(1)));
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
     fn test_evaluate_or() {
-        let expr = Expr::Or(
-            Box::new(Expr::Integer(0)),
-            Box::new(Expr::Integer(1))
-        );
+        let expr = Expr::Or(Box::new(Expr::Integer(0)), Box::new(Expr::Integer(1)));
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
     fn test_evaluate_comparison() {
-        let expr = Expr::Equal(
-            Box::new(Expr::Integer(5)),
-            Box::new(Expr::Integer(5))
-        );
+        let expr = Expr::Equal(Box::new(Expr::Integer(5)), Box::new(Expr::Integer(5)));
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -461,13 +478,16 @@ mod tests {
         let result = parse_expr("(A && B) || !C");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("A".to_string(), "1".to_string());
         defines.insert("B".to_string(), "1".to_string());
         defines.insert("C".to_string(), "0".to_string());
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -499,14 +519,20 @@ mod tests {
         let expr = Expr::Defined("DEBUG".to_string());
         let mut defines = HashMap::new();
         defines.insert("DEBUG".to_string(), "1".to_string());
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
     fn test_evaluate_defined_false() {
         let expr = Expr::Defined("DEBUG".to_string());
         let defines = HashMap::new();
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            false
+        );
     }
 
     #[test]
@@ -514,7 +540,10 @@ mod tests {
         let expr = Expr::Defined("EMPTY".to_string());
         let mut defines = HashMap::new();
         defines.insert("EMPTY".to_string(), "".to_string());
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -550,10 +579,7 @@ mod tests {
         let result = parse_expr("!defined(FOO)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        assert_eq!(
-            expr,
-            Expr::Not(Box::new(Expr::Defined("FOO".to_string())))
-        );
+        assert_eq!(expr, Expr::Not(Box::new(Expr::Defined("FOO".to_string()))));
     }
 
     #[test]
@@ -561,12 +587,15 @@ mod tests {
         let result = parse_expr("defined(FOO) && defined(BAR)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
         defines.insert("BAR".to_string(), "1".to_string());
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -574,11 +603,14 @@ mod tests {
         let result = parse_expr("defined(FOO) && defined(BAR)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            false
+        );
     }
 
     #[test]
@@ -586,11 +618,14 @@ mod tests {
         let result = parse_expr("defined(FOO) || defined(BAR)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -598,10 +633,13 @@ mod tests {
         let result = parse_expr("defined(FOO) || defined(BAR)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let defines = HashMap::new();
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), false);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            false
+        );
     }
 
     #[test]
@@ -615,12 +653,15 @@ mod tests {
         let result = parse_expr("(defined(FOO) && BAR > 0) || !defined(BAZ)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
         defines.insert("BAR".to_string(), "5".to_string());
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -628,11 +669,14 @@ mod tests {
         let result = parse_expr("defined(VERSION) && VERSION == 2");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("VERSION".to_string(), "2".to_string());
-        
-        assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(),
+            true
+        );
     }
 
     #[test]
@@ -642,7 +686,7 @@ mod tests {
         let defines = HashMap::new();
         let mut all_defined_names = HashSet::new();
         all_defined_names.insert("MACRO_FOO".to_string());
-        
+
         assert_eq!(evaluate(&expr, &defines, &all_defined_names).unwrap(), true);
     }
 
@@ -652,14 +696,14 @@ mod tests {
         let result = parse_expr("defined(DEFINE_FOO) && defined(MACRO_BAR)");
         assert!(result.is_ok());
         let (_, expr) = result.unwrap();
-        
+
         let mut defines = HashMap::new();
         defines.insert("DEFINE_FOO".to_string(), "1".to_string());
-        
+
         let mut all_defined_names = HashSet::new();
         all_defined_names.insert("DEFINE_FOO".to_string());
         all_defined_names.insert("MACRO_BAR".to_string());
-        
+
         assert_eq!(evaluate(&expr, &defines, &all_defined_names).unwrap(), true);
     }
 
@@ -669,7 +713,10 @@ mod tests {
         let expr = Expr::Defined("UNDEFINED_MACRO".to_string());
         let defines = HashMap::new();
         let all_defined_names = HashSet::new();
-        
-        assert_eq!(evaluate(&expr, &defines, &all_defined_names).unwrap(), false);
+
+        assert_eq!(
+            evaluate(&expr, &defines, &all_defined_names).unwrap(),
+            false
+        );
     }
 }
