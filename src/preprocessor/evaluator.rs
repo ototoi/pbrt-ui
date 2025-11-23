@@ -45,7 +45,7 @@ pub enum Expr {
 fn parse_integer(input: &str) -> IResult<&str, Expr> {
     map(
         preceded(space0, digit1),
-        |s: &str| Expr::Integer(s.parse().unwrap())
+        |s: &str| Expr::Integer(s.parse().expect("digit1 guarantees valid integer string"))
     )(input)
 }
 
@@ -92,61 +92,64 @@ fn parse_comparison(input: &str) -> IResult<&str, Expr> {
     let (input, left) = parse_unary(input)?;
     let (input, _) = space0(input)?;
     
-    // Try to parse a comparison operator
-    let result = alt((
-        map(
-            preceded(tag("=="), parse_unary),
-            |right| Expr::Equal(Box::new(left.clone()), Box::new(right))
-        ),
-        map(
-            preceded(tag("!="), parse_unary),
-            |right| Expr::NotEqual(Box::new(left.clone()), Box::new(right))
-        ),
-        map(
-            preceded(tag("<="), parse_unary),
-            |right| Expr::LessEqual(Box::new(left.clone()), Box::new(right))
-        ),
-        map(
-            preceded(tag(">="), parse_unary),
-            |right| Expr::GreaterEqual(Box::new(left.clone()), Box::new(right))
-        ),
-        map(
-            preceded(char('<'), parse_unary),
-            |right| Expr::LessThan(Box::new(left.clone()), Box::new(right))
-        ),
-        map(
-            preceded(char('>'), parse_unary),
-            |right| Expr::GreaterThan(Box::new(left.clone()), Box::new(right))
-        ),
+    // Try to parse a comparison operator and create the appropriate expression
+    // Parse the operator first, then construct the expression once
+    let op_result: IResult<&str, i32> = alt((
+        map(tag("=="), |_| 0),
+        map(tag("!="), |_| 1),
+        map(tag("<="), |_| 2),
+        map(tag(">="), |_| 3),
+        map(char('<'), |_| 4),
+        map(char('>'), |_| 5),
     ))(input);
     
-    match result {
-        Ok((input, expr)) => Ok((input, expr)),
+    match op_result {
+        Ok((input, op)) => {
+            let (input, right) = parse_unary(input)?;
+            let expr = match op {
+                0 => Expr::Equal(Box::new(left), Box::new(right)),
+                1 => Expr::NotEqual(Box::new(left), Box::new(right)),
+                2 => Expr::LessEqual(Box::new(left), Box::new(right)),
+                3 => Expr::GreaterEqual(Box::new(left), Box::new(right)),
+                4 => Expr::LessThan(Box::new(left), Box::new(right)),
+                5 => Expr::GreaterThan(Box::new(left), Box::new(right)),
+                _ => unreachable!(),
+            };
+            Ok((input, expr))
+        }
         Err(_) => Ok((input, left)),
     }
 }
 
-/// Parse AND expressions
+/// Parse AND expressions (left-associative, iterative)
 fn parse_and_expr(input: &str) -> IResult<&str, Expr> {
-    let (input, left) = parse_comparison(input)?;
-    let (input, _) = space0(input)?;
+    let (mut input, mut left) = parse_comparison(input)?;
     
-    let result = preceded(tag("&&"), parse_and_expr)(input);
-    match result {
-        Ok((input, right)) => Ok((input, Expr::And(Box::new(left), Box::new(right)))),
-        Err(_) => Ok((input, left)),
+    loop {
+        let (i, _) = space0(input)?;
+        if let Ok((i, _)) = tag::<_, _, nom::error::Error<_>>("&&")(i) {
+            let (i, right) = parse_comparison(i)?;
+            left = Expr::And(Box::new(left), Box::new(right));
+            input = i;
+        } else {
+            return Ok((input, left));
+        }
     }
 }
 
-/// Parse OR expressions
+/// Parse OR expressions (left-associative, iterative)
 fn parse_or_expr(input: &str) -> IResult<&str, Expr> {
-    let (input, left) = parse_and_expr(input)?;
-    let (input, _) = space0(input)?;
+    let (mut input, mut left) = parse_and_expr(input)?;
     
-    let result = preceded(tag("||"), parse_or_expr)(input);
-    match result {
-        Ok((input, right)) => Ok((input, Expr::Or(Box::new(left), Box::new(right)))),
-        Err(_) => Ok((input, left)),
+    loop {
+        let (i, _) = space0(input)?;
+        if let Ok((i, _)) = tag::<_, _, nom::error::Error<_>>("||")(i) {
+            let (i, right) = parse_and_expr(i)?;
+            left = Expr::Or(Box::new(left), Box::new(right));
+            input = i;
+        } else {
+            return Ok((input, left));
+        }
     }
 }
 
