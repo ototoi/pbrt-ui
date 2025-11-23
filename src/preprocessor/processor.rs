@@ -121,12 +121,13 @@ impl Preprocessor {
                             if conditional_stack.is_empty() {
                                 return Err(PreprocessorError::ParseError {
                                     line: line_number,
-                                    message: "Unexpected #elif without matching #if, #ifdef or #ifndef"
+                                    message: "Unexpected #elif without matching #if, #ifdef, #ifndef, or #elif"
                                         .to_string(),
                                 });
                             }
                             // In a full implementation, you would evaluate the expression
                             // For now, treat it like #else with a false condition
+                            // Safe to unwrap here because we checked is_empty() above
                             let condition = conditional_stack.last_mut().unwrap();
                             if skip_depth == 0 {
                                 // We were including, now we skip (because elif condition is false)
