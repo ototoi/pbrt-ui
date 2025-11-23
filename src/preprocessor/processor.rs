@@ -125,8 +125,20 @@ impl Preprocessor {
                                         .to_string(),
                                 });
                             }
-                            // Don't change the conditional stack or skip depth for now
                             // In a full implementation, you would evaluate the expression
+                            // For now, treat it like #else with a false condition
+                            let condition = conditional_stack.last_mut().unwrap();
+                            if skip_depth == 0 {
+                                // We were including, now we skip (because elif condition is false)
+                                skip_depth += 1;
+                                *condition = false;
+                            } else if skip_depth == 1 && !*condition {
+                                // We were skipping from a previous false condition
+                                // In a full implementation, we would evaluate the elif expression
+                                // For now, keep skipping (treat elif as false)
+                                // *condition remains false
+                            }
+                            // If skip_depth > 1, we remain skipping
                         }
                         Directive::EndIf => {
                             if conditional_stack.is_empty() {
