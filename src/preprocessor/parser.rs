@@ -354,4 +354,13 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_parse_else() {
+        let input = "#else";
+        let result = parse_else(input);
+        assert!(result.is_ok());
+        let (_, directive) = result.unwrap();
+        assert_eq!(directive, Directive::Else);
+    }
 }
