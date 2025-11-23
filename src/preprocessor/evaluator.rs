@@ -634,4 +634,42 @@ mod tests {
         
         assert_eq!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap(), true);
     }
+
+    #[test]
+    fn test_evaluate_defined_with_macro_only() {
+        // Test that a macro name (not in defines) is recognized when in all_defined_names
+        let expr = Expr::Defined("MACRO_FOO".to_string());
+        let defines = HashMap::new();
+        let mut all_defined_names = HashSet::new();
+        all_defined_names.insert("MACRO_FOO".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines, &all_defined_names).unwrap(), true);
+    }
+
+    #[test]
+    fn test_evaluate_defined_with_macro_and_define() {
+        // Test that both defines and macros are recognized
+        let result = parse_expr("defined(DEFINE_FOO) && defined(MACRO_BAR)");
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+        
+        let mut defines = HashMap::new();
+        defines.insert("DEFINE_FOO".to_string(), "1".to_string());
+        
+        let mut all_defined_names = HashSet::new();
+        all_defined_names.insert("DEFINE_FOO".to_string());
+        all_defined_names.insert("MACRO_BAR".to_string());
+        
+        assert_eq!(evaluate(&expr, &defines, &all_defined_names).unwrap(), true);
+    }
+
+    #[test]
+    fn test_evaluate_defined_macro_not_in_all_defined() {
+        // Test that a macro not in all_defined_names returns false
+        let expr = Expr::Defined("UNDEFINED_MACRO".to_string());
+        let defines = HashMap::new();
+        let all_defined_names = HashSet::new();
+        
+        assert_eq!(evaluate(&expr, &defines, &all_defined_names).unwrap(), false);
+    }
 }
