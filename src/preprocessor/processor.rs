@@ -109,6 +109,25 @@ impl Preprocessor {
                                 skip_depth += 1;
                             }
                         }
+                        Directive::If { expr: _ } => {
+                            // For now, treat #if as always false (not evaluated)
+                            // In a full implementation, you would evaluate the expression
+                            conditional_stack.push(false);
+                            skip_depth += 1;
+                        }
+                        Directive::ElIf { expr: _ } => {
+                            // For now, treat #elif as always false (not evaluated)
+                            // Similar to #else but with a condition
+                            if conditional_stack.is_empty() {
+                                return Err(PreprocessorError::ParseError {
+                                    line: line_number,
+                                    message: "Unexpected #elif without matching #if, #ifdef or #ifndef"
+                                        .to_string(),
+                                });
+                            }
+                            // Don't change the conditional stack or skip depth for now
+                            // In a full implementation, you would evaluate the expression
+                        }
                         Directive::EndIf => {
                             if conditional_stack.is_empty() {
                                 return Err(PreprocessorError::ParseError {
