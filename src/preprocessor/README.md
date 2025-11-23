@@ -20,7 +20,7 @@ A C-like preprocessor written in Rust using the `nom` parser combinator library.
 - Comprehensive error handling for parse errors and circular dependencies
 - Extensive unit tests covering all features and error cases, including:
   - Macro expansion and nesting
-  - Conditional logic (`#if`, `#else`, and `defined`)
+  - Conditional logic (`#if`, `#else`, `#elif`, and `defined`)
   - File inclusion and multi-path resolving
 
 ## Usage
