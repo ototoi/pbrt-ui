@@ -1,6 +1,7 @@
 //! Preprocessor implementation
 
 use super::error::{PreprocessorError, PreprocessorResult};
+use super::evaluator;
 use super::parser::{Directive, parse_directive};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -70,6 +71,24 @@ impl Preprocessor {
         self.defines.contains_key(name) || self.macros.contains_key(name)
     }
 
+    /// Evaluate a condition expression for #if and #elif directives
+    pub fn evaluate_condition(&self, expr: &str) -> PreprocessorResult<bool> {
+        // Parse the expression
+        let parse_result = evaluator::parse_expr(expr);
+        match parse_result {
+            Ok((_, parsed_expr)) => {
+                // Evaluate the parsed expression
+                evaluator::evaluate(&parsed_expr, &self.defines)
+            }
+            Err(_) => {
+                Err(PreprocessorError::ParseError {
+                    line: 0,
+                    message: format!("Failed to parse condition expression: {}", expr),
+                })
+            }
+        }
+    }
+
     /// Process source code
     pub fn process(&mut self, source: &str) -> PreprocessorResult<String> {
         let mut output = String::new();
@@ -109,15 +128,14 @@ impl Preprocessor {
                                 skip_depth += 1;
                             }
                         }
-                        Directive::If { expr: _ } => {
-                            // For now, treat #if as always false (not evaluated)
-                            // In a full implementation, you would evaluate the expression
-                            conditional_stack.push(false);
-                            skip_depth += 1;
+                        Directive::If { expr } => {
+                            let cond = self.evaluate_condition(&expr)?;
+                            conditional_stack.push(cond);
+                            if !cond || skip_depth > 0 {
+                                skip_depth += 1;
+                            }
                         }
-                        Directive::ElIf { expr: _ } => {
-                            // For now, treat #elif as always false (not evaluated)
-                            // Similar to #else but with a condition
+                        Directive::ElIf { expr } => {
                             if conditional_stack.is_empty() {
                                 return Err(PreprocessorError::ParseError {
                                     line: line_number,
@@ -125,19 +143,24 @@ impl Preprocessor {
                                         .to_string(),
                                 });
                             }
-                            // In a full implementation, you would evaluate the expression
-                            // For now, treat it like #else with a false condition
+                            let elif_cond = self.evaluate_condition(&expr)?;
                             // Safe to unwrap: conditional_stack is guaranteed non-empty by the check above
                             let condition = conditional_stack.last_mut().unwrap();
                             if skip_depth == 0 {
-                                // We were including, now we skip (because elif condition is false)
+                                // We were including, now we skip
                                 skip_depth += 1;
                                 *condition = false;
                             } else if skip_depth == 1 && !*condition {
                                 // We were skipping from a previous false condition
-                                // In a full implementation, we would evaluate the elif expression
-                                // For now, keep skipping (treat elif as false)
-                                // *condition remains false
+                                // Evaluate the elif expression
+                                if elif_cond {
+                                    // Elif condition is true, start including
+                                    skip_depth -= 1;
+                                    *condition = true;
+                                } else {
+                                    // Elif condition is false, keep skipping
+                                    *condition = false;
+                                }
                             }
                             // If skip_depth > 1, we remain skipping
                         }

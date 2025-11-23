@@ -523,3 +523,259 @@ fn test_circular_dependency_multi_path() {
         _ => panic!("Expected CircularDependency error"),
     }
 }
+
+#[test]
+fn test_if_true() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#if 1
+let included = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("included = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_false() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#if 0
+let excluded = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("excluded"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_with_define() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    
+    let source = r#"
+#if DEBUG
+let debug_mode = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_mode = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_with_undefined_symbol() {
+    let mut preprocessor = Preprocessor::new();
+    // DEBUG is not defined
+    
+    let source = r#"
+#if DEBUG
+let debug_mode = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("debug_mode"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_with_logical_and() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    preprocessor.define("B", "1");
+    
+    let source = r#"
+#if A && B
+let both_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("both_defined = true"));
+}
+
+#[test]
+fn test_if_with_logical_and_false() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    // B is not defined
+    
+    let source = r#"
+#if A && B
+let both_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("both_defined"));
+}
+
+#[test]
+fn test_if_with_logical_or() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    // B is not defined
+    
+    let source = r#"
+#if A || B
+let either_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("either_defined = true"));
+}
+
+#[test]
+fn test_if_with_logical_not() {
+    let mut preprocessor = Preprocessor::new();
+    // DEBUG is not defined
+    
+    let source = r#"
+#if !DEBUG
+let not_debug = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("not_debug = true"));
+}
+
+#[test]
+fn test_if_with_parentheses() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    preprocessor.define("B", "0");
+    preprocessor.define("C", "1");
+    
+    let source = r#"
+#if (A && B) || C
+let result_true = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("result_true = true"));
+}
+
+#[test]
+fn test_elif_first_true() {
+    let mut preprocessor = Preprocessor::new();
+    
+    let source = r#"
+#if 1
+let first = true;
+#elif 1
+let second = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("first = true"));
+    assert!(!result.contains("second = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_second_true() {
+    let mut preprocessor = Preprocessor::new();
+    
+    let source = r#"
+#if 0
+let first = true;
+#elif 1
+let second = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("first = true"));
+    assert!(result.contains("second = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_both_false() {
+    let mut preprocessor = Preprocessor::new();
+    
+    let source = r#"
+#if 0
+let first = true;
+#elif 0
+let second = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("first = true"));
+    assert!(!result.contains("second = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_with_defines() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("VERSION", "2");
+    
+    let source = r#"
+#if VERSION == 1
+let version_one = true;
+#elif VERSION == 2
+let version_two = true;
+#elif VERSION == 3
+let version_three = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("version_one"));
+    assert!(result.contains("version_two = true"));
+    assert!(!result.contains("version_three"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_comparison_operators() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("VALUE", "5");
+    
+    let source = r#"
+#if VALUE > 3
+let greater = true;
+#endif
+#if VALUE < 10
+let less = true;
+#endif
+#if VALUE == 5
+let equal = true;
+#endif
+#if VALUE != 0
+let not_equal = true;
+#endif
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("greater = true"));
+    assert!(result.contains("less = true"));
+    assert!(result.contains("equal = true"));
+    assert!(result.contains("not_equal = true"));
+}
