@@ -316,9 +316,7 @@ fn get_shader_id_from_type(shader_type: &str) -> Uuid {
 }
 
 fn get_fallback_shader_source() -> String {
-    let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
-    let shader_path = cache_dir.join("basic_material.wgsl");
-    let code = std::fs::read_to_string(shader_path).expect("Failed to read fallback shader source");
+    let code = include_str!("shaders/basic_material.wgsl").to_string();
     return code;
 }
 
@@ -344,16 +342,19 @@ fn generate_shader_source(
     uniform_values: &[(String, RenderUniformValue)],
 ) -> Option<String> {
     let modified_shader_type = get_shader_type(shader_type, &uniform_values.to_vec());
-    let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
-    let prebuilt_shader_path = cache_dir
-        .join("prebuilt")
-        .join(format!("{}.wgsl", shader_type));
+    let cache_dir = dirs::cache_dir()
+        .unwrap()
+        .join("pbrt_ui")
+        .join("assets")
+        .join("shaders");
+    let prebuilt_shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
 
     let defines = create_defines(&uniform_values);
     if prebuilt_shader_path.exists() {
         let base_path = dirs::cache_dir()
             .unwrap()
             .join("pbrt_ui")
+            .join("assets")
             .join("shaders")
             .join("include");
         let mut pp = Preprocessor::with_base_path(base_path);
@@ -365,7 +366,7 @@ fn generate_shader_source(
             Ok(processed_data) => {
                 if true {
                     let output_path = cache_dir
-                        .join("debug")
+                        .join("generated")
                         .join(format!("{}.wgsl", modified_shader_type));
                     std::fs::create_dir_all(output_path.parent().unwrap()).unwrap();
                     std::fs::write(&output_path, &processed_data).unwrap();
