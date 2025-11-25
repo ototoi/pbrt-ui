@@ -407,16 +407,17 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let roughness = max(0.08, sample_roughness(in.uv)); // cannot < 0.08
     var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
     ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
-
+#ifdef ENABLE_SPECULAR
     let t1 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 0);
-    let t2 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 1);
     // Construct inverse matrix
     let Minv = mat3x3<f32>(
         vec3<f32>(t1.x, 0.0, t1.y),
         vec3<f32>(0.0, 1.0, 0.0),
         vec3<f32>(t1.z, 0.0, t1.w)
     );
-
+#endif
+    // Accumulate lighting
+    
     var color = vec3<f32>(0.0);
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
