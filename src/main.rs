@@ -8,7 +8,7 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::wgpu;
 use pbrt_ui::app::PbrtUIApp;
-use pbrt_ui::render::wgpu::copy_shaders::copy_shaders_to_cache;
+use pbrt_ui::assets::copy_assets_to_cache;
 
 fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
     let mut wgpu_setup = eframe::egui_wgpu::WgpuSetup::default();
@@ -50,8 +50,8 @@ fn main() -> eframe::Result {
     //env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     // Copy shader files to cache directory
-    match copy_shaders_to_cache() {
-        Ok(path) => {
+    match copy_assets_to_cache() {
+        Ok(_path) => {
             //println!("Shaders copied to cache: {:?}", path);
         }
         Err(e) => {
