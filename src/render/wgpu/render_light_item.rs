@@ -309,10 +309,6 @@ fn get_spot_light_item(
     return None; // Point lights are not yet supported
 }
 
-fn calc_sphere_light_ltc_points(radius: f32) -> [[f32; 3]; 4] {
-    return [[0.0; 3]; 4]; // Placeholder implementation
-}
-
 fn get_sphere_light_item(
     light: &Light,
     shape: &Shape,

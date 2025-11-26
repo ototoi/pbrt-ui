@@ -74,8 +74,6 @@ struct SphereLight {
     radius: f32,         // Radius of the light // 1 * 4 = 4
     range: f32,          // Range of the light // 1 * 4 = 4
     _pad1: [f32; 2],     // Range of the light // 4 * 4 = 8
-    u_axis: [f32; 4],     // U axis for rectangle // 4 * 4 = 16
-    v_axis: [f32; 4],     // V axis for rectangle // 4 * 4 = 16
 }
 
 #[repr(C)]
@@ -632,8 +630,6 @@ impl LightingMeshRenderer {
                                 position[1],
                                 position[2],
                             ));
-                            let u_axis = [1.0, 0.0, 0.0, 1.0];
-                            let v_axis = [0.0, 1.0, 0.0, 1.0];
                             //println!("Point light position: {:?}", position);
                             let intensity = light.intensity;
                             let radius = light.radius;
@@ -642,8 +638,6 @@ impl LightingMeshRenderer {
                                 intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                                 radius: radius,
                                 _pad1: [0.0; 2], // Range of the light // 4 * 4 = 8
-                                u_axis: u_axis, // U axis
-                                v_axis: v_axis, // V axis
                                 ..Default::default()
                             };
                             light_buffer.push(light);
