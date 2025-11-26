@@ -33,8 +33,6 @@ struct SphereLight {
     radius: f32,
     range: f32,
     _pad1: vec2<f32>, // Padding for alignment
-    u_axis: vec4<f32>,    // U axis for rectangle // 4 * 4 = 16
-    v_axis: vec4<f32>,    // V axis for rectangle // 4 * 4 = 16
 }
 
 struct DiskLight {
