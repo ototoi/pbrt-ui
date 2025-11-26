@@ -72,7 +72,15 @@ fn IntegrateEdgeVec(v1: vec3<f32>, v2: vec3<f32>) -> vec3<f32>
     return cross(v1, v2)*theta_sintheta;
 }
 
-fn SolveCubic(Coefficient: vec4<f32>) -> vec3<f32>
+fn is_nan(x: f32) -> bool {
+    return x != x;
+}
+
+fn is_infinite(x: f32) -> bool {
+    return abs(x) >= MAX_FLOAT;
+}
+
+fn SolveCubic(Coefficient: vec4<f32>) -> vec4<f32>
 {
     //var Coefficient = Coefficient_;
     // Normalize the polynomial
@@ -97,7 +105,13 @@ fn SolveCubic(Coefficient: vec4<f32>) -> vec3<f32>
     );
 
     let Discriminant = dot(vec2(4.0*Delta.x, -Delta.y), Delta.zy);
-
+    var count = 3.0;
+    if (Discriminant > 0.0) {
+        count = 1.0;
+    } else if (Discriminant == 0.0) {
+        count = 2.0;
+    }
+    
     var RootsA = vec3<f32>(0.0);
     var RootsD = vec3<f32>(0.0);
 
@@ -161,8 +175,7 @@ fn SolveCubic(Coefficient: vec4<f32>) -> vec3<f32>
     } else if (Root.z < Root.x && Root.z < Root.y) {
         Root = Root_.xzy;
     }
-
-    return Root;
+    return vec4<f32>(Root, count);
 }
 
 fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
@@ -316,10 +329,11 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
 
     // 3D eigen-decomposition: need to solve a cubic function
     let roots = SolveCubic(vec4<f32>(c0, c1, c2, c3));//c0 * t^3 + c1 * t^2 + c2 * t + c3 = 0
-    let e1 = roots.x;
-    let e2 = roots.y;
-    let e3 = roots.z;
-
+    var e1 = roots.x;
+    var e2 = roots.y;
+    var e3 = roots.z;
+    let numRoots = roots.w;
+    // TODO: handle numRoots = 1, 2
     // direction to front-facing ellipse center
     var avgDir = vec3<f32>(a*x0/(a - e2), b*y0/(b - e2), 1.0); // third eigenvector: V-
 
@@ -330,8 +344,8 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     avgDir = normalize(avgDir);
 
     // extends of front-facing ellipse
-    let L1 = sqrt(-e2/e3);//select(1.0, , -e2/e3 > 0.0);
-    let L2 = sqrt(-e2/e1);//select(1.0, sqrt(-e2/e1), -e2/e1 > 0.0);
+    let L1 = sqrt(-e2/e3);
+    let L2 = sqrt(-e2/e1);
 
     // projected solid angle E, like the length(F) in rectangle light
     //let formFactor = L1 * L2 * isqrt((1.0 + L1*L1)*(1.0 + L2*L2));
@@ -362,24 +376,13 @@ fn spherical_texture_lookup(direction: vec3<f32>) -> vec2<f32> {
 }
 
 fn get_u_axis(z: vec3<f32>) -> vec3<f32> {
-#if 0
-    var min_axis = 0;
-    if (abs(z[1]) < abs(z[min_axis])) {
-        min_axis = 1;
-    }
-    if (abs(z[2]) < abs(z[min_axis])) {
-        min_axis = 2;
-    }
-    var u_axis = vec3<f32>(0.0, 0.0, 0.0);
-    u_axis[min_axis] = 1.0;
-    return u_axis;
-#else
-    var u_axis = vec3<f32>(1.0, 0.0, 0.0);
-    if (abs(dot(u_axis, z)) > 0.99) {
+    if (abs(z.x) <= abs(z.y) && abs(z.x) <= abs(z.z)) {
+        return vec3<f32>(1.0, 0.0, 0.0);
+    } else if (abs(z.y) <= abs(z.x) && abs(z.y) <= abs(z.z)) {
         return vec3<f32>(0.0, 1.0, 0.0);
+    } else {
+        return vec3<f32>(0.0, 0.0, 1.0);
     }
-    return u_axis;
-#endif
 }
 
 struct VertexOut {
@@ -480,8 +483,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             var u_axis = get_u_axis(direction);
             var v_axis = normalize(cross(direction, u_axis));
             u_axis = normalize(cross(v_axis, direction));
-            let ex = u_axis * disk_radius;
-            let ey = v_axis * disk_radius;
+            //TODO: avoid precision issue
+            //
+            let ex = u_axis * disk_radius * 1.001;//avoid precision issue
+            let ey = v_axis * disk_radius * 1.002;//avoid precision issue
             let disk_center = position + direction * delta;
 
             let a = disk_center - ex - ey;
@@ -496,14 +501,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else
             let diffuse = vec3<f32>(0.0);
 #endif
-//#ifdef ENABLE_SPECULAR
-//            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
-//#else
+#ifdef ENABLE_SPECULAR
+            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+#else
             let specular = vec3<f32>(0.0);
-//#endif
-            //color += 0.5 * z + vec3<f32>(0.5); 
-            //color += 0.5 * u_axis + vec3<f32>(0.5);
-            //color += 0.5 * v_axis + vec3<f32>(0.5);
+#endif
             var attenuation = 1.0 / ((1.0 + disk_distance)); // Simple quadratic attenuation
             color += intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
         } else {
