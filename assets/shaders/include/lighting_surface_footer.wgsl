@@ -80,28 +80,18 @@ fn is_infinite(x: f32) -> bool {
     return abs(x) >= MAX_FLOAT;
 }
 
-fn SolveCubic(Coefficient: vec4<f32>) -> vec4<f32>
+fn SolveCubic(a: f32, b: f32, c: f32, d: f32) -> vec4<f32>
 {
-    //var Coefficient = Coefficient_;
-    // Normalize the polynomial
-    //Coefficient.xyz /= Coefficient.w;
-    // Divide middle coefficients by three
-    //Coefficient.yz /= 3.0;
-    let w = Coefficient.w;
-    let x = Coefficient.x / w;
-    let y = Coefficient.y / (3.0 * w);
-    let z = Coefficient.z / (3.0 * w);
-
-    let A = w;
-    let B = z;
-    let C = y;
-    let D = x;
+    let A = a;
+    let B = b / (3.0 * a);
+    let C = c / (3.0 * a);
+    let D = d / a;
 
     // Compute the Hessian and the discriminant
     let Delta = vec3<f32>(
-        -z*z + y,
-        -y*z + x,
-        dot(vec2(z, -y), vec2(x, y))
+        -B*B + C,//AC-BB
+        -B*C + D,//AD-BC
+        -C*C + B*D  //BD-CC
     );
 
     let Discriminant = dot(vec2(4.0*Delta.x, -Delta.y), Delta.zy);
@@ -328,7 +318,7 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     let c3 = 1.0;
 
     // 3D eigen-decomposition: need to solve a cubic function
-    let roots = SolveCubic(vec4<f32>(c0, c1, c2, c3));//c0 * t^3 + c1 * t^2 + c2 * t + c3 = 0
+    let roots = SolveCubic(c3, c2, c1, c0);
     var e1 = roots.x;
     var e2 = roots.y;
     var e3 = roots.z;
@@ -485,8 +475,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             u_axis = normalize(cross(v_axis, direction));
             //TODO: avoid precision issue
             //
-            let ex = u_axis * disk_radius * 1.001;//avoid precision issue
-            let ey = v_axis * disk_radius * 1.002;//avoid precision issue
+            let ex = u_axis * disk_radius;//avoid precision issue
+            let ey = v_axis * disk_radius;//avoid precision issue
             let disk_center = position + direction * delta;
 
             let a = disk_center - ex - ey;
