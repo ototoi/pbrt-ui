@@ -309,10 +309,6 @@ fn get_spot_light_item(
     return None; // Point lights are not yet supported
 }
 
-fn calc_sphere_light_ltc_points(radius: f32) -> [[f32; 3]; 4] {
-    return [[0.0; 3]; 4]; // Placeholder implementation
-}
-
 fn get_sphere_light_item(
     light: &Light,
     shape: &Shape,
@@ -360,7 +356,8 @@ fn get_sphere_light_item(
     //self.phi_max * self.radius * (self.z_max - self.z_min)
     let area = if radius > 0.0 {
         //std::f32::consts::PI * radius * (zmax - zmin) // Area of the sphere segment
-        2.0 * std::f32::consts::PI * radius // Area of the sphere
+        //std::f32::consts::PI * radius * radius // Area of the disk
+        std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI
     } else {
         4.0 // Default area if radius is not specified
     };

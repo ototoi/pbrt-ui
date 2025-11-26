@@ -72,7 +72,15 @@ fn IntegrateEdgeVec(v1: vec3<f32>, v2: vec3<f32>) -> vec3<f32>
     return cross(v1, v2)*theta_sintheta;
 }
 
-fn SolveCubic(Coefficient: vec4<f32>) -> vec3<f32>
+fn is_nan(x: f32) -> bool {
+    return x != x;
+}
+
+fn is_infinite(x: f32) -> bool {
+    return abs(x) >= MAX_FLOAT;
+}
+
+fn SolveCubic(Coefficient: vec4<f32>) -> vec4<f32>
 {
     //var Coefficient = Coefficient_;
     // Normalize the polynomial
@@ -97,13 +105,18 @@ fn SolveCubic(Coefficient: vec4<f32>) -> vec3<f32>
     );
 
     let Discriminant = dot(vec2(4.0*Delta.x, -Delta.y), Delta.zy);
+    var count = 3.0;
+    if (Discriminant > 0.0) {
+        count = 1.0;
+    } else if (Discriminant == 0.0) {
+        count = 2.0;
+    }
+    
+    var RootsA = vec3<f32>(0.0);
+    var RootsD = vec3<f32>(0.0);
 
-    var RootsA = vec3<f32>();
-    var RootsD = vec3<f32>();
-
-    var xlc = vec2<f32>();
-    var xsc = vec2<f32>();
-
+    var xlc = vec2<f32>(0.0);
+    var xsc = vec2<f32>(0.0);
     // Algorithm A
     {
         let A_a = 1.0;
@@ -162,8 +175,7 @@ fn SolveCubic(Coefficient: vec4<f32>) -> vec3<f32>
     } else if (Root.z < Root.x && Root.z < Root.y) {
         Root = Root_.xzy;
     }
-
-    return Root;
+    return vec4<f32>(Root, count);
 }
 
 fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
@@ -214,6 +226,11 @@ fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x
     return Lo_i;
 }
 
+fn isqrt(x: f32) -> f32 {
+    return inverseSqrt(x);
+    //return 1.0 / sqrt(x);
+}
+
 fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
 {
     // construct orthonormal basis around N
@@ -246,11 +263,12 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     let d11 = dot(V1, V1); // q11
     let d22 = dot(V2, V2); // q22
     let d12 = dot(V1, V2); // q12
-    let d1122 = d11 - d22;
-    if (d1122 > 0.0 && abs(d12)/sqrt(d11*d22) > 0.0001)
-    {
+    let d1122 = d11*d22;
+    if (d1122 > 0.0 && abs(d12)/sqrt(d1122) > 0.0001) {
         let tr = d11 + d22;
-        let det = sqrt(-d12*d12 + d11*d22);
+        let det0 = -d12*d12 + d11*d22;
+
+        var det = sqrt(det0);
 
         // use sqrt matrix to solve for eigenvalues
         let u = 0.5*sqrt(tr - 2.0*det);
@@ -281,7 +299,6 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     }
     else
     {
-        // return vec3<f32>(0.0, 0.0, 0.0);
         // Eigenvalues are diagnoals
         a = 1.0 / dot(V1, V1);
         b = 1.0 / dot(V2, V2);
@@ -298,6 +315,9 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     let x0 = dot(V1, C) / L;
     let y0 = dot(V2, C) / L;
 
+    //let E1 = isqrt(a);
+    //let E2 = isqrt(b);
+
     a *= L*L;
     b *= L*L;
 
@@ -308,12 +328,12 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     let c3 = 1.0;
 
     // 3D eigen-decomposition: need to solve a cubic function
-    let roots = SolveCubic(vec4<f32>(c0, c1, c2, c3));
-
-    let e1 = roots.x;
-    let e2 = roots.y;
-    let e3 = roots.z;
-
+    let roots = SolveCubic(vec4<f32>(c0, c1, c2, c3));//c0 * t^3 + c1 * t^2 + c2 * t + c3 = 0
+    var e1 = roots.x;
+    var e2 = roots.y;
+    var e3 = roots.z;
+    let numRoots = roots.w;
+    // TODO: handle numRoots = 1, 2
     // direction to front-facing ellipse center
     var avgDir = vec3<f32>(a*x0/(a - e2), b*y0/(b - e2), 1.0); // third eigenvector: V-
 
@@ -328,17 +348,18 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     let L2 = sqrt(-e2/e1);
 
     // projected solid angle E, like the length(F) in rectangle light
-    let formFactor = L1*L2*inverseSqrt((1.0 + L1*L1)*(1.0 + L2*L2));
-
+    //let formFactor = L1 * L2 * isqrt((1.0 + L1*L1)*(1.0 + L2*L2));
+    let formFactor = L1 * L2 * isqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)) ;
+    //let formFactor = L2 * L2 * isqrt((1.0 + L2*L2) * (1.0 + L2*L2)) ;
     // use tabulated horizon-clipped sphere
     var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
-    //uv = saturate(uv);
+    // uv = saturate(uv);
     uv = uv * LUT_SCALE + LUT_BIAS;
     let scale = textureSample(ltc_texture_array, ltc_sampler, uv, 1).w;
 
     let spec = formFactor * scale;
     let Lo_i = vec3<f32>(spec, spec, spec);
-
+    //let Lo_i = vec3<f32>(c0, c1, c2);
     return Lo_i;
 }
 
@@ -352,6 +373,16 @@ fn spherical_texture_lookup(direction: vec3<f32>) -> vec2<f32> {
     let u = phi / (2.0 * PI);
     let v = theta / PI;
     return vec2<f32>(u, v);
+}
+
+fn get_u_axis(z: vec3<f32>) -> vec3<f32> {
+    if (abs(z.x) <= abs(z.y) && abs(z.x) <= abs(z.z)) {
+        return vec3<f32>(1.0, 0.0, 0.0);
+    } else if (abs(z.y) <= abs(z.x) && abs(z.y) <= abs(z.z)) {
+        return vec3<f32>(0.0, 1.0, 0.0);
+    } else {
+        return vec3<f32>(0.0, 0.0, 1.0);
+    }
 }
 
 struct VertexOut {
@@ -407,16 +438,17 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let roughness = max(0.08, sample_roughness(in.uv)); // cannot < 0.08
     var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
     ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
-
+#ifdef ENABLE_SPECULAR
     let t1 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 0);
-    let t2 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 1);
     // Construct inverse matrix
     let Minv = mat3x3<f32>(
         vec3<f32>(t1.x, 0.0, t1.y),
         vec3<f32>(0.0, 1.0, 0.0),
         vec3<f32>(t1.z, 0.0, t1.w)
     );
-
+#endif
+    // Accumulate lighting
+    
     var color = vec3<f32>(0.0);
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
@@ -427,19 +459,55 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
     for (var i: u32 = 0; i < light_uniforms.num_sphere_lights; i++) {
         let light = sphere_lights[i];
-        let position = light.position.xyz;
+        let position = light.position.xyz;//center of sphere
         let intensity = light.intensity.rgb;
         let radius = light.radius;
+
+        let center_to_surface = in.w_position - position;
+        let distance = length(center_to_surface);
+        if (distance < radius) {
+            continue;
+        }
         if radius > 0.0 {
-            let l = in.w_position - position;
-            let r = reflect(normalize(camera_to_surface), normal);
-            let center_to_ray = dot(l, r) * r - l;
-            let closest_point = light.position.xyz + center_to_ray * saturate(radius / length(center_to_ray));
-            let light_to_surface = in.w_position - closest_point;
-            let distance = length(light_to_surface);
-            let attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
-            var wi = tbn * -normalize(light_to_surface);
-            color += shade(intensity * attenuation, wo, wi, in.uv);
+            let direction = normalize(center_to_surface);
+            let theta = atan2(radius, distance);
+            let delta = radius * sin(theta);
+            let disk_distance = distance - delta;
+            if (disk_distance < 1e-6) {
+                continue;
+            }
+            let disk_radius = radius * cos(theta);
+            if (disk_radius < 1e-6) {
+                continue;
+            }
+            var u_axis = get_u_axis(direction);
+            var v_axis = normalize(cross(direction, u_axis));
+            u_axis = normalize(cross(v_axis, direction));
+            //TODO: avoid precision issue
+            //
+            let ex = u_axis * disk_radius * 1.001;//avoid precision issue
+            let ey = v_axis * disk_radius * 1.002;//avoid precision issue
+            let disk_center = position + direction * delta;
+
+            let a = disk_center - ex - ey;
+            let b = disk_center + ex - ey;
+            let c = disk_center + ex + ey;
+            let d = disk_center - ex + ey;
+
+            let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
+            //let lightPoints = array<vec3<f32>, 4>(d, c, b, a);
+#ifdef ENABLE_DIFFUSE
+            let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
+#else
+            let diffuse = vec3<f32>(0.0);
+#endif
+#ifdef ENABLE_SPECULAR
+            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+#else
+            let specular = vec3<f32>(0.0);
+#endif
+            var attenuation = 1.0 / ((1.0 + disk_distance)); // Simple quadratic attenuation
+            color += intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
         } else {
             let light_to_surface = in.w_position - position;
             let distance = length(light_to_surface);

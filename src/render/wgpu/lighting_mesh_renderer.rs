@@ -7,7 +7,6 @@ use super::render_item::RenderItem;
 use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
-use crate::render::wgpu::material::RenderMaterial;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -16,7 +15,6 @@ use std::sync::RwLock;
 //use eframe::egui_wgpu;
 use eframe::wgpu;
 use eframe::wgpu::util::DeviceExt;
-use eframe::wgpu::wgc::pipeline;
 use uuid::Uuid;
 use wgpu::util::align_to;
 
@@ -639,6 +637,7 @@ impl LightingMeshRenderer {
                                 position: [position.x, position.y, position.z, 1.0],
                                 intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                                 radius: radius,
+                                _pad1: [0.0; 2], // Range of the light // 4 * 4 = 8
                                 ..Default::default()
                             };
                             light_buffer.push(light);
