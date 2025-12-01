@@ -25,6 +25,7 @@ bytemuck = "1.23.1"
 glam = { version = "0.30.4", features = ["bytemuck", "serde"] }
 wgpu-types = "26.0.0"
 rust-embed = {version = "8.9.0", features = ["include-exclude"]}
+half = { version = "2.7.1", features = ["bytemuck"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wgpu = { version = "25.0.2", default-features = true, features = ["vulkan"] }
