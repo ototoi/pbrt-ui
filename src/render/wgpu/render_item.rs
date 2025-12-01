@@ -511,7 +511,44 @@ fn convert_to_f16(data: &[f32]) -> Vec<half::f16> {
     return f16_data;
 }
 
-fn get_texture_from_image(
+fn get_texture_from_rgba_image(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    image: &image::RgbaImage,
+) -> wgpu::Texture {
+    let dimensions = image.dimensions();
+    let size = wgpu::Extent3d {
+        width: dimensions.0,
+        height: dimensions.1,
+        depth_or_array_layers: 1,
+    };
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Render Texture"),
+        size: size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    // y-flip
+    let image = image::imageops::flip_vertical(image);
+    let image_raw = image.as_raw();
+    queue.write_texture(
+        texture.as_image_copy(),
+        bytemuck::cast_slice(&image_raw),
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(1 * 4 * dimensions.0),
+            rows_per_image: None,
+        },
+        size,
+    );
+    return texture;
+}
+
+fn get_texture_from_rgba32f_image(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     image: &image::Rgba32FImage,
@@ -546,6 +583,27 @@ fn get_texture_from_image(
         size,
     );
     return texture;
+}
+
+fn get_texture_from_image(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture_image: &DynaImage,
+) -> wgpu::Texture {
+    match &texture_image {
+        DynaImage::ImageRgb32F(_) => {
+            let img = texture_image.to_rgba32f();
+            return get_texture_from_rgba32f_image(device, queue, &img);
+        }
+        DynaImage::ImageRgb8(_) => {
+            let img = texture_image.to_rgba8();
+            return get_texture_from_rgba_image(device, queue, &img);
+        }
+        _ => {
+            let img = texture_image.to_rgba32f();
+            return get_texture_from_rgba32f_image(device, queue, &img);
+        }
+    }
 }
 
 fn convert_address_mode(wrap: &str) -> wgpu::AddressMode {
@@ -589,8 +647,7 @@ fn create_render_textures(
             let texture_node = texture_node.read().unwrap();
             if let Some(image) = texture_node.image_variants.get(&purpose) {
                 let image = image.read().unwrap();
-                let image_data = get_image_data(&image);
-                let texture = get_texture_from_image(device, queue, &image_data);
+                let texture = get_texture_from_image(device, queue, &image);
                 let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     label: Some("Render Texture Sampler"),
