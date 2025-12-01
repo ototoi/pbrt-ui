@@ -32,6 +32,7 @@ use crate::render::scene_item::*;
 
 //use crate::render::wgpu::texture;
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::vec;
@@ -499,10 +500,6 @@ fn get_resource_cache_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceCa
     return component.get_resource_cache_manager();
 }
 
-fn get_image_data(image: &DynaImage) -> image::Rgba32FImage {
-    return image.to_rgba32f();
-}
-
 fn convert_to_f16(data: &[f32]) -> Vec<half::f16> {
     let mut f16_data = Vec::with_capacity(data.len());
     for &value in data.iter() {
@@ -585,25 +582,43 @@ fn get_texture_from_rgba32f_image(
     return texture;
 }
 
-fn get_texture_from_image(
+fn get_color_texture_from_image(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     texture_image: &DynaImage,
-) -> wgpu::Texture {
+) -> Option<wgpu::Texture> {
     match &texture_image {
         DynaImage::ImageRgb32F(_) => {
             let img = texture_image.to_rgba32f();
-            return get_texture_from_rgba32f_image(device, queue, &img);
+            return Some(get_texture_from_rgba32f_image(device, queue, &img));
         }
         DynaImage::ImageRgb8(_) => {
             let img = texture_image.to_rgba8();
-            return get_texture_from_rgba_image(device, queue, &img);
+            return Some(get_texture_from_rgba_image(device, queue, &img));
         }
         _ => {
             let img = texture_image.to_rgba32f();
-            return get_texture_from_rgba32f_image(device, queue, &img);
+            return Some(get_texture_from_rgba32f_image(device, queue, &img));
         }
     }
+}
+
+fn get_normal_texture_from_image(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture_image: &DynaImage,
+) -> Option<wgpu::Texture> {
+    println!("get_normal_texture_from_image called");
+    match &texture_image {
+        DynaImage::ImageLuma8(img) => {
+            //
+            assert!(false, "Unexpected Luma8 image for normal map");
+        }
+        _ => {
+            //
+        }
+    }
+    return None;
 }
 
 fn convert_address_mode(wrap: &str) -> wgpu::AddressMode {
@@ -623,6 +638,20 @@ fn create_render_textures(
     render_resource_manager: &mut RenderResourceManager,
     size_type: TextureSizeType,
 ) {
+    let mut is_bump_map: HashSet<Uuid> = HashSet::new();
+    {
+        for (_id, material) in resource_manager.materials.iter() {
+            let material = material.read().unwrap();
+            if let Some(bump) = get_string(material.as_property_map(), "bumpmap") {
+                if let Some(texture) = resource_manager.find_texture_by_name(&bump) {
+                    let texture = texture.read().unwrap();
+                    let texture_id = texture.get_id();
+                    is_bump_map.insert(texture_id);
+                }
+            }
+        }
+    }
+
     for (_id, texture) in resource_manager.textures.iter() {
         let texture = texture.read().unwrap();
         let texture_id = texture.get_id();
@@ -647,28 +676,33 @@ fn create_render_textures(
             let texture_node = texture_node.read().unwrap();
             if let Some(image) = texture_node.image_variants.get(&size_type) {
                 let image = image.read().unwrap();
-                let texture = get_texture_from_image(device, queue, &image);
-                let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("Render Texture Sampler"),
-                    address_mode_u: address_mode_u,
-                    address_mode_v: address_mode_v,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    ..Default::default()
-                });
-
-                let render_texture = RenderTexture {
-                    id: texture_id,
-                    edition: texture_edition.clone(),
-                    texture,
-                    view,
-                    sampler,
-                    scale: [uscale, vscale],
-                    delta: [udelta, vdelta],
+                let texture = if is_bump_map.get(&texture_id).is_some() {
+                    get_normal_texture_from_image(device, queue, &image) //calculate normal map texture
+                } else {
+                    get_color_texture_from_image(device, queue, &image)
                 };
-                let render_texture = Arc::new(render_texture);
-                render_resource_manager.add_texture(&render_texture);
+                if let Some(texture) = texture {
+                    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                        label: Some("Render Texture Sampler"),
+                        address_mode_u: address_mode_u,
+                        address_mode_v: address_mode_v,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mag_filter: wgpu::FilterMode::Linear,
+                        ..Default::default()
+                    });
+                    let render_texture = RenderTexture {
+                        id: texture_id,
+                        edition: texture_edition.clone(),
+                        texture,
+                        view,
+                        sampler,
+                        scale: [uscale, vscale],
+                        delta: [udelta, vdelta],
+                    };
+                    let render_texture = Arc::new(render_texture);
+                    render_resource_manager.add_texture(&render_texture);
+                }
             }
         }
     }
