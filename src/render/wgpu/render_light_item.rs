@@ -357,7 +357,8 @@ fn get_sphere_light_item(
     let area = if radius > 0.0 {
         //std::f32::consts::PI * radius * (zmax - zmin) // Area of the sphere segment
         //std::f32::consts::PI * radius * radius // Area of the disk
-        std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI
+        //std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI
+        1.0
     } else {
         4.0 // Default area if radius is not specified
     };
@@ -424,7 +425,7 @@ fn get_disk_light_item(
         .unwrap_or(1.0);
 
     let area = if radius > 0.0 {
-        radius * radius * std::f32::consts::PI // Area of the disk
+        1.0 // Area of the disk
     } else {
         1.0 // Default area if radius is not specified
     };
@@ -532,7 +533,7 @@ fn get_rects_light_item(
                     let v_axis = rect.v_axis;
 
                     //let area = 1.0; //todo: get area from rect
-                    let area = 4.0
+                    let area = 8.0
                         * Vector3::cross(
                             &Vector3::new(u_axis[0], u_axis[1], u_axis[2]),
                             &Vector3::new(v_axis[0], v_axis[1], v_axis[2]),

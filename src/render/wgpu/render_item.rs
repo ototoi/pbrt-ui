@@ -455,7 +455,7 @@ pub fn create_render_pass(
         "Create Render Pass: shader_type={}, uniform_values={:?}",
         shader_type, uniform_values
     );
-    
+
     let mut textures = vec![];
     for (_name, value) in uniform_values.iter() {
         if let RenderUniformValue::Texture(texture) = value {
