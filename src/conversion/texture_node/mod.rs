@@ -9,4 +9,4 @@ pub use create_texture_nodes::create_texture_nodes;
 pub use dyna_image::DynaImage;
 pub use render_texture_image::render_texture_image;
 pub use texture_node::TextureNode;
-pub use texture_node::TexturePurpose;
+pub use texture_node::TextureSizeType;

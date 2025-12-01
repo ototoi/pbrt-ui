@@ -1,4 +1,4 @@
-use super::texture_node::TexturePurpose;
+use super::texture_node::TextureSizeType;
 use crate::conversion::spectrum::Spectrum;
 use crate::model::base::Property;
 use crate::model::scene::Texture;
@@ -13,7 +13,7 @@ use image::buffer::ConvertBuffer as _;
 
 const ICON_SIZE: u32 = 64;
 const DISPLAY_SIZE: u32 = 256;
-const RENDER_SIZE: u32 = 1024;
+//const RENDER_SIZE: u32 = 1024;
 
 fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
     let props = texture.as_property_map();
@@ -79,13 +79,13 @@ fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
     }
 }
 
-fn resize_image_for_purpose(
+fn resize_image_for_size_type(
     image: image::DynamicImage,
-    purpose: TexturePurpose,
+    size_type: TextureSizeType,
 ) -> image::DynamicImage {
-    match purpose {
-        TexturePurpose::Render => image,
-        TexturePurpose::Display | TexturePurpose::DisplaySrgb => {
+    match size_type {
+        TextureSizeType::Render => image,
+        TextureSizeType::Display => {
             let resized = image.resize_exact(
                 DISPLAY_SIZE,
                 DISPLAY_SIZE,
@@ -93,7 +93,7 @@ fn resize_image_for_purpose(
             );
             return resized;
         }
-        TexturePurpose::Icon | TexturePurpose::IconSrgb => {
+        TextureSizeType::Icon => {
             let resized = image.resize_exact(
                 ICON_SIZE,
                 ICON_SIZE,
@@ -159,14 +159,14 @@ fn get_dependent_image(
     return None;
 }
 
-fn load_imagemap_texture_image(texture: &Texture, purpose: TexturePurpose) -> Option<DynaImage> {
+fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) -> Option<DynaImage> {
     // let scale = get_float(texture.as_property_map(), "scale").unwrap_or(1.0); --- IGNORE ---
     // if scale != 1.0 { --- IGNORE ---
     //     println!("Imagemap scale other than 1.0 is not supported yet."); --- IGNORE ---
     // } --- IGNORE ---
     if let Some(path) = texture.get_fullpath() {
         if let Ok(image) = image::open(path) {
-            let image = resize_image_for_purpose(image, purpose);
+            let image = resize_image_for_size_type(image, size_type);
             match image {
                 image::DynamicImage::ImageLuma8(img) => {
                     return Some(DynaImage::ImageLuma8(img));
@@ -394,12 +394,12 @@ fn render_scale_texture_image(
 pub fn render_texture_image(
     texture: &Texture,
     dependencies: &HashMap<String, Arc<RwLock<DynaImage>>>,
-    purpose: TexturePurpose,
+    size_type: TextureSizeType,
 ) -> Option<DynaImage> {
     let texture_type = texture.get_type();
     match texture_type.as_str() {
         "imagemap" => {
-            return load_imagemap_texture_image(texture, purpose);
+            return load_imagemap_texture_image(texture, size_type);
         }
         "constant" => {
             return render_constant_texture_image(texture);

@@ -3,7 +3,7 @@ use crate::model::scene::ResourceCacheComponent;
 use crate::model::scene::ResourceComponent;
 
 use crate::conversion::texture_node::DynaImage;
-use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::TextureSizeType;
 use crate::conversion::texture_node::create_image_variants;
 use crate::conversion::texture_node::create_texture_nodes;
 
@@ -104,7 +104,7 @@ impl ResourcesPanel {
                         create_image_variants(
                             &resource_manager,
                             &mut resource_cache_manager,
-                            crate::conversion::texture_node::TexturePurpose::Icon,
+                            crate::conversion::texture_node::TextureSizeType::Icon,
                         );
 
                         for (id, texture) in resource_manager.textures.iter() {
@@ -126,7 +126,7 @@ impl ResourcesPanel {
                             if let Some(texture_node) = resource_cache_manager.textures.get(id) {
                                 let texture_node = texture_node.read().unwrap();
                                 if let Some(image) =
-                                    texture_node.image_variants.get(&TexturePurpose::Icon)
+                                    texture_node.image_variants.get(&TextureSizeType::Icon)
                                 {
                                     let image = image.read().unwrap();
                                     if let Some(color_image) = get_image_data(&image) {
