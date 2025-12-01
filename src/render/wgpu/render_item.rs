@@ -16,7 +16,7 @@ use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::conversion::spectrum::Spectrum;
 use crate::conversion::texture_node::DynaImage;
-use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::TextureSizeType;
 use crate::conversion::texture_node::create_image_variants;
 use crate::conversion::texture_node::create_texture_nodes;
 use crate::model::base::Property;
@@ -621,7 +621,7 @@ fn create_render_textures(
     resource_manager: &ResourceManager,
     resource_cache_manager: &ResourceCacheManager,
     render_resource_manager: &mut RenderResourceManager,
-    purpose: TexturePurpose,
+    size_type: TextureSizeType,
 ) {
     for (_id, texture) in resource_manager.textures.iter() {
         let texture = texture.read().unwrap();
@@ -645,7 +645,7 @@ fn create_render_textures(
 
         if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
             let texture_node = texture_node.read().unwrap();
-            if let Some(image) = texture_node.image_variants.get(&purpose) {
+            if let Some(image) = texture_node.image_variants.get(&size_type) {
                 let image = image.read().unwrap();
                 let texture = get_texture_from_image(device, queue, &image);
                 let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -694,7 +694,7 @@ pub fn get_render_items(
         create_image_variants(
             &resource_manager,
             &mut resource_cache_manager,
-            TexturePurpose::Render,
+            TextureSizeType::Render,
         );
         create_render_textures(
             device,
@@ -702,7 +702,7 @@ pub fn get_render_items(
             &resource_manager,
             &resource_cache_manager,
             &mut render_resource_manager,
-            TexturePurpose::Render,
+            TextureSizeType::Render,
         );
     }
 

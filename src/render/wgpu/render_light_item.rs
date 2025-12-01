@@ -21,7 +21,7 @@ use crate::conversion::plane_data::create_plane_meshes_from_mesh;
 use crate::conversion::plane_data::create_plane_outline_from_plane_mesh;
 use crate::conversion::plane_data::create_plane_rect_from_plane_outline;
 use crate::conversion::texture_node::DynaImage;
-use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::TextureSizeType;
 use crate::conversion::texture_node::create_image_variant;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
@@ -719,7 +719,7 @@ fn get_render_texture(
         if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
             // println!("Loading texture: {} (ID: {})", mapname, texture_id);
             if let Some(image) =
-                create_image_variant(texture_node, resource_manager, TexturePurpose::Render)
+                create_image_variant(texture_node, resource_manager, TextureSizeType::Render)
             {
                 // println!("Texture image created: {} (ID: {})", mapname, texture_id);
                 let image = image.read().unwrap();

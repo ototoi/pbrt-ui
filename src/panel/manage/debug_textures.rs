@@ -1,5 +1,5 @@
 use crate::controller::AppController;
-use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::TextureSizeType;
 use crate::conversion::texture_node::create_image_variants;
 use crate::conversion::texture_node::create_texture_nodes;
 use crate::model::scene::ResourceCacheComponent;
@@ -151,7 +151,7 @@ impl DebugTexturesPanel {
         create_image_variants(
             &resource_manager,
             &mut resource_cache_manager,
-            TexturePurpose::Render,
+            TextureSizeType::Render,
         );
         let texture_views = create_texture_views(&resource_manager, &resource_cache_manager);
 
