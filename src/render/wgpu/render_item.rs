@@ -451,10 +451,10 @@ pub fn create_render_pass(
         render_resource_manager,
     );
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
-    println!(
-        "Create Render Pass: shader_type={}, uniform_values={:?}",
-        shader_type, uniform_values
-    );
+    //println!(
+    //    "Create Render Pass: shader_type={}, uniform_values={:?}",
+    //    shader_type, uniform_values
+    //);
 
     let mut textures = vec![];
     for (_name, value) in uniform_values.iter() {
@@ -503,6 +503,14 @@ fn get_image_data(image: &DynaImage) -> image::Rgba32FImage {
     return image.to_rgba32f();
 }
 
+fn convert_to_f16(data: &[f32]) -> Vec<half::f16> {
+    let mut f16_data = Vec::with_capacity(data.len());
+    for &value in data.iter() {
+        f16_data.push(half::f16::from_f32(value));
+    }
+    return f16_data;
+}
+
 fn get_texture_from_image(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -520,19 +528,19 @@ fn get_texture_from_image(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba32Float,
+        format: wgpu::TextureFormat::Rgba16Float,
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
     // y-flip
     let image = image::imageops::flip_vertical(image);
-    let image_raw = image.as_raw();
+    let image_raw = convert_to_f16(image.as_raw());
     queue.write_texture(
         texture.as_image_copy(),
-        bytemuck::cast_slice(image_raw),
+        bytemuck::cast_slice(&image_raw),
         wgpu::TexelCopyBufferLayout {
             offset: 0,
-            bytes_per_row: Some(4 * 4 * dimensions.0),
+            bytes_per_row: Some(2 * 4 * dimensions.0),
             rows_per_image: None,
         },
         size,
