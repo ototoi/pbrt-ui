@@ -72,36 +72,48 @@ fn IntegrateEdgeVec(v1: vec3<f32>, v2: vec3<f32>) -> vec3<f32>
     return cross(v1, v2)*theta_sintheta;
 }
 
-fn is_nan(x: f32) -> bool {
-    return x != x;
+fn sign(x: f32) -> f32 {
+    return select(1.0, -1.0, x < 0.0);
 }
 
-fn is_infinite(x: f32) -> bool {
-    return abs(x) >= MAX_FLOAT;
+fn cbrt(x: f32) -> f32 {
+    return pow(x, 1.0 / 3.0);
 }
 
-fn SolveCubic(a: f32, b: f32, c: f32, d: f32) -> vec4<f32>
+fn SolveCubicOneRoot(A: f32, B: f32, C: f32, D: f32, Discriminant: f32, Delta: vec3<f32>) -> vec4<f32>
 {
-    let A = a;
-    let B = b / (3.0 * a);
-    let C = c / (3.0 * a);
-    let D = d / a;
+    let B3D = B*B*B*D;
+    let AC3 = A*C*C*C;
 
-    // Compute the Hessian and the discriminant
-    let Delta = vec3<f32>(
-        -B*B + C,//AC-BB
-        -B*C + D,//AD-BC
-        -C*C + B*D  //BD-CC
-    );
-
-    let Discriminant = dot(vec2(4.0*Delta.x, -Delta.y), Delta.zy);
-    var count = 3.0;
-    if (Discriminant > 0.0) {
-        count = 1.0;
-    } else if (Discriminant == 0.0) {
-        count = 2.0;
+    var Ax: f32;
+    var Cx: f32;
+    var Dx: f32;
+    if (B3D >= AC3) {
+        Ax = A;
+        Cx = Delta.x;//
+        Dx = -2.0*B*Delta.x + A*Delta.y;//
+    } else {
+        Ax = D;
+        Cx = Delta.z;//
+        Dx = -D*Delta.y + 2.0*C*Delta.z;//
     }
+    let T0 = -sign(Dx) * abs(Ax) * sqrt(-Discriminant);
+    let T1 = -Dx + T0;
+    let p = (0.5 * T1);
+    let q = select(-Cx/p, -p, T1 == T0);
+    let x1 = select(-Dx / (p*p + q*q + Cx), p + q, Cx <= 0.0);
     
+    if (B3D >= AC3) {
+        let xc = vec2<f32>(x1 - B, A);
+        return vec4<f32>(xc.x/xc.y, 0.0, 0.0, 1.0);
+    } else {
+        let xc = vec2<f32>(-D, x1 + C);
+        return vec4<f32>(xc.x/xc.y, 0.0, 0.0, 1.0);
+    }
+}
+
+fn SolveCubicThreeRoots(A: f32, B: f32, C: f32, D: f32, Discriminant: f32, Delta: vec3<f32>) -> vec4<f32>
+{
     var RootsA = vec3<f32>(0.0);
     var RootsD = vec3<f32>(0.0);
 
@@ -165,7 +177,31 @@ fn SolveCubic(a: f32, b: f32, c: f32, d: f32) -> vec4<f32>
     } else if (Root.z < Root.x && Root.z < Root.y) {
         Root = Root_.xzy;
     }
-    return vec4<f32>(Root, count);
+    return vec4<f32>(Root, 3.0);
+}
+
+fn SolveCubic(a: f32, b: f32, c: f32, d: f32) -> vec4<f32>
+{
+    let A = a;
+    let B = b / (3.0 * a);
+    let C = c / (3.0 * a);
+    let D = d / a;
+
+    // Compute the Hessian and the discriminant
+    let Delta = vec3<f32>(
+        -B*B + C,   //AC-BB
+        -B*C + D,   //AD-BC
+        -C*C + B*D  //BD-CC
+    );
+
+    let Discriminant = dot(vec2(4.0*Delta.x, -Delta.y), Delta.zy);//4*Delta.x * Delta.z - (Delta.y)^2
+    if (Discriminant < 0.0) {
+        return SolveCubicOneRoot(A, B, C, D, Discriminant, Delta);
+    } else if (Discriminant > 0.0) {
+        return SolveCubicThreeRoots(A, B, C, D, Discriminant, Delta);
+    } else {
+        return vec4<f32>(0.0);
+    }
 }
 
 fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
@@ -317,40 +353,65 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
     let c2 = 1.0 - a*(1.0 + x0*x0) - b*(1.0 + y0*y0);
     let c3 = 1.0;
 
+    let rotate = mat3x3<f32>(V1, V2, V3);
     // 3D eigen-decomposition: need to solve a cubic function
     let roots = SolveCubic(c3, c2, c1, c0);
-    var e1 = roots.x;
-    var e2 = roots.y;
-    var e3 = roots.z;
     let numRoots = roots.w;
-    // TODO: handle numRoots = 1, 2
-    // direction to front-facing ellipse center
-    var avgDir = vec3<f32>(a*x0/(a - e2), b*y0/(b - e2), 1.0); // third eigenvector: V-
+    if numRoots <= 1.0 {
+        var e1 = roots.x;
+        var e2 = roots.x;
+        var e3 = roots.x;
+        // direction to front-facing ellipse center
+        //var avgDir = vec3<f32>(a*x0/(a - e2), b*y0/(b - e2), 1.0);
+        var avgDir = vec3<f32>(0.0, 0.0, 1.0);
+        //var avgDir = vec3<f32>(1.0, 1.0, 1.0);
 
-    let rotate = mat3x3<f32>(V1, V2, V3);
+        // transform to V1, V2, V3 basis
+        avgDir = rotate * avgDir;
+        avgDir = normalize(avgDir);
 
-    // transform to V1, V2, V3 basis
-    avgDir = rotate * avgDir;
-    avgDir = normalize(avgDir);
+        // extends of front-facing ellipse
+        // projected solid angle E, like the length(F) in rectangle light
+        let formFactor = e2*e2;//(-1) * isqrt(0) ;//- 1 / sqrt(0) -> -infinity
+        // use tabulated horizon-clipped sphere
+        var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
+        //uv = saturate(uv);
+        uv = uv * LUT_SCALE + LUT_BIAS;
+        let scale = textureSample(ltc_texture_array, ltc_sampler, uv, 1).w;
 
-    // extends of front-facing ellipse
-    let L1 = sqrt(-e2/e3);
-    let L2 = sqrt(-e2/e1);
+        let spec = formFactor * scale;
+        let Lo_i = vec3<f32>(spec, spec, spec);
+        //let Lo_i = vec3<f32>(c0, c1, c2);
+        return Lo_i;
+    } else {
+        var e1 = roots.x;
+        var e2 = roots.y;
+        var e3 = roots.z;
 
-    // projected solid angle E, like the length(F) in rectangle light
-    //let formFactor = L1 * L2 * isqrt((1.0 + L1*L1)*(1.0 + L2*L2));
-    let formFactor = L1 * L2 * isqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)) ;
-    //let formFactor = L2 * L2 * isqrt((1.0 + L2*L2) * (1.0 + L2*L2)) ;
-    // use tabulated horizon-clipped sphere
-    var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
-    // uv = saturate(uv);
-    uv = uv * LUT_SCALE + LUT_BIAS;
-    let scale = textureSample(ltc_texture_array, ltc_sampler, uv, 1).w;
+        // direction to front-facing ellipse center
+        var avgDir = vec3<f32>(a*x0/(a - e2), b*y0/(b - e2), 1.0); // third eigenvector: V-
 
-    let spec = formFactor * scale;
-    let Lo_i = vec3<f32>(spec, spec, spec);
-    //let Lo_i = vec3<f32>(c0, c1, c2);
-    return Lo_i;
+        // transform to V1, V2, V3 basis
+        avgDir = rotate * avgDir;
+        avgDir = normalize(avgDir);
+
+        // extends of front-facing ellipse
+        let L1 = sqrt(-e2/e3);
+        let L2 = sqrt(-e2/e1);
+
+        // projected solid angle E, like the length(F) in rectangle light
+        let formFactor = L1 * L2 * isqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)) ;
+        // use tabulated horizon-clipped sphere
+        var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
+        // uv = saturate(uv);
+        uv = uv * LUT_SCALE + LUT_BIAS;
+        let scale = textureSample(ltc_texture_array, ltc_sampler, uv, 1).w;
+
+        let spec = formFactor * scale;
+        let Lo_i = vec3<f32>(spec, spec, spec);
+        //let Lo_i = vec3<f32>(c0, c1, c2);
+        return Lo_i;
+    }
 }
 
 //-------------------------------------------------------
@@ -475,8 +536,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             u_axis = normalize(cross(v_axis, direction));
             //TODO: avoid precision issue
             //
-            let ex = u_axis * disk_radius;//avoid precision issue
-            let ey = v_axis * disk_radius;//avoid precision issue
+            let ex = u_axis * disk_radius * (1.0 + 0.999);//avoid precision issue
+            let ey = v_axis * disk_radius * (1.0 + 1.001);//avoid precision issue
             let disk_center = position + direction * delta;
 
             let a = disk_center - ex - ey;
@@ -496,8 +557,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else
             let specular = vec3<f32>(0.0);
 #endif
-            var attenuation = 1.0 / ((1.0 + disk_distance)); // Simple quadratic attenuation
-            color += intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
+
+            let k = 1.0;// 1.0 / (2.0 * PI * PI);
+            var area = PI * disk_radius * disk_radius;          // Area of the disk
+            var attenuation = 1.0 / ((1.0 + disk_distance));    // Simple attenuation
+            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
         } else {
             let light_to_surface = in.w_position - position;
             let distance = length(light_to_surface);
@@ -552,8 +616,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else
             let specular = vec3<f32>(0.0);
 #endif
-            var attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
-            color += intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
+            let k = 1.0 / (2.0 * PI * PI);
+            let area = PI * radius * radius;
+            var attenuation = 1.0 / (1.0 + distance); // Simple attenuation
+            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
         } else {
             var closest_point = position;
             let light_to_surface = in.w_position - closest_point;
@@ -564,6 +630,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
                 falloff = pow(falloff, 4.0);
             }
             let distance = length(light_to_surface);
+            
             var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
             var wi = tbn * -normalize(light_to_surface);
             color += shade(intensity * attenuation * falloff, wo, wi, in.uv);
@@ -607,8 +674,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else
         let specular = vec3<f32>(0.0);
 #endif
-        let attenuation = 1.0 / ((1.0 + distance) * (PI * PI)); // Simple quadratic attenuation
-        color += intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
+        let k = 1.0 / (2.0 * PI * PI);
+        let area = 1.0;
+        let attenuation = 1.0 / (1.0 + distance); // Simple quadratic attenuation
+        color += k * area *intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 

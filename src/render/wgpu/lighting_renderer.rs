@@ -180,7 +180,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     let renderer = self.mesh_renderer.read().unwrap();
                     renderer.paint(&mut rpass);
                 }
-                {
+                if false {
                     let renderer = self.lines_renderer.read().unwrap();
                     renderer.paint(&mut rpass);
                 }
