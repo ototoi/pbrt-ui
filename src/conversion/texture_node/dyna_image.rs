@@ -99,6 +99,23 @@ impl DynaImage {
         }
     }
 
+    pub fn to_rgba8(&self) -> image::RgbaImage {
+        match self {
+            DynaImage::ImageLuma8(img) => {
+                return img.clone().convert();
+            }
+            DynaImage::ImageRgb8(img) => {
+                return img.clone().convert();
+            }
+            DynaImage::ImageLuma32F(img) => {
+                return img.clone().convert();
+            }
+            DynaImage::ImageRgb32F(img) => {
+                return img.clone().convert();
+            }
+        }
+    }
+
     pub fn to_rgb32f(&self) -> image::Rgb32FImage {
         match self {
             DynaImage::ImageLuma8(img) => {
