@@ -77,7 +77,7 @@ pub fn fit_tab(brdf: &dyn Brdf) -> (Vec<Mat3>, Vec<Vec2>) {
             fit(&mut ltc, brdf, &V, alpha, epsilon, isotropic);
 
             // Copy data
-            tab[a + t * N] = ltc.M;
+            tab[a + t * N] = ltc.invM;  // Store inverse matrix for packing
             tab_mag_fresnel[a + t * N] = Vec2::new(ltc.magnitude, ltc.fresnel);
 
             // Print matrix

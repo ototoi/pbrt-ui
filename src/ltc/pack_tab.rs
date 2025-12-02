@@ -10,19 +10,23 @@ use glam::{Mat3, Vec2, Vec4};
 /// - tex2: (magnitude, fresnel, 0.0, sphere_value)
 /// 
 /// # Arguments
-/// * `tab` - Vector of Mat3 matrices from LTC fitting
+/// * `tab` - Vector of Mat3 inverse matrices from LTC fitting (already inverted)
 /// * `tab_mag_fresnel` - Vector of Vec2 containing (magnitude, fresnel) values
 /// * `tab_sphere` - Vector of f32 containing sphere table values
 /// 
 /// # Returns
 /// * Tuple of (Vec<Vec4>, Vec<Vec4>) for tex1 and tex2
+/// 
+/// # Panics
+/// * Panics if tab_sphere.len() != N * N
 pub fn pack_tab(tab: Vec<Mat3>, tab_mag_fresnel: Vec<Vec2>, tab_sphere: Vec<f32>) -> (Vec<Vec4>, Vec<Vec4>) {
+    assert_eq!(tab_sphere.len(), N * N, "tab_sphere must have N * N elements");
+    
     let mut tex1 = vec![Vec4::ZERO; N * N];
     let mut tex2 = vec![Vec4::ZERO; N * N];
 
     for i in 0..(N * N) {
-        let M = tab[i];
-        let invM = M.inverse();
+        let invM = tab[i];  // Already inverse matrix from fit_tab
         let mag_fresnel = tab_mag_fresnel[i];
 
         // Pack inverse matrix into tex1
