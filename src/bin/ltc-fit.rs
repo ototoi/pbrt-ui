@@ -44,12 +44,12 @@ fn main() -> Result<(), String> {
 
     println!();
     println!("Generating sphere table...");
-    let _tab_sphere = gen_sphere_tab(N);
+    let tab_sphere = gen_sphere_tab(N);
     println!("Sphere table generated successfully!");
 
     println!();
     println!("Packing tables...");
-    let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel);
+    let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere);
     println!("Tables packed successfully!");
 
     if let Some(output_path) = options.output {
