@@ -18,8 +18,10 @@ use glam::{Mat3, Vec2, Vec4};
 /// * Tuple of (Vec<Vec4>, Vec<Vec4>) for tex1 and tex2
 /// 
 /// # Panics
-/// * Panics if tab_sphere.len() != N * N
+/// * Panics if any input vector length != N * N
 pub fn pack_tab(tab: Vec<Mat3>, tab_mag_fresnel: Vec<Vec2>, tab_sphere: Vec<f32>) -> (Vec<Vec4>, Vec<Vec4>) {
+    assert_eq!(tab.len(), N * N, "tab must have N * N elements");
+    assert_eq!(tab_mag_fresnel.len(), N * N, "tab_mag_fresnel must have N * N elements");
     assert_eq!(tab_sphere.len(), N * N, "tab_sphere must have N * N elements");
     
     let mut tex1 = vec![Vec4::ZERO; N * N];
