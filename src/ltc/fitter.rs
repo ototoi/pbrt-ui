@@ -2,7 +2,7 @@
 
 use super::brdf::Brdf;
 use super::ltc::LTC;
-use super::parameters::NSAMPLE;
+use super::parameters::{EPSILON, NSAMPLE};
 use glam::Vec3;
 
 /// Compute the average BRDF terms:
@@ -46,6 +46,8 @@ pub fn compute_avg_terms(
     fresnel /= (NSAMPLE * NSAMPLE) as f32;
 
     // Clear y component, which should be zero with isotropic BRDFs
+    // This assumption is valid for isotropic BRDFs where rotation around the normal
+    // doesn't change the distribution
     average_dir.y = 0.0;
 
     average_dir = average_dir.normalize();
@@ -122,8 +124,8 @@ impl<'a> FitLTC<'a> {
     }
 
     pub fn update(&mut self, params: &[f32; 3]) {
-        let m11 = params[0].max(1e-7);
-        let m22 = params[1].max(1e-7);
+        let m11 = params[0].max(EPSILON);
+        let m22 = params[1].max(EPSILON);
         let m13 = params[2];
 
         if self.isotropic {

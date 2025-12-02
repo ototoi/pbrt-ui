@@ -76,6 +76,7 @@ impl LTC {
         let l = L_.length();
         let Jacobian = self.detM / (l * l * l);
 
+        // Clamped cosine distribution
         let D = (1.0 / std::f32::consts::PI) * Loriginal.z.max(0.0);
 
         let res = self.magnitude * D / Jacobian;

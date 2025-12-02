@@ -13,3 +13,6 @@ pub const MIN_ALPHA: f32 = 0.00001;
 
 // Pi constant
 pub const PI_F32: f32 = PI;
+
+// Epsilon for numerical stability
+pub const EPSILON: f32 = 1e-7;
