@@ -11,12 +11,21 @@ impl BrdfBeckmann {
     }
 }
 
+// Beckmann lambda function coefficients
+// These come from the rational approximation of the Smith masking-shadowing function
+// Reference: Understanding the Masking-Shadowing Function in Microfacet-Based BRDFs
+const LAMBDA_A: f32 = 1.259;
+const LAMBDA_B: f32 = 0.396;
+const LAMBDA_C: f32 = 3.535;
+const LAMBDA_D: f32 = 2.181;
+
 fn lambda(alpha: f32, cosTheta: f32) -> f32 {
-    if cosTheta >= 1.0 {
+    const EPSILON: f32 = 1e-6;
+    if cosTheta >= 1.0 - EPSILON {
         return 0.0;
     }
     let a = 1.0 / (alpha * cosTheta.acos().tan());
-    (1.0 - 1.259 * a + 0.396 * a * a) / (3.535 * a + 2.181 * a * a)
+    (1.0 - LAMBDA_A * a + LAMBDA_B * a * a) / (LAMBDA_C * a + LAMBDA_D * a * a)
 }
 
 impl Brdf for BrdfBeckmann {
