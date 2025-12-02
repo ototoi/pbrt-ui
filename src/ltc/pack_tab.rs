@@ -43,3 +43,38 @@ pub fn pack_tab(tab: Vec<Mat3>, tab_mag_fresnel: Vec<Vec2>) -> (Vec<Vec4>, Vec<V
 
     (tex1, tex2)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pack_tab_size() {
+        let tab = vec![Mat3::IDENTITY; N * N];
+        let tab_mag_fresnel = vec![Vec2::new(1.0, 0.5); N * N];
+        
+        let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel);
+        
+        assert_eq!(tex1.len(), N * N);
+        assert_eq!(tex2.len(), N * N);
+    }
+
+    #[test]
+    fn test_pack_tab_identity() {
+        let tab = vec![Mat3::IDENTITY; N * N];
+        let tab_mag_fresnel = vec![Vec2::new(1.0, 0.5); N * N];
+        
+        let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel);
+        
+        // For identity matrix, M[0][0] = 1, M[1][1] = 1, M[2][2] = 1, all off-diagonals = 0
+        assert_eq!(tex1[0].x, 1.0); // M[0][0]
+        assert_eq!(tex1[0].y, 0.0); // M[0][2]
+        assert_eq!(tex1[0].z, 1.0); // M[1][1]
+        assert_eq!(tex1[0].w, 0.0); // M[1][2]
+        
+        assert_eq!(tex2[0].x, 0.0); // M[2][0]
+        assert_eq!(tex2[0].y, 1.0); // M[2][2]
+        assert_eq!(tex2[0].z, 1.0); // magnitude
+        assert_eq!(tex2[0].w, 0.5); // fresnel
+    }
+}
