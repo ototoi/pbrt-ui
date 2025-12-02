@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use log::warn;
 use std::f32::consts::PI;
 
 /// Square function
@@ -71,7 +72,7 @@ pub fn gen_sphere_tab(N: usize) -> Vec<f32> {
             };
 
             if value.is_nan() {
-                eprintln!("Warning: NaN value encountered at ({}, {})", i, j);
+                warn!("NaN value encountered at ({}, {})", i, j);
             }
 
             tab_sphere[i + j * N] = value;
