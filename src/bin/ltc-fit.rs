@@ -5,6 +5,7 @@ use pbrt_ui::ltc::brdf_ggx::BrdfGGX;
 use pbrt_ui::ltc::fitter::{compute_avg_terms, fit};
 use pbrt_ui::ltc::ltc::LTC;
 use pbrt_ui::ltc::parameters::{MIN_ALPHA, N};
+use pbrt_ui::ltc::sphere_tab::gen_sphere_tab;
 
 use std::sync::Arc;
 
@@ -122,6 +123,12 @@ fn main() -> Result<(), String> {
 
     let (_tab, _tab_mag_fresnel) = fit_tab(brdf.as_ref());
 
+    println!();
+    println!("Generating sphere table...");
+    let _tab_sphere = gen_sphere_tab(N);
+    println!("Sphere table generated successfully!");
+
+    println!();
     println!("LTC fitting completed successfully!");
     
     Ok(())
