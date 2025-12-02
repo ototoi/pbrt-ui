@@ -1,4 +1,6 @@
 use pbrt_ui::ltc::brdf::Brdf;
+use pbrt_ui::ltc::brdf_beckmann::BrdfBeckmann;
+use pbrt_ui::ltc::brdf_disneydiffuse::BrdfDisneyDiffuse;
 use pbrt_ui::ltc::brdf_ggx::BrdfGGX;
 use pbrt_ui::ltc::fitter::{compute_avg_terms, fit};
 use pbrt_ui::ltc::ltc::LTC;
@@ -19,6 +21,8 @@ struct Options {
 fn create_brdf(brdf_name: &str) -> Result<Arc<dyn Brdf>, String> {
     match brdf_name {
         "ggx" => Ok(Arc::new(BrdfGGX::new())),
+        "beckmann" => Ok(Arc::new(BrdfBeckmann::new())),
+        "disneydiffuse" => Ok(Arc::new(BrdfDisneyDiffuse::new())),
         _ => Err(format!("Unknown BRDF name: {}", brdf_name)),
     }
 }
