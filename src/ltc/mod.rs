@@ -5,4 +5,5 @@ pub mod brdf_ggx;
 pub mod fitter;
 pub mod ltc;
 pub mod parameters;
+pub mod sphere_tab;
 

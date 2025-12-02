@@ -1,0 +1,120 @@
+#![allow(non_snake_case)]
+
+use std::f32::consts::PI;
+
+/// Square function
+fn sqr(x: f32) -> f32 {
+    x * x
+}
+
+/// G function for sphere table computation
+fn G(w: f32, s: f32, g: f32) -> f32 {
+    -2.0 * w.sin() * s.cos() * g.cos() + PI / 2.0 - g + g.sin() * g.cos()
+}
+
+/// H function for sphere table computation
+fn H(w: f32, s: f32, g: f32) -> f32 {
+    let sins_sq = sqr(s.sin());
+    let cosg_sq = sqr(g.cos());
+
+    w.cos() * (g.cos() * (sins_sq - cosg_sq).sqrt() + sins_sq * (g.cos() / s.sin()).asin())
+}
+
+/// Compute projected (cosine-weighted) solid angle of spherical cap clipped to hemisphere
+fn ihemi(w: f32, s: f32) -> f32 {
+    let g = (s.cos() / w.sin()).asin();
+    let sins_sq = sqr(s.sin());
+
+    if w >= 0.0 && w <= (PI / 2.0 - s) {
+        PI * w.cos() * sins_sq
+    } else if w >= (PI / 2.0 - s) && w < PI / 2.0 {
+        PI * w.cos() * sins_sq + G(w, s, g) - H(w, s, g)
+    } else if w >= PI / 2.0 && w < (PI / 2.0 + s) {
+        G(w, s, g) + H(w, s, g)
+    } else {
+        0.0
+    }
+}
+
+/// Generate sphere table for LTC fitting
+/// 
+/// This function computes a lookup table for the projected solid angle of spherical caps,
+/// which is used in LTC (Linearly Transformed Cosines) calculations.
+/// 
+/// # Arguments
+/// * `N` - Size of the table (NxN grid)
+/// 
+/// # Returns
+/// * `Vec<f32>` - Flattened NxN table of sphere values
+pub fn gen_sphere_tab(N: usize) -> Vec<f32> {
+    let mut tab_sphere = vec![0.0; N * N];
+
+    for j in 0..N {
+        for i in 0..N {
+            let U1 = i as f32 / (N - 1) as f32;
+            let U2 = j as f32 / (N - 1) as f32;
+
+            // z = cos(elevation angle)
+            let z = 2.0 * U1 - 1.0;
+
+            // length of average dir., proportional to sin(sigma)^2
+            let len = U2;
+
+            let sigma = len.sqrt().asin();
+            let omega = z.acos();
+
+            // compute projected (cosine-weighted) solid angle of spherical cap
+            let value = if sigma > 0.0 {
+                ihemi(omega, sigma) / (PI * len)
+            } else {
+                z.max(0.0)
+            };
+
+            if value.is_nan() {
+                eprintln!("Warning: NaN value encountered at ({}, {})", i, j);
+            }
+
+            tab_sphere[i + j * N] = value;
+        }
+    }
+
+    tab_sphere
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sqr() {
+        assert_eq!(sqr(2.0), 4.0);
+        assert_eq!(sqr(-3.0), 9.0);
+        assert_eq!(sqr(0.0), 0.0);
+    }
+
+    #[test]
+    fn test_gen_sphere_tab_size() {
+        let N = 8;
+        let tab = gen_sphere_tab(N);
+        assert_eq!(tab.len(), N * N);
+    }
+
+    #[test]
+    fn test_gen_sphere_tab_no_nan() {
+        let N = 16;
+        let tab = gen_sphere_tab(N);
+        for (i, &value) in tab.iter().enumerate() {
+            assert!(!value.is_nan(), "NaN value at index {}", i);
+        }
+    }
+
+    #[test]
+    fn test_gen_sphere_tab_values_in_range() {
+        let N = 16;
+        let tab = gen_sphere_tab(N);
+        for (i, &value) in tab.iter().enumerate() {
+            assert!(value >= 0.0, "Negative value {} at index {}", value, i);
+            assert!(value.is_finite(), "Non-finite value {} at index {}", value, i);
+        }
+    }
+}
