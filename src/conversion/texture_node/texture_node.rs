@@ -6,32 +6,13 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::Weak;
 
-use image::DynamicImage;
 use uuid::Uuid;
 
-pub enum TextureType {
-    Color,
-    Bump,
-    Normal,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TexturePurpose {
+pub enum TextureSizeType {
     Render,
     Display,
-    DisplaySrgb,
     Icon,
-    IconSrgb,
-}
-
-impl TexturePurpose {
-    pub fn add_srgb(&self) -> TexturePurpose {
-        match self {
-            TexturePurpose::Display => TexturePurpose::DisplaySrgb,
-            TexturePurpose::Icon => TexturePurpose::IconSrgb,
-            _ => *self,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -43,7 +24,7 @@ pub struct TextureNode {
     pub properties: PropertyMap,
     pub inputs: HashMap<String, Option<Weak<RwLock<TextureNode>>>>,
     pub outputs: HashMap<Uuid, Weak<RwLock<TextureNode>>>,
-    pub image_variants: HashMap<TexturePurpose, Arc<RwLock<DynaImage>>>, // key is variant name
+    pub image_variants: HashMap<TextureSizeType, Arc<RwLock<DynaImage>>>, // key is variant name
 }
 
 impl TextureNode {

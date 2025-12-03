@@ -2,6 +2,7 @@ use super::light::RenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::mesh::RenderMesh;
+use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::model::scene::Component;
 
@@ -16,6 +17,7 @@ pub struct RenderResourceManager {
     pub meshes: HashMap<Uuid, Arc<RenderMesh>>,
     pub lights: HashMap<Uuid, Arc<RenderLight>>, // Assuming lights are also stored as RenderLines
     pub lines: HashMap<Uuid, Arc<RenderLines>>,
+    pub shaders: HashMap<Uuid, Arc<RenderShader>>,
     pub materials: HashMap<Uuid, Arc<RenderMaterial>>,
     pub textures: HashMap<Uuid, Arc<RenderTexture>>,
 }
@@ -26,6 +28,7 @@ impl RenderResourceManager {
             meshes: HashMap::new(),
             lights: HashMap::new(),
             lines: HashMap::new(),
+            shaders: HashMap::new(),
             materials: HashMap::new(),
             textures: HashMap::new(),
         }
@@ -67,6 +70,19 @@ impl RenderResourceManager {
 
     pub fn remove_lines(&mut self, id: Uuid) {
         self.lines.remove(&id);
+    }
+
+    pub fn add_shader(&mut self, shader: &Arc<RenderShader>) {
+        let id = shader.get_id();
+        self.shaders.insert(id, shader.clone());
+    }
+
+    pub fn get_shader(&self, id: Uuid) -> Option<&Arc<RenderShader>> {
+        self.shaders.get(&id)
+    }
+
+    pub fn remove_shader(&mut self, id: Uuid) {
+        self.shaders.remove(&id);
     }
 
     pub fn add_material(&mut self, material: &Arc<RenderMaterial>) {

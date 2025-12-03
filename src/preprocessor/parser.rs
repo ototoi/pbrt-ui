@@ -29,8 +29,17 @@ pub enum Directive {
     /// #ifndef NAME
     IfNDef { name: String },
 
+    /// #if expr
+    If { expr: String },
+
+    /// #elif expr
+    ElIf { expr: String },
+
     /// #endif
     EndIf,
+
+    /// #else
+    Else,
 
     /// #include "path" or #include <path>
     Include { path: String },
@@ -138,11 +147,46 @@ fn parse_ifndef(input: &str) -> IResult<&str, Directive> {
     ))
 }
 
+/// Parse #if directive
+fn parse_if(input: &str) -> IResult<&str, Directive> {
+    let (input, _) = tag("#if")(input)?;
+    let (input, _) = space1(input)?;
+    let (input, expr) = until_eol(input)?;
+
+    Ok((
+        input,
+        Directive::If {
+            expr: expr.trim().to_string(),
+        },
+    ))
+}
+
+/// Parse #elif directive
+fn parse_elif(input: &str) -> IResult<&str, Directive> {
+    let (input, _) = tag("#elif")(input)?;
+    let (input, _) = space1(input)?;
+    let (input, expr) = until_eol(input)?;
+
+    Ok((
+        input,
+        Directive::ElIf {
+            expr: expr.trim().to_string(),
+        },
+    ))
+}
+
 /// Parse #endif directive
 fn parse_endif(input: &str) -> IResult<&str, Directive> {
     let (input, _) = tag("#endif")(input)?;
 
     Ok((input, Directive::EndIf))
+}
+
+/// Parse #else directive
+fn parse_else(input: &str) -> IResult<&str, Directive> {
+    let (input, _) = tag("#else")(input)?;
+
+    Ok((input, Directive::Else))
 }
 
 /// Parse #include directive with quoted path
@@ -172,11 +216,14 @@ fn parse_include(input: &str) -> IResult<&str, Directive> {
 /// Parse any preprocessor directive
 pub fn parse_directive(input: &str) -> IResult<&str, Directive> {
     alt((
+        parse_if,
+        parse_elif,
         parse_include,
         parse_define,
         parse_ifdef,
         parse_ifndef,
         parse_endif,
+        parse_else,
     ))(input)
 }
 
@@ -278,5 +325,42 @@ mod tests {
                 path: "common.wgsl".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn test_parse_if() {
+        let input = "#if defined(DEBUG) && DEBUG > 0";
+        let result = parse_if(input);
+        assert!(result.is_ok());
+        let (_, directive) = result.unwrap();
+        assert_eq!(
+            directive,
+            Directive::If {
+                expr: "defined(DEBUG) && DEBUG > 0".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_elif() {
+        let input = "#elif VERSION >= 2";
+        let result = parse_elif(input);
+        assert!(result.is_ok());
+        let (_, directive) = result.unwrap();
+        assert_eq!(
+            directive,
+            Directive::ElIf {
+                expr: "VERSION >= 2".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_else() {
+        let input = "#else";
+        let result = parse_else(input);
+        assert!(result.is_ok());
+        let (_, directive) = result.unwrap();
+        assert_eq!(directive, Directive::Else);
     }
 }

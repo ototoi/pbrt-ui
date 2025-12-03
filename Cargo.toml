@@ -2,6 +2,15 @@
 name = "pbrt-ui"
 version = "0.0.1"
 edition = "2024"
+default-run = "pbrt-ui"
+
+[[bin]]
+name = "pbrt-ui"
+path = "src/bin/pbrt-ui.rs"
+
+[[bin]]
+name = "ltc-fit"
+path = "src/bin/ltc-fit.rs"
 
 [[bin]]
 name = "pbrt-ui"
@@ -32,6 +41,8 @@ egui_extras = "0.32.0"
 bytemuck = "1.23.1"
 glam = { version = "0.30.4", features = ["bytemuck", "serde"] }
 wgpu-types = "26.0.0"
+rust-embed = {version = "8.9.0", features = ["include-exclude"]}
+half = { version = "2.7.1", features = ["bytemuck"] }
 clap = { version = "4.5.53", features = ["derive"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

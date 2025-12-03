@@ -21,7 +21,7 @@ struct Options {
     
     #[arg(short, long, help = "Output directory path for texture files")]
     output: Option<PathBuf>,
-    
+
     #[arg(short = 'w', long, default_value_t = N, help = "Table width (default: 64)")]
     width: usize,
     

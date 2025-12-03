@@ -21,7 +21,7 @@ use crate::conversion::plane_data::create_plane_meshes_from_mesh;
 use crate::conversion::plane_data::create_plane_outline_from_plane_mesh;
 use crate::conversion::plane_data::create_plane_rect_from_plane_outline;
 use crate::conversion::texture_node::DynaImage;
-use crate::conversion::texture_node::TexturePurpose;
+use crate::conversion::texture_node::TextureSizeType;
 use crate::conversion::texture_node::create_image_variant;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Vector3;
@@ -309,10 +309,6 @@ fn get_spot_light_item(
     return None; // Point lights are not yet supported
 }
 
-fn calc_sphere_light_ltc_points(radius: f32) -> [[f32; 3]; 4] {
-    return [[0.0; 3]; 4]; // Placeholder implementation
-}
-
 fn get_sphere_light_item(
     light: &Light,
     shape: &Shape,
@@ -360,7 +356,9 @@ fn get_sphere_light_item(
     //self.phi_max * self.radius * (self.z_max - self.z_min)
     let area = if radius > 0.0 {
         //std::f32::consts::PI * radius * (zmax - zmin) // Area of the sphere segment
-        2.0 * std::f32::consts::PI * radius // Area of the sphere
+        //std::f32::consts::PI * radius * radius // Area of the disk
+        //std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI * std::f32::consts::PI
+        1.0
     } else {
         4.0 // Default area if radius is not specified
     };
@@ -427,7 +425,7 @@ fn get_disk_light_item(
         .unwrap_or(1.0);
 
     let area = if radius > 0.0 {
-        radius * radius * std::f32::consts::PI // Area of the disk
+        1.0 // Area of the disk
     } else {
         1.0 // Default area if radius is not specified
     };
@@ -535,7 +533,7 @@ fn get_rects_light_item(
                     let v_axis = rect.v_axis;
 
                     //let area = 1.0; //todo: get area from rect
-                    let area = 4.0
+                    let area = 8.0
                         * Vector3::cross(
                             &Vector3::new(u_axis[0], u_axis[1], u_axis[2]),
                             &Vector3::new(v_axis[0], v_axis[1], v_axis[2]),
@@ -721,7 +719,7 @@ fn get_render_texture(
         if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
             // println!("Loading texture: {} (ID: {})", mapname, texture_id);
             if let Some(image) =
-                create_image_variant(texture_node, resource_manager, TexturePurpose::Render)
+                create_image_variant(texture_node, resource_manager, TextureSizeType::Render)
             {
                 // println!("Texture image created: {} (ID: {})", mapname, texture_id);
                 let image = image.read().unwrap();
@@ -844,6 +842,8 @@ fn get_infinite_light_item(
 }
 
 fn get_lines_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     id: Uuid,
     edition: &str,
     render_resource_manager: &mut RenderResourceManager,
@@ -861,6 +861,8 @@ fn get_lines_material(
         RenderUniformValue::Vec4(base_color.clone()),
     ));
     let passes = vec![create_render_pass(
+        device,
+        queue,
         "lines",
         RenderCategory::Opaque,
         &uniform_values,
@@ -878,6 +880,8 @@ fn get_lines_material(
 }
 
 fn get_light_gizmo_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     node: &Arc<RwLock<Node>>,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderMaterial>> {
@@ -890,7 +894,14 @@ fn get_light_gizmo_material(
         let light_id = Uuid::new_v3(&Uuid::NAMESPACE_OID, light_type.as_bytes());
         let edition = "".to_string();
         let base_color = [1.0, 1.0, 0.0, 1.0]; // Default Yellow color for light gizmo
-        return get_lines_material(light_id, &edition, render_resource_manager, &base_color);
+        return get_lines_material(
+            device,
+            queue,
+            light_id,
+            &edition,
+            render_resource_manager,
+            &base_color,
+        );
     }
     return None;
 }
@@ -1040,7 +1051,7 @@ pub fn get_render_light_gizmo_item(
             matrix = Matrix4x4::translate(offset.x, offset.y, offset.z) * matrix;
         }
         let matrix = glam::Mat4::from(matrix);
-        let material = get_light_gizmo_material(&item.node, render_resource_manager);
+        let material = get_light_gizmo_material(device, queue, &item.node, render_resource_manager);
         let render_item = LinesRenderItem {
             lines,
             material,

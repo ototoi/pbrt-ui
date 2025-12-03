@@ -6,6 +6,7 @@
 //! - `#include` for file inclusion with circular dependency detection
 
 mod error;
+mod evaluator;
 mod parser;
 mod processor;
 

@@ -1,3 +1,4 @@
+use super::shader::RenderShader;
 use super::texture::RenderTexture;
 
 use std::sync::Arc;
@@ -24,10 +25,10 @@ pub enum RenderUniformValue {
     Texture(Arc<RenderTexture>),
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct RenderPass {
     pub id: Uuid,
-    pub shader_type: String,
+    pub shader: Arc<RenderShader>,
     pub render_category: RenderCategory, //
     pub uniform_values: Arc<Vec<u8>>,    //
     pub textures: Vec<Arc<RenderTexture>>,
@@ -36,10 +37,6 @@ pub struct RenderPass {
 impl RenderPass {
     pub fn get_id(&self) -> Uuid {
         self.id
-    }
-
-    pub fn get_shader_type(&self) -> String {
-        self.shader_type.clone()
     }
 }
 
@@ -62,9 +59,5 @@ impl RenderMaterial {
 
     pub fn get_material_type(&self) -> String {
         self.material_type.clone()
-    }
-
-    pub fn get_shader_type(&self) -> String {
-        return self.passes[0].shader_type.clone();
     }
 }

@@ -523,3 +523,558 @@ fn test_circular_dependency_multi_path() {
         _ => panic!("Expected CircularDependency error"),
     }
 }
+
+#[test]
+fn test_if_true() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#if 1
+let included = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("included = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_false() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#if 0
+let excluded = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("excluded"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_with_define() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+
+    let source = r#"
+#if DEBUG
+let debug_mode = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_mode = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_with_undefined_symbol() {
+    let mut preprocessor = Preprocessor::new();
+    // DEBUG is not defined
+
+    let source = r#"
+#if DEBUG
+let debug_mode = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("debug_mode"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_with_logical_and() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    preprocessor.define("B", "1");
+
+    let source = r#"
+#if A && B
+let both_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("both_defined = true"));
+}
+
+#[test]
+fn test_if_with_logical_and_false() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    // B is not defined
+
+    let source = r#"
+#if A && B
+let both_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("both_defined"));
+}
+
+#[test]
+fn test_if_with_logical_or() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    // B is not defined
+
+    let source = r#"
+#if A || B
+let either_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("either_defined = true"));
+}
+
+#[test]
+fn test_if_with_logical_not() {
+    let mut preprocessor = Preprocessor::new();
+    // DEBUG is not defined
+
+    let source = r#"
+#if !DEBUG
+let not_debug = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("not_debug = true"));
+}
+
+#[test]
+fn test_if_with_parentheses() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("A", "1");
+    preprocessor.define("B", "0");
+    preprocessor.define("C", "1");
+
+    let source = r#"
+#if (A && B) || C
+let result_true = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("result_true = true"));
+}
+
+#[test]
+fn test_elif_first_true() {
+    let mut preprocessor = Preprocessor::new();
+
+    let source = r#"
+#if 1
+let first = true;
+#elif 1
+let second = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("first = true"));
+    assert!(!result.contains("second = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_second_true() {
+    let mut preprocessor = Preprocessor::new();
+
+    let source = r#"
+#if 0
+let first = true;
+#elif 1
+let second = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("first = true"));
+    assert!(result.contains("second = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_both_false() {
+    let mut preprocessor = Preprocessor::new();
+
+    let source = r#"
+#if 0
+let first = true;
+#elif 0
+let second = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("first = true"));
+    assert!(!result.contains("second = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_with_defines() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("VERSION", "2");
+
+    let source = r#"
+#if VERSION == 1
+let version_one = true;
+#elif VERSION == 2
+let version_two = true;
+#elif VERSION == 3
+let version_three = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("version_one"));
+    assert!(result.contains("version_two = true"));
+    assert!(!result.contains("version_three"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_comparison_operators() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("VALUE", "5");
+
+    let source = r#"
+#if VALUE > 3
+let greater = true;
+#endif
+#if VALUE < 10
+let less = true;
+#endif
+#if VALUE == 5
+let equal = true;
+#endif
+#if VALUE != 0
+let not_equal = true;
+#endif
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("greater = true"));
+    assert!(result.contains("less = true"));
+    assert!(result.contains("equal = true"));
+    assert!(result.contains("not_equal = true"));
+}
+
+#[test]
+fn test_if_defined_with_parens() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+
+    let source = r#"
+#if defined(DEBUG)
+let debug_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_enabled = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_without_parens() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("FEATURE_X", "1");
+
+    let source = r#"
+#if defined FEATURE_X
+let feature_x_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("feature_x_enabled = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_false() {
+    let mut preprocessor = Preprocessor::new();
+    // DEBUG is not defined
+
+    let source = r#"
+#if defined(DEBUG)
+let debug_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("debug_enabled"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_not_defined() {
+    let mut preprocessor = Preprocessor::new();
+    // RELEASE is not defined
+
+    let source = r#"
+#if !defined(RELEASE)
+let debug_mode = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_mode = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_and_condition() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    preprocessor.define("VERBOSE", "1");
+
+    let source = r#"
+#if defined(DEBUG) && defined(VERBOSE)
+let debug_verbose = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("debug_verbose = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_and_condition_false() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    // VERBOSE is not defined
+
+    let source = r#"
+#if defined(DEBUG) && defined(VERBOSE)
+let debug_verbose = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("debug_verbose"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_or_condition() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    // VERBOSE is not defined
+
+    let source = r#"
+#if defined(DEBUG) || defined(VERBOSE)
+let either_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("either_enabled = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_or_condition_false() {
+    let mut preprocessor = Preprocessor::new();
+    // Neither DEBUG nor VERBOSE is defined
+
+    let source = r#"
+#if defined(DEBUG) || defined(VERBOSE)
+let either_enabled = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("either_enabled"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_with_value_check() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("DEBUG", "1");
+    preprocessor.define("LEVEL", "3");
+
+    let source = r#"
+#if defined(DEBUG) && LEVEL > 2
+let high_level_debug = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("high_level_debug = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_defined() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("FEATURE_B", "1");
+
+    let source = r#"
+#if defined(FEATURE_A)
+let feature_a = true;
+#elif defined(FEATURE_B)
+let feature_b = true;
+#elif defined(FEATURE_C)
+let feature_c = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("feature_a"));
+    assert!(result.contains("feature_b = true"));
+    assert!(!result.contains("feature_c"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_elif_defined_none_match() {
+    let mut preprocessor = Preprocessor::new();
+    // No features defined
+
+    let source = r#"
+#if defined(FEATURE_A)
+let feature_a = true;
+#elif defined(FEATURE_B)
+let feature_b = true;
+#elif defined(FEATURE_C)
+let feature_c = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(!result.contains("feature_a"));
+    assert!(!result.contains("feature_b"));
+    assert!(!result.contains("feature_c"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_complex_defined_expression() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("PLATFORM", "LINUX");
+    preprocessor.define("DEBUG", "1");
+    preprocessor.define("VERSION", "2");
+
+    let source = r#"
+#if (defined(PLATFORM) && defined(DEBUG)) || VERSION > 1
+let complex_condition = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("complex_condition = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_defined_with_empty_value() {
+    let mut preprocessor = Preprocessor::new();
+    preprocessor.define("EMPTY", "");
+
+    let source = r#"
+#if defined(EMPTY)
+let empty_is_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(result.contains("empty_is_defined = true"));
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_ifdef_with_macro() {
+    let mut preprocessor = Preprocessor::new();
+    // Define a function macro
+    let source = r#"
+#define BAR(x) ((x) * 2)
+#ifdef BAR
+let bar_is_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(
+        result.contains("bar_is_defined = true"),
+        "BAR macro should be recognized as defined in #ifdef"
+    );
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_with_macro() {
+    let mut preprocessor = Preprocessor::new();
+    // Define a function macro
+    let source = r#"
+#define FOO(x) ((x) + 1)
+#if defined(FOO)
+let foo_is_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(
+        result.contains("foo_is_defined = true"),
+        "FOO macro should be recognized as defined in #if defined()"
+    );
+    assert!(result.contains("normal_code = 1"));
+}
+
+#[test]
+fn test_if_defined_mixed_defines_and_macros() {
+    let mut preprocessor = Preprocessor::new();
+    let source = r#"
+#define FOO
+#define BAR(x) ((x) * 2)
+#if defined(FOO) && defined(BAR)
+let both_defined = true;
+#endif
+let normal_code = 1;
+"#;
+
+    let result = preprocessor.process(source).unwrap();
+    assert!(
+        result.contains("both_defined = true"),
+        "Both FOO and BAR should be recognized as defined"
+    );
+    assert!(result.contains("normal_code = 1"));
+}
