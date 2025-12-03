@@ -67,13 +67,14 @@ pub fn generate_ltc_array_code(
     }
 
     // Pre-allocate string capacity for better performance
-    let estimated_size = expected_len * 50 + 100; // ~50 chars per element plus overhead
+    let total_floats = expected_len * 4;
+    let estimated_size = total_floats * 15 + 100; // ~15 chars per float plus overhead
     let mut code = String::with_capacity(estimated_size);
-    code.push_str(&format!("pub const {}: [[f32; 4]; {}] = [\n", const_name, expected_len));
+    code.push_str(&format!("pub const {}: [f32; {}] = [\n", const_name, total_floats));
     
     use std::fmt::Write;
     for (i, v) in data.iter().enumerate() {
-        write!(&mut code, "    [{}, {}, {}, {}],", v.x, v.y, v.z, v.w).unwrap();
+        write!(&mut code, "    {}, {}, {}, {},", v.x, v.y, v.z, v.w).unwrap();
         if (i + 1) % width == 0 {
             code.push('\n');
         } else {
@@ -198,11 +199,11 @@ mod tests {
         assert!(result.is_ok());
         
         let code = result.unwrap();
-        assert!(code.contains("pub const LTC_TEST: [[f32; 4]; 4] = ["));
-        assert!(code.contains("[1, 2, 3, 4]"));
-        assert!(code.contains("[5, 6, 7, 8]"));
-        assert!(code.contains("[9, 10, 11, 12]"));
-        assert!(code.contains("[13, 14, 15, 16]"));
+        assert!(code.contains("pub const LTC_TEST: [f32; 16] = ["));
+        assert!(code.contains("1, 2, 3, 4,"));
+        assert!(code.contains("5, 6, 7, 8,"));
+        assert!(code.contains("9, 10, 11, 12,"));
+        assert!(code.contains("13, 14, 15, 16,"));
     }
 
     #[test]
