@@ -21,7 +21,12 @@ fn get_ltc_fit_bin() -> String {
 fn test_ltc_fit_invalid_format() {
     let temp_dir = TempDir::new().unwrap();
     let output = Command::new(get_ltc_fit_bin())
-        .args(&["ggx", "-o", temp_dir.path().to_str().unwrap(), "-f", "invalid"])
+        .args(&[
+            "ggx", 
+            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
+            "-f", 
+            "invalid"
+        ])
         .output()
         .expect("Failed to execute ltc-fit");
     
@@ -41,7 +46,7 @@ fn test_ltc_fit_code_format_creates_file() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
-            "-o", temp_dir.path().to_str().unwrap(), 
+            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
             "-f", "code",
             "-w", "2",
             "-h", "1"
@@ -73,7 +78,7 @@ fn test_ltc_fit_exr_format_compatibility() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
-            "-o", temp_dir.path().to_str().unwrap(), 
+            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
             "-f", "exr",
             "-w", "2",
             "-h", "1"
@@ -100,7 +105,7 @@ fn test_ltc_fit_brdf_uppercase_in_const_names() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "beckmann", 
-            "-o", temp_dir.path().to_str().unwrap(), 
+            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
             "-f", "code",
             "-w", "2",
             "-h", "1"
