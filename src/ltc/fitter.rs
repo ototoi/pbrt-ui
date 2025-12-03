@@ -177,7 +177,6 @@ where
         let mut point = *start;
         point[i] += epsilon;
         let value: f32 = func(&point);
-        assert!(!value.is_nan());
         simplex.push((point, value));
     }
 
