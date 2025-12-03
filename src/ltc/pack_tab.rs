@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use super::parameters::N;
 use glam::{Mat3, Vec2, Vec4};
 
 /// Pack LTC data into two texture-friendly tables
@@ -13,21 +12,42 @@ use glam::{Mat3, Vec2, Vec4};
 /// * `tab` - Vector of Mat3 inverse matrices from LTC fitting (already inverted)
 /// * `tab_mag_fresnel` - Vector of Vec2 containing (magnitude, fresnel) values
 /// * `tab_sphere` - Vector of f32 containing sphere table values
+/// * `width` - Width of the table
+/// * `height` - Height of the table
 /// 
 /// # Returns
 /// * Tuple of (Vec<Vec4>, Vec<Vec4>) for tex1 and tex2
 /// 
 /// # Panics
-/// * Panics if any input vector length != N * N
-pub fn pack_tab(tab: Vec<Mat3>, tab_mag_fresnel: Vec<Vec2>, tab_sphere: Vec<f32>) -> (Vec<Vec4>, Vec<Vec4>) {
-    assert_eq!(tab.len(), N * N, "tab must have N * N elements");
-    assert_eq!(tab_mag_fresnel.len(), N * N, "tab_mag_fresnel must have N * N elements");
-    assert_eq!(tab_sphere.len(), N * N, "tab_sphere must have N * N elements");
-    
-    let mut tex1 = vec![Vec4::ZERO; N * N];
-    let mut tex2 = vec![Vec4::ZERO; N * N];
+/// * Panics if any input vector length != width * height
+pub fn pack_tab(
+    tab: Vec<Mat3>,
+    tab_mag_fresnel: Vec<Vec2>,
+    tab_sphere: Vec<f32>,
+    width: usize,
+    height: usize,
+) -> (Vec<Vec4>, Vec<Vec4>) {
+    let expected_len = width * height;
+    assert_eq!(
+        tab.len(),
+        expected_len,
+        "tab must have width * height elements"
+    );
+    assert_eq!(
+        tab_mag_fresnel.len(),
+        expected_len,
+        "tab_mag_fresnel must have width * height elements"
+    );
+    assert_eq!(
+        tab_sphere.len(),
+        expected_len,
+        "tab_sphere must have width * height elements"
+    );
 
-    for i in 0..(N * N) {
+    let mut tex1 = vec![Vec4::ZERO; expected_len];
+    let mut tex2 = vec![Vec4::ZERO; expected_len];
+
+    for i in 0..expected_len {
         let invM = tab[i];  // Already inverse matrix from fit_tab
         let mag_fresnel = tab_mag_fresnel[i];
 
@@ -58,23 +78,27 @@ mod tests {
 
     #[test]
     fn test_pack_tab_size() {
-        let tab = vec![Mat3::IDENTITY; N * N];
-        let tab_mag_fresnel = vec![Vec2::new(1.0, 0.5); N * N];
-        let tab_sphere = vec![0.75; N * N];
+        let width = 64;
+        let height = 64;
+        let tab = vec![Mat3::IDENTITY; width * height];
+        let tab_mag_fresnel = vec![Vec2::new(1.0, 0.5); width * height];
+        let tab_sphere = vec![0.75; width * height];
         
-        let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere);
+        let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere, width, height);
         
-        assert_eq!(tex1.len(), N * N);
-        assert_eq!(tex2.len(), N * N);
+        assert_eq!(tex1.len(), width * height);
+        assert_eq!(tex2.len(), width * height);
     }
 
     #[test]
     fn test_pack_tab_identity() {
-        let tab = vec![Mat3::IDENTITY; N * N];
-        let tab_mag_fresnel = vec![Vec2::new(1.0, 0.5); N * N];
-        let tab_sphere = vec![0.75; N * N];
+        let width = 64;
+        let height = 64;
+        let tab = vec![Mat3::IDENTITY; width * height];
+        let tab_mag_fresnel = vec![Vec2::new(1.0, 0.5); width * height];
+        let tab_sphere = vec![0.75; width * height];
         
-        let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere);
+        let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere, width, height);
         
         // For identity matrix, invM = M = identity, so invM[0][0] = 1, invM[2][2] = 1, all off-diagonals = 0
         assert_eq!(tex1[0].x, 1.0); // invM[0][0]
