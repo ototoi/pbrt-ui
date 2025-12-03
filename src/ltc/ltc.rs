@@ -58,9 +58,9 @@ impl LTC {
 
         // Create scale/shear matrix
         let scale = Mat3::from_cols(
-            Vec3::new(self.m11, 0.0, self.m13),
+            Vec3::new(self.m11, 0.0, 0.0),
             Vec3::new(0.0, self.m22, 0.0),
-            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(self.m13, 0.0, 1.0),
         );
 
         self.M = basis * scale;

@@ -48,15 +48,19 @@ pub fn pack_tab(
     let mut tex2 = vec![Vec4::ZERO; expected_len];
 
     for i in 0..expected_len {
-        let invM = tab[i]; // Already inverse matrix from fit_tab
+        let m = &tab[i];
+        let mut invM = m.inverse();
+        // normalize by the middle element
+        invM *= 1.0 / invM.col(1)[1];
+
         let mag_fresnel = tab_mag_fresnel[i];
 
         // Pack inverse matrix into tex1
         // tex1: (invM[0][0], invM[0][2], invM[2][0], invM[2][2])
         tex1[i] = Vec4::new(
             invM.col(0).x, // invM[0][0]
-            invM.col(2).x, // invM[0][2]
-            invM.col(0).z, // invM[2][0]
+            invM.col(0).z, // invM[0][2]
+            invM.col(2).x, // invM[2][0]
             invM.col(2).z, // invM[2][2]
         );
 
