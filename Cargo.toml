@@ -9,8 +9,8 @@ name = "pbrt-ui"
 path = "src/bin/pbrt-ui.rs"
 
 [[bin]]
-name = "fit_ltc"
-path = "src/bin/fit_ltc.rs"
+name = "fit-ltc"
+path = "src/bin/fit-ltc.rs"
 
 [dependencies]
 uuid = { version = "1.16.0", features = ["v4", "serde", "v3"] }

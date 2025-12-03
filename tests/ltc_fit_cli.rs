@@ -6,8 +6,8 @@ const TEMP_PATH_ERROR: &str = "Invalid UTF-8 in temp path";
 
 fn get_ltc_fit_bin() -> String {
     // Try to find the binary in the target directory
-    let debug_path = "./target/debug/fit_ltc";
-    let release_path = "./target/release/fit_ltc";
+    let debug_path = "./target/debug/fit-ltc";
+    let release_path = "./target/release/fit-ltc";
 
     if std::path::Path::new(debug_path).exists() {
         debug_path.to_string()
@@ -31,7 +31,7 @@ fn test_ltc_fit_invalid_format() {
             "invalid",
         ])
         .output()
-        .expect("Failed to execute fit_ltc");
+        .expect("Failed to execute fit-ltc");
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -59,7 +59,7 @@ fn test_ltc_fit_code_format_creates_file() {
             "1",
         ])
         .output()
-        .expect("Failed to execute fit_ltc");
+        .expect("Failed to execute fit-ltc");
 
     // The fitting may fail due to pre-existing bugs, but we can still check
     // if it produces output when it doesn't fail
@@ -95,7 +95,7 @@ fn test_ltc_fit_exr_format_compatibility() {
             "1",
         ])
         .output()
-        .expect("Failed to execute fit_ltc");
+        .expect("Failed to execute fit-ltc");
 
     // If the command succeeded, verify EXR files were created
     if output.status.success() {
@@ -126,7 +126,7 @@ fn test_ltc_fit_brdf_uppercase_in_const_names() {
             "1",
         ])
         .output()
-        .expect("Failed to execute fit_ltc");
+        .expect("Failed to execute fit-ltc");
 
     if output.status.success() {
         let code_path = temp_dir.path().join("ltc_beckmann.rs");
