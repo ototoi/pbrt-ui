@@ -11,7 +11,7 @@ use pbrt_ui::ltc::sphere_tab::gen_sphere_tab;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use clap::*;
+use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[clap(author, about, version, disable_help_flag = true)]

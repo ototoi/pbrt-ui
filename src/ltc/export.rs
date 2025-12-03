@@ -23,6 +23,8 @@ pub fn write_exr<P: AsRef<Path>>(path: P, data: &[Vec4]) -> Result<(), String> {
     }
 
     let img: ImageBuffer<Rgba<f32>, Vec<f32>> = ImageBuffer::from_fn(N as u32, N as u32, |x, y| {
+        // Index calculation: row-major order with bounds guaranteed by data.len() == N*N validation
+        // x and y range from 0 to N-1, so max index is (N-1) + (N-1)*N = N*N - 1
         let idx = (x as usize) + (y as usize) * N;
         let v = data[idx];
         Rgba([v.x, v.y, v.z, v.w])
