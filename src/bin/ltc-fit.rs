@@ -2,6 +2,7 @@ use pbrt_ui::ltc::brdf::Brdf;
 use pbrt_ui::ltc::brdf_beckmann::BrdfBeckmann;
 use pbrt_ui::ltc::brdf_disneydiffuse::BrdfDisneyDiffuse;
 use pbrt_ui::ltc::brdf_ggx::BrdfGGX;
+use pbrt_ui::ltc::export::write_exr;
 use pbrt_ui::ltc::fit_tab::fit_tab;
 use pbrt_ui::ltc::pack_tab::pack_tab;
 use pbrt_ui::ltc::parameters::N;
@@ -11,7 +12,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::*;
-use image::{Rgba, ImageBuffer};
 
 #[derive(Debug, Parser)]
 #[clap(author, about, version, disable_help_flag = true)]
@@ -62,24 +62,12 @@ fn main() -> Result<(), String> {
 
         // Save tex1
         let tex1_path = output_path.join("tex1.exr");
-        let tex1_img: ImageBuffer<Rgba<f32>, Vec<f32>> = ImageBuffer::from_fn(N as u32, N as u32, |x, y| {
-            let idx = (x as usize) + (y as usize) * N;
-            let v = tex1[idx];
-            Rgba([v.x, v.y, v.z, v.w])
-        });
-        tex1_img.save(&tex1_path)
-            .map_err(|e| format!("Failed to save tex1.exr: {}", e))?;
+        write_exr(&tex1_path, &tex1)?;
         println!("Saved: {}", tex1_path.display());
 
         // Save tex2
         let tex2_path = output_path.join("tex2.exr");
-        let tex2_img: ImageBuffer<Rgba<f32>, Vec<f32>> = ImageBuffer::from_fn(N as u32, N as u32, |x, y| {
-            let idx = (x as usize) + (y as usize) * N;
-            let v = tex2[idx];
-            Rgba([v.x, v.y, v.z, v.w])
-        });
-        tex2_img.save(&tex2_path)
-            .map_err(|e| format!("Failed to save tex2.exr: {}", e))?;
+        write_exr(&tex2_path, &tex2)?;
         println!("Saved: {}", tex2_path.display());
     }
 
