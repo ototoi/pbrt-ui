@@ -2,6 +2,8 @@ use std::process::Command;
 use std::fs;
 use tempfile::TempDir;
 
+const TEMP_PATH_ERROR: &str = "Invalid UTF-8 in temp path";
+
 fn get_ltc_fit_bin() -> String {
     // Try to find the binary in the target directory
     let debug_path = "./target/debug/ltc-fit";
@@ -23,7 +25,7 @@ fn test_ltc_fit_invalid_format() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
-            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
+            "-o", temp_dir.path().to_str().expect(TEMP_PATH_ERROR), 
             "-f", 
             "invalid"
         ])
@@ -46,7 +48,7 @@ fn test_ltc_fit_code_format_creates_file() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
-            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
+            "-o", temp_dir.path().to_str().expect(TEMP_PATH_ERROR), 
             "-f", "code",
             "-w", "2",
             "-h", "1"
@@ -78,7 +80,7 @@ fn test_ltc_fit_exr_format_compatibility() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
-            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
+            "-o", temp_dir.path().to_str().expect(TEMP_PATH_ERROR), 
             "-f", "exr",
             "-w", "2",
             "-h", "1"
@@ -105,7 +107,7 @@ fn test_ltc_fit_brdf_uppercase_in_const_names() {
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "beckmann", 
-            "-o", temp_dir.path().to_str().expect("Invalid UTF-8 in temp path"), 
+            "-o", temp_dir.path().to_str().expect(TEMP_PATH_ERROR), 
             "-f", "code",
             "-w", "2",
             "-h", "1"

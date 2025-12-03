@@ -2,8 +2,9 @@
 
 use glam::Vec4;
 use image::{ImageBuffer, Rgba};
+use std::fmt::Write;
+use std::io::Write as IoWrite;
 use std::path::Path;
-use std::io::Write;
 
 /// Write LTC texture data to EXR file
 /// 
@@ -72,9 +73,9 @@ pub fn generate_ltc_array_code(
     let mut code = String::with_capacity(estimated_size);
     code.push_str(&format!("pub const {}: [f32; {}] = [\n", const_name, total_floats));
     
-    use std::fmt::Write;
     for (i, v) in data.iter().enumerate() {
-        write!(&mut code, "    {}, {}, {}, {},", v.x, v.y, v.z, v.w).unwrap();
+        // Writing to a String cannot fail, so unwrap is safe
+        let _ = write!(&mut code, "    {}, {}, {}, {},", v.x, v.y, v.z, v.w);
         if (i + 1) % width == 0 {
             code.push('\n');
         } else {
