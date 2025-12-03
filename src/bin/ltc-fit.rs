@@ -50,7 +50,7 @@ fn main() -> Result<(), String> {
 
     println!();
     println!("Generating sphere table...");
-    let tab_sphere = gen_sphere_tab(options.width);
+    let tab_sphere = gen_sphere_tab(options.width, options.table_height);
     println!("Sphere table generated successfully!");
 
     println!();

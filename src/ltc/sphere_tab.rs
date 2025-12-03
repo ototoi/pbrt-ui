@@ -43,17 +43,18 @@ fn ihemi(w: f32, s: f32) -> f32 {
 /// which is used in LTC (Linearly Transformed Cosines) calculations.
 /// 
 /// # Arguments
-/// * `N` - Size of the table (NxN grid)
+/// * `width` - Width of the table
+/// * `height` - Height of the table
 /// 
 /// # Returns
-/// * `Vec<f32>` - Flattened NxN table of sphere values
-pub fn gen_sphere_tab(N: usize) -> Vec<f32> {
-    let mut tab_sphere = vec![0.0; N * N];
+/// * `Vec<f32>` - Flattened width*height table of sphere values
+pub fn gen_sphere_tab(width: usize, height: usize) -> Vec<f32> {
+    let mut tab_sphere = vec![0.0; width * height];
 
-    for j in 0..N {
-        for i in 0..N {
-            let U1 = i as f32 / (N - 1) as f32;
-            let U2 = j as f32 / (N - 1) as f32;
+    for j in 0..height {
+        for i in 0..width {
+            let U1 = i as f32 / (width - 1) as f32;
+            let U2 = j as f32 / (height - 1) as f32;
 
             // z = cos(elevation angle)
             let z = 2.0 * U1 - 1.0;
@@ -75,7 +76,7 @@ pub fn gen_sphere_tab(N: usize) -> Vec<f32> {
                 warn!("NaN value encountered at ({}, {})", i, j);
             }
 
-            tab_sphere[i + j * N] = value;
+            tab_sphere[i + j * width] = value;
         }
     }
 
@@ -95,15 +96,17 @@ mod tests {
 
     #[test]
     fn test_gen_sphere_tab_size() {
-        let N = 8;
-        let tab = gen_sphere_tab(N);
-        assert_eq!(tab.len(), N * N);
+        let width = 8;
+        let height = 8;
+        let tab = gen_sphere_tab(width, height);
+        assert_eq!(tab.len(), width * height);
     }
 
     #[test]
     fn test_gen_sphere_tab_no_nan() {
-        let N = 16;
-        let tab = gen_sphere_tab(N);
+        let width = 16;
+        let height = 16;
+        let tab = gen_sphere_tab(width, height);
         for (i, &value) in tab.iter().enumerate() {
             assert!(!value.is_nan(), "NaN value at index {}", i);
         }
@@ -111,8 +114,9 @@ mod tests {
 
     #[test]
     fn test_gen_sphere_tab_values_in_range() {
-        let N = 16;
-        let tab = gen_sphere_tab(N);
+        let width = 16;
+        let height = 16;
+        let tab = gen_sphere_tab(width, height);
         for (i, &value) in tab.iter().enumerate() {
             assert!(value >= 0.0, "Negative value {} at index {}", value, i);
             assert!(value.is_finite(), "Non-finite value {} at index {}", value, i);
