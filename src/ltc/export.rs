@@ -66,7 +66,9 @@ pub fn generate_ltc_array_code(
         ));
     }
 
-    let mut code = String::new();
+    // Pre-allocate string capacity for better performance
+    let estimated_size = expected_len * 50 + 100; // ~50 chars per element plus overhead
+    let mut code = String::with_capacity(estimated_size);
     code.push_str(&format!("pub const {}: [[f32; 4]; {}] = [\n", const_name, expected_len));
     
     for (i, v) in data.iter().enumerate() {

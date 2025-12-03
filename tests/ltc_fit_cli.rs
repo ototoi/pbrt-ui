@@ -2,10 +2,25 @@ use std::process::Command;
 use std::fs;
 use tempfile::TempDir;
 
+fn get_ltc_fit_bin() -> String {
+    // Try to find the binary in the target directory
+    let debug_path = "./target/debug/ltc-fit";
+    let release_path = "./target/release/ltc-fit";
+    
+    if std::path::Path::new(debug_path).exists() {
+        debug_path.to_string()
+    } else if std::path::Path::new(release_path).exists() {
+        release_path.to_string()
+    } else {
+        // Fallback to debug path
+        debug_path.to_string()
+    }
+}
+
 #[test]
 fn test_ltc_fit_invalid_format() {
     let temp_dir = TempDir::new().unwrap();
-    let output = Command::new("./target/debug/ltc-fit")
+    let output = Command::new(get_ltc_fit_bin())
         .args(&["ggx", "-o", temp_dir.path().to_str().unwrap(), "-f", "invalid"])
         .output()
         .expect("Failed to execute ltc-fit");
@@ -23,7 +38,7 @@ fn test_ltc_fit_code_format_creates_file() {
     
     // Note: We use a small size to avoid the fitting bug at 90 degrees
     // This is a pre-existing issue in the fitting code
-    let output = Command::new("./target/debug/ltc-fit")
+    let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
             "-o", temp_dir.path().to_str().unwrap(), 
@@ -55,7 +70,7 @@ fn test_ltc_fit_exr_format_compatibility() {
     let temp_dir = TempDir::new().unwrap();
     
     // Test that EXR format still works (default format)
-    let output = Command::new("./target/debug/ltc-fit")
+    let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "ggx", 
             "-o", temp_dir.path().to_str().unwrap(), 
@@ -71,12 +86,9 @@ fn test_ltc_fit_exr_format_compatibility() {
         let tex1_path = temp_dir.path().join("tex1.exr");
         let tex2_path = temp_dir.path().join("tex2.exr");
         
-        // At least one of these paths should exist if fitting succeeded
-        let files_created = tex1_path.exists() || tex2_path.exists();
-        if files_created {
-            assert!(tex1_path.exists(), "tex1.exr should be created");
-            assert!(tex2_path.exists(), "tex2.exr should be created");
-        }
+        // Both files should exist if fitting succeeded
+        assert!(tex1_path.exists(), "tex1.exr should be created");
+        assert!(tex2_path.exists(), "tex2.exr should be created");
     }
 }
 
@@ -85,7 +97,7 @@ fn test_ltc_fit_brdf_uppercase_in_const_names() {
     let temp_dir = TempDir::new().unwrap();
     
     // Test that BRDF names are properly uppercased in const names
-    let output = Command::new("./target/debug/ltc-fit")
+    let output = Command::new(get_ltc_fit_bin())
         .args(&[
             "beckmann", 
             "-o", temp_dir.path().to_str().unwrap(), 
