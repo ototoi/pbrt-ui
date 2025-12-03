@@ -56,7 +56,7 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
                     // roughness = 1
                     ltc.m11 = 1.0;
                     ltc.m22 = 1.0;
-                } else {
+                } else if a + 1 < height {
                     // Init with roughness of previous fit
                     ltc.m11 = tab[a + 1 + t * height].col(0).x;
                     ltc.m22 = tab[a + 1 + t * height].col(1).y;
