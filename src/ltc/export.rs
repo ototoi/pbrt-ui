@@ -3,6 +3,7 @@
 use glam::Vec4;
 use image::{ImageBuffer, Rgba};
 use std::path::Path;
+use std::io::Write;
 
 /// Write LTC texture data to EXR file
 /// 
@@ -39,6 +40,93 @@ pub fn write_exr<P: AsRef<Path>>(
 
     img.save(path.as_ref())
         .map_err(|e| format!("Failed to save EXR file: {}", e))
+}
+
+/// Generate Rust code string for a single LTC texture array
+/// 
+/// # Arguments
+/// * `const_name` - Name of the const array (e.g., "LTC_GGX1")
+/// * `data` - Vector of Vec4 containing texture data
+/// * `width` - Width of the texture
+/// * `height` - Height of the texture
+/// 
+/// # Returns
+/// * `Result<String, String>` - Generated Rust code or error message
+pub fn generate_ltc_array_code(
+    const_name: &str,
+    data: &[Vec4],
+    width: usize,
+    height: usize,
+) -> Result<String, String> {
+    let expected_len = width * height;
+    if data.len() != expected_len {
+        return Err(format!(
+            "Data length mismatch: expected {} elements ({}x{}), got {}",
+            expected_len, width, height, data.len()
+        ));
+    }
+
+    let mut code = String::new();
+    code.push_str(&format!("pub const {}: [[f32; 4]; {}] = [\n", const_name, expected_len));
+    
+    for (i, v) in data.iter().enumerate() {
+        code.push_str(&format!("    [{}, {}, {}, {}],", v.x, v.y, v.z, v.w));
+        if (i + 1) % width == 0 {
+            code.push('\n');
+        } else {
+            code.push(' ');
+        }
+    }
+    
+    code.push_str("];\n");
+    Ok(code)
+}
+
+/// Write multiple LTC arrays to a single Rust source file
+/// 
+/// # Arguments
+/// * `path` - Output file path for the Rust source file
+/// * `brdf_name` - Name of the BRDF (e.g., "ggx", "beckmann")
+/// * `tex1` - First texture data (inverse matrix parameters)
+/// * `tex2` - Second texture data (magnitude, fresnel, sphere)
+/// * `width` - Width of the textures
+/// * `height` - Height of the textures
+/// 
+/// # Returns
+/// * `Result<(), String>` - Ok if successful, Err with error message otherwise
+pub fn write_multiple_ltc_arrays<P: AsRef<Path>>(
+    path: P,
+    brdf_name: &str,
+    tex1: &[Vec4],
+    tex2: &[Vec4],
+    width: usize,
+    height: usize,
+) -> Result<(), String> {
+    // Convert brdf_name to uppercase for const names
+    let brdf_upper = brdf_name.to_uppercase();
+    let const_name1 = format!("LTC_{}1", brdf_upper);
+    let const_name2 = format!("LTC_{}2", brdf_upper);
+    
+    // Generate code for both arrays
+    let code1 = generate_ltc_array_code(&const_name1, tex1, width, height)?;
+    let code2 = generate_ltc_array_code(&const_name2, tex2, width, height)?;
+    
+    // Combine into a single file with header comment
+    let mut file_content = String::new();
+    file_content.push_str("// Auto-generated LTC texture data\n");
+    file_content.push_str(&format!("// BRDF: {}\n", brdf_name));
+    file_content.push_str(&format!("// Size: {}x{}\n\n", width, height));
+    file_content.push_str(&code1);
+    file_content.push('\n');
+    file_content.push_str(&code2);
+    
+    // Write to file
+    let mut file = std::fs::File::create(path.as_ref())
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+    file.write_all(file_content.as_bytes())
+        .map_err(|e| format!("Failed to write to file: {}", e))?;
+    
+    Ok(())
 }
 
 #[cfg(test)]
@@ -79,5 +167,78 @@ mod tests {
         // Verify file is not empty
         let metadata = fs::metadata(&path).unwrap();
         assert!(metadata.len() > 0);
+    }
+
+    #[test]
+    fn test_generate_ltc_array_code_validates_length() {
+        let wrong_data = vec![Vec4::ZERO; 10];
+        let width = 64;
+        let height = 64;
+        
+        let result = generate_ltc_array_code("TEST", &wrong_data, width, height);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Data length mismatch"));
+    }
+
+    #[test]
+    fn test_generate_ltc_array_code_format() {
+        let width = 2;
+        let height = 2;
+        let data = vec![
+            Vec4::new(1.0, 2.0, 3.0, 4.0),
+            Vec4::new(5.0, 6.0, 7.0, 8.0),
+            Vec4::new(9.0, 10.0, 11.0, 12.0),
+            Vec4::new(13.0, 14.0, 15.0, 16.0),
+        ];
+        
+        let result = generate_ltc_array_code("LTC_TEST", &data, width, height);
+        assert!(result.is_ok());
+        
+        let code = result.unwrap();
+        assert!(code.contains("pub const LTC_TEST: [[f32; 4]; 4] = ["));
+        assert!(code.contains("[1, 2, 3, 4]"));
+        assert!(code.contains("[5, 6, 7, 8]"));
+        assert!(code.contains("[9, 10, 11, 12]"));
+        assert!(code.contains("[13, 14, 15, 16]"));
+    }
+
+    #[test]
+    fn test_write_multiple_ltc_arrays_creates_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("ltc_arrays.rs");
+        
+        let width = 2;
+        let height = 2;
+        let tex1 = vec![Vec4::new(1.0, 2.0, 3.0, 4.0); 4];
+        let tex2 = vec![Vec4::new(5.0, 6.0, 7.0, 8.0); 4];
+        
+        let result = write_multiple_ltc_arrays(&path, "ggx", &tex1, &tex2, width, height);
+        assert!(result.is_ok());
+        assert!(path.exists());
+        
+        // Read and verify content
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("// Auto-generated LTC texture data"));
+        assert!(content.contains("// BRDF: ggx"));
+        assert!(content.contains("pub const LTC_GGX1"));
+        assert!(content.contains("pub const LTC_GGX2"));
+    }
+
+    #[test]
+    fn test_write_multiple_ltc_arrays_uppercase_conversion() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("ltc_arrays.rs");
+        
+        let width = 2;
+        let height = 2;
+        let tex1 = vec![Vec4::ZERO; 4];
+        let tex2 = vec![Vec4::ZERO; 4];
+        
+        let result = write_multiple_ltc_arrays(&path, "beckmann", &tex1, &tex2, width, height);
+        assert!(result.is_ok());
+        
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("LTC_BECKMANN1"));
+        assert!(content.contains("LTC_BECKMANN2"));
     }
 }
