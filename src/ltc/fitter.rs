@@ -9,11 +9,7 @@ use glam::Vec3;
 /// - norm (albedo) of the BRDF
 /// - average Schlick Fresnel value
 /// - average direction of the BRDF
-pub fn compute_avg_terms(
-    brdf: &dyn Brdf,
-    V: &Vec3,
-    alpha: f32,
-) -> (f32, f32, Vec3) {
+pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Vec3) {
     let mut norm = 0.0;
     let mut fresnel = 0.0;
     let mut average_dir = Vec3::ZERO;
@@ -24,7 +20,7 @@ pub fn compute_avg_terms(
             let U2 = (j as f32 + 0.5) / NSAMPLE as f32;
 
             // Sample
-            let L = brdf.sample(V, U1, U2, alpha);
+            let L = brdf.sample(V, alpha, U1, U2);
 
             // Eval
             let (eval, pdf) = brdf.eval(V, &L, alpha);
@@ -50,9 +46,26 @@ pub fn compute_avg_terms(
     // doesn't change the distribution
     average_dir.y = 0.0;
 
-    average_dir = average_dir.normalize();
+    if average_dir.length_squared() > 0.0 {
+        average_dir = average_dir.normalize();
+    } else {
+        average_dir = Vec3::new(0.0, 0.0, 1.0);
+    }
 
     (norm, fresnel, average_dir)
+}
+
+/// Helper function for compute_error to avoid code duplication
+fn compute_error_helper(error: f32, pdf: f32) -> f32 {
+    if pdf > 0.0 {
+        error / pdf
+    } else {
+        if error > 0.0 {
+            return 1e6;
+        } else {
+            return 1.0;
+        }
+    }
 }
 
 /// Compute the error between the BRDF and the LTC using Multiple Importance Sampling
@@ -75,12 +88,12 @@ pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
                 // Error with MIS weight
                 let error_ = (eval_brdf - eval_ltc).abs();
                 let error_ = error_ * error_ * error_;
-                error += error_ / (pdf_ltc + pdf_brdf);
+                error += compute_error_helper(error_, pdf_ltc + pdf_brdf);
             }
 
             // Importance sample BRDF
             {
-                let L = brdf.sample(V, U1, U2, alpha);
+                let L = brdf.sample(V, alpha, U1, U2);
 
                 let (eval_brdf, pdf_brdf) = brdf.eval(V, &L, alpha);
                 let eval_ltc = ltc.eval(&L);
@@ -89,7 +102,7 @@ pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
                 // Error with MIS weight
                 let error_ = (eval_brdf - eval_ltc).abs();
                 let error_ = error_ * error_ * error_;
-                error += error_ / (pdf_ltc + pdf_brdf);
+                error += compute_error_helper(error_, pdf_ltc + pdf_brdf);
             }
         }
     }
@@ -107,13 +120,7 @@ pub struct FitLTC<'a> {
 }
 
 impl<'a> FitLTC<'a> {
-    pub fn new(
-        ltc: &'a mut LTC,
-        brdf: &'a dyn Brdf,
-        V: Vec3,
-        alpha: f32,
-        isotropic: bool,
-    ) -> Self {
+    pub fn new(ltc: &'a mut LTC, brdf: &'a dyn Brdf, V: Vec3, alpha: f32, isotropic: bool) -> Self {
         Self {
             ltc,
             brdf,
@@ -157,10 +164,10 @@ pub fn nelder_mead<F>(
 where
     F: FnMut(&[f32; 3]) -> f32,
 {
-    const ALPHA: f32 = 1.0;  // Reflection
-    const GAMMA: f32 = 2.0;  // Expansion
-    const RHO: f32 = 0.5;    // Contraction
-    const SIGMA: f32 = 0.5;  // Shrink
+    const ALPHA: f32 = 1.0; // Reflection
+    const GAMMA: f32 = 2.0; // Expansion
+    const RHO: f32 = 0.5; // Contraction
+    const SIGMA: f32 = 0.5; // Shrink
 
     // Initialize simplex
     let mut simplex = Vec::new();
@@ -169,7 +176,8 @@ where
     for i in 0..3 {
         let mut point = *start;
         point[i] += epsilon;
-        let value = func(&point);
+        let value: f32 = func(&point);
+        assert!(!value.is_nan());
         simplex.push((point, value));
     }
 
@@ -259,22 +267,20 @@ pub fn fit(
     isotropic: bool,
 ) -> f32 {
     let start = [ltc.m11, ltc.m22, ltc.m13];
-    
+
     let mut fitter = FitLTC::new(ltc, brdf, *V, alpha, isotropic);
-    
-    let (error, result) = nelder_mead(&start, epsilon, 1e-5, 100, |params| {
-        fitter.eval(params)
-    });
+
+    let (error, result) = nelder_mead(&start, epsilon, 1e-5, 100, |params| fitter.eval(params));
 
     fitter.update(&result);
-    
+
     error
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::brdf_ggx::BrdfGGX;
+    use super::*;
 
     #[test]
     fn test_compute_avg_terms() {

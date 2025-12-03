@@ -55,14 +55,14 @@ impl LTC {
     pub fn update(&mut self) {
         // Create basis matrix from X, Y, Z vectors
         let basis = Mat3::from_cols(self.X, self.Y, self.Z);
-        
+
         // Create scale/shear matrix
         let scale = Mat3::from_cols(
             Vec3::new(self.m11, 0.0, self.m13),
             Vec3::new(0.0, self.m22, 0.0),
             Vec3::new(0.0, 0.0, 1.0),
         );
-        
+
         self.M = basis * scale;
         self.invM = self.M.inverse();
         self.detM = self.M.determinant().abs();
@@ -87,18 +87,14 @@ impl LTC {
     pub fn sample(&self, U1: f32, U2: f32) -> Vec3 {
         let theta = U1.sqrt().acos();
         let phi = 2.0 * std::f32::consts::PI * U2;
-        
+
         let cos_theta = theta.cos();
         let sin_theta = theta.sin();
         let cos_phi = phi.cos();
         let sin_phi = phi.sin();
-        
-        let L_local = Vec3::new(
-            sin_theta * cos_phi,
-            sin_theta * sin_phi,
-            cos_theta,
-        );
-        
+
+        let L_local = Vec3::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta);
+
         (self.M * L_local).normalize()
     }
 }

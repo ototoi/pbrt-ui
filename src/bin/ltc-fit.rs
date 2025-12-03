@@ -18,16 +18,21 @@ use clap::Parser;
 struct Options {
     #[arg(default_value = "ggx")]
     brdf: String,
-    
+
     #[arg(short, long, help = "Output directory path for texture files")]
     output: Option<PathBuf>,
 
-    #[arg(short = 'f', long, default_value = "exr", help = "Output format: exr or code")]
+    #[arg(
+        short = 'f',
+        long,
+        default_value = "exr",
+        help = "Output format: exr or code"
+    )]
     output_format: String,
 
     #[arg(short = 'w', long, default_value_t = N, help = "Table width (default: 64)")]
     width: usize,
-    
+
     #[arg(short = 'h', long = "height", default_value_t = N, help = "Table height (default: 64)")]
     table_height: usize,
 }
@@ -66,13 +71,19 @@ fn main() -> Result<(), String> {
 
     println!();
     println!("Packing tables...");
-    let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere, options.width, options.table_height);
+    let (tex1, tex2) = pack_tab(
+        tab,
+        tab_mag_fresnel,
+        tab_sphere,
+        options.width,
+        options.table_height,
+    );
     println!("Tables packed successfully!");
 
     if let Some(output_path) = options.output {
         println!();
         println!("Saving textures to: {}", output_path.display());
-        
+
         // Create output directory if it doesn't exist
         std::fs::create_dir_all(&output_path)
             .map_err(|e| format!("Failed to create output directory: {}", e))?;
@@ -92,7 +103,14 @@ fn main() -> Result<(), String> {
             "code" => {
                 // Save as Rust code
                 let code_path = output_path.join(format!("ltc_{}.rs", options.brdf));
-                write_multiple_ltc_arrays(&code_path, &options.brdf, &tex1, &tex2, options.width, options.table_height)?;
+                write_multiple_ltc_arrays(
+                    &code_path,
+                    &options.brdf,
+                    &tex1,
+                    &tex2,
+                    options.width,
+                    options.table_height,
+                )?;
                 println!("Saved: {}", code_path.display());
             }
             _ => unreachable!("Format validation should prevent this"),
@@ -101,6 +119,6 @@ fn main() -> Result<(), String> {
 
     println!();
     println!("LTC fitting completed successfully!");
-    
+
     Ok(())
 }

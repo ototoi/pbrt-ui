@@ -12,11 +12,12 @@ impl BrdfGGX {
 }
 
 fn lambda(alpha: f32, cosTheta: f32) -> f32 {
-    if cosTheta >= 1.0 {
+    if cosTheta < 0.0 {
+        let a = 1.0 / (alpha * cosTheta.acos().tan());
+        return 0.5 * (-1.0 + (1.0 + 1.0 / (a * a)).sqrt());
+    } else {
         return 0.0;
     }
-    let a = 1.0 / (alpha * cosTheta.acos().tan());
-    0.5 * (-1.0 + (1.0 + 1.0 / (a * a)).sqrt())
 }
 
 impl Brdf for BrdfGGX {
@@ -44,7 +45,7 @@ impl Brdf for BrdfGGX {
         (res, pdf)
     }
 
-    fn sample(&self, V: &glam::Vec3, U1: f32, U2: f32, alpha: f32) -> glam::Vec3 {
+    fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let phi = 2.0 * std::f32::consts::PI * U1;
         let r = alpha * (U2 / (1.0 - U2)).sqrt();
         let N = glam::Vec3::new(r * phi.cos(), r * phi.sin(), 1.0).normalize();
