@@ -12,14 +12,6 @@ path = "src/bin/pbrt-ui.rs"
 name = "ltc-fit"
 path = "src/bin/ltc-fit.rs"
 
-[[bin]]
-name = "pbrt-ui"
-path = "src/bin/pbrt-ui.rs"
-
-[[bin]]
-name = "ltc-fit"
-path = "src/bin/ltc-fit.rs"
-
 [dependencies]
 uuid = { version = "1.16.0", features = ["v4", "serde", "v3"] }
 eframe = { version = "0.32.0", features = ["__screenshot", "serde", "wgpu"] }
