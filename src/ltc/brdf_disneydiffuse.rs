@@ -32,7 +32,7 @@ impl Brdf for BrdfDisneyDiffuse {
         (value, pdf)
     }
 
-    fn sample(&self, V: &glam::Vec3, U1: f32, U2: f32, alpha: f32) -> glam::Vec3 {
+    fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let r = U1.sqrt();
         let phi = 2.0 * std::f32::consts::PI * U2;
         let L = glam::Vec3::new(r * phi.cos(), r * phi.sin(), (1.0 - r * r).sqrt());
@@ -104,11 +104,11 @@ mod tests {
         let brdf = BrdfDisneyDiffuse::new();
         let V = glam::Vec3::new(0.5, 0.0, 0.866).normalize();
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
-        
+
         // Test with different roughness values
         let (value1, _) = brdf.eval(&V, &L, 0.1);
         let (value2, _) = brdf.eval(&V, &L, 0.9);
-        
+
         // Both should be positive
         assert!(value1 > 0.0);
         assert!(value2 > 0.0);

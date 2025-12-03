@@ -38,14 +38,14 @@ fn ihemi(w: f32, s: f32) -> f32 {
 }
 
 /// Generate sphere table for LTC fitting
-/// 
+///
 /// This function computes a lookup table for the projected solid angle of spherical caps,
 /// which is used in LTC (Linearly Transformed Cosines) calculations.
-/// 
+///
 /// # Arguments
 /// * `width` - Width of the table
 /// * `height` - Height of the table
-/// 
+///
 /// # Returns
 /// * `Vec<f32>` - Flattened width*height table of sphere values
 pub fn gen_sphere_tab(width: usize, height: usize) -> Vec<f32> {
@@ -119,7 +119,12 @@ mod tests {
         let tab = gen_sphere_tab(width, height);
         for (i, &value) in tab.iter().enumerate() {
             assert!(value >= 0.0, "Negative value {} at index {}", value, i);
-            assert!(value.is_finite(), "Non-finite value {} at index {}", value, i);
+            assert!(
+                value.is_finite(),
+                "Non-finite value {} at index {}",
+                value,
+                i
+            );
         }
     }
 }

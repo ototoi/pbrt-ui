@@ -7,12 +7,12 @@ use super::parameters::MIN_ALPHA;
 use glam::{Mat3, Vec2, Vec3};
 
 /// Fit LTC table for a given BRDF
-/// 
+///
 /// # Arguments
 /// * `brdf` - The BRDF to fit
 /// * `width` - Width of the table (theta dimension)
 /// * `height` - Height of the table (alpha/roughness dimension)
-/// 
+///
 /// # Returns
 /// * Tuple of (tab, tab_mag_fresnel) where both are flattened width*height vectors
 pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<Vec2>) {
@@ -37,7 +37,7 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
             println!();
 
             let mut ltc = LTC::new();
-            
+
             // Compute average terms
             let (magnitude, fresnel, average_dir) = compute_avg_terms(brdf, &V, alpha);
             ltc.magnitude = magnitude;
@@ -85,13 +85,38 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
             fit(&mut ltc, brdf, &V, alpha, epsilon, isotropic);
 
             // Copy data
-            tab[a + t * height] = ltc.invM;  // Store inverse matrix for packing
+            tab[a + t * height] = ltc.M; // Store matrix for packing
             tab_mag_fresnel[a + t * height] = Vec2::new(ltc.magnitude, ltc.fresnel);
 
+            // kill useless coefs in matrix
+            tab[a + t * height].col_mut(0).y = 0.0; //[0][1]
+            tab[a + t * height].col_mut(1).x = 0.0; //[1][0]
+            tab[a + t * height].col_mut(2).y = 0.0; //[2][1]
+            tab[a + t * height].col_mut(1).z = 0.0; //[1][2]
+            //X 0 X
+            //0 X 0 = 0
+            //X 0 X
+
             // Print matrix
-            println!("{:.6}\t {:.6}\t {:.6}", ltc.M.col(0).x, ltc.M.col(1).x, ltc.M.col(2).x);
-            println!("{:.6}\t {:.6}\t {:.6}", ltc.M.col(0).y, ltc.M.col(1).y, ltc.M.col(2).y);
-            println!("{:.6}\t {:.6}\t {:.6}", ltc.M.col(0).z, ltc.M.col(1).z, ltc.M.col(2).z);
+            let tabm = &tab[a + t * height];
+            println!(
+                "{:.6}\t {:.6}\t {:.6}",
+                tabm.col(0).x,
+                tabm.col(1).x,
+                tabm.col(2).x
+            );
+            println!(
+                "{:.6}\t {:.6}\t {:.6}",
+                tabm.col(0).y,
+                tabm.col(1).y,
+                tabm.col(2).y
+            );
+            println!(
+                "{:.6}\t {:.6}\t {:.6}",
+                tabm.col(0).z,
+                tabm.col(1).z,
+                tabm.col(2).z
+            );
             println!();
         }
     }

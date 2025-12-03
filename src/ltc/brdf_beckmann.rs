@@ -58,7 +58,7 @@ impl Brdf for BrdfBeckmann {
         (res, pdf)
     }
 
-    fn sample(&self, V: &glam::Vec3, U1: f32, U2: f32, alpha: f32) -> glam::Vec3 {
+    fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let phi = 2.0 * std::f32::consts::PI * U1;
         let r = alpha * (-U2.ln()).sqrt();
         let N = glam::Vec3::new(r * phi.cos(), r * phi.sin(), 1.0).normalize();
