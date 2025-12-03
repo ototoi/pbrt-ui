@@ -21,6 +21,12 @@ struct Options {
     
     #[arg(short, long, help = "Output directory path for texture files")]
     output: Option<PathBuf>,
+    
+    #[arg(short = 'w', long, default_value_t = N, help = "Table width (default: 64)")]
+    width: usize,
+    
+    #[arg(short = 'h', long = "height", default_value_t = N, help = "Table height (default: 64)")]
+    table_height: usize,
 }
 
 fn create_brdf(brdf_name: &str) -> Result<Arc<dyn Brdf>, String> {
@@ -37,19 +43,19 @@ fn main() -> Result<(), String> {
     let brdf = create_brdf(&options.brdf)?;
 
     println!("Fitting LTC table for BRDF: {}", options.brdf);
-    println!("Table size: {}x{}", N, N);
+    println!("Table size: {}x{}", options.width, options.table_height);
     println!();
 
-    let (tab, tab_mag_fresnel) = fit_tab(brdf.as_ref());
+    let (tab, tab_mag_fresnel) = fit_tab(brdf.as_ref(), options.width, options.table_height);
 
     println!();
     println!("Generating sphere table...");
-    let tab_sphere = gen_sphere_tab(N);
+    let tab_sphere = gen_sphere_tab(options.width);
     println!("Sphere table generated successfully!");
 
     println!();
     println!("Packing tables...");
-    let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere);
+    let (tex1, tex2) = pack_tab(tab, tab_mag_fresnel, tab_sphere, options.width, options.table_height);
     println!("Tables packed successfully!");
 
     if let Some(output_path) = options.output {
@@ -62,12 +68,12 @@ fn main() -> Result<(), String> {
 
         // Save tex1
         let tex1_path = output_path.join("tex1.exr");
-        write_exr(&tex1_path, &tex1)?;
+        write_exr(&tex1_path, &tex1, options.width, options.table_height)?;
         println!("Saved: {}", tex1_path.display());
 
         // Save tex2
         let tex2_path = output_path.join("tex2.exr");
-        write_exr(&tex2_path, &tex2)?;
+        write_exr(&tex2_path, &tex2, options.width, options.table_height)?;
         println!("Saved: {}", tex2_path.display());
     }
 

@@ -3,6 +3,7 @@ pub mod controller;
 pub mod conversion;
 pub mod error;
 pub mod io;
+pub mod ltc;
 pub mod model;
 pub mod panel;
 pub mod preprocessor;

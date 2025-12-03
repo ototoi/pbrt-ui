@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use super::parameters::N;
 use glam::Vec4;
 use image::{ImageBuffer, Rgba};
 use std::path::Path;
@@ -9,26 +8,34 @@ use std::path::Path;
 /// 
 /// # Arguments
 /// * `path` - Output file path for the EXR file
-/// * `data` - Vector of Vec4 containing texture data (N*N elements)
+/// * `data` - Vector of Vec4 containing texture data (width*height elements)
+/// * `width` - Width of the texture
+/// * `height` - Height of the texture
 /// 
 /// # Returns
 /// * `Result<(), String>` - Ok if successful, Err with error message otherwise
-pub fn write_exr<P: AsRef<Path>>(path: P, data: &[Vec4]) -> Result<(), String> {
-    if data.len() != N * N {
+pub fn write_exr<P: AsRef<Path>>(
+    path: P,
+    data: &[Vec4],
+    width: usize,
+    height: usize,
+) -> Result<(), String> {
+    let expected_len = width * height;
+    if data.len() != expected_len {
         return Err(format!(
-            "Data length mismatch: expected {} elements, got {}",
-            N * N,
-            data.len()
+            "Data length mismatch: expected {} elements ({}x{}), got {}",
+            expected_len, width, height, data.len()
         ));
     }
 
-    let img: ImageBuffer<Rgba<f32>, Vec<f32>> = ImageBuffer::from_fn(N as u32, N as u32, |x, y| {
-        // Index calculation: row-major order with bounds guaranteed by data.len() == N*N validation
-        // x and y range from 0 to N-1, so max index is (N-1) + (N-1)*N = N*N - 1
-        let idx = (x as usize) + (y as usize) * N;
-        let v = data[idx];
-        Rgba([v.x, v.y, v.z, v.w])
-    });
+    let img: ImageBuffer<Rgba<f32>, Vec<f32>> =
+        ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
+            // Index calculation: row-major order with bounds guaranteed by data.len() == width*height validation
+            // x and y range from 0 to width-1 and height-1, so max index is (width-1) + (height-1)*width = width*height - 1
+            let idx = (x as usize) + (y as usize) * width;
+            let v = data[idx];
+            Rgba([v.x, v.y, v.z, v.w])
+        });
 
     img.save(path.as_ref())
         .map_err(|e| format!("Failed to save EXR file: {}", e))
@@ -47,8 +54,10 @@ mod tests {
         
         // Create data with wrong length
         let wrong_data = vec![Vec4::ZERO; 10];
+        let width = 64;
+        let height = 64;
         
-        let result = write_exr(&path, &wrong_data);
+        let result = write_exr(&path, &wrong_data, width, height);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Data length mismatch"));
     }
@@ -59,9 +68,11 @@ mod tests {
         let path = temp_dir.path().join("test.exr");
         
         // Create valid data
-        let data = vec![Vec4::new(1.0, 0.5, 0.25, 0.75); N * N];
+        let width = 64;
+        let height = 64;
+        let data = vec![Vec4::new(1.0, 0.5, 0.25, 0.75); width * height];
         
-        let result = write_exr(&path, &data);
+        let result = write_exr(&path, &data, width, height);
         assert!(result.is_ok());
         assert!(path.exists());
         

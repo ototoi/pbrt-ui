@@ -3,25 +3,33 @@
 use super::brdf::Brdf;
 use super::fitter::{compute_avg_terms, fit};
 use super::ltc::LTC;
-use super::parameters::{MIN_ALPHA, N};
+use super::parameters::MIN_ALPHA;
 use glam::{Mat3, Vec2, Vec3};
 
 /// Fit LTC table for a given BRDF
-pub fn fit_tab(brdf: &dyn Brdf) -> (Vec<Mat3>, Vec<Vec2>) {
-    let mut tab = vec![Mat3::IDENTITY; N * N];
-    let mut tab_mag_fresnel = vec![Vec2::ZERO; N * N];
+/// 
+/// # Arguments
+/// * `brdf` - The BRDF to fit
+/// * `width` - Width of the table (theta dimension)
+/// * `height` - Height of the table (alpha/roughness dimension)
+/// 
+/// # Returns
+/// * Tuple of (tab, tab_mag_fresnel) where both are flattened width*height vectors
+pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<Vec2>) {
+    let mut tab = vec![Mat3::IDENTITY; width * height];
+    let mut tab_mag_fresnel = vec![Vec2::ZERO; width * height];
 
     // Loop over theta and alpha
-    for a in (0..N).rev() {
-        for t in 0..N {
+    for a in (0..height).rev() {
+        for t in 0..width {
             // Parameterized by sqrt(1 - cos(theta))
-            let x = t as f32 / (N - 1) as f32;
+            let x = t as f32 / (width - 1) as f32;
             let ct = 1.0 - x * x;
             let theta = std::f32::consts::FRAC_PI_2.min(ct.acos());
             let V = Vec3::new(theta.sin(), 0.0, theta.cos());
 
             // alpha = roughness^2
-            let roughness = a as f32 / (N - 1) as f32;
+            let roughness = a as f32 / (height - 1) as f32;
             let alpha = (roughness * roughness).max(MIN_ALPHA);
 
             println!("a = {}\t t = {}", a, t);
@@ -44,14 +52,14 @@ pub fn fit_tab(brdf: &dyn Brdf) -> (Vec<Mat3>, Vec<Vec2>) {
                 ltc.Y = Vec3::new(0.0, 1.0, 0.0);
                 ltc.Z = Vec3::new(0.0, 0.0, 1.0);
 
-                if a == N - 1 {
+                if a == height - 1 {
                     // roughness = 1
                     ltc.m11 = 1.0;
                     ltc.m22 = 1.0;
                 } else {
                     // Init with roughness of previous fit
-                    ltc.m11 = tab[a + 1 + t * N].col(0).x;
-                    ltc.m22 = tab[a + 1 + t * N].col(1).y;
+                    ltc.m11 = tab[a + 1 + t * height].col(0).x;
+                    ltc.m22 = tab[a + 1 + t * height].col(1).y;
                 }
 
                 ltc.m13 = 0.0;
@@ -77,8 +85,8 @@ pub fn fit_tab(brdf: &dyn Brdf) -> (Vec<Mat3>, Vec<Vec2>) {
             fit(&mut ltc, brdf, &V, alpha, epsilon, isotropic);
 
             // Copy data
-            tab[a + t * N] = ltc.invM;  // Store inverse matrix for packing
-            tab_mag_fresnel[a + t * N] = Vec2::new(ltc.magnitude, ltc.fresnel);
+            tab[a + t * height] = ltc.invM;  // Store inverse matrix for packing
+            tab_mag_fresnel[a + t * height] = Vec2::new(ltc.magnitude, ltc.fresnel);
 
             // Print matrix
             println!("{:.6}\t {:.6}\t {:.6}", ltc.M.col(0).x, ltc.M.col(1).x, ltc.M.col(2).x);
