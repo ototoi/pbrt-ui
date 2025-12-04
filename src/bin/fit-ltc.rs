@@ -91,12 +91,12 @@ fn main() -> Result<(), String> {
         match options.output_format.as_str() {
             "exr" => {
                 // Save tex1
-                let tex1_path = output_path.join("tex1.exr");
+                let tex1_path = output_path.join(format!("ltc_{}_tex1.exr", options.brdf));
                 write_exr(&tex1_path, &tex1, options.width, options.table_height)?;
                 println!("Saved: {}", tex1_path.display());
 
                 // Save tex2
-                let tex2_path = output_path.join("tex2.exr");
+                let tex2_path = output_path.join(format!("ltc_{}_tex2.exr", options.brdf));
                 write_exr(&tex2_path, &tex2, options.width, options.table_height)?;
                 println!("Saved: {}", tex2_path.display());
             }
