@@ -3,15 +3,15 @@
 use super::brdf::Brdf;
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct BrdfOrenNayer;
+pub struct BrdfOrenNayar;
 
-impl BrdfOrenNayer {
+impl BrdfOrenNayar {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Brdf for BrdfOrenNayer {
+impl Brdf for BrdfOrenNayar {
     fn eval(&self, V: &glam::Vec3, L: &glam::Vec3, alpha: f32) -> (f32, f32) {
         if V.z <= 0.0 || L.z <= 0.0 {
             return (0.0, 0.0);
@@ -52,12 +52,10 @@ impl Brdf for BrdfOrenNayer {
         let cos_phi_diff = if V_tangent.length() > 1e-6 && L_tangent.length() > 1e-6 {
             let V_norm = V_tangent.normalize();
             let L_norm = L_tangent.normalize();
-            V_norm.dot(L_norm).clamp(-1.0, 1.0)
+            V_norm.dot(L_norm).clamp(-1.0, 1.0).max(0.0)
         } else {
             1.0
         };
-
-        let cos_phi_diff = cos_phi_diff.max(0.0);
 
         // Oren-Nayar formula
         let value = (A + B * cos_phi_diff * sin_alpha * tan_beta) * NdotL / std::f32::consts::PI;
@@ -79,8 +77,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_brdf_oren_nayer_eval() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_eval() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.0, 0.0, 1.0);
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
         let alpha = 0.5;
@@ -90,8 +88,8 @@ mod tests {
     }
 
     #[test]
-    fn test_brdf_oren_nayer_sample() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_sample() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.0, 0.0, 1.0);
         let L = brdf.sample(&V, 0.5, 0.5, 0.5);
         // Sample should produce a valid direction
@@ -101,8 +99,8 @@ mod tests {
     }
 
     #[test]
-    fn test_brdf_oren_nayer_eval_grazing() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_eval_grazing() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.9, 0.0, 0.1).normalize();
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
         let alpha = 0.3;
@@ -112,8 +110,8 @@ mod tests {
     }
 
     #[test]
-    fn test_brdf_oren_nayer_eval_invalid_v() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_eval_invalid_v() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.0, 0.0, -1.0);
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
         let alpha = 0.5;
@@ -123,8 +121,8 @@ mod tests {
     }
 
     #[test]
-    fn test_brdf_oren_nayer_eval_invalid_l() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_eval_invalid_l() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.0, 0.0, 1.0);
         let L = glam::Vec3::new(0.0, 0.0, -1.0);
         let alpha = 0.5;
@@ -134,8 +132,8 @@ mod tests {
     }
 
     #[test]
-    fn test_brdf_oren_nayer_roughness_effect() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_roughness_effect() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.5, 0.0, 0.866).normalize();
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
 
@@ -149,8 +147,8 @@ mod tests {
     }
 
     #[test]
-    fn test_brdf_oren_nayer_smooth_limit() {
-        let brdf = BrdfOrenNayer::new();
+    fn test_brdf_oren_nayar_smooth_limit() {
+        let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.0, 0.0, 1.0);
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
         
