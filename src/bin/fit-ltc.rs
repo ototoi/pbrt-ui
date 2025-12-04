@@ -2,6 +2,7 @@ use pbrt_ui::ltc::brdf::Brdf;
 use pbrt_ui::ltc::brdf_beckmann::BrdfBeckmann;
 use pbrt_ui::ltc::brdf_disneydiffuse::BrdfDisneyDiffuse;
 use pbrt_ui::ltc::brdf_ggx::BrdfGGX;
+use pbrt_ui::ltc::brdf_oren_nayar::BrdfOrenNayar;
 use pbrt_ui::ltc::export::{write_exr, write_multiple_ltc_arrays};
 use pbrt_ui::ltc::fit_tab::fit_tab;
 use pbrt_ui::ltc::pack_tab::pack_tab;
@@ -42,6 +43,7 @@ fn create_brdf(brdf_name: &str) -> Result<Arc<dyn Brdf>, String> {
         "ggx" => Ok(Arc::new(BrdfGGX::new())),
         "beckmann" => Ok(Arc::new(BrdfBeckmann::new())),
         "disneydiffuse" => Ok(Arc::new(BrdfDisneyDiffuse::new())),
+        "orennayar" => Ok(Arc::new(BrdfOrenNayar::new())),
         _ => Err(format!("Unknown BRDF name: {}", brdf_name)),
     }
 }
