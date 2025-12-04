@@ -12,7 +12,7 @@ impl BrdfGGX {
 }
 
 fn lambda(alpha: f32, cosTheta: f32) -> f32 {
-    if cosTheta < 0.0 {
+    if cosTheta < 1.0 {
         let a = 1.0 / (alpha * cosTheta.acos().tan());
         return 0.5 * (-1.0 + (1.0 + 1.0 / (a * a)).sqrt());
     } else {
