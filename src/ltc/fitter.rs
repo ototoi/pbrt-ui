@@ -60,11 +60,7 @@ fn compute_error_helper(error: f32, pdf: f32) -> f32 {
     if pdf > 0.0 {
         error / pdf
     } else {
-        if error > 0.0 {
-            return 1e6;
-        } else {
-            return 1.0;
-        }
+        0.0
     }
 }
 

@@ -82,13 +82,12 @@ pub fn generate_ltc_array_code(
         const_name, total_floats
     ));
 
-    for (i, v) in data.iter().enumerate() {
-        // Writing to a String cannot fail, so unwrap is safe
-        let _ = write!(&mut code, "    {}, {}, {}, {},", v.x, v.y, v.z, v.w);
-        if (i + 1) % width == 0 {
-            code.push('\n');
-        } else {
-            code.push(' ');
+    for j in 0..height {
+        for i in 0..width {
+            let idx = i + j * width;
+            // Writing to a String cannot fail, so unwrap is safe
+            let v = data[idx];
+            let _ = write!(&mut code, "    {}, {}, {}, {}, // [{}, {}] \n", v.x, v.y, v.z, v.w, i, j);
         }
     }
 
