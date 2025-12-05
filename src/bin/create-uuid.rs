@@ -21,7 +21,7 @@ struct Options {
     format: Format,
 }
 
-fn main() -> Result<(), String> {
+fn main() {
     let options = Options::parse();
 
     // Generate a new UUID (v4)
@@ -46,6 +46,4 @@ fn main() -> Result<(), String> {
     };
 
     println!("{}", output);
-
-    Ok(())
 }
