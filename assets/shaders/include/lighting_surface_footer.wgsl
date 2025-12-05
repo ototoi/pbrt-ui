@@ -34,12 +34,12 @@ var light_texture: texture_2d<f32>;//binding_array<texture_2d<f32>>;
 @binding(7)
 var light_sampler: sampler;
 
-@group(3)
-@binding(8)
+@group(4)
+@binding(0)
 var ltc_texture_array: texture_2d_array<f32>;// LTC lookup texture
 
-@group(3)
-@binding(9)
+@group(4)
+@binding(1)
 var ltc_sampler: sampler;
 
 //-------------------------------------------------------
@@ -486,10 +486,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let N = normal;
     let NdotV = saturate(dot(N, V));
 
-    let roughness = max(0.08, sample_roughness(in.uv)); // cannot < 0.08
-    var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
-    ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
+    
 #ifdef ENABLE_SPECULAR
+    let alpha = sample_alpha(in.uv); // cannot < 0.08
+    var ltc_uv = vec2<f32>(alpha, sqrt(1.0 - NdotV));
+    ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
     let t1 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 0);
     // Construct inverse matrix
     let Minv = mat3x3<f32>(

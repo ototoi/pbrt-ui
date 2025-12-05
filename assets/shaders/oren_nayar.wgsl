@@ -8,8 +8,7 @@
 // material uniforms
 struct MaterialUniforms {
     kd: vec4<f32>,
-    ks: vec4<f32>,
-    roughness: f32,
+    alpha: f32,
     _pad1: i32,
     _pad2: i32,
     _pad3: i32,
@@ -39,26 +38,6 @@ fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
 }
 #endif
 
-#ifdef USE_TEXTURE_KS
-@group(2)
-@binding(1)
-var ks_texture: texture_2d<f32>;
-
-@group(2)
-@binding(2)
-var ks_sampler: sampler;
-
-fn sample_ks(uv: vec2<f32>) -> vec3<f32> {
-    let modified_uv = material_uniforms.ks.xy * uv + material_uniforms.ks.zw;
-    let spec = textureSample(ks_texture, ks_sampler, modified_uv).rgb;
-    return spec;
-}
-#else
-fn sample_ks(uv: vec2<f32>) -> vec3<f32> {
-    return material_uniforms.ks.xyz;
-}
-#endif
-
 fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
     return r * INV_PI;
 }
@@ -75,13 +54,12 @@ fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, uv: vec2<f32>) -> v
 }
 
 fn sample_alpha(uv: vec2<f32>) -> f32 {
-    return max(material_uniforms.roughness, 0.08);// cannot < 0.08
+    return material_uniforms.alpha;// cannot < 0.08
 }
 
 fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
     let m_kd = sample_kd(uv);
-    let m_ks = sample_ks(uv);
-    return m_kd * diffuse + m_ks * specular;
+    return m_kd * (diffuse + specular);// combined
 }
 
 //-------------------------------------------------------

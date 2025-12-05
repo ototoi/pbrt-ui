@@ -23,6 +23,7 @@ use crate::model::scene::ResourceManager;
 use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
+use crate::render::wgpu::shader;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -185,11 +186,20 @@ fn create_matte_render_passes(
             ));
         }
     }
-    let ltc_texture = get_ltc_texture(device, queue, "ggx", render_resource_manager);
+    let mut shader_type = "lambertian".to_string();
+    let mut ltc_type = "ggx".to_string();
+    let sigma = get_float(&material.props, "sigma").unwrap_or(0.0);
+    if sigma > 0.0 {
+        let alpha = (sigma.to_radians() / (0.5 * std::f32::consts::PI)).clamp(0.0, 1.0); //convert to alpha
+        uniform_values.push(("alpha".to_string(), RenderUniformValue::Float(alpha)));
+        shader_type = "oren_nayar".to_string();
+        ltc_type = "oren_nayar".to_string();
+    }
+    let ltc_texture = get_ltc_texture(device, queue, &ltc_type, render_resource_manager);
     let render_pass = create_render_pass(
         device,
         queue,
-        "lambertian",
+        &shader_type,
         RenderCategory::Opaque,
         &uniform_values,
         ltc_texture,

@@ -24,6 +24,7 @@ fn test_ltc_fit_invalid_format() {
     let temp_dir = TempDir::new().unwrap();
     let output = Command::new(get_ltc_fit_bin())
         .args(&[
+            "--brdf",
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
