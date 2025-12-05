@@ -1,6 +1,6 @@
 pub mod brdf;
 pub mod brdf_beckmann;
-pub mod brdf_disneydiffuse;
+pub mod brdf_disney_diffuse;
 pub mod brdf_ggx;
 pub mod brdf_oren_nayar;
 pub mod export;
