@@ -1,6 +1,6 @@
 use pbrt_ui::ltc::brdf::Brdf;
 use pbrt_ui::ltc::brdf_beckmann::BrdfBeckmann;
-use pbrt_ui::ltc::brdf_disneydiffuse::BrdfDisneyDiffuse;
+use pbrt_ui::ltc::brdf_disney_diffuse::BrdfDisneyDiffuse;
 use pbrt_ui::ltc::brdf_ggx::BrdfGGX;
 use pbrt_ui::ltc::brdf_oren_nayar::BrdfOrenNayar;
 use pbrt_ui::ltc::export::{write_exr, write_multiple_ltc_arrays};
@@ -17,10 +17,10 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[clap(author, about, version, disable_help_flag = true)]
 struct Options {
-    #[arg(default_value = "ggx")]
+    #[arg(short = 'b', long, default_value = "ggx")]
     brdf: String,
 
-    #[arg(short, long, help = "Output directory path for texture files")]
+    #[arg(short = 'o', long, help = "Output directory path for texture files")]
     output: Option<PathBuf>,
 
     #[arg(
@@ -39,11 +39,12 @@ struct Options {
 }
 
 fn create_brdf(brdf_name: &str) -> Result<Arc<dyn Brdf>, String> {
-    match brdf_name {
+    let brdf_name = brdf_name.to_lowercase();
+    match brdf_name.as_str() {
         "ggx" => Ok(Arc::new(BrdfGGX::new())),
         "beckmann" => Ok(Arc::new(BrdfBeckmann::new())),
-        "disneydiffuse" => Ok(Arc::new(BrdfDisneyDiffuse::new())),
-        "orennayar" => Ok(Arc::new(BrdfOrenNayar::new())),
+        "disneydiffuse" | "disney_diffuse" => Ok(Arc::new(BrdfDisneyDiffuse::new())),
+        "orennayar" | "oren_nayar" => Ok(Arc::new(BrdfOrenNayar::new())),
         _ => Err(format!("Unknown BRDF name: {}", brdf_name)),
     }
 }

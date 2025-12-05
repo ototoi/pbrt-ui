@@ -77,6 +77,7 @@ pub fn generate_ltc_array_code(
     let total_floats = expected_len * 4;
     let estimated_size = total_floats * 15 + 100; // ~15 chars per float plus overhead
     let mut code = String::with_capacity(estimated_size);
+    code.push_str("#[rustfmt::skip]\n");
     code.push_str(&format!(
         "pub const {}: [f32; {}] = [\n",
         const_name, total_floats
@@ -89,7 +90,7 @@ pub fn generate_ltc_array_code(
             let v = data[idx];
             let _ = write!(
                 &mut code,
-                "    {}, {}, {}, {}, // [{}, {}] \n",
+                "    {:>9.6}, {:>9.6}, {:>9.6}, {:>9.6}, // [{:>2}, {:>2}] \n",
                 v.x, v.y, v.z, v.w, i, j
             );
         }
@@ -121,8 +122,8 @@ pub fn write_multiple_ltc_arrays<P: AsRef<Path>>(
 ) -> Result<(), String> {
     // Convert brdf_name to uppercase for const names
     let brdf_upper = brdf_name.to_uppercase();
-    let const_name1 = format!("LTC_{}1", brdf_upper);
-    let const_name2 = format!("LTC_{}2", brdf_upper);
+    let const_name1 = format!("LTC_{}_1", brdf_upper);
+    let const_name2 = format!("LTC_{}_2", brdf_upper);
 
     // Generate code for both arrays
     let code1 = generate_ltc_array_code(&const_name1, tex1, width, height)?;
@@ -213,10 +214,10 @@ mod tests {
 
         let code = result.unwrap();
         assert!(code.contains("pub const LTC_TEST: [f32; 16] = ["));
-        assert!(code.contains("1, 2, 3, 4,"));
-        assert!(code.contains("5, 6, 7, 8,"));
-        assert!(code.contains("9, 10, 11, 12,"));
-        assert!(code.contains("13, 14, 15, 16,"));
+        assert!(code.contains(" 1.000000,  2.000000,  3.000000,  4.000000,"));
+        assert!(code.contains(" 5.000000,  6.000000,  7.000000,  8.000000,"));
+        assert!(code.contains(" 9.000000, 10.000000, 11.000000, 12.000000,"));
+        assert!(code.contains("13.000000, 14.000000, 15.000000, 16.000000,"));
     }
 
     #[test]
@@ -237,8 +238,8 @@ mod tests {
         let content = fs::read_to_string(&path).unwrap();
         assert!(content.contains("// Auto-generated LTC texture data"));
         assert!(content.contains("// BRDF: ggx"));
-        assert!(content.contains("pub const LTC_GGX1"));
-        assert!(content.contains("pub const LTC_GGX2"));
+        assert!(content.contains("pub const LTC_GGX_1"));
+        assert!(content.contains("pub const LTC_GGX_2"));
     }
 
     #[test]
@@ -255,7 +256,7 @@ mod tests {
         assert!(result.is_ok());
 
         let content = fs::read_to_string(&path).unwrap();
-        assert!(content.contains("LTC_BECKMANN1"));
-        assert!(content.contains("LTC_BECKMANN2"));
+        assert!(content.contains("LTC_BECKMANN_1"));
+        assert!(content.contains("LTC_BECKMANN_2"));
     }
 }
