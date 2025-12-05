@@ -75,7 +75,7 @@ pub fn generate_ltc_array_code(
 
     // Pre-allocate string capacity for better performance
     let total_floats = expected_len * 4;
-    let estimated_size = total_floats * 15 + 100; // ~15 chars per float plus overhead
+    let estimated_size = total_floats * 18 + 120; // ~18 chars per float plus overhead for formatting and #[rustfmt::skip]\n
     let mut code = String::with_capacity(estimated_size);
     code.push_str("#[rustfmt::skip]\n");
     code.push_str(&format!(
