@@ -33,6 +33,7 @@ fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
                     max_buffer_size: 4294967292,            // 4 GB
                     min_uniform_buffer_offset_alignment: 256, // 256 bytes
                     min_storage_buffer_offset_alignment: 256, // 256 bytes
+                    max_bind_groups: 8,
                     ..base_limits
                 },
                 ..Default::default()

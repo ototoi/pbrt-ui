@@ -442,6 +442,7 @@ pub fn create_render_pass(
     shader_type: &str,
     render_category: RenderCategory,
     uniform_values: &[(String, RenderUniformValue)],
+    ltc_texture: Option<Arc<RenderTexture>>,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Arc<RenderPass> {
     let shader = create_render_shader(
@@ -469,6 +470,7 @@ pub fn create_render_pass(
         render_category,
         uniform_values: Arc::new(uniform_values_bytes),
         textures,
+        ltc_texture,
     };
     return Arc::new(render_pass);
 }

@@ -144,12 +144,12 @@ var light_texture: texture_2d<f32>;//binding_array<texture_2d<f32>>;
 @binding(7)
 var light_sampler: sampler;
 
-@group(3)
-@binding(8)
+@group(4)
+@binding(0)
 var ltc_texture_array: texture_2d_array<f32>;// LTC lookup texture
 
-@group(3)
-@binding(9)
+@group(4)
+@binding(1)
 var ltc_sampler: sampler;
 
 //-------------------------------------------------------

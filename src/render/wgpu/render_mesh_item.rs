@@ -11,6 +11,8 @@ use super::render_item::get_color;
 use super::render_item::get_float;
 use super::render_item::get_texture;
 use super::render_resource::RenderResourceManager;
+use super::texture::RenderTexture;
+use crate::ltc;
 use crate::model::scene::Light;
 use crate::model::scene::Material;
 use crate::model::scene::MaterialComponent;
@@ -92,6 +94,29 @@ fn roughness_to_alpha(roughness: f32) -> f32 {
         + 0.000640711 * x * x * x * x;
 }
 
+fn get_ltc_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    name: &str,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<Arc<RenderTexture>> {
+    let ltc_texture_id = match name.to_lowercase().as_str() {
+        "ggx" => super::ltc::LTC_GGX_TEXTURE_ID,
+        "oren_nayar" | "orennayar" => super::ltc::LTC_OREN_NAYAR_TEXTURE_ID,
+        _ => return None,
+    };
+    if let Some(texture) = render_resource_manager.get_texture(ltc_texture_id) {
+        return Some(texture.clone());
+    }
+    if let Some(texture) =
+        super::ltc::create_ltc_texture_from_name(device, queue, name).map(Arc::new)
+    {
+        render_resource_manager.add_texture(&texture);
+        return Some(texture);
+    }
+    return None;
+}
+
 fn create_basic_render_passes(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -115,12 +140,14 @@ fn create_basic_render_passes(
             RenderUniformValue::Vec4(specular_color),
         ),
     ];
+    let ltc_texture = get_ltc_texture(device, queue, "ggx", render_resource_manager);
     let render_pass = create_render_pass(
         device,
         queue,
         "basic",
         RenderCategory::Opaque,
         &uniform_values,
+        ltc_texture,
         render_resource_manager,
     );
     return vec![render_pass];
@@ -158,12 +185,14 @@ fn create_matte_render_passes(
             ));
         }
     }
+    let ltc_texture = get_ltc_texture(device, queue, "ggx", render_resource_manager);
     let render_pass = create_render_pass(
         device,
         queue,
         "lambertian",
         RenderCategory::Opaque,
         &uniform_values,
+        ltc_texture,
         render_resource_manager,
     );
     return vec![render_pass];
@@ -210,6 +239,7 @@ fn create_plastic_render_passes(
         "roughness".to_string(),
         RenderUniformValue::Float(roughness),
     ));
+    let ltc_texture = get_ltc_texture(device, queue, "ggx", render_resource_manager);
     //println!("{}: Plastic Shader Type: {}", material.get_name(),shader_type);
     let render_pass = create_render_pass(
         device,
@@ -217,6 +247,7 @@ fn create_plastic_render_passes(
         "lambertian_ggx",
         RenderCategory::Opaque,
         &uniform_values,
+        ltc_texture,
         render_resource_manager,
     );
     return vec![render_pass];
@@ -274,12 +305,14 @@ fn create_glass_render_passes(
     let mut passes = vec![];
     {
         let uniform_values = vec![("kt".to_string(), RenderUniformValue::Vec4(diffuse_color))];
+        let ltc_texture = get_ltc_texture(device, queue, "ggx", render_resource_manager);
         let render_pass = create_render_pass(
             device,
             queue,
             "transmission_none",
             RenderCategory::Transparent,
             &uniform_values,
+            ltc_texture,
             render_resource_manager,
         );
         passes.push(render_pass);
@@ -292,12 +325,14 @@ fn create_glass_render_passes(
                 RenderUniformValue::Float(roughness),
             ),
         ];
+        let ltc_texture = get_ltc_texture(device, queue, "ggx", render_resource_manager);
         let render_pass = create_render_pass(
             device,
             queue,
             "none_ggx",
             RenderCategory::TransparentSpecular,
             &uniform_values,
+            ltc_texture,
             render_resource_manager,
         );
         passes.push(render_pass);
@@ -422,6 +457,7 @@ fn create_render_material_from_light(
                 "arealight_diffuse",
                 RenderCategory::Emissive,
                 &uniform_values,
+                None, //todo ltc texture
                 render_resource_manager,
             );
             passes.push(pass);

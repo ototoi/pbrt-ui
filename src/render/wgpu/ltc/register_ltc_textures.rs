@@ -6,7 +6,8 @@ use eframe::wgpu;
 //use std::sync::Arc;
 use uuid::Uuid;
 
-pub const DEFAULT_LTC_UUID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
+pub const LTC_GGX_TEXTURE_ID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
+pub const LTC_OREN_NAYAR_TEXTURE_ID: Uuid = Uuid::from_u128(0x3f4d5e6c_7a8b_4c9d_8e0f_1a2b3c4d5e6f);
 
 pub fn create_ltc_texture(
     device: &wgpu::Device,
@@ -94,9 +95,34 @@ pub fn create_ltc_texture(
     return render_texture;
 }
 
+fn get_id_and_textures(name: &str) -> Option<(Uuid, Vec<Vec<f32>>)> {
+    match name.to_lowercase().as_str() {
+        "ggx" => Some((
+            LTC_GGX_TEXTURE_ID,
+            vec![LTC_GGX_1.to_vec(), LTC_GGX_2.to_vec()],
+        )),
+        "oren_nayar" | "orennayar" => Some((
+            LTC_OREN_NAYAR_TEXTURE_ID,
+            vec![LTC_OREN_NAYAR_1.to_vec(), LTC_OREN_NAYAR_2.to_vec()],
+        )),
+        _ => None,
+    }
+}
+
+pub fn create_ltc_texture_from_name(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    name: &str,
+) -> Option<RenderTexture> {
+    if let Some((id, data)) = get_id_and_textures(name) {
+        let texture = create_ltc_texture(device, queue, "LTC", id, &data);
+        return Some(texture);
+    }
+    return None;
+}
+
 pub fn create_default_ltc_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> RenderTexture {
-    let data = vec![LTC1.to_vec(), LTC2.to_vec()];
-    return create_ltc_texture(device, queue, "LTC", DEFAULT_LTC_UUID, &data);
+    create_ltc_texture_from_name(device, queue, "ggx").unwrap()
 }
 
 /*

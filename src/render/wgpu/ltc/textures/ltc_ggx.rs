@@ -6,12 +6,9 @@
 // The fitted M matrix data for GGX BRDF material (only for specular term)
 // --------------------------------------------------------------------------------
 
-//16384 = 64 * 64 * 4
-pub const LTC_LUT_SIZE: usize = 64;
-
 // Skip cargo fmt
 #[rustfmt::skip]
-pub const LTC1: [f32; 4 * LTC_LUT_SIZE * LTC_LUT_SIZE] = [
+pub const LTC_GGX_1: [f32; 16384] = [
     1.0, 0.0, 0.0, 2e-05,
 	1.0, 0.0, 0.0, 0.000503905,
 	1.0, 0.0, 0.0, 0.00201562,
@@ -4111,7 +4108,7 @@ pub const LTC1: [f32; 4 * LTC_LUT_SIZE * LTC_LUT_SIZE] = [
 ];
 
 #[rustfmt::skip]
-pub const LTC2: [f32; 4 * LTC_LUT_SIZE * LTC_LUT_SIZE] = [
+pub const LTC_GGX_2: [f32; 16384] = [
 	1.0, 0.0, 0.0, 0.0,
 	1.0, 7.91421e-31, 0.0, 0.0,
 	1.0, 1.04392e-24, 0.0, 0.0,
