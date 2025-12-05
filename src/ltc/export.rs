@@ -90,7 +90,7 @@ pub fn generate_ltc_array_code(
             let v = data[idx];
             let _ = write!(
                 &mut code,
-                "    {:>9.6}, {:>9.6}, {:>9.6}, {:>9.6}, // [{:>2}, {:>2}] \n",
+                "    {:>9.6}, {:>9.6}, {:>9.6}, {:>9.6}, // [{:>2}, {:>2}]\n",
                 v.x, v.y, v.z, v.w, i, j
             );
         }
