@@ -12,6 +12,10 @@ path = "src/bin/pbrt-ui.rs"
 name = "fit-ltc"
 path = "src/bin/fit-ltc.rs"
 
+[[bin]]
+name = "create-uuid"
+path = "src/bin/create-uuid.rs"
+
 [dependencies]
 uuid = { version = "1.16.0", features = ["v4", "serde", "v3"] }
 eframe = { version = "0.32.0", features = ["__screenshot", "serde", "wgpu"] }
