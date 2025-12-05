@@ -1,6 +1,14 @@
 use clap::Parser;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum Format {
+    Hyphenated,
+    Simple,
+    Urn,
+    U128,
+}
+
 #[derive(Debug, Parser)]
 #[clap(author, about = "Generate a UUID", version)]
 struct Options {
@@ -10,7 +18,7 @@ struct Options {
         default_value = "hyphenated",
         help = "Output format: hyphenated, simple, urn, or u128"
     )]
-    format: String,
+    format: Format,
 }
 
 fn main() -> Result<(), String> {
@@ -20,11 +28,11 @@ fn main() -> Result<(), String> {
     let uuid = Uuid::new_v4();
 
     // Format and print the UUID based on the selected format
-    let output = match options.format.as_str() {
-        "hyphenated" => uuid.hyphenated().to_string(),
-        "simple" => uuid.simple().to_string(),
-        "urn" => uuid.urn().to_string(),
-        "u128" => {
+    let output = match options.format {
+        Format::Hyphenated => uuid.to_string(),
+        Format::Simple => uuid.as_simple().to_string(),
+        Format::Urn => uuid.as_urn().to_string(),
+        Format::U128 => {
             let value = uuid.as_u128();
             format!(
                 "0x{:08x}_{:04x}_{:04x}_{:04x}_{:012x}",
@@ -34,12 +42,6 @@ fn main() -> Result<(), String> {
                 ((value >> 48) & 0xFFFF) as u16,
                 (value & 0xFFFF_FFFF_FFFF) as u64
             )
-        }
-        _ => {
-            return Err(format!(
-                "Invalid format: '{}'. Must be 'hyphenated', 'simple', 'urn', or 'u128'",
-                options.format
-            ));
         }
     };
 
