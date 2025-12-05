@@ -22,7 +22,7 @@ impl Material {
     pub fn new(name: &str, t: &str, props: &PropertyMap) -> Self {
         let id = Uuid::new_v4();
         let mut props = props.clone();
-        props.insert("string id", Property::from(Uuid::new_v4().to_string()));
+        props.insert("string id", Property::from(id.to_string()));
         props.insert("string name_", Property::from(name));
         props.insert("string type", Property::from(t));
         replace_properties(&mut props);

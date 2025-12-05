@@ -67,9 +67,9 @@ pub fn get_render_axis_gizmo_items(
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderItem>> {
     const IDS: [Uuid; 3] = [
-        Uuid::from_u128(0x00000000_1000_0000_0000_000000000001), // X Axis
-        Uuid::from_u128(0x00000000_1000_0000_0000_000000000002), // Y Axis
-        Uuid::from_u128(0x00000000_1000_0000_0000_000000000003), // Z Axis
+        Uuid::from_u128(0x8b854e3d_1cc3_471e_8611_5d641851b397), // X Axis
+        Uuid::from_u128(0xf0f5376b_aafe_4d98_b38b_204080a85aaf), // Y Axis
+        Uuid::from_u128(0x06131ab9_8798_41ae_8fb3_077e51034087), // Z Axis
     ];
     let mut render_items = Vec::new();
     for i in 0..3 {
@@ -135,7 +135,7 @@ pub fn get_render_grid_gizmo_items(
     _resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderItem>> {
-    const ID: Uuid = Uuid::from_u128(0x00000000_1000_0000_0000_000000000004); // Unique ID for the grid
+    const ID: Uuid = Uuid::from_u128(0xbf90d763_6731_49c3_9cf2_6f1ca5c58171); // Unique ID for the grid
     const GRID_SIZE: f32 = 1000.0; // Size of the grid
     const GRID_STEP: f32 = 10.0; // Step size for grid lines
     enum PlaneType {
