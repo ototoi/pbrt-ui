@@ -8,7 +8,7 @@ struct Options {
         short = 'f',
         long,
         default_value = "hyphenated",
-        help = "Output format: hyphenated, simple, or urn"
+        help = "Output format: hyphenated, simple, urn, or u128"
     )]
     format: String,
 }
@@ -24,9 +24,20 @@ fn main() -> Result<(), String> {
         "hyphenated" => uuid.hyphenated().to_string(),
         "simple" => uuid.simple().to_string(),
         "urn" => uuid.urn().to_string(),
+        "u128" => {
+            let value = uuid.as_u128();
+            format!(
+                "0x{:08x}_{:04x}_{:04x}_{:04x}_{:012x}",
+                (value >> 96) as u32,
+                ((value >> 80) & 0xFFFF) as u16,
+                ((value >> 64) & 0xFFFF) as u16,
+                ((value >> 48) & 0xFFFF) as u16,
+                (value & 0xFFFF_FFFF_FFFF) as u64
+            )
+        }
         _ => {
             return Err(format!(
-                "Invalid format: '{}'. Must be 'hyphenated', 'simple', or 'urn'",
+                "Invalid format: '{}'. Must be 'hyphenated', 'simple', 'urn', or 'u128'",
                 options.format
             ));
         }
