@@ -57,11 +57,7 @@ pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Ve
 
 /// Helper function for compute_error to avoid code duplication
 fn compute_error_helper(error: f32, pdf: f32) -> f32 {
-    if pdf > 0.0 {
-        error / pdf
-    } else {
-        0.0
-    }
+    if pdf > 0.0 { error / pdf } else { 0.0 }
 }
 
 /// Compute the error between the BRDF and the LTC using Multiple Importance Sampling

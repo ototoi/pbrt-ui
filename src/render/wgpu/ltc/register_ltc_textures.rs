@@ -6,7 +6,7 @@ use eframe::wgpu;
 //use std::sync::Arc;
 use uuid::Uuid;
 
-pub const DEFAULT_LTC_UUID: Uuid = Uuid::from_u128(0x123e4567_e89b_12d3_a456_426614174000);
+pub const DEFAULT_LTC_UUID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
 
 pub fn create_ltc_texture(
     device: &wgpu::Device,

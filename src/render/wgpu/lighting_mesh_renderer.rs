@@ -28,7 +28,7 @@ const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
 const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
-const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0x00000000_0000_0000_FFFF_000000000000);
+const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0xb7814152_c24b_4af1_89a8_40a5fa168488);
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]

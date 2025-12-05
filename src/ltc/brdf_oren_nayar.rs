@@ -48,7 +48,7 @@ impl Brdf for BrdfOrenNayar {
         // Project V and L onto the tangent plane and compute the angle between them
         let V_tangent = glam::Vec3::new(V.x, V.y, 0.0);
         let L_tangent = glam::Vec3::new(L.x, L.y, 0.0);
-        
+
         let cos_phi_diff = if V_tangent.length() > 1e-6 && L_tangent.length() > 1e-6 {
             let V_norm = V_tangent.normalize();
             let L_norm = L_tangent.normalize();
@@ -151,11 +151,11 @@ mod tests {
         let brdf = BrdfOrenNayar::new();
         let V = glam::Vec3::new(0.0, 0.0, 1.0);
         let L = glam::Vec3::new(0.0, 0.0, 1.0);
-        
+
         // With alpha = 0 (smooth surface), should approach Lambertian
         let (value, pdf) = brdf.eval(&V, &L, 0.0);
         let lambertian_value = L.z / std::f32::consts::PI;
-        
+
         assert!((value - lambertian_value).abs() < 1e-5);
         assert!(pdf > 0.0);
     }
