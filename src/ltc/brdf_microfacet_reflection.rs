@@ -16,6 +16,163 @@ pub trait MicrofacetDistribution {
     fn pdf(&self, wo: &glam::Vec3, wh: &glam::Vec3) -> f32;
 }
 
+// Helper functions for spherical coordinates
+fn cos_theta(w: &glam::Vec3) -> f32 {
+    w.z
+}
+
+fn abs_cos_theta(w: &glam::Vec3) -> f32 {
+    w.z.abs()
+}
+
+fn cos_2_theta(w: &glam::Vec3) -> f32 {
+    w.z * w.z
+}
+
+fn sin_2_theta(w: &glam::Vec3) -> f32 {
+    (0.0_f32).max(1.0 - cos_2_theta(w))
+}
+
+fn tan_theta(w: &glam::Vec3) -> f32 {
+    sin_2_theta(w).sqrt() / cos_theta(w)
+}
+
+fn tan_2_theta(w: &glam::Vec3) -> f32 {
+    sin_2_theta(w) / cos_2_theta(w)
+}
+
+fn cos_phi(w: &glam::Vec3) -> f32 {
+    let sin_theta = sin_2_theta(w).sqrt();
+    if sin_theta == 0.0 {
+        1.0
+    } else {
+        (w.x / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
+fn sin_phi(w: &glam::Vec3) -> f32 {
+    let sin_theta = sin_2_theta(w).sqrt();
+    if sin_theta == 0.0 {
+        0.0
+    } else {
+        (w.y / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
+fn cos_2_phi(w: &glam::Vec3) -> f32 {
+    let cp = cos_phi(w);
+    cp * cp
+}
+
+fn sin_2_phi(w: &glam::Vec3) -> f32 {
+    let sp = sin_phi(w);
+    sp * sp
+}
+
+fn spherical_direction(sin_theta: f32, cos_theta: f32, phi: f32) -> glam::Vec3 {
+    glam::Vec3::new(
+        sin_theta * phi.cos(),
+        sin_theta * phi.sin(),
+        cos_theta,
+    )
+}
+
+fn same_hemisphere(w: &glam::Vec3, wp: &glam::Vec3) -> bool {
+    w.z * wp.z > 0.0
+}
+
+fn trowbridge_reitz_sample_11(cos_theta: f32, u1: f32, u2: f32) -> (f32, f32) {
+    // Special case (normal incidence)
+    if cos_theta > 0.9999 {
+        let r = (u1 / (1.0 - u1)).sqrt();
+        let phi = 2.0 * std::f32::consts::PI * u2;
+        return (r * phi.cos(), r * phi.sin());
+    }
+
+    let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
+    let tan_theta = sin_theta / cos_theta;
+    let a = 1.0 / tan_theta;
+    let g1 = 2.0 / (1.0 + (1.0 + 1.0 / (a * a)).sqrt());
+
+    // Sample slope_x
+    let a_sample = 2.0 * u1 / g1 - 1.0;
+    let tmp = (1.0 / (a_sample * a_sample - 1.0)).min(1e10);
+    let b = tan_theta;
+    let d = (b * b * tmp * tmp - (a_sample * a_sample - b * b) * tmp).max(0.0).sqrt();
+    let slope_x_1 = b * tmp - d;
+    let slope_x_2 = b * tmp + d;
+    let slope_x = if a_sample < 0.0 || slope_x_2 > 1.0 / tan_theta {
+        slope_x_1
+    } else {
+        slope_x_2
+    };
+
+    // Sample slope_y
+    let (s, u2) = if u2 > 0.5 {
+        (1.0, 2.0 * (u2 - 0.5))
+    } else {
+        (-1.0, 2.0 * (0.5 - u2))
+    };
+    let z = (u2 * (u2 * (u2 * 0.27385 - 0.73369) + 0.46341))
+        / (u2 * (u2 * (u2 * 0.093073 + 0.309420) - 1.000000) + 0.597999);
+    let slope_y = s * z * (1.0 + slope_x * slope_x).sqrt();
+
+    (slope_x, slope_y)
+}
+
+fn trowbridge_reitz_sample(
+    wi: &glam::Vec3,
+    alpha_x: f32,
+    alpha_y: f32,
+    u1: f32,
+    u2: f32,
+) -> glam::Vec3 {
+    // 1. stretch wi
+    let wi_stretched = glam::Vec3::new(alpha_x * wi.x, alpha_y * wi.y, wi.z).normalize();
+
+    // 2. simulate P22_{wi}(x_slope, y_slope, 1, 1)
+    let (mut slope_x, mut slope_y) = trowbridge_reitz_sample_11(cos_theta(&wi_stretched), u1, u2);
+
+    // 3. rotate
+    let tmp = cos_phi(&wi_stretched) * slope_x - sin_phi(&wi_stretched) * slope_y;
+    slope_y = sin_phi(&wi_stretched) * slope_x + cos_phi(&wi_stretched) * slope_y;
+    slope_x = tmp;
+
+    // 4. unstretch
+    slope_x *= alpha_x;
+    slope_y *= alpha_y;
+
+    // 5. compute normal
+    glam::Vec3::new(-slope_x, -slope_y, 1.0).normalize()
+}
+
+fn sample_wh_helper(alphax: f32, alphay: f32, u1: f32, u2: f32) -> (f32, f32, f32) {
+    let u1 = u1.clamp(1e-6, 1.0 - 1e-6);
+    let u2 = u2.clamp(1e-6, 1.0 - 1e-6);
+
+    if alphax == alphay {
+        let tan_theta_2 = alphax * alphax * u1 / (1.0 - u1);
+        let phi = 2.0 * std::f32::consts::PI * u2;
+        let cos_theta = 1.0 / (1.0 + tan_theta_2).sqrt();
+        let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
+        (sin_theta, cos_theta, phi)
+    } else {
+        let mut phi = (alphay / alphax * (2.0 * std::f32::consts::PI * u2 + 0.5 * std::f32::consts::PI).tan()).atan();
+        if u2 > 0.5 {
+            phi += std::f32::consts::PI;
+        }
+        let sin_phi = phi.sin();
+        let cos_phi = phi.cos();
+        let alphax2 = alphax * alphax;
+        let alphay2 = alphay * alphay;
+        let alpha2 = 1.0 / (cos_phi * cos_phi / alphax2 + sin_phi * sin_phi / alphay2);
+        let tan_theta_2 = alpha2 * u1 / (1.0 - u1);
+        let cos_theta = 1.0 / (1.0 + tan_theta_2).sqrt();
+        let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
+        (sin_theta, cos_theta, phi)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TrowbridgeReitzDistribution {
     alphax: f32,
@@ -23,145 +180,53 @@ pub struct TrowbridgeReitzDistribution {
     samplevis: bool,
 }
 
-impl TrowbridgeReitzDistribution {
-    fn sample_wh_visible(&self, wo: &glam::Vec3, u: &glam::Vec2) -> glam::Vec3 {
-        // Stretch wo
-        let wo_stretched = glam::Vec3::new(
-            self.alphax * wo.x,
-            self.alphay * wo.y,
-            wo.z
-        ).normalize();
-        
-        // Simulate P22_{wo}(x_slope, y_slope, 1, 1)
-        let (slope_x, slope_y) = self.sample_p22_11(wo_stretched.z, u);
-        
-        // Rotate and unstretch
-        let tmp = wo_stretched.z.signum() * (wo_stretched.x * slope_x + wo_stretched.y * slope_y - wo_stretched.z);
-        glam::Vec3::new(
-            -self.alphax * slope_x + tmp * wo_stretched.x,
-            -self.alphay * slope_y + tmp * wo_stretched.y,
-            tmp * wo_stretched.z + wo_stretched.z.signum()
-        ).normalize()
-    }
-    
-    fn sample_p22_11(&self, cos_theta: f32, u: &glam::Vec2) -> (f32, f32) {
-        // Special case (normal incidence)
-        if cos_theta > 0.9999 {
-            let r = (u.x / (1.0 - u.x)).sqrt();
-            let phi = 2.0 * std::f32::consts::PI * u.y;
-            return (r * phi.cos(), r * phi.sin());
-        }
-        
-        let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
-        let tan_theta = sin_theta / cos_theta;
-        let a = 1.0 / tan_theta;
-        let g1 = 2.0 / (1.0 + (1.0 + 1.0 / (a * a)).sqrt());
-        
-        // Sample slope_x
-        let a = 2.0 * u.x / g1 - 1.0;
-        let mut tmp = 1.0 / (a * a - 1.0);
-        if tmp > 1e10 {
-            tmp = 1e10;
-        }
-        let b = tan_theta;
-        let d = (b * b * tmp * tmp - (a * a - b * b) * tmp).max(0.0).sqrt();
-        let slope_x_1 = b * tmp - d;
-        let slope_x_2 = b * tmp + d;
-        let slope_x = if a < 0.0 || slope_x_2 > 1.0 / tan_theta {
-            slope_x_1
-        } else {
-            slope_x_2
-        };
-        
-        // Sample slope_y
-        let s = if u.y > 0.5 {
-            1.0
-        } else {
-            -1.0
-        };
-        let u2 = (u.y - 0.5).abs() * 2.0;
-        let z = (u2 * (u2 * (u2 * 0.27385 - 0.73369) + 0.46341)) /
-                (u2 * (u2 * (u2 * 0.093073 + 0.309420) - 1.000000) + 0.597999);
-        let slope_y = s * z * (1.0 + slope_x * slope_x).sqrt();
-        
-        (slope_x, slope_y)
-    }
-}
-
 impl MicrofacetDistribution for TrowbridgeReitzDistribution {
     fn d(&self, wh: &glam::Vec3) -> f32 {
-        let tan2_theta = (wh.x * wh.x + wh.y * wh.y) / (wh.z * wh.z);
-        if tan2_theta.is_infinite() {
+        let tan_2_theta = tan_2_theta(wh);
+        if tan_2_theta.is_infinite() {
             return 0.0;
         }
-        let cos4_theta = wh.z * wh.z * wh.z * wh.z;
-        if cos4_theta < 1e-16 {
-            return 0.0;
-        }
-        let e = tan2_theta * ((wh.x / self.alphax) * (wh.x / self.alphax) + 
-                              (wh.y / self.alphay) * (wh.y / self.alphay));
-        let result = 1.0 / (std::f32::consts::PI * self.alphax * self.alphay * cos4_theta * (1.0 + e) * (1.0 + e));
-        result
+        let cos_2_theta = cos_2_theta(wh);
+        let cos_4_theta = cos_2_theta * cos_2_theta;
+        let e = (cos_2_phi(wh) / (self.alphax * self.alphax) + sin_2_phi(wh) / (self.alphay * self.alphay)) * tan_2_theta;
+        let e2 = (1.0 + e) * (1.0 + e);
+        1.0 / (std::f32::consts::PI * self.alphax * self.alphay * cos_4_theta * e2)
     }
 
     fn lambda(&self, w: &glam::Vec3) -> f32 {
-        let abs_tan_theta = ((w.x * w.x + w.y * w.y) / (w.z * w.z)).sqrt().abs();
+        let abs_tan_theta = tan_theta(w).abs();
         if abs_tan_theta.is_infinite() {
             return 0.0;
         }
-        // Compute alpha for direction w
-        let cos2_phi = if w.x * w.x + w.y * w.y > 0.0 {
-            (w.x * w.x) / (w.x * w.x + w.y * w.y)
-        } else {
-            1.0
-        };
-        let sin2_phi = if w.x * w.x + w.y * w.y > 0.0 {
-            (w.y * w.y) / (w.x * w.x + w.y * w.y)
-        } else {
-            0.0
-        };
-        let alpha = (cos2_phi * self.alphax * self.alphax + sin2_phi * self.alphay * self.alphay).sqrt();
-        let alpha2_tan2_theta = (alpha * abs_tan_theta) * (alpha * abs_tan_theta);
-        (-1.0 + (1.0 + alpha2_tan2_theta).sqrt()) / 2.0
+        let alpha = (cos_2_phi(w) * self.alphax * self.alphax + sin_2_phi(w) * self.alphay * self.alphay).sqrt();
+        let alpha_2_tan_2_theta = (alpha * abs_tan_theta) * (alpha * abs_tan_theta);
+        (-1.0 + (1.0 + alpha_2_tan_2_theta).sqrt()) / 2.0
     }
 
     fn sample_wh(&self, wo: &glam::Vec3, u: &glam::Vec2) -> glam::Vec3 {
-        let mut wh = if self.samplevis {
-            // Visible normal sampling for GGX
-            let flip = wo.z < 0.0;
-            let wo_corrected = if flip { -(*wo) } else { *wo };
-            let wh_local = self.sample_wh_visible(&wo_corrected, u);
-            if flip { -wh_local } else { wh_local }
+        if !self.samplevis {
+            let (sin_theta, cos_theta, phi) = sample_wh_helper(self.alphax, self.alphay, u.x, u.y);
+            let mut wh = spherical_direction(sin_theta, cos_theta, phi).normalize();
+            if !same_hemisphere(wo, &wh) {
+                wh = -wh;
+            }
+            wh
         } else {
-            // Sample visible area of normals for TrowbridgeReitz distribution
-            let cos_theta = if self.alphax == self.alphay {
-                let alpha = self.alphax;
-                let tan2_theta = alpha * alpha * u.y / (1.0 - u.y);
-                (1.0 / (1.0 + tan2_theta)).sqrt()
-            } else {
-                let phi = std::f32::consts::PI * 2.0 * u.x;
-                let cos_phi = phi.cos();
-                let sin_phi = phi.sin();
-                let alphax2 = self.alphax * self.alphax;
-                let alphay2 = self.alphay * self.alphay;
-                let alpha2 = 1.0 / (cos_phi * cos_phi / alphax2 + sin_phi * sin_phi / alphay2);
-                let tan2_theta = alpha2 * u.y / (1.0 - u.y);
-                (1.0 / (1.0 + tan2_theta)).sqrt()
-            };
-            let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
-            let phi = u.x * 2.0 * std::f32::consts::PI;
-            glam::Vec3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta)
-        };
-        
-        wh = wh.normalize();
-        wh
+            let flip = wo.z < 0.0;
+            let wo_corrected = if flip { -*wo } else { *wo };
+            let mut wh = trowbridge_reitz_sample(&wo_corrected, self.alphax, self.alphay, u.x, u.y);
+            if flip {
+                wh = -wh;
+            }
+            wh
+        }
     }
 
     fn pdf(&self, wo: &glam::Vec3, wh: &glam::Vec3) -> f32 {
         if self.samplevis {
-            self.d(wh) * self.g1(wo) * wo.dot(*wh).abs() / wo.z.abs()
+            self.d(wh) * self.g1(wo) * wo.dot(*wh).abs() / abs_cos_theta(wo)
         } else {
-            self.d(wh) * wh.z.abs()
+            self.d(wh) * abs_cos_theta(wh)
         }
     }
 }
@@ -240,7 +305,6 @@ impl Brdf for BrdfMicrofacetReflection {
         let g = distribution.g(V, L);
         
         // BRDF formula: f(wo, wi) = F * D * G / (4 * cos_theta_o * cos_theta_i)
-        // But we simplify by removing division by cos_theta_i in the return value
         let brdf_value = if cos_theta_i > 0.0 && cos_theta_o > 0.0 {
             f * d * g / (4.0 * cos_theta_o * cos_theta_i)
         } else {
@@ -257,7 +321,7 @@ impl Brdf for BrdfMicrofacetReflection {
         
         (brdf_value, pdf)
     }
-    
+
     fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let distribution = create_distribution(alpha);
         
@@ -267,6 +331,7 @@ impl Brdf for BrdfMicrofacetReflection {
         let wh = distribution.sample_wh(V, &u);
         
         // Reflect V about wh to get wi (L)
+        // Standard reflection formula: wi = -V + 2(wh·V)wh
         let wi = -(*V) + 2.0 * wh * wh.dot(*V);
         
         wi
