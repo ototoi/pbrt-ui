@@ -1,46 +1,7 @@
 #![allow(non_snake_case)]
 
 use super::brdf::Brdf;
-
-#[inline]
-pub fn cos_2_theta(w: &glam::Vec3) -> f32 {
-    return w.z * w.z;
-}
-
-#[inline]
-pub fn abs_cos_theta(w: &glam::Vec3) -> f32 {
-    return f32::abs(w.z);
-}
-
-#[inline]
-pub fn sin_2_theta(w: &glam::Vec3) -> f32 {
-    return f32::max(0.0, 1.0 - cos_2_theta(w));
-}
-
-#[inline]
-pub fn sin_theta(w: &glam::Vec3) -> f32 {
-    return f32::sqrt(sin_2_theta(w));
-}
-
-#[inline]
-pub fn cos_phi(w: &glam::Vec3) -> f32 {
-    let sin = sin_theta(w);
-    return if sin <= 1e-6 {
-        1.0
-    } else {
-        f32::clamp(w.x / sin, -1.0, 1.0)
-    };
-}
-
-#[inline]
-pub fn sin_phi(w: &glam::Vec3) -> f32 {
-    let sin = sin_theta(w);
-    return if sin <= 1e-6 {
-        0.0
-    } else {
-        f32::clamp(w.y / sin, -1.0, 1.0)
-    };
-}
+use super::math::{abs_cos_theta, cos_phi, sin_phi, sin_theta};
 
 fn safe_div(a: f32, b: f32) -> f32 {
     if b.abs() < 1e-6 {
