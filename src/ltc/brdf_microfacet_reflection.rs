@@ -237,7 +237,7 @@ impl Brdf for BrdfMicrofacetReflection {
         // Compute PDF
         let v_dot_wh = V.dot(wh);
         let pdf = if v_dot_wh.abs() > 1e-10 {
-            distribution.pdf(V, &wh) / (4.0 * v_dot_wh)
+            distribution.pdf(V, &wh) / (4.0 * v_dot_wh.abs())
         } else {
             0.0
         };
