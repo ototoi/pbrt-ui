@@ -107,51 +107,6 @@ impl Brdf for BrdfOrenNayar {
         let value = (A + B * max_cos * sin_alpha_tan_beta) / std::f32::consts::PI;
         let pdf = L.z / std::f32::consts::PI;
         (value, pdf)
-        /*
-        // PDF for cosine-weighted hemisphere sampling
-        let pdf = L.z / std::f32::consts::PI;
-
-        // Oren-Nayar BRDF calculation
-        // sigma = alpha * PI * 0.5
-        let sigma = alpha * std::f32::consts::PI * 0.5;
-        let sigma2 = sigma * sigma;
-
-        // Precompute coefficients
-        let A = 1.0 - 0.5 * sigma2 / (sigma2 + 0.33);
-        let B = 0.45 * sigma2 / (sigma2 + 0.09);
-
-        // Angles
-        let NdotL = L.z;
-        let NdotV = V.z;
-
-        // Compute theta_i and theta_r (angles from normal)
-        let theta_i = NdotL.acos();
-        let theta_r = NdotV.acos();
-
-        // Determine alpha and beta (larger and smaller angles)
-        let (sin_alpha, tan_beta) = if theta_i > theta_r {
-            (theta_i.sin(), theta_r.tan())
-        } else {
-            (theta_r.sin(), theta_i.tan())
-        };
-
-        // Compute azimuthal difference
-        // Project V and L onto the tangent plane and compute the angle between them
-        let V_tangent = glam::Vec3::new(V.x, V.y, 0.0);
-        let L_tangent = glam::Vec3::new(L.x, L.y, 0.0);
-
-        let cos_phi_diff = if V_tangent.length() > 1e-6 && L_tangent.length() > 1e-6 {
-            let V_norm = V_tangent.normalize();
-            let L_norm = L_tangent.normalize();
-            V_norm.dot(L_norm).clamp(-1.0, 1.0).max(0.0)
-        } else {
-            1.0
-        };
-
-        // Oren-Nayar formula
-        let value = (A + B * cos_phi_diff * sin_alpha * tan_beta) / std::f32::consts::PI;
-        (value, pdf)
-        */
     }
 
     fn sample(&self, _V: &glam::Vec3, _alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
