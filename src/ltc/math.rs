@@ -38,7 +38,7 @@ pub fn tan_2_theta(w: &glam::Vec3) -> f32 {
 #[inline]
 pub fn cos_phi(w: &glam::Vec3) -> f32 {
     let sin_theta = sin_2_theta(w).sqrt();
-    if sin_theta == 0.0 {
+    if sin_theta < 1e-6 {
         1.0
     } else {
         (w.x / sin_theta).clamp(-1.0, 1.0)
@@ -48,7 +48,7 @@ pub fn cos_phi(w: &glam::Vec3) -> f32 {
 #[inline]
 pub fn sin_phi(w: &glam::Vec3) -> f32 {
     let sin_theta = sin_2_theta(w).sqrt();
-    if sin_theta == 0.0 {
+    if sin_theta < 1e-6 {
         0.0
     } else {
         (w.y / sin_theta).clamp(-1.0, 1.0)
