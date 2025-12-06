@@ -43,8 +43,10 @@ fn create_brdf(brdf_name: &str) -> Result<Arc<dyn Brdf>, String> {
     match brdf_name.as_str() {
         "ggx" => Ok(Arc::new(BrdfGGX::new())),
         "beckmann" => Ok(Arc::new(BrdfBeckmann::new())),
-        "disneydiffuse" | "disney_diffuse" => Ok(Arc::new(BrdfDisneyDiffuse::new())),
-        "orennayar" | "oren_nayar" => Ok(Arc::new(BrdfOrenNayar::new())),
+        "disneydiffuse" | "disney_diffuse" | "disney-diffuse" => {
+            Ok(Arc::new(BrdfDisneyDiffuse::new()))
+        }
+        "orennayar" | "oren_nayar" | "oren-nayar" => Ok(Arc::new(BrdfOrenNayar::new())),
         _ => Err(format!("Unknown BRDF name: {}", brdf_name)),
     }
 }

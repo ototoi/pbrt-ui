@@ -2,6 +2,54 @@
 
 use super::brdf::Brdf;
 
+#[inline]
+pub fn cos_2_theta(w: &glam::Vec3) -> f32 {
+    return w.z * w.z;
+}
+
+#[inline]
+pub fn abs_cos_theta(w: &glam::Vec3) -> f32 {
+    return f32::abs(w.z);
+}
+
+#[inline]
+pub fn sin_2_theta(w: &glam::Vec3) -> f32 {
+    return f32::max(0.0, 1.0 - cos_2_theta(w));
+}
+
+#[inline]
+pub fn sin_theta(w: &glam::Vec3) -> f32 {
+    return f32::sqrt(sin_2_theta(w));
+}
+
+#[inline]
+pub fn cos_phi(w: &glam::Vec3) -> f32 {
+    let sin = sin_theta(w);
+    return if sin <= 1e-6 {
+        1.0
+    } else {
+        f32::clamp(w.x / sin, -1.0, 1.0)
+    };
+}
+
+#[inline]
+pub fn sin_phi(w: &glam::Vec3) -> f32 {
+    let sin = sin_theta(w);
+    return if sin <= 1e-6 {
+        0.0
+    } else {
+        f32::clamp(w.y / sin, -1.0, 1.0)
+    };
+}
+
+fn safe_div(a: f32, b: f32) -> f32 {
+    if b.abs() < 1e-6 {
+        1.0
+    } else {
+        (a / b).min(1.0)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BrdfOrenNayar;
 
@@ -17,8 +65,8 @@ impl Brdf for BrdfOrenNayar {
             return (0.0, 0.0);
         }
 
-        // PDF for cosine-weighted hemisphere sampling
-        let pdf = L.z / std::f32::consts::PI;
+        let wi = L;
+        let wo = V;
 
         // Oren-Nayar BRDF calculation
         // sigma = alpha * PI * 0.5
@@ -29,37 +77,35 @@ impl Brdf for BrdfOrenNayar {
         let A = 1.0 - 0.5 * sigma2 / (sigma2 + 0.33);
         let B = 0.45 * sigma2 / (sigma2 + 0.09);
 
-        // Angles
-        let NdotL = L.z;
-        let NdotV = V.z;
+        let sin_theta_i = sin_theta(wi);
+        let sin_theta_o = sin_theta(wo);
 
-        // Compute theta_i and theta_r (angles from normal)
-        let theta_i = NdotL.acos();
-        let theta_r = NdotV.acos();
+        // Compute cosine term of Oren-Nayar model
+        let mut max_cos = 0.0;
+        if sin_theta_i > 1e-6 && sin_theta_o > 1e-6 {
+            let sin_phi_i = sin_phi(wi);
+            let cos_phi_i = cos_phi(wi);
+            let sin_phi_o = sin_phi(wo);
+            let cos_phi_o = cos_phi(wo);
+            let d_cos = cos_phi_i * cos_phi_o + sin_phi_i * sin_phi_o;
+            max_cos = d_cos.max(0.0);
+        }
 
-        // Determine alpha and beta (larger and smaller angles)
-        let (sin_alpha, tan_beta) = if theta_i > theta_r {
-            (theta_i.sin(), theta_r.tan())
+        // Compute sine and tangent terms of Oren-Nayar model
+
+        //let (sin_alpha, tan_beta) = if abs_cos_theta(wi) > abs_cos_theta(wo) {
+        //    (sin_theta_o, safe_div(sin_theta_i, abs_cos_theta(wi)))
+        //} else {
+        //    (sin_theta_i, safe_div(sin_theta_o, abs_cos_theta(wo)))
+        //};
+        let sin_alpha_tan_beta = if abs_cos_theta(wi) > abs_cos_theta(wo) {
+            safe_div(sin_theta_o * sin_theta_i, abs_cos_theta(wi))
         } else {
-            (theta_r.sin(), theta_i.tan())
+            safe_div(sin_theta_i * sin_theta_o, abs_cos_theta(wo))
         };
 
-        // Compute azimuthal difference
-        // Project V and L onto the tangent plane and compute the angle between them
-        let V_tangent = glam::Vec3::new(V.x, V.y, 0.0);
-        let L_tangent = glam::Vec3::new(L.x, L.y, 0.0);
-
-        let cos_phi_diff = if V_tangent.length() > 1e-6 && L_tangent.length() > 1e-6 {
-            let V_norm = V_tangent.normalize();
-            let L_norm = L_tangent.normalize();
-            V_norm.dot(L_norm).clamp(-1.0, 1.0).max(0.0)
-        } else {
-            1.0
-        };
-
-        // Oren-Nayar formula
-        let value = (A + B * cos_phi_diff * sin_alpha * tan_beta) * NdotL / std::f32::consts::PI;
-
+        let value = (A + B * max_cos * sin_alpha_tan_beta) / std::f32::consts::PI;
+        let pdf = L.z / std::f32::consts::PI;
         (value, pdf)
     }
 
