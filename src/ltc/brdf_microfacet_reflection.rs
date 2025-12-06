@@ -186,22 +186,6 @@ impl MicrofacetDistributionFactory for TrowbridgeReitzDistributionFactory {
     }
 }
 
-
-#[derive(Clone)]
-pub struct BrdfMicrofacetReflection {
-    pub factory: Arc<dyn MicrofacetDistributionFactory>,
-}
-
-
-impl BrdfMicrofacetReflection {
-    pub fn new(factory: &Arc<dyn MicrofacetDistributionFactory>) -> Self {
-        Self {
-            factory: factory.clone(),
-        }
-    }
-}
-*/
-
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BrdfMicrofacetReflection;
 
