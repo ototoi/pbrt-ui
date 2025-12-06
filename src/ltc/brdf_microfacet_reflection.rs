@@ -226,14 +226,15 @@ impl Brdf for BrdfMicrofacetReflection {
         let cos_theta_o = V.z;
         let cos_theta_i = L.z;
         
-        // Compute half vector
-        let vh_sum = *V + *L;
-        let vh_length_sq = vh_sum.length_squared();
-        if vh_length_sq < 1e-10 {
-            // V and L are opposite, no valid half vector
+        // Check if V and L are opposite directions
+        let v_dot_l = V.dot(*L);
+        if v_dot_l <= 0.0 {
+            // V and L are opposite or perpendicular, no valid BRDF contribution
             return (0.0, 0.0);
         }
-        let wh = vh_sum.normalize();
+        
+        // Compute half vector
+        let wh = (*V + *L).normalize();
         
         // Fresnel is fixed to 1.0 as per the problem statement
         let f = 1.0;
