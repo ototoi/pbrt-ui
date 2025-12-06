@@ -169,23 +169,6 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
     }
 }
 
-/* 
-pub trait MicrofacetDistributionFactory {
-    fn create(&self, alpha: f32) -> Arc<dyn MicrofacetDistribution>;
-}
-
-pub struct TrowbridgeReitzDistributionFactory;
-
-impl MicrofacetDistributionFactory for TrowbridgeReitzDistributionFactory {
-    fn create(&self, alpha: f32) -> Arc<dyn MicrofacetDistribution> {
-        Arc::new(TrowbridgeReitzDistribution {
-            alphax: alpha,
-            alphay: alpha,
-            samplevis: true,
-        })
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BrdfMicrofacetReflection;
 
