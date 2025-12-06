@@ -1,5 +1,6 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
+use super::ltc::get_ltc_texture;
 use super::material::RenderCategory;
 use super::material::RenderMaterial;
 use super::material::RenderPass;
@@ -442,6 +443,7 @@ pub fn create_render_pass(
     shader_type: &str,
     render_category: RenderCategory,
     uniform_values: &[(String, RenderUniformValue)],
+    ltc_type: &str,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Arc<RenderPass> {
     let shader = create_render_shader(
@@ -463,12 +465,16 @@ pub fn create_render_pass(
             textures.push(texture.clone());
         }
     }
+
+    let ltc_texture = get_ltc_texture(device, queue, ltc_type, render_resource_manager);
+
     let render_pass = RenderPass {
         id: Uuid::new_v4(),
         shader,
         render_category,
         uniform_values: Arc::new(uniform_values_bytes),
         textures,
+        ltc_texture,
     };
     return Arc::new(render_pass);
 }
@@ -608,7 +614,7 @@ fn get_normal_texture_from_image(
     queue: &wgpu::Queue,
     texture_image: &DynaImage,
 ) -> Option<wgpu::Texture> {
-    println!("get_normal_texture_from_image called");
+    //println!("get_normal_texture_from_image called");
     match &texture_image {
         DynaImage::ImageLuma8(img) => {
             //

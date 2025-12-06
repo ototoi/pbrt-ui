@@ -5,7 +5,7 @@ use std::collections::HashMap;
 //type, key_type, key_name, value
 pub const V3_MATERIAL_PARAMETERS: [(&str, &str, &str, &str, &str); 100] = [
     ("matte", "color", "Kd", "0.5 0.5 0.5", ""),
-    ("matte", "float", "sigma", "0.0", ""),
+    ("matte", "float", "sigma", "0.0", "0.0 90.0"),
     ("matte", "texture", "bumpmap", "", ""),
     //
     ("plastic", "color", "Kd", "0.25 0.25 0.25", ""),

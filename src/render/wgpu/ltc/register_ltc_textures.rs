@@ -1,12 +1,13 @@
-//use super::super::render_resource::RenderResourceManager;
+use super::super::render_resource::RenderResourceManager;
 use super::super::texture::RenderTexture;
 use super::textures::*;
 
 use eframe::wgpu;
-//use std::sync::Arc;
+use std::sync::Arc;
 use uuid::Uuid;
 
-pub const DEFAULT_LTC_UUID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
+pub const LTC_GGX_TEXTURE_ID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
+pub const LTC_OREN_NAYAR_TEXTURE_ID: Uuid = Uuid::from_u128(0x3f4d5e6c_7a8b_4c9d_8e0f_1a2b3c4d5e6f);
 
 pub fn create_ltc_texture(
     device: &wgpu::Device,
@@ -94,9 +95,39 @@ pub fn create_ltc_texture(
     return render_texture;
 }
 
-pub fn create_default_ltc_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> RenderTexture {
-    let data = vec![LTC1.to_vec(), LTC2.to_vec()];
-    return create_ltc_texture(device, queue, "LTC", DEFAULT_LTC_UUID, &data);
+fn get_id_and_textures(name: &str) -> Option<(Uuid, Vec<Vec<f32>>)> {
+    match name.to_lowercase().as_str() {
+        "ggx" => Some((
+            LTC_GGX_TEXTURE_ID,
+            vec![LTC_GGX_1.to_vec(), LTC_GGX_2.to_vec()],
+        )),
+        "oren_nayar" | "orennayar" => Some((
+            LTC_OREN_NAYAR_TEXTURE_ID,
+            vec![LTC_OREN_NAYAR_1.to_vec(), LTC_OREN_NAYAR_2.to_vec()],
+        )),
+        _ => None,
+    }
+}
+
+pub fn get_ltc_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    name: &str,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<Arc<RenderTexture>> {
+    if name == "" {
+        return None;
+    }
+    if let Some((id, data)) = get_id_and_textures(name) {
+        if let Some(render_texture) = render_resource_manager.get_texture(id) {
+            return Some(render_texture.clone());
+        }
+        let render_texture = create_ltc_texture(device, queue, "LTC", id, &data);
+        let render_texture = Arc::new(render_texture);
+        render_resource_manager.add_texture(&render_texture);
+        return Some(render_texture);
+    }
+    return None;
 }
 
 /*

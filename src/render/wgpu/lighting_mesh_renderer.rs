@@ -1,5 +1,3 @@
-use super::ltc::DEFAULT_LTC_UUID;
-use super::ltc::create_default_ltc_texture;
 use super::material::RenderCategory;
 use super::material::RenderPass;
 use super::mesh::RenderVertex;
@@ -149,11 +147,15 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
 #[derive(Debug, Clone)]
 struct MaterialBindGroupEntry {
     pub id: Uuid,
-    pub bind_group: wgpu::BindGroup,
+    pub material_bind_group: wgpu::BindGroup,
     #[allow(dead_code)]
     pub uniform_buffer: wgpu::Buffer,
     #[allow(dead_code)]
     pub textures: Vec<Arc<RenderTexture>>,
+
+    pub ltc_bind_group: Option<wgpu::BindGroup>,
+    #[allow(dead_code)]
+    pub ltc_texture: Option<Arc<RenderTexture>>,
 }
 
 #[derive(Debug, Clone)]
@@ -190,6 +192,9 @@ pub struct LightingMeshRenderer {
     disk_light_buffer: wgpu::Buffer,
     rect_light_buffer: wgpu::Buffer,
     infinite_light_buffer: wgpu::Buffer,
+
+    #[allow(dead_code)]
+    ltc_bind_group_layout: wgpu::BindGroupLayout,
 
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
@@ -317,9 +322,14 @@ impl LightingMeshRenderer {
                     //material params
                     render_pass.set_bind_group(
                         2,
-                        &pipeline_entry.material_bind_groups[material_index].bind_group,
+                        &pipeline_entry.material_bind_groups[material_index].material_bind_group,
                         &[],
                     );
+                    if let Some(ltc_bind_group) =
+                        &pipeline_entry.material_bind_groups[material_index].ltc_bind_group
+                    {
+                        render_pass.set_bind_group(4, ltc_bind_group, &[]);
+                    }
                     render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
                     render_pass.set_index_buffer(
                         mesh_item.mesh.index_buffer.slice(..),
@@ -407,7 +417,8 @@ impl LightingMeshRenderer {
     fn create_material_bind_group(
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
-        layout: &wgpu::BindGroupLayout,
+        material_bind_group_layout: &wgpu::BindGroupLayout,
+        ltc_bind_group_layout: &wgpu::BindGroupLayout,
         render_pass: &RenderPass,
     ) -> MaterialBindGroupEntry {
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -437,18 +448,43 @@ impl LightingMeshRenderer {
             });
         }
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let material_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Material Bind Group"),
-            layout: layout,
+            layout: material_bind_group_layout,
             entries: &entries,
         });
+
+        let (ltc_bind_group, ltc_texture) =
+            if let Some(ltc_texture) = render_pass.ltc_texture.as_ref() {
+                let ltc_entries = vec![
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&ltc_texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&ltc_texture.sampler),
+                    },
+                ];
+                let ltc_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("LTC Bind Group"),
+                    layout: ltc_bind_group_layout,
+                    entries: &ltc_entries,
+                });
+                (Some(ltc_bind_group), Some(ltc_texture.clone()))
+            } else {
+                (None, None)
+            };
+
         let id = render_pass.id;
         let textures = render_pass.textures.clone();
         return MaterialBindGroupEntry {
             id,
-            bind_group,
+            material_bind_group,
             uniform_buffer,
             textures,
+            ltc_bind_group,
+            ltc_texture,
         };
     }
 
@@ -533,6 +569,7 @@ impl LightingMeshRenderer {
                             device,
                             queue,
                             &entry.material_bind_group_layout,
+                            &self.ltc_bind_group_layout,
                             pass,
                         );
                         entry.material_bind_groups.push(Arc::new(bind_group_entry));
@@ -550,10 +587,6 @@ impl LightingMeshRenderer {
         light_texture_view: &wgpu::TextureView,
         light_sampler: &wgpu::Sampler,
     ) -> wgpu::BindGroup {
-        let default_ltc_texture = self
-            .textures
-            .get(&DEFAULT_LTC_UUID)
-            .expect("Default LTC texture not found");
         let layout = &self.light_bind_group_layout;
         let entries = vec![
             wgpu::BindGroupEntry {
@@ -587,14 +620,6 @@ impl LightingMeshRenderer {
             wgpu::BindGroupEntry {
                 binding: 7,
                 resource: wgpu::BindingResource::Sampler(light_sampler),
-            },
-            wgpu::BindGroupEntry {
-                binding: 8,
-                resource: wgpu::BindingResource::TextureView(&default_ltc_texture.view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 9,
-                resource: wgpu::BindingResource::Sampler(&default_ltc_texture.sampler),
             },
         ];
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -951,6 +976,7 @@ impl LightingMeshRenderer {
         ];
         if has_lighting {
             bind_group_layouts.push(&self.light_bind_group_layout); //group(3)
+            bind_group_layouts.push(&self.ltc_bind_group_layout); //group(4)
         }
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -1182,8 +1208,15 @@ impl LightingMeshRenderer {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                ],
+            });
+
+        let ltc_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("LTC Bind Group Layout"),
+                entries: &[
                     wgpu::BindGroupLayoutEntry {
-                        binding: 8,
+                        binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
@@ -1193,7 +1226,7 @@ impl LightingMeshRenderer {
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
-                        binding: 9,
+                        binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
@@ -1300,8 +1333,8 @@ impl LightingMeshRenderer {
         };
         let default_light_texture = Arc::new(default_light_texture);
 
-        let default_ltc_texture = create_default_ltc_texture(device, queue);
-        let default_ltc_texture = Arc::new(default_ltc_texture);
+        //let default_ltc_texture = create_default_ltc_texture(device, queue);
+        //let default_ltc_texture = Arc::new(default_ltc_texture);
 
         let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Light Bind Group"),
@@ -1339,20 +1372,11 @@ impl LightingMeshRenderer {
                     binding: 7,
                     resource: wgpu::BindingResource::Sampler(&default_light_texture.sampler),
                 },
-                wgpu::BindGroupEntry {
-                    binding: 8,
-                    resource: wgpu::BindingResource::TextureView(&default_ltc_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 9,
-                    resource: wgpu::BindingResource::Sampler(&default_ltc_texture.sampler),
-                },
             ],
         });
 
         let mut textures = HashMap::new();
         textures.insert(default_light_texture.id, default_light_texture);
-        textures.insert(default_ltc_texture.id, default_ltc_texture);
 
         let min_uniform_buffer_offset_alignment =
             device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
@@ -1376,6 +1400,7 @@ impl LightingMeshRenderer {
             disk_light_buffer,
             rect_light_buffer,
             infinite_light_buffer,
+            ltc_bind_group_layout,
             mesh_items,
             textures,
             pipelines: materials,
