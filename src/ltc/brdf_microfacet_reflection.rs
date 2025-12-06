@@ -126,7 +126,13 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
     }
 
     fn sample_wh(&self, wo: &glam::Vec3, u: &glam::Vec2) -> glam::Vec3 {
-        let mut wh = if !self.samplevis {
+        let mut wh = if self.samplevis {
+            // Visible normal sampling for GGX
+            let flip = wo.z < 0.0;
+            let wo_corrected = if flip { -(*wo) } else { *wo };
+            let wh_local = self.sample_wh_visible(&wo_corrected, u);
+            if flip { -wh_local } else { wh_local }
+        } else {
             // Sample visible area of normals for TrowbridgeReitz distribution
             let cos_theta = if self.alphax == self.alphay {
                 let alpha = self.alphax;
@@ -145,12 +151,6 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
             let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
             let phi = u.x * 2.0 * std::f32::consts::PI;
             glam::Vec3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta)
-        } else {
-            // Visible normal sampling for GGX
-            let flip = wo.z < 0.0;
-            let wo_corrected = if flip { -(*wo) } else { *wo };
-            let wh_local = self.sample_wh_visible(&wo_corrected, u);
-            if flip { -wh_local } else { wh_local }
         };
         
         wh = wh.normalize();
@@ -224,7 +224,13 @@ impl Brdf for BrdfMicrofacetReflection {
         let cos_theta_i = L.z;
         
         // Compute half vector
-        let wh = (*V + *L).normalize();
+        let vh_sum = *V + *L;
+        let vh_length_sq = vh_sum.length_squared();
+        if vh_length_sq < 1e-10 {
+            // V and L are opposite, no valid half vector
+            return (0.0, 0.0);
+        }
+        let wh = vh_sum.normalize();
         
         // Fresnel is fixed to 1.0 as per the problem statement
         let f = 1.0;
@@ -242,7 +248,12 @@ impl Brdf for BrdfMicrofacetReflection {
         };
         
         // Compute PDF
-        let pdf = distribution.pdf(V, &wh) / (4.0 * V.dot(wh));
+        let v_dot_wh = V.dot(wh);
+        let pdf = if v_dot_wh.abs() > 1e-10 {
+            distribution.pdf(V, &wh) / (4.0 * v_dot_wh)
+        } else {
+            0.0
+        };
         
         (brdf_value, pdf)
     }
@@ -330,6 +341,53 @@ mod tests {
             let L = brdf.sample(&V, *alpha, 0.3, 0.7);
             assert!(L.length() > 0.0, "Sampled direction should be non-zero for alpha={}", alpha);
         }
+    }
+
+    #[test]
+    fn test_sample_with_zero_alpha() {
+        let brdf = BrdfMicrofacetReflection::new();
+        let V = glam::Vec3::new(0.0, 0.0, 1.0);
+        let L = brdf.sample(&V, 0.001, 0.5, 0.5);
+        assert!(L.length() > 0.0, "Sample should return non-zero even with small alpha");
+    }
+
+    #[test]
+    fn test_sample_with_large_alpha() {
+        let brdf = BrdfMicrofacetReflection::new();
+        let V = glam::Vec3::new(0.0, 0.0, 1.0);
+        let L = brdf.sample(&V, 10.0, 0.5, 0.5);
+        assert!(L.length() > 0.0, "Sample should return non-zero even with large alpha");
+    }
+
+    #[test]
+    fn test_sample_with_grazing_angle() {
+        let brdf = BrdfMicrofacetReflection::new();
+        let V = glam::Vec3::new(0.99, 0.0, 0.14).normalize();
+        let L = brdf.sample(&V, 0.5, 0.5, 0.5);
+        assert!(L.length() > 0.0, "Sample should return non-zero at grazing angles");
+    }
+
+    #[test]
+    fn test_eval_with_different_angles() {
+        let brdf = BrdfMicrofacetReflection::new();
+        let V = glam::Vec3::new(0.5, 0.5, 0.7).normalize();
+        let L = glam::Vec3::new(-0.5, 0.5, 0.7).normalize();
+        let alpha = 0.5;
+        let (value, pdf) = brdf.eval(&V, &L, alpha);
+        assert!(value >= 0.0, "BRDF value should be non-negative");
+        assert!(pdf >= 0.0, "PDF should be non-negative");
+    }
+
+    #[test]
+    fn test_eval_with_opposite_directions() {
+        let brdf = BrdfMicrofacetReflection::new();
+        let V = glam::Vec3::new(0.0, 0.0, 1.0);
+        let L = glam::Vec3::new(0.0, 0.0, -1.0);
+        let alpha = 0.5;
+        let (value, pdf) = brdf.eval(&V, &L, alpha);
+        // When V and L are opposite, should return 0
+        assert_eq!(value, 0.0, "BRDF value should be zero for opposite directions");
+        assert_eq!(pdf, 0.0, "PDF should be zero for opposite directions");
     }
 }
 
