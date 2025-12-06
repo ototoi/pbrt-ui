@@ -866,7 +866,7 @@ fn get_lines_material(
         "lines",
         RenderCategory::Opaque,
         &uniform_values,
-        None,
+        "",
         render_resource_manager,
     )];
     let render_material = RenderMaterial {

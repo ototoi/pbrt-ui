@@ -1,9 +1,9 @@
-//use super::super::render_resource::RenderResourceManager;
+use super::super::render_resource::RenderResourceManager;
 use super::super::texture::RenderTexture;
 use super::textures::*;
 
 use eframe::wgpu;
-//use std::sync::Arc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 pub const LTC_GGX_TEXTURE_ID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
@@ -109,20 +109,25 @@ fn get_id_and_textures(name: &str) -> Option<(Uuid, Vec<Vec<f32>>)> {
     }
 }
 
-pub fn create_ltc_texture_from_name(
+pub fn get_ltc_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     name: &str,
-) -> Option<RenderTexture> {
+    render_resource_manager: &mut RenderResourceManager,
+) -> Option<Arc<RenderTexture>> {
+    if name == "" {
+        return None;
+    }
     if let Some((id, data)) = get_id_and_textures(name) {
-        let texture = create_ltc_texture(device, queue, "LTC", id, &data);
-        return Some(texture);
+        if let Some(render_texture) = render_resource_manager.get_texture(id) {
+            return Some(render_texture.clone());
+        }
+        let render_texture = create_ltc_texture(device, queue, "LTC", id, &data);
+        let render_texture = Arc::new(render_texture);
+        render_resource_manager.add_texture(&render_texture);
+        return Some(render_texture);
     }
     return None;
-}
-
-pub fn create_default_ltc_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> RenderTexture {
-    create_ltc_texture_from_name(device, queue, "ggx").unwrap()
 }
 
 /*

@@ -436,6 +436,10 @@ fn get_u_axis(z: vec3<f32>) -> vec3<f32> {
     }
 }
 
+fn calc_attenuation(distance: f32) -> f32 {
+    return 1.0 / (1.0 + distance);
+}
+
 struct VertexOut {
     @location(0) w_position: vec3<f32>,
     @location(1) uv: vec2<f32>,
@@ -537,8 +541,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             u_axis = normalize(cross(v_axis, direction));
             //TODO: avoid precision issue
             //
-            let ex = u_axis * disk_radius * (1.0 + 0.999);//avoid precision issue
-            let ey = v_axis * disk_radius * (1.0 + 1.001);//avoid precision issue
+            let ex = u_axis * disk_radius * 0.999;//avoid precision issue
+            let ey = v_axis * disk_radius * 1.001;//avoid precision issue
             let disk_center = position + direction * delta;
 
             let a = disk_center - ex - ey;
@@ -559,9 +563,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             let specular = vec3<f32>(0.0);
 #endif
 
-            let k = 1.0;// 1.0 / (2.0 * PI * PI);
+            let k = 4.0;// 1.0 / (2.0 * PI * PI);
             var area = PI * disk_radius * disk_radius;          // Area of the disk
-            var attenuation = 1.0 / ((1.0 + disk_distance));    // Simple attenuation
+            var attenuation = calc_attenuation(disk_distance);
             color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
         } else {
             let light_to_surface = in.w_position - position;
@@ -598,8 +602,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         //}
  
         if radius > 0.0 {
-            let ex = radius * u_axis * 0.5;
-            let ey = radius * v_axis * 0.5;
+            let ex = radius * u_axis * 0.5 * 0.999;
+            let ey = radius * v_axis * 0.5 * 1.001;
 
             let a = position - ex - ey;
             let b = position + ex - ey;
@@ -619,7 +623,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
             let k = 1.0 / (2.0 * PI * PI);
             let area = PI * radius * radius;
-            var attenuation = 1.0 / (1.0 + distance); // Simple attenuation
+            var attenuation = calc_attenuation(distance); // Simple attenuation
             color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
         } else {
             var closest_point = position;
@@ -677,7 +681,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
         let k = 1.0 / (2.0 * PI * PI);
         let area = 1.0;
-        let attenuation = 1.0 / (1.0 + distance); // Simple quadratic attenuation
+        let attenuation = calc_attenuation(distance); // Simple quadratic attenuation
         color += k * area *intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
     }
 
