@@ -228,8 +228,8 @@ impl Brdf for BrdfMicrofacetReflection {
         
         // Check if V and L are opposite directions
         let v_dot_l = V.dot(*L);
-        if v_dot_l <= 0.0 {
-            // V and L are opposite or perpendicular, no valid BRDF contribution
+        if v_dot_l < 0.0 {
+            // V and L are opposite directions, no valid BRDF contribution
             return (0.0, 0.0);
         }
         
