@@ -2,6 +2,7 @@ use pbrt_ui::ltc::brdf::Brdf;
 use pbrt_ui::ltc::brdf_beckmann::BrdfBeckmann;
 use pbrt_ui::ltc::brdf_disney_diffuse::BrdfDisneyDiffuse;
 use pbrt_ui::ltc::brdf_ggx::BrdfGGX;
+use pbrt_ui::ltc::brdf_microfacet_reflection::BrdfMicrofacetReflection;
 use pbrt_ui::ltc::brdf_oren_nayar::BrdfOrenNayar;
 use pbrt_ui::ltc::export::{write_exr, write_multiple_ltc_arrays};
 use pbrt_ui::ltc::fit_tab::fit_tab;
@@ -13,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
+use convert_case::{Case, Casing};
 
 #[derive(Debug, Parser)]
 #[clap(author, about, version, disable_help_flag = true)]
@@ -47,13 +49,19 @@ fn create_brdf(brdf_name: &str) -> Result<Arc<dyn Brdf>, String> {
             Ok(Arc::new(BrdfDisneyDiffuse::new()))
         }
         "orennayar" | "oren_nayar" | "oren-nayar" => Ok(Arc::new(BrdfOrenNayar::new())),
+        "microfacet_reflection" | "microfacetreflection" | "microfacet-reflection" => {
+            Ok(Arc::new(BrdfMicrofacetReflection::new()))
+        }
         _ => Err(format!("Unknown BRDF name: {}", brdf_name)),
     }
 }
 
 fn main() -> Result<(), String> {
     let options = Options::parse();
-    let brdf = create_brdf(&options.brdf)?;
+    let brdf_name = options.brdf.to_string();
+    let brdf_name = brdf_name.to_case(Case::Snake);
+    let brdf_name = brdf_name.to_lowercase();
+    let brdf = create_brdf(&brdf_name)?;
 
     // Validate output format
     if options.output_format != "exr" && options.output_format != "code" {
@@ -63,7 +71,7 @@ fn main() -> Result<(), String> {
         ));
     }
 
-    println!("Fitting LTC table for BRDF: {}", options.brdf);
+    println!("Fitting LTC table for BRDF: {}", brdf_name);
     println!("Table size: {}x{}", options.width, options.table_height);
     println!();
 
@@ -96,21 +104,21 @@ fn main() -> Result<(), String> {
         match options.output_format.as_str() {
             "exr" => {
                 // Save tex1
-                let tex1_path = output_path.join(format!("ltc_{}_tex1.exr", options.brdf));
+                let tex1_path = output_path.join(format!("ltc_{}_tex1.exr", brdf_name));
                 write_exr(&tex1_path, &tex1, options.width, options.table_height)?;
                 println!("Saved: {}", tex1_path.display());
 
                 // Save tex2
-                let tex2_path = output_path.join(format!("ltc_{}_tex2.exr", options.brdf));
+                let tex2_path = output_path.join(format!("ltc_{}_tex2.exr", brdf_name));
                 write_exr(&tex2_path, &tex2, options.width, options.table_height)?;
                 println!("Saved: {}", tex2_path.display());
             }
             "code" => {
                 // Save as Rust code
-                let code_path = output_path.join(format!("ltc_{}.rs", options.brdf));
+                let code_path = output_path.join(format!("ltc_{}.rs", brdf_name));
                 write_multiple_ltc_arrays(
                     &code_path,
-                    &options.brdf,
+                    &brdf_name,
                     &tex1,
                     &tex2,
                     options.width,
