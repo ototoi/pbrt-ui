@@ -167,10 +167,6 @@ fn create_matte_render_passes(
     let sigma = get_float(&material.props, "sigma").unwrap_or(0.0);
     if sigma > 0.0 {
         let alpha = (sigma.to_radians() / (0.5 * std::f32::consts::PI)).clamp(0.0, 1.0); //convert to alpha
-        println!(
-            "Matte Shader Type: sigma={}, converted alpha={}",
-            sigma, alpha
-        );
         uniform_values.push(("alpha".to_string(), RenderUniformValue::Float(alpha)));
         shader_type = "oren_nayar".to_string();
         ltc_type = "oren_nayar".to_string();
