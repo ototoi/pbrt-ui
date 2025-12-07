@@ -241,7 +241,9 @@ fn create_distribution(alpha: f32) -> Arc<dyn MicrofacetDistribution> {
 
 impl Brdf for BrdfMicrofacetReflection {
     fn eval(&self, V: &glam::Vec3, L: &glam::Vec3, alpha: f32) -> (f32, f32) {
-        let distribution = create_distribution(alpha);
+        //alpha = roughnes * roughnes;
+        let roughness = alpha.sqrt();
+        let distribution = create_distribution(roughness);//
 
         let wo = V;
         let wi = L;
@@ -284,7 +286,8 @@ impl Brdf for BrdfMicrofacetReflection {
     }
 
     fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
-        let distribution = create_distribution(alpha);
+        let roughness = alpha.sqrt();
+        let distribution = create_distribution(roughness);
 
         let u = glam::Vec2::new(U1, U2);
 
