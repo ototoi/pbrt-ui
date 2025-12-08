@@ -492,8 +492,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
     
 #ifdef ENABLE_SPECULAR
-    let alpha = sample_alpha(in.uv); // cannot < 0.08
-    var ltc_uv = vec2<f32>(alpha, sqrt(1.0 - NdotV));
+    let roughness = sample_roughness(in.uv);
+    var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
     ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
     let t1 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 0);
     // Construct inverse matrix
@@ -502,6 +502,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         vec3<f32>(0.0, 1.0, 0.0),
         vec3<f32>(t1.z, 0.0, t1.w)
     );
+    let t2 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 1);
 #endif
     // Accumulate lighting
     
@@ -618,6 +619,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+            //let specular = specular * (mSpecular * t2.x + (1.0 - mSpecular) * t2.y);
 #else
             let specular = vec3<f32>(0.0);
 #endif

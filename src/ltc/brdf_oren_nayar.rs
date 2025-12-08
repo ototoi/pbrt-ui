@@ -31,7 +31,8 @@ impl Brdf for BrdfOrenNayar {
 
         // Oren-Nayar BRDF calculation
         // sigma = alpha * PI * 0.5
-        let sigma = alpha * std::f32::consts::PI * 0.5;
+        let sigma = alpha.sqrt();
+        let sigma = sigma * std::f32::consts::PI * 0.5;
         let sigma2 = sigma * sigma;
 
         // Precompute coefficients

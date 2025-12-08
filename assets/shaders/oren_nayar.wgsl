@@ -8,7 +8,7 @@
 // material uniforms
 struct MaterialUniforms {
     kd: vec4<f32>,
-    alpha: f32,
+    sigma: f32,
     _pad1: i32,
     _pad2: i32,
     _pad3: i32,
@@ -53,13 +53,13 @@ fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, uv: vec2<f32>) -> v
     return matte(wo, wi, uv) * intensity;
 }
 
-fn sample_alpha(uv: vec2<f32>) -> f32 {
-    return material_uniforms.alpha;// cannot < 0.08
+fn sample_roughness(uv: vec2<f32>) -> f32 {
+    return material_uniforms.sigma;//normalized sigma
 }
 
 fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
     let m_kd = sample_kd(uv);
-    return m_kd * (diffuse + specular);// combined
+    return m_kd * (diffuse + specular) / 2.0;// combined
 }
 
 //-------------------------------------------------------

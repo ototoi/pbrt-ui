@@ -74,7 +74,7 @@ fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, uv: vec2<f32>) -> v
     return matte(wo, wi, uv) * intensity;
 }
 
-fn sample_alpha(uv: vec2<f32>) -> f32 {
+fn sample_roughness(uv: vec2<f32>) -> f32 {
     return max(material_uniforms.roughness, 0.08);// cannot < 0.08
 }
 

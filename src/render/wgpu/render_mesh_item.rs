@@ -166,8 +166,9 @@ fn create_matte_render_passes(
     let mut ltc_type = "ggx".to_string();
     let sigma = get_float(&material.props, "sigma").unwrap_or(0.0);
     if sigma > 0.0 {
-        let alpha = (sigma.to_radians() / (0.5 * std::f32::consts::PI)).clamp(0.0, 1.0); //convert to alpha
-        uniform_values.push(("alpha".to_string(), RenderUniformValue::Float(alpha)));
+        let sigma = sigma.to_radians() / (0.5 * std::f32::consts::PI);
+        let sigma = sigma.clamp(0.0, 1.0); //convert to alpha
+        uniform_values.push(("sigma".to_string(), RenderUniformValue::Float(sigma)));
         shader_type = "oren_nayar".to_string();
         ltc_type = "oren_nayar".to_string();
     }
