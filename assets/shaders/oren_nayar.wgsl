@@ -59,7 +59,7 @@ fn sample_roughness(uv: vec2<f32>) -> f32 {
 
 fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
     let m_kd = sample_kd(uv);
-    return m_kd * (diffuse + specular);// combined
+    return m_kd * (diffuse + specular) / 2.0;// combined
 }
 
 //-------------------------------------------------------

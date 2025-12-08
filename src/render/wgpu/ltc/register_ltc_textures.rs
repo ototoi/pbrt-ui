@@ -8,6 +8,8 @@ use uuid::Uuid;
 
 pub const LTC_GGX_TEXTURE_ID: Uuid = Uuid::from_u128(0x52eca5d6_c228_4136_8840_f3517bb488a3);
 pub const LTC_OREN_NAYAR_TEXTURE_ID: Uuid = Uuid::from_u128(0x3f4d5e6c_7a8b_4c9d_8e0f_1a2b3c4d5e6f);
+pub const LTC_MICROFACET_REFLECTION_TEXTURE_ID: Uuid =
+    Uuid::from_u128(0xabcdef12_3456_7890_abcd_ef1234567890);
 
 pub fn create_ltc_texture(
     device: &wgpu::Device,
@@ -104,6 +106,13 @@ fn get_id_and_textures(name: &str) -> Option<(Uuid, Vec<Vec<f32>>)> {
         "oren_nayar" | "orennayar" => Some((
             LTC_OREN_NAYAR_TEXTURE_ID,
             vec![LTC_OREN_NAYAR_1.to_vec(), LTC_OREN_NAYAR_2.to_vec()],
+        )),
+        "microfacet_reflection" | "microfacetreflection" => Some((
+            LTC_MICROFACET_REFLECTION_TEXTURE_ID,
+            vec![
+                LTC_MICROFACET_REFLECTION_1.to_vec(),
+                LTC_MICROFACET_REFLECTION_2.to_vec(),
+            ],
         )),
         _ => None,
     }
