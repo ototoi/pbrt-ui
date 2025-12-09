@@ -2968,6 +2968,7 @@ dependencies = [
  "half",
  "image",
  "log",
+ "naga",
  "nom",
  "ply-rs",
  "rfd",
