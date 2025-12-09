@@ -78,10 +78,10 @@ fn sample_roughness(uv: vec2<f32>) -> f32 {
     return max(material_uniforms.roughness, 0.08);// cannot < 0.08
 }
 
-fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
+fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>, fresnel: vec2<f32>) -> vec3<f32> {
     let m_kd = sample_kd(uv);
     let m_ks = sample_ks(uv);
-    return m_kd * diffuse + m_ks * specular;
+    return m_kd * diffuse + specular * 0.5 * (m_ks * fresnel.x + (vec3<f32>(1.0) - m_ks) * fresnel.y);
 }
 
 //-------------------------------------------------------

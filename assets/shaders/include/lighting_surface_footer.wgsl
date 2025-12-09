@@ -560,14 +560,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+            let fresnel = t2.xy;
 #else
             let specular = vec3<f32>(0.0);
+            let fresnel = vec2<f32>(1.0, 0.0);
 #endif
 
             let k = 4.0;// 1.0 / (2.0 * PI * PI);
             var area = PI * disk_radius * disk_radius;          // Area of the disk
             var attenuation = calc_attenuation(disk_distance);
-            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
+            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv, fresnel);
         } else {
             let light_to_surface = in.w_position - position;
             let distance = length(light_to_surface);
@@ -619,14 +621,15 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
-            //let specular = specular * (mSpecular * t2.x + (1.0 - mSpecular) * t2.y);
+            let fresnel = t2.xy;
 #else
             let specular = vec3<f32>(0.0);
+            let fresnel = vec2<f32>(1.0, 0.0);
 #endif
             let k = 1.0 / (2.0 * PI * PI);
             let area = PI * radius * radius;
             var attenuation = calc_attenuation(distance); // Simple attenuation
-            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
+            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv, fresnel);
         } else {
             var closest_point = position;
             let light_to_surface = in.w_position - closest_point;
@@ -678,13 +681,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
         let specular = LTC_Evaluate_Polygon(N, V, P, Minv, lightPoints);
-#else
+        let fresnel = t2.xy;
+        //let specular = specular * (mSpecular * t2.x + (1.0 - mSpecular) * t2.y);//
+#else   
         let specular = vec3<f32>(0.0);
+        let fresnel = vec2<f32>(1.0, 0.0);
 #endif
         let k = 1.0 / (2.0 * PI * PI);
         let area = 1.0;
         let attenuation = calc_attenuation(distance); // Simple quadratic attenuation
-        color += k * area *intensity * attenuation * shade_ltc(diffuse, specular, in.uv);
+        color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv, fresnel);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 
