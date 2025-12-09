@@ -101,33 +101,35 @@ fn main() -> Result<(), String> {
         std::fs::create_dir_all(&output_path)
             .map_err(|e| format!("Failed to create output directory: {}", e))?;
 
-        match options.output_format.as_str() {
-            "exr" => {
-                // Save tex1
-                let tex1_path = output_path.join(format!("ltc_{}_tex1.exr", brdf_name));
-                write_exr(&tex1_path, &tex1, options.width, options.table_height)?;
-                println!("Saved: {}", tex1_path.display());
+        //match options.output_format.as_str() {
+        //"exr" => {
+        {
+            // Save tex1
+            let tex1_path = output_path.join(format!("ltc_{}_tex1.exr", brdf_name));
+            write_exr(&tex1_path, &tex1, options.width, options.table_height)?;
+            println!("Saved: {}", tex1_path.display());
 
-                // Save tex2
-                let tex2_path = output_path.join(format!("ltc_{}_tex2.exr", brdf_name));
-                write_exr(&tex2_path, &tex2, options.width, options.table_height)?;
-                println!("Saved: {}", tex2_path.display());
-            }
-            "code" => {
-                // Save as Rust code
-                let code_path = output_path.join(format!("ltc_{}.rs", brdf_name));
-                write_multiple_ltc_arrays(
-                    &code_path,
-                    &brdf_name,
-                    &tex1,
-                    &tex2,
-                    options.width,
-                    options.table_height,
-                )?;
-                println!("Saved: {}", code_path.display());
-            }
-            _ => unreachable!("Format validation should prevent this"),
+            // Save tex2
+            let tex2_path = output_path.join(format!("ltc_{}_tex2.exr", brdf_name));
+            write_exr(&tex2_path, &tex2, options.width, options.table_height)?;
+            println!("Saved: {}", tex2_path.display());
         }
+        //"code" => {
+        {
+            // Save as Rust code
+            let code_path = output_path.join(format!("ltc_{}.rs", brdf_name));
+            write_multiple_ltc_arrays(
+                &code_path,
+                &brdf_name,
+                &tex1,
+                &tex2,
+                options.width,
+                options.table_height,
+            )?;
+            println!("Saved: {}", code_path.display());
+        }
+        //_ => unreachable!("Format validation should prevent this"),
+        //}
     }
 
     println!();
