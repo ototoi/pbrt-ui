@@ -138,3 +138,130 @@ fn test_ltc_fit_brdf_uppercase_in_const_names() {
         }
     }
 }
+
+#[test]
+fn test_ltc_fit_multiple_formats_with_multiple_flags() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test specifying multiple formats with multiple -f flags
+    let output = Command::new(get_ltc_fit_bin())
+        .args(&[
+            "ggx",
+            "-o",
+            temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
+            "-f",
+            "exr",
+            "-f",
+            "code",
+            "-w",
+            "2",
+            "-h",
+            "1",
+        ])
+        .output()
+        .expect("Failed to execute fit-ltc");
+
+    if output.status.success() {
+        // Both formats should be created
+        let code_path = temp_dir.path().join("ltc_ggx.rs");
+        let tex1_path = temp_dir.path().join("ltc_ggx_tex1.exr");
+        let tex2_path = temp_dir.path().join("ltc_ggx_tex2.exr");
+
+        assert!(code_path.exists(), "Code file should be created");
+        assert!(tex1_path.exists(), "tex1.exr should be created");
+        assert!(tex2_path.exists(), "tex2.exr should be created");
+    }
+}
+
+#[test]
+fn test_ltc_fit_multiple_formats_with_comma_separated() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test specifying multiple formats with comma-separated list
+    let output = Command::new(get_ltc_fit_bin())
+        .args(&[
+            "ggx",
+            "-o",
+            temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
+            "-f",
+            "exr,code",
+            "-w",
+            "2",
+            "-h",
+            "1",
+        ])
+        .output()
+        .expect("Failed to execute fit-ltc");
+
+    if output.status.success() {
+        // Both formats should be created
+        let code_path = temp_dir.path().join("ltc_ggx.rs");
+        let tex1_path = temp_dir.path().join("ltc_ggx_tex1.exr");
+        let tex2_path = temp_dir.path().join("ltc_ggx_tex2.exr");
+
+        assert!(code_path.exists(), "Code file should be created");
+        assert!(tex1_path.exists(), "tex1.exr should be created");
+        assert!(tex2_path.exists(), "tex2.exr should be created");
+    }
+}
+
+#[test]
+fn test_ltc_fit_default_outputs_all_formats() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test that default behavior (no -f flag) outputs all formats
+    let output = Command::new(get_ltc_fit_bin())
+        .args(&[
+            "ggx",
+            "-o",
+            temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
+            "-w",
+            "2",
+            "-h",
+            "1",
+        ])
+        .output()
+        .expect("Failed to execute fit-ltc");
+
+    if output.status.success() {
+        // Both formats should be created by default
+        let code_path = temp_dir.path().join("ltc_ggx.rs");
+        let tex1_path = temp_dir.path().join("ltc_ggx_tex1.exr");
+        let tex2_path = temp_dir.path().join("ltc_ggx_tex2.exr");
+
+        assert!(code_path.exists(), "Code file should be created by default");
+        assert!(tex1_path.exists(), "tex1.exr should be created by default");
+        assert!(tex2_path.exists(), "tex2.exr should be created by default");
+    }
+}
+
+#[test]
+fn test_ltc_fit_single_format_only_creates_specified_files() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test that specifying only 'code' does not create EXR files
+    let output = Command::new(get_ltc_fit_bin())
+        .args(&[
+            "ggx",
+            "-o",
+            temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
+            "-f",
+            "code",
+            "-w",
+            "2",
+            "-h",
+            "1",
+        ])
+        .output()
+        .expect("Failed to execute fit-ltc");
+
+    if output.status.success() {
+        let code_path = temp_dir.path().join("ltc_ggx.rs");
+        let tex1_path = temp_dir.path().join("ltc_ggx_tex1.exr");
+        let tex2_path = temp_dir.path().join("ltc_ggx_tex2.exr");
+
+        assert!(code_path.exists(), "Code file should be created");
+        assert!(!tex1_path.exists(), "tex1.exr should NOT be created");
+        assert!(!tex2_path.exists(), "tex2.exr should NOT be created");
+    }
+}
