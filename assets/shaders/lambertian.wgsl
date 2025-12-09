@@ -50,7 +50,7 @@ fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, uv: vec2<f32>) -> v
     return matte(wo, wi, uv) * intensity;
 }
 
-fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
+fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>, fresnel: vec2<f32>) -> vec3<f32> {
     let m_kd = sample_kd(uv);
     return m_kd * diffuse;
 }
