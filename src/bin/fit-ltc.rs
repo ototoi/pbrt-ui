@@ -67,7 +67,7 @@ fn main() -> Result<(), String> {
     let output_formats: Vec<String> = if options.output_format.is_empty() {
         vec!["exr".to_string(), "code".to_string()]
     } else {
-        options.output_format.clone()
+        options.output_format
     };
 
     // Validate output formats
