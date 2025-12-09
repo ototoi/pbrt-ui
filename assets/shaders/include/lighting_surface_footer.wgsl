@@ -1,3 +1,6 @@
+#ifndef LIGHTING_SURFACE_FOOTER_WGSL
+#define LIGHTING_SURFACE_FOOTER_WGSL
+
 // Lighting surface footer definitions
 //-------------------------------------------------------
 // light uniforms
@@ -712,3 +715,4 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     return vec4<f32>(color, 1.0);
 }
 
+#endif // LIGHTING_SURFACE_FOOTER_WGSL

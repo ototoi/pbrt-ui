@@ -1,3 +1,6 @@
+#ifndef LIGHTING_SURFACE_HEADER_WGSL
+#define LIGHTING_SURFACE_HEADER_WGSL
+
 // Lighting surface header definitions
 struct GlobalUniforms {
     world_to_camera: mat4x4<f32>,
@@ -117,4 +120,4 @@ var<uniform> global_uniforms: GlobalUniforms;
 @group(1) @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
 
-
+#endif

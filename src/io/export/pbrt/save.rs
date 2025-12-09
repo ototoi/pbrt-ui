@@ -19,7 +19,6 @@ use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
 use crate::model::scene::Node;
 use crate::model::scene::OptionProperties;
-use crate::model::scene::Properties;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::SamplerComponent;
 use crate::model::scene::SamplerProperties;
@@ -133,10 +132,10 @@ impl PbrtSaver {
 
     fn write_property(
         &self,
-        indent: usize,
-        key_type: &str,
+        _indent: usize,
+        _key_type: &str,
         key_name: &str,
-        init: &Property,
+        _init: &Property,
         props: &ParamSet,
         writer: &mut dyn Write,
     ) -> Result<(), PbrtError> {
