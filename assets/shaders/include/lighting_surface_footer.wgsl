@@ -469,13 +469,6 @@ fn vs_main(
     return out;
 }
 
-struct LTCShadeInput {
-    diffuse: vec3<f32>,
-    specular: vec3<f32>,
-    uv: vec2<f32>,
-    fresnel: vec2<f32>,
-}
-
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let camera_to_surface = normalize(in.w_position - global_uniforms.camera_position.xyz);

@@ -57,9 +57,9 @@ fn sample_roughness(uv: vec2<f32>) -> f32 {
     return material_uniforms.sigma;//normalized sigma
 }
 
-fn shade_ltc(diffuse: vec3<f32>, specular: vec3<f32>, uv: vec2<f32>, fresnel: vec2<f32>) -> vec3<f32> {
-    let m_kd = sample_kd(uv);
-    return m_kd * (diffuse + specular) / 2.0;// combined
+fn shade_ltc(input: LTCShadeInput) -> vec3<f32> {
+    let m_kd = sample_kd(input.uv);
+    return m_kd * (input.diffuse + input.specular) / 2.0;// combined
 }
 
 //-------------------------------------------------------
