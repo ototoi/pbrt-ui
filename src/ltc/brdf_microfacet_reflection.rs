@@ -86,40 +86,10 @@ fn trowbridge_reitz_sample(
     glam::Vec3::new(-slope_x, -slope_y, 1.0).normalize()
 }
 
-fn sample_wh_helper(alphax: f32, alphay: f32, u1: f32, u2: f32) -> (f32, f32, f32) {
-    let u1 = u1.clamp(1e-6, 1.0 - 1e-6);
-    let u2 = u2.clamp(1e-6, 1.0 - 1e-6);
-
-    if alphax == alphay {
-        let tan_theta_2 = alphax * alphax * u1 / (1.0 - u1);
-        let phi = 2.0 * std::f32::consts::PI * u2;
-        let cos_theta = 1.0 / (1.0 + tan_theta_2).sqrt();
-        let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
-        (sin_theta, cos_theta, phi)
-    } else {
-        let mut phi = (alphay / alphax
-            * (2.0 * std::f32::consts::PI * u2 + 0.5 * std::f32::consts::PI).tan())
-        .atan();
-        if u2 > 0.5 {
-            phi += std::f32::consts::PI;
-        }
-        let sin_phi = phi.sin();
-        let cos_phi = phi.cos();
-        let alphax2 = alphax * alphax;
-        let alphay2 = alphay * alphay;
-        let alpha2 = 1.0 / (cos_phi * cos_phi / alphax2 + sin_phi * sin_phi / alphay2);
-        let tan_theta_2 = alpha2 * u1 / (1.0 - u1);
-        let cos_theta = 1.0 / (1.0 + tan_theta_2).sqrt();
-        let sin_theta = (0.0_f32).max(1.0 - cos_theta * cos_theta).sqrt();
-        (sin_theta, cos_theta, phi)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct TrowbridgeReitzDistribution {
     alphax: f32,
     alphay: f32,
-    samplevis: bool,
 }
 
 impl MicrofacetDistribution for TrowbridgeReitzDistribution {
@@ -150,30 +120,25 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
     }
 
     fn sample_wh(&self, wo: &glam::Vec3, u: &glam::Vec2) -> glam::Vec3 {
-        if !self.samplevis {
-            let (sin_theta, cos_theta, phi) = sample_wh_helper(self.alphax, self.alphay, u.x, u.y);
-            let mut wh = spherical_direction(sin_theta, cos_theta, phi).normalize();
-            if !same_hemisphere(wo, &wh) {
-                wh = -wh;
-            }
-            wh
-        } else {
-            let flip = wo.z < 0.0;
-            let wo_corrected = if flip { -*wo } else { *wo };
-            let mut wh = trowbridge_reitz_sample(&wo_corrected, self.alphax, self.alphay, u.x, u.y);
-            if flip {
-                wh = -wh;
-            }
-            wh
+        let flip = wo.z < 0.0;
+        let wo_corrected = if flip { -*wo } else { *wo };
+        let mut wh = trowbridge_reitz_sample(&wo_corrected, self.alphax, self.alphay, u.x, u.y);
+        if flip {
+            wh = -wh;
         }
+        wh
     }
 
     fn pdf(&self, wo: &glam::Vec3, wh: &glam::Vec3) -> f32 {
-        if self.samplevis {
-            self.d(wh) * self.g1(wo) * wo.dot(*wh).abs() / abs_cos_theta(wo)
-        } else {
-            self.d(wh) * abs_cos_theta(wh)
-        }
+        self.d(wh) * self.g1(wo) * wo.dot(*wh).abs() / abs_cos_theta(wo)
+    }
+}
+
+fn safe_div(a: f32, b: f32) -> f32 {
+    if b.abs() < 1e-6 {
+        0.0
+    } else {
+        (a / b).clamp(0.0, 1.0)
     }
 }
 
@@ -210,10 +175,15 @@ impl FresnelDielectric {
 
         let cos_theta_t = (0.0_f32).max(1.0 - sin_theta_t * sin_theta_t).sqrt();
 
-        let r_parl = ((eta_t * cos_theta_i) - (eta_i * cos_theta_t))
-            / ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
-        let r_perp = ((eta_i * cos_theta_i) - (eta_t * cos_theta_t))
-            / ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
+        let r_parl = safe_div(
+            (eta_t * cos_theta_i) - (eta_i * cos_theta_t),
+            (eta_t * cos_theta_i) + (eta_i * cos_theta_t),
+        );
+        let r_perp = safe_div(
+            (eta_i * cos_theta_i) - (eta_t * cos_theta_t),
+            (eta_i * cos_theta_i) + (eta_t * cos_theta_t),
+        );
+        //
         (r_parl * r_parl + r_perp * r_perp) / 2.0
     }
 }
@@ -235,7 +205,6 @@ fn create_distribution(alpha: f32) -> Arc<dyn MicrofacetDistribution> {
     Arc::new(TrowbridgeReitzDistribution {
         alphax: alpha,
         alphay: alpha,
-        samplevis: true,
     })
 }
 
@@ -243,7 +212,7 @@ impl Brdf for BrdfMicrofacetReflection {
     fn eval(&self, V: &glam::Vec3, L: &glam::Vec3, alpha: f32) -> (f32, f32) {
         //alpha = roughnes * roughnes;
         let roughness = alpha.sqrt();
-        let distribution = create_distribution(roughness);//
+        let distribution = create_distribution(roughness); //
 
         let wo = V;
         let wi = L;
@@ -251,13 +220,13 @@ impl Brdf for BrdfMicrofacetReflection {
         let cos_theta_o = wo.z.abs();
         let cos_theta_i = wi.z.abs();
 
-        if cos_theta_o <= 0.0 || cos_theta_i <= 0.0 {
+        if cos_theta_o <= 1e-6 || cos_theta_i <= 1e-6 {
             return (0.0, 0.0);
         }
 
         // Check if V and L are opposite directions
         let v_dot_l = wo.dot(*wi);
-        if v_dot_l < 0.0 {
+        if v_dot_l < 1e-6 {
             // V and L are opposite directions, no valid BRDF contribution
             return (0.0, 0.0);
         }
@@ -271,14 +240,14 @@ impl Brdf for BrdfMicrofacetReflection {
 
         let fresnel = FresnelDielectric::new(1.5, 1.0);
         let f = fresnel.evaluate(face_forward(&wh, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*wi));
+        let f = 1.0; //
 
         // Compute the BRDF value
         let d = distribution.d(&wh);
         let g = distribution.g(&wo, &wi);
 
         // BRDF formula: f(wo, wi) = F * D * G / (4 * cos_theta_o * cos_theta_i)
-        let value = f * d * g / (4.0 * cos_theta_o * cos_theta_i);
-
+        let value = safe_div(f * d * g, 4.0 * cos_theta_o * cos_theta_i);
         // Compute PDF
         let pdf = distribution.pdf(&wo, &wh) / (4.0 * v_dot_wh.abs());
 
@@ -331,7 +300,6 @@ mod tests {
         let dist = TrowbridgeReitzDistribution {
             alphax: 0.5,
             alphay: 0.5,
-            samplevis: true,
         };
         let wh = glam::Vec3::new(0.0, 0.0, 1.0);
         let d = dist.d(&wh);
@@ -343,7 +311,6 @@ mod tests {
         let dist = TrowbridgeReitzDistribution {
             alphax: 0.5,
             alphay: 0.5,
-            samplevis: true,
         };
         let w = glam::Vec3::new(0.0, 0.0, 1.0);
         let lambda = dist.lambda(&w);
