@@ -252,11 +252,6 @@ fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x
     return Lo_i;
 }
 
-fn isqrt(x: f32) -> f32 {
-    return inverseSqrt(x);
-    //return 1.0 / sqrt(x);
-}
-
 fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
 {
     // construct orthonormal basis around N
@@ -400,7 +395,7 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
         let L2 = sqrt(-e2/e1);
 
         // projected solid angle E, like the length(F) in rectangle light
-        let formFactor = L1 * L2 * isqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)) ;
+        let formFactor = L1 * L2 * inverseSqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)) ;
         // use tabulated horizon-clipped sphere
         var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
         // uv = saturate(uv);
@@ -413,6 +408,8 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
         return Lo_i;
     }
 }
+
+
 
 //-------------------------------------------------------
 fn spherical_texture_lookup(direction: vec3<f32>) -> vec2<f32> {
@@ -503,6 +500,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         vec3<f32>(t1.z, 0.0, t1.w)
     );
     let t2 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 1);
+    let fresnel = vec2<f32>(t2.x, t2.y);
+#else 
+    let fresnel = vec2<f32>(1.0, 0.0);
 #endif
     // Accumulate lighting
     
@@ -560,16 +560,15 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
-            let fresnel = t2.xy;
 #else
             let specular = vec3<f32>(0.0);
-            let fresnel = vec2<f32>(1.0, 0.0);
 #endif
 
             let k = 4.0;// 1.0 / (2.0 * PI * PI);
             var area = PI * disk_radius * disk_radius;          // Area of the disk
             var attenuation = calc_attenuation(disk_distance);
-            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv, fresnel);
+            let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
+            color += k * area * intensity * attenuation * shade_ltc(ltc_input);
         } else {
             let light_to_surface = in.w_position - position;
             let distance = length(light_to_surface);
@@ -621,15 +620,14 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
             let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
-            let fresnel = t2.xy;
 #else
             let specular = vec3<f32>(0.0);
-            let fresnel = vec2<f32>(1.0, 0.0);
 #endif
             let k = 1.0 / (2.0 * PI * PI);
             let area = PI * radius * radius;
-            var attenuation = calc_attenuation(distance); // Simple attenuation
-            color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv, fresnel);
+            var attenuation = calc_attenuation(distance);
+            let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
+            color += k * area * intensity * attenuation * shade_ltc(ltc_input);
         } else {
             var closest_point = position;
             let light_to_surface = in.w_position - closest_point;
@@ -681,16 +679,15 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 #ifdef ENABLE_SPECULAR
         let specular = LTC_Evaluate_Polygon(N, V, P, Minv, lightPoints);
-        let fresnel = t2.xy;
         //let specular = specular * (mSpecular * t2.x + (1.0 - mSpecular) * t2.y);//
 #else   
         let specular = vec3<f32>(0.0);
-        let fresnel = vec2<f32>(1.0, 0.0);
 #endif
         let k = 1.0 / (2.0 * PI * PI);
         let area = 1.0;
-        let attenuation = calc_attenuation(distance); // Simple quadratic attenuation
-        color += k * area * intensity * attenuation * shade_ltc(diffuse, specular, in.uv, fresnel);
+        let attenuation = calc_attenuation(distance);
+        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * shade_ltc(ltc_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 

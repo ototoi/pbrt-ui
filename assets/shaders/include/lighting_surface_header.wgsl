@@ -71,6 +71,13 @@ struct InfiniteLight {
     //_pad3: vec4<f32>,     // Padding to ensure alignment
 }
 
+struct LTCShadeInput {
+    diffuse: vec3<f32>,
+    specular: vec3<f32>,
+    uv: vec2<f32>,
+    fresnel: vec2<f32>,
+}
+
 // global uniforms
 @group(0)
 @binding(0)
@@ -80,3 +87,5 @@ var<uniform> global_uniforms: GlobalUniforms;
 @group(1)
 @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
+
+
