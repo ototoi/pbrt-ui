@@ -63,7 +63,10 @@ fn test_all_shaders_compile() {
     let mut success_count = 0;
 
     for shader_path in &wgsl_files {
-        let shader_name = shader_path.file_name().unwrap().to_string_lossy();
+        let shader_name = shader_path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| shader_path.display().to_string());
         
         // Read the shader source
         let source = match fs::read_to_string(shader_path) {
