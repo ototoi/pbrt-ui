@@ -43,3 +43,6 @@ clap = { version = "4.5.53", features = ["derive"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wgpu = { version = "25.0.2", default-features = true, features = ["vulkan"] }
+
+[dev-dependencies]
+naga = "25.0.1"
