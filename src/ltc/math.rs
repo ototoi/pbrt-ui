@@ -69,15 +69,10 @@ pub fn sin_2_phi(w: &glam::Vec3) -> f32 {
 
 #[inline]
 pub fn spherical_direction(sin_theta: f32, cos_theta: f32, phi: f32) -> glam::Vec3 {
-    glam::Vec3::new(
-        sin_theta * phi.cos(),
-        sin_theta * phi.sin(),
-        cos_theta,
-    )
+    glam::Vec3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta)
 }
 
 #[inline]
 pub fn same_hemisphere(w: &glam::Vec3, wp: &glam::Vec3) -> bool {
     w.z * wp.z > 0.0
 }
-
