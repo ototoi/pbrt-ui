@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 pub const N: usize = 64;
 
 // Number of samples used to compute the error during fitting
-pub const NSAMPLE: usize = 32;
+pub const NSAMPLE: usize = 128;
 
 // Minimal roughness (avoid singularities)
 pub const MIN_ALPHA: f32 = 0.00001;

@@ -138,7 +138,7 @@ fn safe_div(a: f32, b: f32) -> f32 {
     if b.abs() < 1e-6 {
         0.0
     } else {
-        (a / b).clamp(0.0, 1.0)
+        (a / b)
     }
 }
 
@@ -253,7 +253,7 @@ impl Brdf for BrdfMicrofacetReflection {
         // BRDF formula: f(wo, wi) = F * D * G / (4 * cos_theta_o * cos_theta_i)
         let value = safe_div(f * d * g, 4.0 * cos_theta_o * cos_theta_i);
         // Compute PDF
-        let pdf = distribution.pdf(&wo, &wh) / (4.0 * v_dot_wh.abs());
+        let pdf = safe_div(distribution.pdf(&wo, &wh), 4.0 * v_dot_wh.abs());
 
         (value, pdf)
     }
