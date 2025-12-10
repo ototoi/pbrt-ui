@@ -11,8 +11,6 @@ use super::render_item::get_color;
 use super::render_item::get_float;
 use super::render_item::get_texture;
 use super::render_resource::RenderResourceManager;
-use super::texture::RenderTexture;
-use crate::ltc;
 use crate::model::scene::Light;
 use crate::model::scene::Material;
 use crate::model::scene::MaterialComponent;
@@ -23,7 +21,6 @@ use crate::model::scene::ResourceManager;
 use crate::model::scene::ShapeComponent;
 use crate::render::render_mode::RenderMode;
 use crate::render::scene_item::*;
-use crate::render::wgpu::shader;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -232,7 +229,7 @@ fn create_plastic_render_passes(
         "lambertian_ggx",
         RenderCategory::Opaque,
         &uniform_values,
-        "ggx",
+        "microfacet_reflection",
         render_resource_manager,
     );
     return vec![render_pass];

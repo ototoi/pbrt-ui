@@ -232,14 +232,18 @@ impl Brdf for BrdfMicrofacetReflection {
         }
 
         // Compute half vector
-        let wh = (wo + wi).normalize();
+        let wh = wo + wi;
+        if wh.length_squared() == 0.0 {
+            return (0.0, 0.0);
+        }
+        let wh = wh.normalize();
         let v_dot_wh = wo.dot(wh);
         if v_dot_wh <= 0.0 {
             return (0.0, 0.0);
         }
 
-        let fresnel = FresnelDielectric::new(1.5, 1.0);
-        let f = fresnel.evaluate(face_forward(&wh, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*wi));
+        //let fresnel = FresnelDielectric::new(1.5, 1.0);
+        //let f = fresnel.evaluate(face_forward(&wh, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*wi));
         let f = 1.0; //
 
         // Compute the BRDF value
