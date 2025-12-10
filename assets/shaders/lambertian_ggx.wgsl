@@ -81,7 +81,7 @@ fn sample_roughness(uv: vec2<f32>) -> f32 {
 fn shade_ltc(input: LTCShadeInput) -> vec3<f32> {
     let m_kd = sample_kd(input.uv);
     let m_ks = sample_ks(input.uv);
-    return m_kd * input.diffuse + input.specular * 0.5 * (m_ks * input.fresnel.x + (vec3<f32>(1.0) - m_ks) * input.fresnel.y);
+    return m_kd * input.diffuse + input.specular * (m_ks * input.fresnel.x + (vec3<f32>(1.0) - m_ks) * input.fresnel.y);
 }
 
 //-------------------------------------------------------
