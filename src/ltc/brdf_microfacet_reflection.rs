@@ -135,7 +135,8 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
 }
 
 fn safe_div(a: f32, b: f32) -> f32 {
-    if b.abs() < 1e-6 {
+    assert!(b >= 0.0);
+    if a.abs() < 1e-6 && b.abs() < 1e-6 {
         0.0
     } else {
         (a / b)
@@ -242,9 +243,9 @@ impl Brdf for BrdfMicrofacetReflection {
             return (0.0, 0.0);
         }
 
-        //let fresnel = FresnelDielectric::new(1.5, 1.0);
-        //let f = fresnel.evaluate(face_forward(&wh, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*wi));
-        let f = 1.0; //
+        let fresnel = FresnelDielectric::new(1.5, 1.0);
+        let f = fresnel.evaluate(face_forward(&wh, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*wi));
+        //let f = 1.0; //
 
         // Compute the BRDF value
         let d = distribution.d(&wh);

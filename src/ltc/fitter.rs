@@ -25,6 +25,8 @@ pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Ve
             // Eval
             let (eval, pdf) = brdf.eval(V, &L, alpha);
 
+            assert!(eval >= 0.0);
+            assert!(pdf >= 0.0);
             if pdf > 0.0 {
                 let weight = eval / pdf;
 
