@@ -25,16 +25,12 @@ pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Ve
             // Eval
             let (eval, pdf) = brdf.eval(V, &L, alpha);
 
-            assert!(eval >= 0.0);
-            assert!(pdf >= 0.0);
             if pdf > 0.0 {
                 let weight = eval / pdf;
-
-                let H = (*V + L).normalize();
-
+                let fresnel_val = brdf.fresnel(V, &L);
                 // Accumulate
                 norm += weight;
-                fresnel += weight * (1.0 - V.dot(H).max(0.0)).powi(5);
+                fresnel += weight * fresnel_val;
                 average_dir += weight * L;
             }
         }
