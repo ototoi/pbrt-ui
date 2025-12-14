@@ -320,6 +320,60 @@ fn create_glass_render_passes(
     return passes;
 }
 
+fn create_metal_render_passes(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    material: &Material,
+    resource_manager: &ResourceManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<Arc<RenderPass>> {
+    let keys = ["eta", "k"];
+    let mut uniform_values = vec![];
+    for key in keys {
+        if let Some(color) = get_color(&material.props, key, resource_manager) {
+            uniform_values.push((key.to_lowercase(), RenderUniformValue::Vec4(color)));
+        } else if let Some(texture) = get_texture(
+            &material.props,
+            key,
+            resource_manager,
+            render_resource_manager,
+        ) {
+            let texture = render_resource_manager
+                .get_texture(texture.get_id())
+                .unwrap();
+            uniform_values.push((
+                key.to_lowercase(),
+                RenderUniformValue::Texture(texture.clone()),
+            ));
+        } else {
+            uniform_values.push((
+                key.to_lowercase(),
+                RenderUniformValue::Vec4([1.0, 1.0, 1.0, 1.0]),
+            ));
+        }
+    }
+    let mut roughness = get_float(&material.props, "roughness").unwrap_or(0.1);
+    let remaproughness = get_bool(&material.props, "remaproughness").unwrap_or(true);
+    if remaproughness {
+        roughness = roughness_to_alpha(roughness);
+    }
+    uniform_values.push((
+        "roughness".to_string(),
+        RenderUniformValue::Float(roughness),
+    ));
+    //println!("{}: Plastic Shader Type: {}", material.get_name(),shader_type);
+    let render_pass = create_render_pass(
+        device,
+        queue,
+        "metal",
+        RenderCategory::Opaque,
+        &uniform_values,
+        "microfacet_reflection",
+        render_resource_manager,
+    );
+    return vec![render_pass];
+}
+
 fn create_render_material_from_material(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -384,6 +438,16 @@ fn create_render_material_from_material(
             passes.extend(new_passes);
         }
         */
+        "metal" => {
+            let new_passes = create_metal_render_passes(
+                device,
+                queue,
+                material,
+                resource_manager,
+                render_resource_manager,
+            );
+            passes.extend(new_passes);
+        }
         _ => {
             let new_passes = create_basic_render_passes(
                 device,
