@@ -522,14 +522,23 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let position = light.position.xyz;//center of sphere
         let intensity = light.intensity.rgb;
         let radius = light.radius;
+        let is_delta = radius <= 0.0;
 
         let center_to_surface = in.w_position - position;
         let distance = length(center_to_surface);
         if (distance < radius) {
             continue;
         }
-        if radius > 0.0 {
-            let direction = normalize(center_to_surface);
+
+        let direction = normalize(center_to_surface);
+        var disk_radius = radius;
+        var disk_distance = distance;
+        var disk_center = position;
+        if is_delta {
+            disk_radius = 1.0;//disk_radius = distance * tan(asin(radius / distance));
+            disk_distance = distance;//disk_distance = sqrt(distance * distance - radius * radius);
+            disk_center = position;// + direction * (distance - disk_distance);
+        } else {
             let theta = atan2(radius, distance);
             let delta = radius * sin(theta);
             let disk_distance = distance - delta;
@@ -540,45 +549,44 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             if (disk_radius < 1e-6) {
                 continue;
             }
-            var u_axis = get_u_axis(direction);
-            var v_axis = normalize(cross(direction, u_axis));
-            u_axis = normalize(cross(v_axis, direction));
-            //TODO: avoid precision issue
-            //
-            let ex = u_axis * disk_radius * 0.999;//avoid precision issue
-            let ey = v_axis * disk_radius * 1.001;//avoid precision issue
-            let disk_center = position + direction * delta;
+            disk_center = position + direction * delta;
+        }
 
-            let a = disk_center - ex - ey;
-            let b = disk_center + ex - ey;
-            let c = disk_center + ex + ey;
-            let d = disk_center - ex + ey;
+        var u_axis = get_u_axis(direction);
+        var v_axis = normalize(cross(direction, u_axis));
+        u_axis = normalize(cross(v_axis, direction));
+        //TODO: avoid precision issue
+        //
+        let ex = u_axis * disk_radius * 0.999;//avoid precision issue
+        let ey = v_axis * disk_radius * 1.001;//avoid precision issue
 
-            let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
+        let a = disk_center - ex - ey;
+        let b = disk_center + ex - ey;
+        let c = disk_center + ex + ey;
+        let d = disk_center - ex + ey;
+
+        let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
             //let lightPoints = array<vec3<f32>, 4>(d, c, b, a);
 #ifdef ENABLE_DIFFUSE
-            let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
+        let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
 #else
-            let diffuse = vec3<f32>(0.0);
+        let diffuse = vec3<f32>(0.0);
 #endif
 #ifdef ENABLE_SPECULAR
-            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+        let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
 #else
-            let specular = vec3<f32>(0.0);
+        let specular = vec3<f32>(0.0);
 #endif
 
-            let k = 4.0;// 1.0 / (2.0 * PI * PI);
-            var area = PI * disk_radius * disk_radius;          // Area of the disk
-            var attenuation = calc_attenuation(disk_distance);
-            let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
-            color += k * area * intensity * attenuation * shade_ltc(ltc_input);
-        } else {
-            let light_to_surface = in.w_position - position;
-            let distance = length(light_to_surface);
-            let attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
-            var wi = tbn * -normalize(light_to_surface);
-            color += shade(intensity * attenuation, wo, wi, in.uv);
+        var k = 4.0;// 1.0 / (2.0 * PI * PI);
+        var area = PI * disk_radius * disk_radius;          // Area of the disk
+        if is_delta {
+            k = 1.0;
+            area = 1.0;
         }
+        var attenuation = calc_attenuation(disk_distance);
+        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * shade_ltc(ltc_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_disk_lights; i++) {
@@ -586,12 +594,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);
         let intensity = light.intensity.rgb;
-        let radius = light.radius;
+        var radius = light.radius;
         let cos_inner = light.cos_inner_angle;//cos(light.inner_angle);
         let cos_outer = light.cos_outer_angle;//cos(light.outer_angle);
         let u_axis = light.u_axis.xyz;
         let v_axis = light.v_axis.xyz;
         let twosided = light.twosided;
+        let is_delta = light.radius <= 0.0;
         let center_to_surface = in.w_position - position;
         let distance = length(center_to_surface);
         if (distance < 1e-6) {
@@ -605,47 +614,43 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         //if (ndotl >= 0.0 && twosided == 0) {
         //    continue;
         //}
- 
-        if radius > 0.0 {
-            let ex = radius * u_axis * 0.5 * 0.999;
-            let ey = radius * v_axis * 0.5 * 1.001;
 
-            let a = position - ex - ey;
-            let b = position + ex - ey;
-            let c = position + ex + ey;
-            let d = position - ex + ey;
+        if is_delta {
+            radius = 1.0;//radius = distance * tan(acos(cos_outer));
+        }
+        let ex = radius * u_axis * 0.5 * 0.999;
+        let ey = radius * v_axis * 0.5 * 1.001;
 
-            let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
+        let a = position - ex - ey;
+        let b = position + ex - ey;
+        let c = position + ex + ey;
+        let d = position - ex + ey;
+
+        let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
 #ifdef ENABLE_DIFFUSE
-            let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
+        let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
 #else
-            let diffuse = vec3<f32>(0.0);
+        let diffuse = vec3<f32>(0.0);
 #endif
 #ifdef ENABLE_SPECULAR
-            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+        let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
 #else
-            let specular = vec3<f32>(0.0);
+        let specular = vec3<f32>(0.0);
 #endif
-            let k = 1.0 / (2.0 * PI * PI);
-            let area = PI * radius * radius;
-            var attenuation = calc_attenuation(distance);
-            let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
-            color += k * area * intensity * attenuation * shade_ltc(ltc_input);
-        } else {
-            var closest_point = position;
-            let light_to_surface = in.w_position - closest_point;
-            let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
+        var k = 1.0 / (2.0 * PI * PI);
+        var area = PI * radius * radius;
+        var falloff = 1.0; // full light for disk area light
+        if is_delta {
+            k = 2.0;
+            area = 4.0 * PI;
+            let cos_theta = max(dot(normalize(center_to_surface), direction), 0.0);
             let cos_delta = cos_inner - cos_outer;
-            var falloff = select(step(cos_outer, cos_theta), clamp((cos_theta - cos_outer) / cos_delta, 0.0, 1.0), cos_delta > 0.0);
-            if radius <= 0.0 {
-                falloff = pow(falloff, 4.0);
-            }
-            let distance = length(light_to_surface);
-            
-            var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
-            var wi = tbn * -normalize(light_to_surface);
-            color += shade(intensity * attenuation * falloff, wo, wi, in.uv);
+            falloff = select(step(cos_outer, cos_theta), clamp((cos_theta - cos_outer) / cos_delta, 0.0, 1.0), cos_delta > 0.0);
+            falloff = pow(falloff, 4.0);
         }
+        var attenuation = calc_attenuation(distance);
+        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * falloff * shade_ltc(ltc_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) 
