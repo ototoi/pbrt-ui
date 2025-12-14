@@ -39,7 +39,12 @@ struct Options {
     #[arg(short = 'h', long = "height", default_value_t = N, help = "Table height (default: 64)")]
     table_height: usize,
 
-    #[arg(short = 'n', long, default_value_t = 32, help = "Number of samples for fitting (default: 32)")]
+    #[arg(
+        short = 'n',
+        long,
+        default_value_t = 32,
+        help = "Number of samples for fitting (default: 32)"
+    )]
     nsample: usize,
 }
 
@@ -88,7 +93,12 @@ fn main() -> Result<(), String> {
     println!("Number of samples: {}", options.nsample);
     println!();
 
-    let (tab, tab_mag_fresnel) = fit_tab(brdf.as_ref(), options.width, options.table_height, options.nsample);
+    let (tab, tab_mag_fresnel) = fit_tab(
+        brdf.as_ref(),
+        options.width,
+        options.table_height,
+        options.nsample,
+    );
 
     println!();
     println!("Generating sphere table...");

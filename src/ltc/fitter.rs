@@ -9,7 +9,12 @@ use glam::Vec3;
 /// - norm (albedo) of the BRDF
 /// - average Schlick Fresnel value
 /// - average direction of the BRDF
-pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32, nsample: usize) -> (f32, f32, Vec3) {
+pub fn compute_avg_terms(
+    brdf: &dyn Brdf,
+    V: &Vec3,
+    alpha: f32,
+    nsample: usize,
+) -> (f32, f32, Vec3) {
     let mut norm = 0.0;
     let mut fresnel = 0.0;
     let mut average_dir = Vec3::ZERO;
@@ -115,7 +120,14 @@ pub struct FitLTC<'a> {
 }
 
 impl<'a> FitLTC<'a> {
-    pub fn new(ltc: &'a mut LTC, brdf: &'a dyn Brdf, V: Vec3, alpha: f32, isotropic: bool, nsample: usize) -> Self {
+    pub fn new(
+        ltc: &'a mut LTC,
+        brdf: &'a dyn Brdf,
+        V: Vec3,
+        alpha: f32,
+        isotropic: bool,
+        nsample: usize,
+    ) -> Self {
         Self {
             ltc,
             brdf,

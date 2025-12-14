@@ -16,7 +16,12 @@ use glam::{Mat3, Vec2, Vec3};
 ///
 /// # Returns
 /// * Tuple of (tab, tab_mag_fresnel) where both are flattened width*height vectors
-pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize, nsample: usize) -> (Vec<Mat3>, Vec<Vec2>) {
+pub fn fit_tab(
+    brdf: &dyn Brdf,
+    width: usize,
+    height: usize,
+    nsample: usize,
+) -> (Vec<Mat3>, Vec<Vec2>) {
     let mut tab = vec![Mat3::IDENTITY; width * height];
     let mut tab_mag_fresnel = vec![Vec2::ZERO; width * height];
 

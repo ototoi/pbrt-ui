@@ -291,7 +291,10 @@ fn test_ltc_fit_custom_nsample() {
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Verify that the output mentions the custom nsample value
-        assert!(stdout.contains("Number of samples: 16"), "Should show custom nsample value");
+        assert!(
+            stdout.contains("Number of samples: 16"),
+            "Should show custom nsample value"
+        );
 
         let code_path = temp_dir.path().join("ltc_ggx.rs");
         assert!(code_path.exists(), "Code file should be created");
@@ -321,7 +324,10 @@ fn test_ltc_fit_default_nsample() {
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Verify that the output mentions the default nsample value
-        assert!(stdout.contains("Number of samples: 32"), "Should show default nsample value of 32");
+        assert!(
+            stdout.contains("Number of samples: 32"),
+            "Should show default nsample value of 32"
+        );
 
         let code_path = temp_dir.path().join("ltc_ggx.rs");
         assert!(code_path.exists(), "Code file should be created");
