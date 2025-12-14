@@ -19,6 +19,7 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
     let mut tab = vec![Mat3::IDENTITY; width * height];
     let mut tab_mag_fresnel = vec![Vec2::ZERO; width * height];
 
+    let mut ltc = LTC::new();
     // Loop over theta and alpha
     for a in (0..height).rev() {
         for t in 0..width {
@@ -36,8 +37,6 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
             println!("a = {}\t t = {}", a, t);
             println!("alpha = {}\t theta = {}", alpha, theta);
             println!();
-
-            let mut ltc = LTC::new();
 
             // Compute average terms
             let (magnitude, fresnel, average_dir) = compute_avg_terms(brdf, &V, alpha);

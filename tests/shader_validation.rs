@@ -18,14 +18,14 @@ fn get_include_dir() -> PathBuf {
 fn preprocess_shader(source: &str) -> Result<String, String> {
     let include_dir = get_include_dir();
     let mut preprocessor = Preprocessor::with_base_path(&include_dir);
-    
+
     preprocessor.process(source).map_err(|e| format!("{}", e))
 }
 
 /// Find all .wgsl files in a directory, excluding subdirectories
 fn find_wgsl_files(dir: &Path) -> Vec<PathBuf> {
     let mut wgsl_files = Vec::new();
-    
+
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -38,7 +38,7 @@ fn find_wgsl_files(dir: &Path) -> Vec<PathBuf> {
             }
         }
     }
-    
+
     wgsl_files.sort();
     wgsl_files
 }
@@ -67,15 +67,12 @@ fn test_all_shaders_compile() {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| shader_path.display().to_string());
-        
+
         // Read the shader source
         let source = match fs::read_to_string(shader_path) {
             Ok(s) => s,
             Err(e) => {
-                failed_shaders.push(format!(
-                    "{}: Failed to read file: {}",
-                    shader_name, e
-                ));
+                failed_shaders.push(format!("{}: Failed to read file: {}", shader_name, e));
                 continue;
             }
         };
@@ -84,10 +81,7 @@ fn test_all_shaders_compile() {
         let preprocessed = match preprocess_shader(&source) {
             Ok(p) => p,
             Err(e) => {
-                failed_shaders.push(format!(
-                    "{}: Preprocessing failed: {}",
-                    shader_name, e
-                ));
+                failed_shaders.push(format!("{}: Preprocessing failed: {}", shader_name, e));
                 continue;
             }
         };
@@ -98,10 +92,7 @@ fn test_all_shaders_compile() {
                 success_count += 1;
             }
             Err(e) => {
-                failed_shaders.push(format!(
-                    "{}: WGSL compilation failed:\n{}",
-                    shader_name, e
-                ));
+                failed_shaders.push(format!("{}: WGSL compilation failed:\n{}", shader_name, e));
             }
         }
     }
@@ -116,8 +107,5 @@ fn test_all_shaders_compile() {
         panic!("{}", error_msg);
     }
 
-    println!(
-        "✓ All {} shaders compiled successfully",
-        success_count
-    );
+    println!("✓ All {} shaders compiled successfully", success_count);
 }
