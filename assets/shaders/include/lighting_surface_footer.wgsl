@@ -586,12 +586,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let position = light.position.xyz;
         let direction = normalize(light.direction.xyz);
         let intensity = light.intensity.rgb;
-        let radius = light.radius;
+        var radius = light.radius;
         let cos_inner = light.cos_inner_angle;//cos(light.inner_angle);
         let cos_outer = light.cos_outer_angle;//cos(light.outer_angle);
         let u_axis = light.u_axis.xyz;
         let v_axis = light.v_axis.xyz;
         let twosided = light.twosided;
+        let is_spot = light.radius <= 0.0;
         let center_to_surface = in.w_position - position;
         let distance = length(center_to_surface);
         if (distance < 1e-6) {
@@ -605,47 +606,43 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         //if (ndotl >= 0.0 && twosided == 0) {
         //    continue;
         //}
- 
-        if radius > 0.0 {
-            let ex = radius * u_axis * 0.5 * 0.999;
-            let ey = radius * v_axis * 0.5 * 1.001;
 
-            let a = position - ex - ey;
-            let b = position + ex - ey;
-            let c = position + ex + ey;
-            let d = position - ex + ey;
+        if is_spot {
+            radius = 1.0;//radius = distance * tan(acos(cos_outer));
+        }
+        let ex = radius * u_axis * 0.5 * 0.999;
+        let ey = radius * v_axis * 0.5 * 1.001;
 
-            let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
+        let a = position - ex - ey;
+        let b = position + ex - ey;
+        let c = position + ex + ey;
+        let d = position - ex + ey;
+
+        let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
 #ifdef ENABLE_DIFFUSE
-            let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
+        let diffuse = LTC_Evaluate_Disk(N, V, P, IDENTITY_MAT3, lightPoints);
 #else
-            let diffuse = vec3<f32>(0.0);
+        let diffuse = vec3<f32>(0.0);
 #endif
 #ifdef ENABLE_SPECULAR
-            let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
+        let specular = LTC_Evaluate_Disk(N, V, P, Minv, lightPoints);
 #else
-            let specular = vec3<f32>(0.0);
+        let specular = vec3<f32>(0.0);
 #endif
-            let k = 1.0 / (2.0 * PI * PI);
-            let area = PI * radius * radius;
-            var attenuation = calc_attenuation(distance);
-            let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
-            color += k * area * intensity * attenuation * shade_ltc(ltc_input);
-        } else {
-            var closest_point = position;
-            let light_to_surface = in.w_position - closest_point;
-            let cos_theta = max(dot(normalize(light_to_surface), direction), 0.0);
+        var k = 1.0 / (2.0 * PI * PI);
+        var area = PI * radius * radius;
+        var falloff = 1.0; // full light for disk area light
+        if is_spot {
+            k = 2.0;
+            area = 4.0 * PI;
+            let cos_theta = max(dot(normalize(center_to_surface), direction), 0.0);
             let cos_delta = cos_inner - cos_outer;
-            var falloff = select(step(cos_outer, cos_theta), clamp((cos_theta - cos_outer) / cos_delta, 0.0, 1.0), cos_delta > 0.0);
-            if radius <= 0.0 {
-                falloff = pow(falloff, 4.0);
-            }
-            let distance = length(light_to_surface);
-            
-            var attenuation = 1.0 / pow(1.0 + distance, 2.0); // Simple quadratic attenuation
-            var wi = tbn * -normalize(light_to_surface);
-            color += shade(intensity * attenuation * falloff, wo, wi, in.uv);
+            falloff = select(step(cos_outer, cos_theta), clamp((cos_theta - cos_outer) / cos_delta, 0.0, 1.0), cos_delta > 0.0);
+            falloff = pow(falloff, 4.0);
         }
+        var attenuation = calc_attenuation(distance);
+        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * falloff * shade_ltc(ltc_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) 
