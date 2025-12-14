@@ -158,10 +158,11 @@ pub fn nelder_mead<F>(
 where
     F: FnMut(&[f32; 3]) -> f32,
 {
-    const ALPHA: f32 = 1.0; // Reflection coefficient
-    const GAMMA: f32 = 2.0; // Expansion coefficient
-    const RHO: f32 = 0.5;   // Contraction coefficient
-    const SIGMA: f32 = 0.5; // Shrink coefficient
+    const ALPHA: f32 = 1.0;   // Reflection coefficient
+    const GAMMA: f32 = 2.0;   // Expansion coefficient
+    const RHO: f32 = 0.5;     // Contraction coefficient
+    const SIGMA: f32 = 0.5;   // Shrink coefficient
+    const MIN_SUM: f32 = 1e-10; // Minimum sum threshold for termination check
 
     // Initialize simplex: 4 points for 3D
     let mut simplex: [[f32; 3]; 4] = [[0.0; 3]; 4];
@@ -198,10 +199,10 @@ where
             }
         }
 
-        // Find nh (next-to-maximum): best value that is not hi
+        // Find nh (next-to-maximum): largest value that is not hi
         nh = if hi == 0 { 1 } else { 0 };
         for i in 0..4 {
-            if i != hi && (i == nh || values[i] > values[nh]) {
+            if i != hi && values[i] > values[nh] {
                 nh = i;
             }
         }
@@ -211,7 +212,7 @@ where
         let b = values[lo];
         let sum = a.abs() + b.abs();
         // Handle case where both values are near zero
-        if sum < 1e-10 || 2.0 * (a - b).abs() < sum * tolerance {
+        if sum < MIN_SUM || 2.0 * (a - b).abs() < sum * tolerance {
             break;
         }
 
