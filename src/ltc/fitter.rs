@@ -25,7 +25,7 @@ pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Ve
             // Eval
             let (eval, pdf) = brdf.eval(V, &L, alpha);
 
-            if pdf > 0.0 {
+            if pdf > 0.0 && eval > 0.0 {
                 let weight = eval / pdf;
                 let fresnel_val = brdf.fresnel(V, &L);
                 // Accumulate
@@ -54,13 +54,17 @@ pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Ve
 }
 
 /// Helper function for compute_error to avoid code duplication
-fn compute_error_helper(error: f32, pdf: f32) -> f32 {
-    if pdf > 0.0 { error / pdf } else { 0.0 }
+fn compute_error_helper(error: f64, pdf: f64) -> f64 {
+    if error.abs() < 1e-12 && pdf.abs() < 1e-12 {
+        0.0
+    } else {
+        error / pdf
+    }
 }
 
 /// Compute the error between the BRDF and the LTC using Multiple Importance Sampling
 pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
-    let mut error = 0.0;
+    let mut error: f64 = 0.0;
 
     for j in 0..NSAMPLE {
         for i in 0..NSAMPLE {
@@ -76,9 +80,9 @@ pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
                 let pdf_ltc = eval_ltc / ltc.magnitude;
 
                 // Error with MIS weight
-                let error_ = (eval_brdf - eval_ltc).abs();
+                let error_ = (eval_brdf - eval_ltc).abs() as f64;
                 let error_ = error_ * error_ * error_;
-                error += compute_error_helper(error_, pdf_ltc + pdf_brdf);
+                error += compute_error_helper(error_, pdf_ltc as f64 + pdf_brdf as f64);
             }
 
             // Importance sample BRDF
@@ -90,14 +94,14 @@ pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
                 let pdf_ltc = eval_ltc / ltc.magnitude;
 
                 // Error with MIS weight
-                let error_ = (eval_brdf - eval_ltc).abs();
+                let error_ = (eval_brdf - eval_ltc).abs() as f64;
                 let error_ = error_ * error_ * error_;
-                error += compute_error_helper(error_, pdf_ltc + pdf_brdf);
+                error += compute_error_helper(error_, pdf_ltc as f64 + pdf_brdf as f64);
             }
         }
     }
 
-    error / (NSAMPLE * NSAMPLE) as f32
+    error as f32 / (NSAMPLE * NSAMPLE) as f32
 }
 
 /// Fit LTC parameters to BRDF using Nelder-Mead optimization
@@ -146,104 +150,135 @@ impl<'a> FitLTC<'a> {
 /// Simple Nelder-Mead optimization implementation
 pub fn nelder_mead<F>(
     start: &[f32; 3],
-    epsilon: f32,
+    delta: f32,
     tolerance: f32,
-    max_iterations: usize,
-    mut func: F,
+    max_iters: usize,
+    mut objective_fn: F,
 ) -> (f32, [f32; 3])
 where
     F: FnMut(&[f32; 3]) -> f32,
 {
-    const ALPHA: f32 = 1.0; // Reflection
-    const GAMMA: f32 = 2.0; // Expansion
-    const RHO: f32 = 0.5; // Contraction
-    const SIGMA: f32 = 0.5; // Shrink
+    const DIM: usize = 3;
+    const NB_POINTS: usize = DIM + 1;
+    const REFLECT: f32 = 1.0;
+    const EXPAND: f32 = 2.0;
+    const CONTRACT: f32 = 0.5;
+    const SHRINK: f32 = 0.5;
+
+    type Point = [f32; DIM];
+
+    let mut s = [[0.0; DIM]; NB_POINTS];
+    let mut f = [0.0; NB_POINTS];
 
     // Initialize simplex
-    let mut simplex = Vec::new();
-    simplex.push((*start, func(start)));
-
-    for i in 0..3 {
-        let mut point = *start;
-        point[i] += epsilon;
-        let value: f32 = func(&point);
-        simplex.push((point, value));
+    s[0] = *start;
+    for i in 1..NB_POINTS {
+        s[i] = *start;
+        s[i][i - 1] += delta;
     }
 
-    for _iteration in 0..max_iterations {
-        // Sort simplex by function value
-        simplex.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    for i in 0..NB_POINTS {
+        f[i] = objective_fn(&s[i]);
+    }
 
-        let best = simplex[0].1;
-        let worst = simplex[3].1;
+    let (mut lo, mut hi, mut nh);
 
-        // Check convergence
-        if (worst - best).abs() < tolerance {
+    for _ in 0..max_iters {
+        // lo, hi, nh
+        lo = 0;
+        hi = 0;
+        nh = 0;
+        for i in 1..NB_POINTS {
+            if f[i] < f[lo] {
+                lo = i;
+            }
+            if f[i] > f[hi] {
+                nh = hi;
+                hi = i;
+            } else if f[i] > f[nh] {
+                nh = i;
+            }
+        }
+
+        // termination condition
+        let a = f[lo].abs();
+        let b = f[hi].abs();
+        if 2.0 * (a - b).abs() < (a + b) * tolerance {
             break;
         }
 
-        // Compute centroid (excluding worst point)
-        let mut centroid = [0.0; 3];
-        for i in 0..3 {
-            for j in 0..3 {
-                centroid[j] += simplex[i].0[j];
+        // centroid
+        let mut o = [0.0; DIM];
+        for i in 0..NB_POINTS {
+            if i == hi {
+                continue;
+            }
+            for j in 0..DIM {
+                o[j] += s[i][j];
             }
         }
-        for i in 0..3 {
-            centroid[i] /= 3.0;
+        for j in 0..DIM {
+            o[j] /= DIM as f32;
         }
 
-        // Reflection
-        let mut reflected = [0.0; 3];
-        for i in 0..3 {
-            reflected[i] = centroid[i] + ALPHA * (centroid[i] - simplex[3].0[i]);
+        // reflection
+        let mut r = [0.0; DIM];
+        for j in 0..DIM {
+            r[j] = o[j] + REFLECT * (o[j] - s[hi][j]);
         }
-        let reflected_value = func(&reflected);
+        let fr = objective_fn(&r);
 
-        if reflected_value < simplex[2].1 && reflected_value >= simplex[0].1 {
-            simplex[3] = (reflected, reflected_value);
+        if fr < f[nh] {
+            if fr < f[lo] {
+                // expansion
+                let mut e = [0.0; DIM];
+                for j in 0..DIM {
+                    e[j] = o[j] + EXPAND * (o[j] - s[hi][j]);
+                }
+                let fe = objective_fn(&e);
+                if fe < fr {
+                    s[hi] = e;
+                    f[hi] = fe;
+                    continue;
+                }
+            }
+            s[hi] = r;
+            f[hi] = fr;
             continue;
         }
 
-        // Expansion
-        if reflected_value < simplex[0].1 {
-            let mut expanded = [0.0; 3];
-            for i in 0..3 {
-                expanded[i] = centroid[i] + GAMMA * (reflected[i] - centroid[i]);
-            }
-            let expanded_value = func(&expanded);
-
-            if expanded_value < reflected_value {
-                simplex[3] = (expanded, expanded_value);
-            } else {
-                simplex[3] = (reflected, reflected_value);
-            }
+        // contraction
+        let mut c = [0.0; DIM];
+        for j in 0..DIM {
+            c[j] = o[j] - CONTRACT * (o[j] - s[hi][j]);
+        }
+        let fc = objective_fn(&c);
+        if fc < f[hi] {
+            s[hi] = c;
+            f[hi] = fc;
             continue;
         }
 
-        // Contraction
-        let mut contracted = [0.0; 3];
-        for i in 0..3 {
-            contracted[i] = centroid[i] + RHO * (simplex[3].0[i] - centroid[i]);
-        }
-        let contracted_value = func(&contracted);
-
-        if contracted_value < simplex[3].1 {
-            simplex[3] = (contracted, contracted_value);
-            continue;
-        }
-
-        // Shrink
-        for i in 1..4 {
-            for j in 0..3 {
-                simplex[i].0[j] = simplex[0].0[j] + SIGMA * (simplex[i].0[j] - simplex[0].0[j]);
+        // shrink
+        for k in 0..NB_POINTS {
+            if k == lo {
+                continue;
             }
-            simplex[i].1 = func(&simplex[i].0);
+            for j in 0..DIM {
+                s[k][j] = s[lo][j] + SHRINK * (s[k][j] - s[lo][j]);
+            }
+            f[k] = objective_fn(&s[k]);
         }
     }
 
-    simplex.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    (simplex[0].1, simplex[0].0)
+    // re-search minimum location
+    lo = 0;
+    for i in 1..NB_POINTS {
+        if f[i] < f[lo] {
+            lo = i;
+        }
+    }
+    (f[lo], s[lo])
 }
 
 /// Fit LTC to BRDF

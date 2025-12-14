@@ -190,11 +190,7 @@ impl FresnelDielectric {
 }
 
 fn face_forward(v: &glam::Vec3, n: &glam::Vec3) -> glam::Vec3 {
-    if v.dot(*n) < 0.0 {
-        -*v
-    } else {
-        *v
-    }
+    if v.dot(*n) < 0.0 { -*v } else { *v }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
