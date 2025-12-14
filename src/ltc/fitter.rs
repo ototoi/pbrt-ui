@@ -211,8 +211,14 @@ where
         let a = values[hi];
         let b = values[lo];
         let sum = a.abs() + b.abs();
-        // Handle case where both values are near zero
-        if sum < MIN_SUM || 2.0 * (a - b).abs() < sum * tolerance {
+        
+        // Edge case: if both values are near zero, consider converged
+        if sum < MIN_SUM {
+            break;
+        }
+        
+        // Main convergence criterion from C++ reference
+        if 2.0 * (a - b).abs() < sum * tolerance {
             break;
         }
 
