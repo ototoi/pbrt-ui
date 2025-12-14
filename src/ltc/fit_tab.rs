@@ -24,9 +24,9 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
         for t in 0..width {
             // Parameterized by sqrt(1 - cos(theta))
             let x = t as f32 / (width - 1) as f32;
-            let x = x.min(((width - 1) as f32 - 0.5) / (width - 1) as f32); // avoid 1.0 to prevent NaNs
-            let ct = 1.0 - x * x;
-            let theta = std::f32::consts::FRAC_PI_2.min(ct.acos());
+            let ct = 1.0 - x * x; // x * x = 1 - cos(theta)
+            let theta = ct.acos();
+            let theta = 1.57f32.min(theta);
             let V = Vec3::new(theta.sin(), 0.0, theta.cos());
 
             // alpha = roughness^2

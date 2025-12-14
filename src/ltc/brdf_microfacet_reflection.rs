@@ -135,7 +135,8 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
 }
 
 fn safe_div(a: f32, b: f32) -> f32 {
-    if b.abs() < 1e-6 {
+    assert!(b >= 0.0);
+    if a.abs() < 1e-6 && b.abs() < 1e-6 {
         0.0
     } else {
         (a / b)
@@ -212,6 +213,7 @@ impl Brdf for BrdfMicrofacetReflection {
     fn eval(&self, V: &glam::Vec3, L: &glam::Vec3, alpha: f32) -> (f32, f32) {
         //alpha = roughnes * roughnes;
         let roughness = alpha.sqrt();
+        let roughness = roughness.max(0.001); //
         let distribution = create_distribution(roughness); //
 
         let wo = V;
@@ -226,37 +228,41 @@ impl Brdf for BrdfMicrofacetReflection {
 
         // Check if V and L are opposite directions
         let v_dot_l = wo.dot(*wi);
-        if v_dot_l < 1e-6 {
+        if v_dot_l <= 1e-6 {
             // V and L are opposite directions, no valid BRDF contribution
             return (0.0, 0.0);
         }
 
         // Compute half vector
         let wh = wo + wi;
-        if wh.length_squared() == 0.0 {
+        if wh.length_squared() <= 1e-6 {
             return (0.0, 0.0);
         }
         let wh = wh.normalize();
         let v_dot_wh = wo.dot(wh);
-        if v_dot_wh <= 0.0 {
+        if v_dot_wh <= 1e-6 {
             return (0.0, 0.0);
         }
-
-        //let fresnel = FresnelDielectric::new(1.5, 1.0);
-        //let f = fresnel.evaluate(face_forward(&wh, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*wi));
-        let f = 1.0; //
 
         // Compute the BRDF value
         let d = distribution.d(&wh);
         let g = distribution.g(&wo, &wi);
 
         // BRDF formula: f(wo, wi) = F * D * G / (4 * cos_theta_o * cos_theta_i)
-        let value = safe_div(f * d * g, 4.0 * cos_theta_o * cos_theta_i);
+        //let value = safe_div(d * g, 4.0 * cos_theta_o * cos_theta_i);
+        let value = safe_div(d * g, 4.0 * cos_theta_o);
         // Compute PDF
         let pdf = safe_div(distribution.pdf(&wo, &wh), 4.0 * v_dot_wh.abs());
 
         (value, pdf)
     }
+
+    // Uncomment and implement Fresnel if needed
+    //fn fresnel(&self, V: &glam::Vec3, L: &glam::Vec3) -> f32 {
+    //    let H = (*V + *L).normalize();
+    //    let fresnel = FresnelDielectric::new(1.5, 1.0);
+    //    fresnel.evaluate(face_forward(&H, &glam::Vec3::new(0.0, 0.0, 1.0)).dot(*L))
+    //}
 
     fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let roughness = alpha.sqrt();
