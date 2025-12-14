@@ -2,22 +2,22 @@
 
 use super::brdf::Brdf;
 use super::ltc::LTC;
-use super::parameters::{EPSILON, NSAMPLE};
+use super::parameters::EPSILON;
 use glam::Vec3;
 
 /// Compute the average BRDF terms:
 /// - norm (albedo) of the BRDF
 /// - average Schlick Fresnel value
 /// - average direction of the BRDF
-pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Vec3) {
+pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32, nsample: usize) -> (f32, f32, Vec3) {
     let mut norm = 0.0;
     let mut fresnel = 0.0;
     let mut average_dir = Vec3::ZERO;
 
-    for j in 0..NSAMPLE {
-        for i in 0..NSAMPLE {
-            let U1 = (i as f32 + 0.5) / NSAMPLE as f32;
-            let U2 = (j as f32 + 0.5) / NSAMPLE as f32;
+    for j in 0..nsample {
+        for i in 0..nsample {
+            let U1 = (i as f32 + 0.5) / nsample as f32;
+            let U2 = (j as f32 + 0.5) / nsample as f32;
 
             // Sample
             let L = brdf.sample(V, alpha, U1, U2);
@@ -36,8 +36,8 @@ pub fn compute_avg_terms(brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> (f32, f32, Ve
         }
     }
 
-    norm /= (NSAMPLE * NSAMPLE) as f32;
-    fresnel /= (NSAMPLE * NSAMPLE) as f32;
+    norm /= (nsample * nsample) as f32;
+    fresnel /= (nsample * nsample) as f32;
 
     // Clear y component, which should be zero with isotropic BRDFs
     // This assumption is valid for isotropic BRDFs where rotation around the normal
@@ -63,13 +63,13 @@ fn compute_error_helper(error: f64, pdf: f64) -> f64 {
 }
 
 /// Compute the error between the BRDF and the LTC using Multiple Importance Sampling
-pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
+pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32, nsample: usize) -> f32 {
     let mut error: f64 = 0.0;
 
-    for j in 0..NSAMPLE {
-        for i in 0..NSAMPLE {
-            let U1 = (i as f32 + 0.5) / NSAMPLE as f32;
-            let U2 = (j as f32 + 0.5) / NSAMPLE as f32;
+    for j in 0..nsample {
+        for i in 0..nsample {
+            let U1 = (i as f32 + 0.5) / nsample as f32;
+            let U2 = (j as f32 + 0.5) / nsample as f32;
 
             // Importance sample LTC
             {
@@ -101,7 +101,7 @@ pub fn compute_error(ltc: &LTC, brdf: &dyn Brdf, V: &Vec3, alpha: f32) -> f32 {
         }
     }
 
-    error as f32 / (NSAMPLE * NSAMPLE) as f32
+    error as f32 / (nsample * nsample) as f32
 }
 
 /// Fit LTC parameters to BRDF using Nelder-Mead optimization
@@ -111,16 +111,18 @@ pub struct FitLTC<'a> {
     pub V: Vec3,
     pub alpha: f32,
     pub isotropic: bool,
+    pub nsample: usize,
 }
 
 impl<'a> FitLTC<'a> {
-    pub fn new(ltc: &'a mut LTC, brdf: &'a dyn Brdf, V: Vec3, alpha: f32, isotropic: bool) -> Self {
+    pub fn new(ltc: &'a mut LTC, brdf: &'a dyn Brdf, V: Vec3, alpha: f32, isotropic: bool, nsample: usize) -> Self {
         Self {
             ltc,
             brdf,
             V,
             alpha,
             isotropic,
+            nsample,
         }
     }
 
@@ -143,7 +145,7 @@ impl<'a> FitLTC<'a> {
 
     pub fn eval(&mut self, params: &[f32; 3]) -> f32 {
         self.update(params);
-        compute_error(self.ltc, self.brdf, &self.V, self.alpha)
+        compute_error(self.ltc, self.brdf, &self.V, self.alpha, self.nsample)
     }
 }
 
@@ -289,10 +291,11 @@ pub fn fit(
     alpha: f32,
     epsilon: f32,
     isotropic: bool,
+    nsample: usize,
 ) -> f32 {
     let start = [ltc.m11, ltc.m22, ltc.m13];
 
-    let mut fitter = FitLTC::new(ltc, brdf, *V, alpha, isotropic);
+    let mut fitter = FitLTC::new(ltc, brdf, *V, alpha, isotropic, nsample);
 
     let (error, result) = nelder_mead(&start, epsilon, 1e-5, 100, |params| fitter.eval(params));
 
@@ -311,7 +314,8 @@ mod tests {
         let brdf = BrdfGGX::new();
         let V = Vec3::new(0.0, 0.0, 1.0);
         let alpha = 0.5;
-        let (norm, fresnel, avg_dir) = compute_avg_terms(&brdf, &V, alpha);
+        let nsample = 32;
+        let (norm, fresnel, avg_dir) = compute_avg_terms(&brdf, &V, alpha, nsample);
         assert!(norm > 0.0);
         assert!(fresnel >= 0.0);
         assert!(avg_dir.length() > 0.0);
@@ -323,7 +327,8 @@ mod tests {
         let mut ltc = LTC::new();
         let V = Vec3::new(0.0, 0.0, 1.0);
         let alpha = 0.5;
-        let error = fit(&mut ltc, &brdf, &V, alpha, 0.05, true);
+        let nsample = 32;
+        let error = fit(&mut ltc, &brdf, &V, alpha, 0.05, true, nsample);
         assert!(error >= 0.0);
     }
 }

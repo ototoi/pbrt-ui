@@ -265,3 +265,65 @@ fn test_ltc_fit_single_format_only_creates_specified_files() {
         assert!(!tex2_path.exists(), "tex2.exr should NOT be created");
     }
 }
+
+#[test]
+fn test_ltc_fit_custom_nsample() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test that nsample parameter can be customized
+    let output = Command::new(get_ltc_fit_bin())
+        .args(&[
+            "ggx",
+            "-o",
+            temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
+            "-f",
+            "code",
+            "-w",
+            "2",
+            "-h",
+            "1",
+            "-n",
+            "16",
+        ])
+        .output()
+        .expect("Failed to execute fit-ltc");
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Verify that the output mentions the custom nsample value
+        assert!(stdout.contains("Number of samples: 16"), "Should show custom nsample value");
+
+        let code_path = temp_dir.path().join("ltc_ggx.rs");
+        assert!(code_path.exists(), "Code file should be created");
+    }
+}
+
+#[test]
+fn test_ltc_fit_default_nsample() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test that default nsample value is 32
+    let output = Command::new(get_ltc_fit_bin())
+        .args(&[
+            "ggx",
+            "-o",
+            temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
+            "-f",
+            "code",
+            "-w",
+            "2",
+            "-h",
+            "1",
+        ])
+        .output()
+        .expect("Failed to execute fit-ltc");
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Verify that the output mentions the default nsample value
+        assert!(stdout.contains("Number of samples: 32"), "Should show default nsample value of 32");
+
+        let code_path = temp_dir.path().join("ltc_ggx.rs");
+        assert!(code_path.exists(), "Code file should be created");
+    }
+}

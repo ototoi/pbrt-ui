@@ -12,10 +12,11 @@ use glam::{Mat3, Vec2, Vec3};
 /// * `brdf` - The BRDF to fit
 /// * `width` - Width of the table (theta dimension)
 /// * `height` - Height of the table (alpha/roughness dimension)
+/// * `nsample` - Number of samples used to compute the error during fitting
 ///
 /// # Returns
 /// * Tuple of (tab, tab_mag_fresnel) where both are flattened width*height vectors
-pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<Vec2>) {
+pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize, nsample: usize) -> (Vec<Mat3>, Vec<Vec2>) {
     let mut tab = vec![Mat3::IDENTITY; width * height];
     let mut tab_mag_fresnel = vec![Vec2::ZERO; width * height];
 
@@ -39,7 +40,7 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
             println!();
 
             // Compute average terms
-            let (magnitude, fresnel, average_dir) = compute_avg_terms(brdf, &V, alpha);
+            let (magnitude, fresnel, average_dir) = compute_avg_terms(brdf, &V, alpha, nsample);
             ltc.magnitude = magnitude;
             ltc.fresnel = fresnel;
 
@@ -83,7 +84,7 @@ pub fn fit_tab(brdf: &dyn Brdf, width: usize, height: usize) -> (Vec<Mat3>, Vec<
 
             // Fit (explore parameter space and refine first guess)
             let epsilon = 0.05;
-            fit(&mut ltc, brdf, &V, alpha, epsilon, isotropic);
+            fit(&mut ltc, brdf, &V, alpha, epsilon, isotropic, nsample);
 
             // Copy data
             tab[a + t * height] = ltc.M; // Store matrix for packing
