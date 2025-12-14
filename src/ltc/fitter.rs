@@ -145,7 +145,9 @@ impl<'a> FitLTC<'a> {
     }
 }
 
-/// Simple Nelder-Mead optimization implementation
+/// Nelder-Mead optimization implementation
+/// Faithful port from C++ ltc_code/fit/nelder_mead.h
+/// Fixed for 3D optimization with simplex of 4 points
 pub fn nelder_mead<F>(
     start: &[f32; 3],
     epsilon: f32,
@@ -156,96 +158,142 @@ pub fn nelder_mead<F>(
 where
     F: FnMut(&[f32; 3]) -> f32,
 {
-    const ALPHA: f32 = 1.0; // Reflection
-    const GAMMA: f32 = 2.0; // Expansion
-    const RHO: f32 = 0.5; // Contraction
-    const SIGMA: f32 = 0.5; // Shrink
+    const ALPHA: f32 = 1.0; // Reflection coefficient
+    const GAMMA: f32 = 2.0; // Expansion coefficient
+    const RHO: f32 = 0.5;   // Contraction coefficient
+    const SIGMA: f32 = 0.5; // Shrink coefficient
 
-    // Initialize simplex
-    let mut simplex = Vec::new();
-    simplex.push((*start, func(start)));
+    // Initialize simplex: 4 points for 3D
+    let mut simplex: [[f32; 3]; 4] = [[0.0; 3]; 4];
+    let mut values: [f32; 4] = [0.0; 4];
 
+    // First point: starting point
+    simplex[0] = *start;
+    values[0] = func(start);
+
+    // Other 3 points: perturb each dimension
     for i in 0..3 {
-        let mut point = *start;
-        point[i] += epsilon;
-        let value: f32 = func(&point);
-        simplex.push((point, value));
+        simplex[i + 1] = *start;
+        simplex[i + 1][i] += epsilon;
+        values[i + 1] = func(&simplex[i + 1]);
     }
 
     for _iteration in 0..max_iterations {
-        // Sort simplex by function value
-        simplex.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        // Find lo (best), hi (worst), and nh (next-to-worst) indices by comparison
+        let mut lo = 0;
+        let mut hi = 0;
+        let mut nh = 0;
 
-        let best = simplex[0].1;
-        let worst = simplex[3].1;
+        // Find lo (minimum)
+        for i in 1..4 {
+            if values[i] < values[lo] {
+                lo = i;
+            }
+        }
 
-        // Check convergence
-        if (worst - best).abs() < tolerance {
+        // Find hi (maximum)
+        for i in 0..4 {
+            if values[i] > values[hi] {
+                hi = i;
+            }
+        }
+
+        // Find nh (next-to-maximum)
+        for i in 0..4 {
+            if i != hi {
+                if nh == hi || values[i] > values[nh] {
+                    nh = i;
+                }
+            }
+        }
+
+        // Check termination: 2.0 * |hi - lo| < (|hi| + |lo|) * tolerance
+        let a = values[hi];
+        let b = values[lo];
+        if 2.0 * (a - b).abs() < (a.abs() + b.abs()) * tolerance {
             break;
         }
 
-        // Compute centroid (excluding worst point)
+        // Compute centroid (excluding worst point hi)
         let mut centroid = [0.0; 3];
-        for i in 0..3 {
-            for j in 0..3 {
-                centroid[j] += simplex[i].0[j];
+        for i in 0..4 {
+            if i != hi {
+                for j in 0..3 {
+                    centroid[j] += simplex[i][j];
+                }
             }
         }
-        for i in 0..3 {
-            centroid[i] /= 3.0;
+        for j in 0..3 {
+            centroid[j] /= 3.0;
         }
 
-        // Reflection
+        // Reflection: xr = centroid + alpha * (centroid - x[hi])
         let mut reflected = [0.0; 3];
-        for i in 0..3 {
-            reflected[i] = centroid[i] + ALPHA * (centroid[i] - simplex[3].0[i]);
+        for j in 0..3 {
+            reflected[j] = centroid[j] + ALPHA * (centroid[j] - simplex[hi][j]);
         }
         let reflected_value = func(&reflected);
 
-        if reflected_value < simplex[2].1 && reflected_value >= simplex[0].1 {
-            simplex[3] = (reflected, reflected_value);
+        // If reflected is better than nh but not better than lo, accept it
+        if reflected_value >= values[lo] && reflected_value < values[nh] {
+            simplex[hi] = reflected;
+            values[hi] = reflected_value;
             continue;
         }
 
-        // Expansion
-        if reflected_value < simplex[0].1 {
+        // Expansion: if reflected is better than lo
+        if reflected_value < values[lo] {
             let mut expanded = [0.0; 3];
-            for i in 0..3 {
-                expanded[i] = centroid[i] + GAMMA * (reflected[i] - centroid[i]);
+            for j in 0..3 {
+                expanded[j] = centroid[j] + GAMMA * (reflected[j] - centroid[j]);
             }
             let expanded_value = func(&expanded);
 
+            // Accept the better of expanded or reflected
             if expanded_value < reflected_value {
-                simplex[3] = (expanded, expanded_value);
+                simplex[hi] = expanded;
+                values[hi] = expanded_value;
             } else {
-                simplex[3] = (reflected, reflected_value);
+                simplex[hi] = reflected;
+                values[hi] = reflected_value;
             }
             continue;
         }
 
-        // Contraction
+        // Contraction: if reflected is worse than nh
         let mut contracted = [0.0; 3];
-        for i in 0..3 {
-            contracted[i] = centroid[i] + RHO * (simplex[3].0[i] - centroid[i]);
+        for j in 0..3 {
+            contracted[j] = centroid[j] + RHO * (simplex[hi][j] - centroid[j]);
         }
         let contracted_value = func(&contracted);
 
-        if contracted_value < simplex[3].1 {
-            simplex[3] = (contracted, contracted_value);
+        // If contraction is better than hi, accept it
+        if contracted_value < values[hi] {
+            simplex[hi] = contracted;
+            values[hi] = contracted_value;
             continue;
         }
 
-        // Shrink
-        for i in 1..4 {
-            for j in 0..3 {
-                simplex[i].0[j] = simplex[0].0[j] + SIGMA * (simplex[i].0[j] - simplex[0].0[j]);
+        // Reduction: shrink all points toward lo
+        for i in 0..4 {
+            if i != lo {
+                for j in 0..3 {
+                    simplex[i][j] = simplex[lo][j] + SIGMA * (simplex[i][j] - simplex[lo][j]);
+                }
+                values[i] = func(&simplex[i]);
             }
-            simplex[i].1 = func(&simplex[i].0);
         }
     }
 
-    simplex.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    (simplex[0].1, simplex[0].0)
+    // Find best point
+    let mut lo = 0;
+    for i in 1..4 {
+        if values[i] < values[lo] {
+            lo = i;
+        }
+    }
+
+    (values[lo], simplex[lo])
 }
 
 /// Fit LTC to BRDF
