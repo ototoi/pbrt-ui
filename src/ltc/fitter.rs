@@ -198,19 +198,20 @@ where
             }
         }
 
-        // Find nh (next-to-maximum)
+        // Find nh (next-to-maximum): best value that is not hi
+        nh = if hi == 0 { 1 } else { 0 };
         for i in 0..4 {
-            if i != hi {
-                if nh == hi || values[i] > values[nh] {
-                    nh = i;
-                }
+            if i != hi && (i == nh || values[i] > values[nh]) {
+                nh = i;
             }
         }
 
         // Check termination: 2.0 * |hi - lo| < (|hi| + |lo|) * tolerance
         let a = values[hi];
         let b = values[lo];
-        if 2.0 * (a - b).abs() < (a.abs() + b.abs()) * tolerance {
+        let sum = a.abs() + b.abs();
+        // Handle case where both values are near zero
+        if sum < 1e-10 || 2.0 * (a - b).abs() < sum * tolerance {
             break;
         }
 
