@@ -39,9 +39,11 @@ impl Brdf for BrdfGGX {
         let slopey = H.y / H.z;
         let D = 1.0 / (1.0 + (slopex * slopex + slopey * slopey) / alpha / alpha);
         let D = D * D;
-        let D = D / (std::f32::consts::PI * alpha * alpha * H.z * H.z * H.z * H.z);
+        let D = D / (3.14159 * alpha * alpha * H.z * H.z * H.z * H.z);
         let pdf = (D * H.z / (4.0 * V.dot(H))).abs();
         let res = D * G2 / 4.0 / V.z;
+        assert!(!res.is_nan());
+        assert!(!pdf.is_nan());
         (res, pdf)
     }
 
