@@ -122,12 +122,17 @@ fn get_directional_light_item(
         let l = get_color(&props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
         let scale = get_color(&props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
+        let source_angle = props.find_one_float("sourceangle").unwrap_or(0.5357);
+        let source_angle = source_angle.max(0.2); // Prevent too small angles
+        let source_angle = source_angle.to_radians();
+
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
         let render_light = DirectionalRenderLight {
             id,
             edition: edition.clone(),
             direction: direction,
             intensity: intensity,
+            source_angle: source_angle,
             ..Default::default()
         };
         let render_light = Arc::new(RenderLight::Directional(render_light));

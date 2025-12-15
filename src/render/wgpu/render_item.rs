@@ -618,7 +618,7 @@ fn get_normal_texture_from_image(
     match &texture_image {
         DynaImage::ImageLuma8(img) => {
             //
-            assert!(false, "Unexpected Luma8 image for normal map");
+            //assert!(false, "Unexpected Luma8 image for normal map");
         }
         _ => {
             //

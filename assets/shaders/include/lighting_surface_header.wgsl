@@ -32,6 +32,9 @@ struct DirectionalLight {
     // Example light direction
     intensity: vec4<f32>,
     // Example light intensity
+    radius: f32,
+    _pad1: vec3<f32>,
+    // Padding for alignment
 }
 
 struct SphereLight {
@@ -105,7 +108,7 @@ struct InfiniteLight {
     //_pad3: vec4<f32>,     // Padding to ensure alignment
 }
 
-struct LTCShadeInput {
+struct ShadeInput {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
     uv: vec2<f32>,
