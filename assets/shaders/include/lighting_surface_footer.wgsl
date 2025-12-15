@@ -255,7 +255,7 @@ fn LTC_Evaluate_Polygon(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, MinvOrg: mat3x
     return Lo_i;
 }
 
-fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
+fn LTC_Evaluate_Disk_Core(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>, points: array<vec3<f32>, 4>, use_factor: bool) -> vec3<f32>
 {
     // construct orthonormal basis around N
     let T1 = normalize(V - N*dot(V, N));
@@ -370,7 +370,7 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
 
         // extends of front-facing ellipse
         // projected solid angle E, like the length(F) in rectangle light
-        let formFactor = e2*e2;//(-1) * isqrt(0) ;//- 1 / sqrt(0) -> -infinity
+        let formFactor = select(1.0, e2 * e2, use_factor);//(-1) * isqrt(0) ;//- 1 / sqrt(0) -> -infinity
         // use tabulated horizon-clipped sphere
         var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
         //uv = saturate(uv);
@@ -398,7 +398,7 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
         let L2 = sqrt(-e2/e1);
 
         // projected solid angle E, like the length(F) in rectangle light
-        let formFactor = L1 * L2 * inverseSqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)) ;
+        let formFactor = select(1.0, L1 * L2 * inverseSqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)), use_factor);
         // use tabulated horizon-clipped sphere
         var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
         // uv = saturate(uv);
@@ -410,6 +410,16 @@ fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>
         //let Lo_i = vec3<f32>(c0, c1, c2);
         return Lo_i;
     }
+}
+
+fn LTC_Evaluate_Disk(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
+{
+    return LTC_Evaluate_Disk_Core(N, V, P, Minv, points, true);
+}
+
+fn LTC_Evaluate_Disk_NoFactor(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3<f32>, points: array<vec3<f32>, 4>) -> vec3<f32>
+{
+    return LTC_Evaluate_Disk_Core(N, V, P, Minv, points, false);
 }
 
 
@@ -513,8 +523,40 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
         let intensity = light.intensity.rgb;
-        var wi = tbn * -normalize(light.direction.xyz);
-        color += shade(intensity, wo, wi, in.uv);
+        let radius = max(light.radius, 1e-4);
+
+        let direction = normalize(light.direction.xyz);
+        let disk_radius = radius;
+        let disk_center = in.w_position - direction;
+
+        var u_axis = get_u_axis(direction);
+        var v_axis = normalize(cross(direction, u_axis));
+        u_axis = normalize(cross(v_axis, direction));
+
+        let ex = u_axis * disk_radius * 0.999;//avoid precision issue
+        let ey = v_axis * disk_radius * 1.001;//avoid precision issue
+
+        let a = disk_center - ex - ey;
+        let b = disk_center + ex - ey;
+        let c = disk_center + ex + ey;
+        let d = disk_center - ex + ey;
+
+        let lightPoints = array<vec3<f32>, 4>(a, b, c, d);
+            //let lightPoints = array<vec3<f32>, 4>(d, c, b, a);
+#ifdef ENABLE_DIFFUSE
+        let diffuse = LTC_Evaluate_Disk_NoFactor(N, V, P, IDENTITY_MAT3, lightPoints);
+#else
+        let diffuse = vec3<f32>(0.0);
+#endif
+#ifdef ENABLE_SPECULAR
+        let specular = LTC_Evaluate_Disk_NoFactor(N, V, P, Minv, lightPoints);
+#else
+        let specular = vec3<f32>(0.0);
+#endif
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+
+        var k = 1.0;//1.0 / (2.0 * PI * PI);
+        color += k * intensity * shade(shade_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_sphere_lights; i++) {
@@ -585,8 +627,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             area = 1.0;
         }
         var attenuation = calc_attenuation(disk_distance);
-        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
-        color += k * area * intensity * attenuation * shade_ltc(ltc_input);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * shade(shade_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_disk_lights; i++) {
@@ -649,8 +691,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             falloff = pow(falloff, 4.0);
         }
         var attenuation = calc_attenuation(distance);
-        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
-        color += k * area * intensity * attenuation * falloff * shade_ltc(ltc_input);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * falloff * shade(shade_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_rect_lights; i++) 
@@ -694,8 +736,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let k = 1.0 / (2.0 * PI * PI);
         let area = 1.0;
         let attenuation = calc_attenuation(distance);
-        let ltc_input = LTCShadeInput(diffuse, specular, in.uv, fresnel);
-        color += k * area * intensity * attenuation * shade_ltc(ltc_input);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+        color += k * area * intensity * attenuation * shade(shade_input);
     }
 
     for (var i: u32 = 0; i < light_uniforms.num_infinite_lights; i++) 
@@ -713,8 +755,14 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             val = textureSample(light_texture, light_sampler, uv).rgb;
         }
         //color += val * intensity;
-        let wi = tbn * r;
-        color += shade(intensity * val, wo, wi, in.uv);
+#ifdef ENABLE_DIFFUSE
+        let diffuse = val;
+#else
+        let diffuse = vec3<f32>(0.0);
+#endif
+        let specular = vec3<f32>(0.0);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+        color += intensity * shade(shade_input);
     }
     
     return vec4<f32>(color, 1.0);

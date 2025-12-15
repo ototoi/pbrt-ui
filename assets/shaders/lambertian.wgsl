@@ -34,23 +34,7 @@ fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
 }
 #endif
 
-
-fn lambertian_reflection(r: vec3<f32>) -> vec3<f32> {;
-    return r * INV_PI;
-}
-
-fn matte(wo: vec3<f32>, wi: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
-    let diffuse = max(dot(vec3<f32>(0.0, 0.0, 1.0), wi), 0.0);
-    let m_kd = sample_kd(uv);
-    let c1 = lambertian_reflection(m_kd);
-    return diffuse * c1;
-}
-
-fn shade(intensity: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, uv: vec2<f32>) -> vec3<f32> {
-    return matte(wo, wi, uv) * intensity;
-}
-
-fn shade_ltc(input: LTCShadeInput) -> vec3<f32> {
+fn shade(input: ShadeInput) -> vec3<f32> {
     let m_kd = sample_kd(input.uv);
     return m_kd * input.diffuse;
 }

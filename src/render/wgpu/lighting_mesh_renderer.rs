@@ -62,6 +62,8 @@ struct LightUniforms {
 struct DirectionalLight {
     direction: [f32; 4], // Direction of the light // 4 * 4 = 16
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
+    radius: f32,         // Radius of the light // 1 * 4 = 4
+    _pad1: [f32; 3],     // Padding // 3 * 4 = 12
 }
 
 #[repr(C)]
@@ -844,9 +846,14 @@ impl LightingMeshRenderer {
                             direction[2],
                         ));
                         let intensity = light.intensity;
+
+                        let radius = (0.5 * light.source_angle).tan();
+
                         let light = DirectionalLight {
                             direction: [direction[0], direction[1], direction[2], 0.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                            radius: radius,
+                            _pad1: [0.0; 3],
                         };
                         light_buffer.push(light);
                     }

@@ -8,6 +8,7 @@ pub struct DirectionalRenderLight {
     pub edition: String,
     pub direction: [f32; 3],
     pub intensity: [f32; 3], // RGB intensity
+    pub source_angle: f32,   // Angular diameter of the light source in radians
 }
 
 #[derive(Debug, Clone, Default)]
