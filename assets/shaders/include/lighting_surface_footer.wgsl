@@ -370,14 +370,14 @@ fn LTC_Evaluate_Disk_Core(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3
 
         // extends of front-facing ellipse
         // projected solid angle E, like the length(F) in rectangle light
-        let formFactor = select(1.0, e2 * e2, use_factor);//(-1) * isqrt(0) ;//- 1 / sqrt(0) -> -infinity
+        let formFactor = e2 * e2;//(-1) * isqrt(0) ;//- 1 / sqrt(0) -> -infinity
         // use tabulated horizon-clipped sphere
         var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
         //uv = saturate(uv);
         uv = uv * LUT_SCALE + LUT_BIAS;
         let scale = textureSample(ltc_texture_array, ltc_sampler, uv, 1).w;
 
-        let spec = formFactor * scale;
+        let spec = select(scale, formFactor * scale, use_factor);
         let Lo_i = vec3<f32>(spec, spec, spec);
         //let Lo_i = vec3<f32>(c0, c1, c2);
         return Lo_i;
@@ -398,14 +398,14 @@ fn LTC_Evaluate_Disk_Core(N: vec3<f32>, V: vec3<f32>, P: vec3<f32>, Minv: mat3x3
         let L2 = sqrt(-e2/e1);
 
         // projected solid angle E, like the length(F) in rectangle light
-        let formFactor = select(1.0, L1 * L2 * inverseSqrt((1.0 + L1 * L1) * (1.0 + L2 * L2)), use_factor);
+        let formFactor = L1 * L2 * inverseSqrt((1.0 + L1 * L1) * (1.0 + L2 * L2));
         // use tabulated horizon-clipped sphere
         var uv = vec2<f32>(avgDir.z*0.5 + 0.5, formFactor);
         // uv = saturate(uv);
         uv = uv * LUT_SCALE + LUT_BIAS;
         let scale = textureSample(ltc_texture_array, ltc_sampler, uv, 1).w;
 
-        let spec = formFactor * scale;
+        let spec = select(scale, formFactor * scale, use_factor);
         let Lo_i = vec3<f32>(spec, spec, spec);
         //let Lo_i = vec3<f32>(c0, c1, c2);
         return Lo_i;
