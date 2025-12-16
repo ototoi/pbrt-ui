@@ -739,7 +739,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else   
         let specular = vec3<f32>(0.0);
 #endif
-        let wi = tbn * -direction;// object to light vector
+        let wi = tbn * -normalize(center_to_surface);// object to light vector
         let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
 
         let k = 1.0 / (2.0 * PI * PI);
@@ -769,7 +769,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let diffuse = vec3<f32>(0.0);
 #endif
         let specular = vec3<f32>(0.0);
-        
+
         let wi = tbn * r;// object to light vector
         let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
         color += intensity * shade(shade_input);

@@ -91,7 +91,7 @@ fn shade(input: ShadeInput) -> vec3<f32> {
     let m_k = sample_k(input.uv);
     let h = normalize(input.wi + input.wo);
     let cos_theta_i = max(dot(input.wi, h), 0.0);
-    return input.specular * fresnel_conductor(cos_theta_i, m_eta, m_k);
+    return input.specular * input.fresnel.x * fresnel_conductor(cos_theta_i, m_eta, m_k);
 }
 
 //-------------------------------------------------------
