@@ -1,4 +1,4 @@
-#define ENABLE_DIFFUSE 1
+//#define ENABLE_DIFFUSE 1
 #define ENABLE_SPECULAR 1
 
 #include "lighting_surface_header.wgsl"
@@ -63,10 +63,35 @@ fn sample_roughness(uv: vec2<f32>) -> f32 {
     return max(material_uniforms.roughness, 0.08);// cannot < 0.08
 }
 
+//-------------------------------------------------------
+// BRDF functions
+fn fresnel_conductor(cos_theta: f32, eta: vec3<f32>, k: vec3<f32>) -> vec3<f32> {
+    let cos2 = cos_theta * cos_theta;
+    let sin2 = max(1.0 - cos2, 0.0);
+    let eta2 = eta * eta;
+    let k2 = k * k;
+
+    let t0 = eta2 - k2 - vec3<f32>(sin2, sin2, sin2);
+    let a2plusb2 = sqrt(t0 * t0 + 4.0 * eta2 * k2);
+    let t1 = a2plusb2 + vec3<f32>(cos2, cos2, cos2);
+    let a = sqrt(0.5 * abs(a2plusb2 + t0));
+    let t2 = 2.0 * cos_theta * a;
+    let Rs = (t1 - t2) / (t1 + t2);
+
+    let sin4 = sin2 * sin2;
+    let t3 = cos2 * a2plusb2 + vec3<f32>(sin4, sin4, sin4);
+    let t4 = t2 * sin2;
+    let Rp = Rs * (t3 - t4) / (t3 + t4);
+
+    return 0.5 * (Rp + Rs);
+}
+
 fn shade(input: ShadeInput) -> vec3<f32> {
     let m_eta = sample_eta(input.uv);
     let m_k = sample_k(input.uv);
-    return m_eta * input.diffuse + input.specular * (m_k * input.fresnel.x + (vec3<f32>(1.0) - m_k) * input.fresnel.y);
+    let h = normalize(input.wi + input.wo);
+    let cos_theta_i = max(dot(input.wi, h), 0.0);
+    return input.specular * fresnel_conductor(cos_theta_i, m_eta, m_k);
 }
 
 //-------------------------------------------------------

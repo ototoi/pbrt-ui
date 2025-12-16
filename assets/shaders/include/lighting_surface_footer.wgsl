@@ -553,7 +553,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else
         let specular = vec3<f32>(0.0);
 #endif
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+        let wi = tbn * -direction;// object to light vector
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
 
         var k = 1.0;//1.0 / (2.0 * PI * PI);
         color += k * intensity * shade(shade_input);
@@ -620,6 +621,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let specular = vec3<f32>(0.0);
 #endif
 
+        let wi = tbn * -direction;// object to light vector
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+
         var k = 4.0;// 1.0 / (2.0 * PI * PI);
         var area = PI * disk_radius * disk_radius;          // Area of the disk
         if is_delta {
@@ -627,7 +631,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             area = 1.0;
         }
         var attenuation = calc_attenuation(disk_distance);
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
         color += k * area * intensity * attenuation * shade(shade_input);
     }
 
@@ -679,6 +682,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else
         let specular = vec3<f32>(0.0);
 #endif
+
+        let wi = tbn * -direction;// object to light vector
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+
         var k = 1.0 / (2.0 * PI * PI);
         var area = PI * radius * radius;
         var falloff = 1.0; // full light for disk area light
@@ -691,7 +698,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             falloff = pow(falloff, 4.0);
         }
         var attenuation = calc_attenuation(distance);
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
         color += k * area * intensity * attenuation * falloff * shade(shade_input);
     }
 
@@ -733,10 +739,12 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #else   
         let specular = vec3<f32>(0.0);
 #endif
+        let wi = tbn * -direction;// object to light vector
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+
         let k = 1.0 / (2.0 * PI * PI);
         let area = 1.0;
         let attenuation = calc_attenuation(distance);
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
         color += k * area * intensity * attenuation * shade(shade_input);
     }
 
@@ -761,7 +769,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let diffuse = vec3<f32>(0.0);
 #endif
         let specular = vec3<f32>(0.0);
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel);
+        
+        let wi = tbn * r;// object to light vector
+        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
         color += intensity * shade(shade_input);
     }
     

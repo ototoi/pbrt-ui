@@ -30,7 +30,7 @@ pub fn compute_avg_terms(
             // Eval
             let (eval, pdf) = brdf.eval(V, &L, alpha);
 
-            if pdf > 0.0 && eval > 0.0 {
+            if pdf > 0.0 {
                 let weight = eval / pdf;
                 let fresnel_val = brdf.fresnel(V, &L);
                 // Accumulate
