@@ -486,18 +486,30 @@ fn vs_main(
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let camera_to_surface = normalize(in.w_position - global_uniforms.camera_position.xyz);
     var normal = normalize(in.w_normal);
-    if dot(normal, camera_to_surface) > 0.0 {
-        normal = -normal;
-    }
     var tangent = normalize(in.w_tangent);
     var bitangent = normalize(cross(normal, tangent));
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
-    let tbn = transpose(mat3x3<f32>(tangent, bitangent, normal));//tangent space matrix
+    
+    // Apply bump map (normal map) if available
+    #ifdef USE_TEXTURE_BUMPMAP
+    normal = apply_bump_map(normal, tangent, bitangent, in.uv, material_uniforms.bumpmap);
+    #endif
+    
+    // Apply faceforward after bumpmap
+    if dot(normal, camera_to_surface) > 0.0 {
+        normal = -normal;
+    }
+    
+    // Recalculate tangent and bitangent to be orthogonal to the final normal
+    bitangent = normalize(cross(normal, tangent));
+    tangent = normalize(cross(bitangent, normal));
+    
+    let tbn = transpose(mat3x3<f32>(tangent, bitangent, normal));//tangent space matrix for lighting
     let wo = tbn * -camera_to_surface;// object to camera vector
 
     let V = -camera_to_surface;//point to camera
     let P = in.w_position;
-    let N = normal;
+    let N = normal; // Use perturbed normal for lighting
     let NdotV = saturate(dot(N, V));
 
 #if defined(ENABLE_SPECULAR) || defined(ENABLE_TRANSMISSION)

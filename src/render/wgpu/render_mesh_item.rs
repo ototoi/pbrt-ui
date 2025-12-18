@@ -159,6 +159,28 @@ fn create_matte_render_passes(
             ));
         }
     }
+    // Handle bumpmap texture and uniform
+    if let Some(texture) = get_texture(
+        &material.props,
+        "bumpmap",
+        resource_manager,
+        render_resource_manager,
+    ) {
+        let texture = render_resource_manager
+            .get_texture(texture.get_id())
+            .unwrap();
+        uniform_values.push((
+            "bumpmap".to_string(),
+            RenderUniformValue::Texture(texture.clone()),
+        ));
+    } else {
+        // Add default bumpmap uniform with identity UV transform (scale=1, offset=0)
+        // This ensures consistent MaterialUniforms structure regardless of texture presence
+        uniform_values.push((
+            "bumpmap".to_string(),
+            RenderUniformValue::Vec4([1.0, 1.0, 0.0, 0.0]), // scale=(1,1), offset=(0,0)
+        ));
+    }
     let mut shader_type = "lambertian".to_string();
     let mut ltc_type = "ggx".to_string();
     let sigma = get_float(&material.props, "sigma").unwrap_or(0.0);

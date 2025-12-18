@@ -2,12 +2,14 @@
 #define ENABLE_SPECULAR 1
 
 #include "lighting_surface_header.wgsl"
+#include "bump_map.wgsl"
 //-------------------------------------------------------
 // material definitions
 
 // material uniforms
 struct MaterialUniforms {
     kd: vec4<f32>,
+    bumpmap: vec4<f32>,
     sigma: f32,
     _pad1: i32,
     _pad2: i32,
@@ -36,6 +38,16 @@ fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
 fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
     return material_uniforms.kd.xyz;
 }
+#endif
+
+#ifdef USE_TEXTURE_BUMPMAP
+@group(2)
+@binding(3)
+var bumpmap_texture: texture_2d<f32>;
+
+@group(2)
+@binding(4)
+var bumpmap_sampler: sampler;
 #endif
 
 fn sample_roughness(uv: vec2<f32>) -> f32 {
