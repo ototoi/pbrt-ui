@@ -492,6 +492,15 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var tangent = normalize(in.w_tangent);
     var bitangent = normalize(cross(normal, tangent));
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
+    
+    // Apply bump map (normal map) if available
+    #ifdef USE_TEXTURE_BUMPMAP
+    normal = apply_bump_map(normal, tangent, bitangent, in.uv);
+    // Recompute tangent and bitangent to maintain orthogonality with perturbed normal
+    tangent = normalize(cross(bitangent, normal));
+    bitangent = normalize(cross(normal, tangent));
+    #endif
+    
     let tbn = transpose(mat3x3<f32>(tangent, bitangent, normal));//tangent space matrix
     let wo = tbn * -camera_to_surface;// object to camera vector
 

@@ -159,6 +159,21 @@ fn create_matte_render_passes(
             ));
         }
     }
+    // Handle bumpmap texture
+    if let Some(texture) = get_texture(
+        &material.props,
+        "bumpmap",
+        resource_manager,
+        render_resource_manager,
+    ) {
+        let texture = render_resource_manager
+            .get_texture(texture.get_id())
+            .unwrap();
+        uniform_values.push((
+            "bumpmap".to_string(),
+            RenderUniformValue::Texture(texture.clone()),
+        ));
+    }
     let mut shader_type = "lambertian".to_string();
     let mut ltc_type = "ggx".to_string();
     let sigma = get_float(&material.props, "sigma").unwrap_or(0.0);
