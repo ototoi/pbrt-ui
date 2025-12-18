@@ -112,9 +112,14 @@ struct ShadeInput {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
     uv: vec2<f32>,
-    fresnel: vec2<f32>,
+    magnitude: f32,
+    fresnel: f32,
     wo: vec3<f32>, // Viewing direction
     wi: vec3<f32>, // Light direction
+}
+
+struct TransmitteInput {
+    fresnel: f32,
 }
 
 // global uniforms

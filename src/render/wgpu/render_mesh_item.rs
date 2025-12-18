@@ -274,10 +274,10 @@ fn create_glass_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    let diffuse_color =
+    let kt =
         get_color(&material.props, "Kt", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-    let specular_color =
-        get_color(&material.props, "Kr", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    //let specular_color =
+    //    get_color(&material.props, "Kr", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
     let mut roughness = get_float(&material.props, "uroughness").unwrap_or(0.1); //use uroughness
     let remaproughness = get_bool(&material.props, "remaproughness").unwrap_or(true);
     if remaproughness {
@@ -286,31 +286,14 @@ fn create_glass_render_passes(
 
     let mut passes = vec![];
     {
-        let uniform_values = vec![("kt".to_string(), RenderUniformValue::Vec4(diffuse_color))];
+        let mut uniform_values = vec![];
+        uniform_values.push(("kt".to_string(), RenderUniformValue::Vec4(kt)));
+        uniform_values.push(("roughness".to_string(), RenderUniformValue::Float(roughness)));
         let render_pass = create_render_pass(
             device,
             queue,
-            "transmission_none",
+            "glass_transmission",
             RenderCategory::Transparent,
-            &uniform_values,
-            "ggx",
-            render_resource_manager,
-        );
-        passes.push(render_pass);
-    }
-    {
-        let uniform_values = vec![
-            ("kr".to_string(), RenderUniformValue::Vec4(specular_color)),
-            (
-                "roughness".to_string(),
-                RenderUniformValue::Float(roughness),
-            ),
-        ];
-        let render_pass = create_render_pass(
-            device,
-            queue,
-            "none_ggx",
-            RenderCategory::TransparentSpecular,
             &uniform_values,
             "ggx",
             render_resource_manager,
@@ -426,7 +409,6 @@ fn create_render_material_from_material(
             );
             passes.extend(new_passes);
         }
-        /*
         "glass" => {
             let new_passes = create_glass_render_passes(
                 device,
@@ -437,7 +419,6 @@ fn create_render_material_from_material(
             );
             passes.extend(new_passes);
         }
-        */
         "metal" => {
             let new_passes = create_metal_render_passes(
                 device,
