@@ -490,9 +490,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var bitangent = normalize(cross(normal, tangent));
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
     
-    // Store geometric normal for TBN matrix (before faceforward)
-    let geometric_normal = normal;
-    
     // Apply bump map (normal map) if available
     #ifdef USE_TEXTURE_BUMPMAP
     normal = apply_bump_map(normal, tangent, bitangent, in.uv, material_uniforms.bumpmap);
@@ -503,7 +500,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         normal = -normal;
     }
     
-    let tbn = transpose(mat3x3<f32>(tangent, bitangent, geometric_normal));//tangent space matrix based on geometric basis
+    // Recalculate tangent and bitangent to be orthogonal to the final normal
+    bitangent = normalize(cross(normal, tangent));
+    tangent = normalize(cross(bitangent, normal));
+    
+    let tbn = transpose(mat3x3<f32>(tangent, bitangent, normal));//tangent space matrix for lighting
     let wo = tbn * -camera_to_surface;// object to camera vector
 
     let V = -camera_to_surface;//point to camera
