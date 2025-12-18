@@ -35,6 +35,16 @@ fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
 }
 #endif
 
+#ifdef USE_TEXTURE_BUMPMAP
+@group(2)
+@binding(3)
+var bumpmap_texture: texture_2d<f32>;
+
+@group(2)
+@binding(4)
+var bumpmap_sampler: sampler;
+#endif
+
 fn shade(input: ShadeInput) -> vec3<f32> {
     let m_kd = sample_kd(input.uv);
     return m_kd * input.diffuse;

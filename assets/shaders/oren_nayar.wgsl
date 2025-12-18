@@ -39,6 +39,16 @@ fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
 }
 #endif
 
+#ifdef USE_TEXTURE_BUMPMAP
+@group(2)
+@binding(3)
+var bumpmap_texture: texture_2d<f32>;
+
+@group(2)
+@binding(4)
+var bumpmap_sampler: sampler;
+#endif
+
 fn sample_roughness(uv: vec2<f32>) -> f32 {
     return material_uniforms.sigma;//normalized sigma
 }
