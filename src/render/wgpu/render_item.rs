@@ -15,6 +15,7 @@ use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
 use super::texture::RenderTexture;
+use crate::conversion::normal_map::convert_luma8_to_normal_map;
 use crate::conversion::spectrum::Spectrum;
 use crate::conversion::texture_node::DynaImage;
 use crate::conversion::texture_node::TextureSizeType;
@@ -614,17 +615,17 @@ fn get_normal_texture_from_image(
     queue: &wgpu::Queue,
     texture_image: &DynaImage,
 ) -> Option<wgpu::Texture> {
-    //println!("get_normal_texture_from_image called");
     match &texture_image {
         DynaImage::ImageLuma8(img) => {
-            //
-            //assert!(false, "Unexpected Luma8 image for normal map");
+            // Convert grayscale heightmap to normal map
+            let normal_map = convert_luma8_to_normal_map(img);
+            return Some(get_texture_from_rgba_image(device, queue, &normal_map));
         }
         _ => {
-            //
+            // For other image types, fallback to color texture conversion
+            return get_color_texture_from_image(device, queue, texture_image);
         }
     }
-    return None;
 }
 
 fn convert_address_mode(wrap: &str) -> wgpu::AddressMode {
