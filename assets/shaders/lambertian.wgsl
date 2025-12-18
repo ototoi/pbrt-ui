@@ -9,6 +9,7 @@
 // material uniforms
 struct MaterialUniforms {
     kd: vec4<f32>,
+    bumpmap: vec4<f32>,
 }
 
 @group(2)

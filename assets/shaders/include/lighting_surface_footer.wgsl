@@ -486,20 +486,22 @@ fn vs_main(
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let camera_to_surface = normalize(in.w_position - global_uniforms.camera_position.xyz);
     var normal = normalize(in.w_normal);
-    if dot(normal, camera_to_surface) > 0.0 {
-        normal = -normal;
-    }
     var tangent = normalize(in.w_tangent);
     var bitangent = normalize(cross(normal, tangent));
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
     
-    // Store geometric normal for TBN matrix
+    // Store geometric normal for TBN matrix (before faceforward)
     let geometric_normal = normal;
     
     // Apply bump map (normal map) if available
     #ifdef USE_TEXTURE_BUMPMAP
-    normal = apply_bump_map(normal, tangent, bitangent, in.uv);
+    normal = apply_bump_map(normal, tangent, bitangent, in.uv, material_uniforms.bumpmap);
     #endif
+    
+    // Apply faceforward after bumpmap
+    if dot(normal, camera_to_surface) > 0.0 {
+        normal = -normal;
+    }
     
     let tbn = transpose(mat3x3<f32>(tangent, bitangent, geometric_normal));//tangent space matrix based on geometric basis
     let wo = tbn * -camera_to_surface;// object to camera vector

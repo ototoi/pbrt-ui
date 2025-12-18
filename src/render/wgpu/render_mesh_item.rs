@@ -159,7 +159,7 @@ fn create_matte_render_passes(
             ));
         }
     }
-    // Handle bumpmap texture
+    // Handle bumpmap texture and uniform
     if let Some(texture) = get_texture(
         &material.props,
         "bumpmap",
@@ -172,6 +172,12 @@ fn create_matte_render_passes(
         uniform_values.push((
             "bumpmap".to_string(),
             RenderUniformValue::Texture(texture.clone()),
+        ));
+    } else {
+        // Add default bumpmap uniform even if no texture (for struct alignment)
+        uniform_values.push((
+            "bumpmap".to_string(),
+            RenderUniformValue::Vec4([1.0, 1.0, 0.0, 0.0]), // scale=(1,1), offset=(0,0)
         ));
     }
     let mut shader_type = "lambertian".to_string();
