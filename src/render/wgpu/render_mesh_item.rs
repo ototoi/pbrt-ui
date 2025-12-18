@@ -226,7 +226,7 @@ fn create_plastic_render_passes(
     let render_pass = create_render_pass(
         device,
         queue,
-        "lambertian_ggx",
+        "plastic",
         RenderCategory::Opaque,
         &uniform_values,
         "microfacet_reflection",
