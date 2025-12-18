@@ -174,7 +174,8 @@ fn create_matte_render_passes(
             RenderUniformValue::Texture(texture.clone()),
         ));
     } else {
-        // Add default bumpmap uniform even if no texture (for struct alignment)
+        // Add default bumpmap uniform with identity UV transform (scale=1, offset=0)
+        // This ensures consistent MaterialUniforms structure regardless of texture presence
         uniform_values.push((
             "bumpmap".to_string(),
             RenderUniformValue::Vec4([1.0, 1.0, 0.0, 0.0]), // scale=(1,1), offset=(0,0)
