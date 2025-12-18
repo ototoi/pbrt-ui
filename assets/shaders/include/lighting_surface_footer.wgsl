@@ -500,11 +500,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let N = normal;
     let NdotV = saturate(dot(N, V));
 
-    
-#ifdef ENABLE_SPECULAR
+#if defined(ENABLE_SPECULAR) || defined(ENABLE_TRANSMISSION)
     let roughness = sample_roughness(in.uv);
     var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
     ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
+#endif
+
+#ifdef ENABLE_SPECULAR
     let t1 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 0);
     // Construct inverse matrix
     let Minv = mat3x3<f32>(
@@ -512,11 +514,17 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         vec3<f32>(0.0, 1.0, 0.0),
         vec3<f32>(t1.z, 0.0, t1.w)
     );
-    let t2 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 1);
-    let fresnel = vec2<f32>(t2.x, t2.y);
-#else 
-    let fresnel = vec2<f32>(1.0, 0.0);
 #endif
+
+#if defined(ENABLE_SPECULAR) || defined(ENABLE_TRANSMISSION)
+    let t2 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 1);
+    let magnitude = t2.x;
+    let fresnel = t2.y;
+#else
+    let magnitude = 1.0;
+    let fresnel = 0.0;
+#endif
+
     // Accumulate lighting
     
     var color = vec3<f32>(0.0);
@@ -554,7 +562,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let specular = vec3<f32>(0.0);
 #endif
         let wi = tbn * -direction;// object to light vector
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
         var k = 1.0;//1.0 / (2.0 * PI * PI);
         color += k * intensity * shade(shade_input);
@@ -622,7 +630,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 
         let wi = tbn * -direction;// object to light vector
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
         var k = 4.0;// 1.0 / (2.0 * PI * PI);
         var area = PI * disk_radius * disk_radius;          // Area of the disk
@@ -684,7 +692,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
 
         let wi = tbn * -direction;// object to light vector
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
         var k = 1.0 / (2.0 * PI * PI);
         var area = PI * radius * radius;
@@ -740,7 +748,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let specular = vec3<f32>(0.0);
 #endif
         let wi = tbn * -direction;// object to light vector
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
         let k = 1.0 / (2.0 * PI * PI);
         let area = 1.0;
@@ -771,11 +779,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let specular = vec3<f32>(0.0);
         
         let wi = tbn * r;// object to light vector
-        let shade_input = ShadeInput(diffuse, specular, in.uv, fresnel, wo, wi);
+        let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
         color += intensity * shade(shade_input);
     }
-    
+
+#ifdef ENABLE_TRANSMISSION
+    let t_input = TransmitteInput(color, fresnel, wo);
+    return transmitte(t_input);
+#else
     return vec4<f32>(color, 1.0);
+#endif
 }
 
 #endif // LIGHTING_SURFACE_FOOTER_WGSL
