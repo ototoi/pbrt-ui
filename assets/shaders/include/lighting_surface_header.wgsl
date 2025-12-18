@@ -119,7 +119,9 @@ struct ShadeInput {
 }
 
 struct TransmitteInput {
+    color: vec3<f32>,
     fresnel: f32,
+    wo: vec3<f32>, // Viewing direction
 }
 
 // global uniforms

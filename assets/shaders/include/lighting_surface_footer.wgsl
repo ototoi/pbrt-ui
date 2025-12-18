@@ -500,11 +500,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let N = normal;
     let NdotV = saturate(dot(N, V));
 
-    
-#ifdef ENABLE_SPECULAR
+#if defined(ENABLE_SPECULAR) || defined(ENABLE_TRANSMISSION)
     let roughness = sample_roughness(in.uv);
     var ltc_uv = vec2<f32>(roughness, sqrt(1.0 - NdotV));
     ltc_uv = ltc_uv * LUT_SCALE + LUT_BIAS;
+#endif
+
+#ifdef ENABLE_SPECULAR
     let t1 = textureSample(ltc_texture_array, ltc_sampler, ltc_uv, 0);
     // Construct inverse matrix
     let Minv = mat3x3<f32>(
@@ -522,7 +524,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let magnitude = 1.0;
     let fresnel = 0.0;
 #endif
-    
+
     // Accumulate lighting
     
     var color = vec3<f32>(0.0);
@@ -782,7 +784,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     }
 
 #ifdef ENABLE_TRANSMISSION
-    let t_input = TransmitteInput(fresnel);
+    let t_input = TransmitteInput(color, fresnel, wo);
     return transmitte(t_input);
 #else
     return vec4<f32>(color, 1.0);

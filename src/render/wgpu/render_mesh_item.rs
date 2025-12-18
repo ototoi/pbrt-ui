@@ -274,10 +274,10 @@ fn create_glass_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    let kt =
-        get_color(&material.props, "Kt", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-    //let specular_color =
-    //    get_color(&material.props, "Kr", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let kt = get_color(&material.props, "Kt", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let kr = get_color(&material.props, "Kr", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let eta = get_float(&material.props, "eta").unwrap_or(1.5);
+
     let mut roughness = get_float(&material.props, "uroughness").unwrap_or(0.1); //use uroughness
     let remaproughness = get_bool(&material.props, "remaproughness").unwrap_or(true);
     if remaproughness {
@@ -288,12 +288,35 @@ fn create_glass_render_passes(
     {
         let mut uniform_values = vec![];
         uniform_values.push(("kt".to_string(), RenderUniformValue::Vec4(kt)));
-        uniform_values.push(("roughness".to_string(), RenderUniformValue::Float(roughness)));
+        uniform_values.push((
+            "roughness".to_string(),
+            RenderUniformValue::Float(roughness),
+        ));
+        uniform_values.push(("eta".to_string(), RenderUniformValue::Float(eta)));
         let render_pass = create_render_pass(
             device,
             queue,
             "glass_transmission",
             RenderCategory::Transparent,
+            &uniform_values,
+            "ggx",
+            render_resource_manager,
+        );
+        passes.push(render_pass);
+    }
+    {
+        let mut uniform_values = vec![];
+        uniform_values.push(("kr".to_string(), RenderUniformValue::Vec4(kr)));
+        uniform_values.push((
+            "roughness".to_string(),
+            RenderUniformValue::Float(roughness),
+        ));
+        uniform_values.push(("eta".to_string(), RenderUniformValue::Float(eta)));
+        let render_pass = create_render_pass(
+            device,
+            queue,
+            "glass_reflection",
+            RenderCategory::TransparentSpecular,
             &uniform_values,
             "ggx",
             render_resource_manager,
