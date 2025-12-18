@@ -25,7 +25,8 @@ pub fn convert_luma8_to_normal_map(
 
     for y in 0..height {
         for x in 0..width {
-            // Sample neighboring pixels with wrapping
+            // Sample neighboring pixels with wrapping at edges
+            // Wrapping ensures seamless tiling for tileable textures
             let left = heightmap.get_pixel(if x > 0 { x - 1 } else { width - 1 }, y)[0] as f32;
             let right = heightmap.get_pixel(if x < width - 1 { x + 1 } else { 0 }, y)[0] as f32;
             let top = heightmap.get_pixel(x, if y > 0 { y - 1 } else { height - 1 })[0] as f32;
@@ -47,8 +48,8 @@ pub fn convert_luma8_to_normal_map(
             let ny = ny / length;
             let nz = nz / length;
 
-            // Map from [-1,1] to [0,255] for x and y components
-            // Map from [0,1] to [0,255] for z component (z is always positive for normals facing up)
+            // Map from [-1,1] to [0,255] for all components
+            // Standard normal map encoding: (nx, ny, nz) -> (R, G, B)
             let r = ((nx * 0.5 + 0.5) * 255.0) as u8;
             let g = ((ny * 0.5 + 0.5) * 255.0) as u8;
             let b = ((nz * 0.5 + 0.5) * 255.0) as u8;
