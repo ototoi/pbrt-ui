@@ -79,6 +79,30 @@ fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
     }
 }
 
+fn resize_image(
+    image: &DynaImage,
+    width: u32,
+    height: u32,
+) -> DynaImage {
+    if (1, 1) == image.dimensions() {
+        let mut resized = image.resize(width, height, image::imageops::FilterType::Nearest);
+        if let DynaImage::ImageLuma32F(dst) = &mut resized {
+            if let DynaImage::ImageLuma32F(src) = image {
+                let vv = src.get_pixel(0, 0)[0];
+                for y in 0..height {
+                    for x in 0..width {
+                        dst.put_pixel(x, y, image::Luma([vv]));
+                    }
+                }
+            }
+        }
+        return resized;
+    } else {
+        let resized = image.resize(width, height, image::imageops::FilterType::CatmullRom);
+        return resized;
+    }
+}
+
 fn resize_image_for_size_type(
     image: image::DynamicImage,
     size_type: TextureSizeType,
@@ -259,9 +283,9 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         dim1.1.max(dim2.1).max(dim3.1),
     );
 
-    let tex1 = tex1.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
-    let tex2 = tex2.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
-    let amount = amount.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
+    let amount = resize_image(&amount, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
@@ -359,30 +383,6 @@ fn scale_texture_rgb(
         *pixel = c.into();
     }
     return image_buffer;
-}
-
-fn resize_image(
-    image: &DynaImage,
-    width: u32,
-    height: u32,
-) -> DynaImage {
-    if (1, 1) == image.dimensions() {
-        let mut resized = image.resize(width, height, image::imageops::FilterType::Nearest);
-        if let DynaImage::ImageLuma32F(dst) = &mut resized {
-            if let DynaImage::ImageLuma32F(src) = image {
-                let vv = src.get_pixel(0, 0)[0];
-                for y in 0..height {
-                    for x in 0..width {
-                        dst.put_pixel(x, y, image::Luma([vv]));
-                    }
-                }
-            }
-        }
-        return resized;
-    } else {
-        let resized = image.resize(width, height, image::imageops::FilterType::Lanczos3);
-        return resized;
-    }
 }
 
 fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {

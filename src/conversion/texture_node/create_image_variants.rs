@@ -1,5 +1,4 @@
 use super::dyna_image::DynaImage;
-use image::DynamicImage;
 
 use super::render_texture_image::render_texture_image;
 use super::texture_node::TextureNode;
