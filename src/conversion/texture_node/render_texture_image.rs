@@ -79,6 +79,30 @@ fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
     }
 }
 
+fn resize_image(
+    image: &DynaImage,
+    width: u32,
+    height: u32,
+) -> DynaImage {
+    if (1, 1) == image.dimensions() {
+        let mut resized = image.resize(width, height, image::imageops::FilterType::Nearest);
+        if let DynaImage::ImageLuma32F(dst) = &mut resized {
+            if let DynaImage::ImageLuma32F(src) = image {
+                let vv = src.get_pixel(0, 0)[0];
+                for y in 0..height {
+                    for x in 0..width {
+                        dst.put_pixel(x, y, image::Luma([vv]));
+                    }
+                }
+            }
+        }
+        return resized;
+    } else {
+        let resized = image.resize(width, height, image::imageops::FilterType::CatmullRom);
+        return resized;
+    }
+}
+
 fn resize_image_for_size_type(
     image: image::DynamicImage,
     size_type: TextureSizeType,
@@ -259,9 +283,9 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         dim1.1.max(dim2.1).max(dim3.1),
     );
 
-    let tex1 = tex1.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
-    let tex2 = tex2.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
-    let amount = amount.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
+    let amount = resize_image(&amount, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
@@ -309,17 +333,27 @@ fn render_mix_texture_image(
     );
 }
 
+fn scale_pixel_helper(p1: f32, p2: f32) -> f32 {
+    if p2 >= 0.0 {
+        let c = p1 * p2;
+        return c;
+    } else {
+        let c = ((1.0 - p1) * -p2).max(0.0);
+        return c;
+    }
+}
+
 fn scale_pixel_rgb(p1: &image::Rgb<f32>, p2: &image::Rgb<f32>) -> image::Rgb<f32> {
     let mut result = p1.clone();
     for i in 0..3 {
-        let c = p1[i as usize] * p2[i as usize];
+        let c = scale_pixel_helper(p1[i as usize], p2[i as usize]);
         result[i as usize] = c;
     }
     return result;
 }
 
 fn scale_pixel_float(p1: &image::Luma<f32>, p2: &image::Luma<f32>) -> image::Luma<f32> {
-    let c = p1[0] * p2[0];
+    let c = scale_pixel_helper(p1[0], p2[0]);
     return image::Luma([c]);
 }
 
@@ -356,11 +390,12 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
     let dim2 = tex2.dimensions();
     let dimf = (dim1.0.max(dim2.0), dim1.1.max(dim2.1));
 
-    let tex1 = tex1.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
-    let tex2 = tex2.resize(dimf.0, dimf.1, image::imageops::FilterType::Lanczos3);
+    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
+
     let mut image_map = HashMap::new();
     image_map.insert("tex1".to_string(), Arc::new(tex1));
     image_map.insert("tex2".to_string(), Arc::new(tex2));
