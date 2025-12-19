@@ -41,11 +41,11 @@ fn sample_kd(uv: vec2<f32>) -> vec3<f32> {
 
 #ifdef USE_TEXTURE_KS
 @group(2)
-@binding(1)
+@binding(3)
 var ks_texture: texture_2d<f32>;
 
 @group(2)
-@binding(2)
+@binding(4)
 var ks_sampler: sampler;
 
 fn sample_ks(uv: vec2<f32>) -> vec3<f32> {

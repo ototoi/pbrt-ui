@@ -41,11 +41,11 @@ fn sample_eta(uv: vec2<f32>) -> vec3<f32> {
 
 #ifdef USE_TEXTURE_K
 @group(2)
-@binding(1)
+@binding(3)
 var k_texture: texture_2d<f32>;
 
 @group(2)
-@binding(2)
+@binding(4)
 var k_sampler: sampler;
 
 fn sample_k(uv: vec2<f32>) -> vec3<f32> {
