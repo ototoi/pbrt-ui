@@ -79,11 +79,7 @@ fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
     }
 }
 
-fn resize_image(
-    image: &DynaImage,
-    width: u32,
-    height: u32,
-) -> DynaImage {
+fn resize_image(image: &DynaImage, width: u32, height: u32) -> DynaImage {
     if (1, 1) == image.dimensions() {
         let mut resized = image.resize(width, height, image::imageops::FilterType::Nearest);
         if let DynaImage::ImageLuma32F(dst) = &mut resized {

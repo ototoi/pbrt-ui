@@ -650,6 +650,42 @@ fn get_color_texture_from_image(
     }
 }
 
+fn covert_rgb32f_to_luma32f(
+    image: &image::Rgb32FImage,
+) -> image::ImageBuffer<image::Luma<f32>, Vec<f32>> {
+    let (width, height) = image.dimensions();
+    let mut luma_image = image::ImageBuffer::<image::Luma<f32>, Vec<f32>>::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let r = pixel[0];
+            let g = pixel[1];
+            let b = pixel[2];
+            // Convert RGB to luminance using standard weights
+            let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            luma_image.put_pixel(x, y, image::Luma([luma]));
+        }
+    }
+    return luma_image;
+}
+
+fn convert_rgb8_to_luma8(image: &image::RgbImage) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
+    let (width, height) = image.dimensions();
+    let mut luma_image = image::ImageBuffer::<image::Luma<u8>, Vec<u8>>::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let r = pixel[0] as f32;
+            let g = pixel[1] as f32;
+            let b = pixel[2] as f32;
+            // Convert RGB to luminance using standard weights
+            let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b).min(255.0).max(0.0) as u8;
+            luma_image.put_pixel(x, y, image::Luma([luma]));
+        }
+    }
+    return luma_image;
+}
+
 fn get_normal_texture_from_image(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -674,17 +710,24 @@ fn get_normal_texture_from_image(
                 &normal_map,
             ));
         }
-        DynaImage::ImageRgb8(_) => {
-            //let img = texture_image.to_rgba8();
-            //return Some(get_normal_map_texture_from_rgba_image(device, queue, &img));
-            return None;
+        DynaImage::ImageRgb8(img) => {
+            let img = convert_rgb8_to_luma8(img);
+            let normal_map = convert_luma8_to_normal_map(&img);
+            return Some(get_normal_map_texture_from_rgba_image(
+                device,
+                queue,
+                &normal_map,
+            ));
         }
-        DynaImage::ImageRgb32F(_img) => {
+        DynaImage::ImageRgb32F(img) => {
             // todo : convert to luma32f first
-            // let img = covert_to_luma32f(img);
-            // let normal_map = convert_luma8_to_normal_map(img);
-            //return Some(get_normal_map_texture_from_rgba_image(device, queue, &img));
-            return None;
+            let img = covert_rgb32f_to_luma32f(img);
+            let normal_map = convert_luma32f_to_normal_map(&img);
+            return Some(get_normal_map_texture_from_rgba_image(
+                device,
+                queue,
+                &normal_map,
+            ));
         }
         _ => {
             return None;
