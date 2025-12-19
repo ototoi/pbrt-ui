@@ -672,6 +672,18 @@ fn get_normal_texture_from_image(
                 &normal_map,
             ));
         }
+        DynaImage::ImageRgb8(_) => {
+            //let img = texture_image.to_rgba8();
+            //return Some(get_normal_map_texture_from_rgba_image(device, queue, &img));
+            return None;
+        }
+        DynaImage::ImageRgb32F(_img) => {
+            // todo : convert to luma32f first
+            // let img = covert_to_luma32f(img);
+            // let normal_map = convert_luma8_to_normal_map(img);
+            //return Some(get_normal_map_texture_from_rgba_image(device, queue, &img));
+            return None;
+        }
         _ => {
             return None;
             //panic!("Unsupported image format for normal map conversion");
