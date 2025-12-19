@@ -491,9 +491,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     tangent = normalize(cross(bitangent, normal)); // Recompute tangent to ensure orthogonality
     
     // Apply bump map (normal map) if available
-    #ifdef USE_TEXTURE_BUMPMAP
+#ifdef USE_TEXTURE_BUMPMAP
     normal = apply_bump_map(normal, tangent, bitangent, in.uv, material_uniforms.bumpmap);
-    #endif
+#endif
     
     // Apply faceforward after bumpmap
     if dot(normal, camera_to_surface) > 0.0 {

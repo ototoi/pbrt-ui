@@ -1,9 +1,9 @@
 use image::{ImageBuffer, Luma, Rgba};
 
 /// Converts a grayscale heightmap (Luma8) to a normal map (RGBA8).
-/// 
+///
 /// The function calculates surface normals from the heightmap by computing
-/// the gradient at each pixel. The resulting normal vectors are stored in 
+/// the gradient at each pixel. The resulting normal vectors are stored in
 /// the RGB channels of the output image, with the alpha channel set to 255.
 ///
 /// # Arguments
