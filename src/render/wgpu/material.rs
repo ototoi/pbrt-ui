@@ -31,7 +31,7 @@ pub struct RenderPass {
     pub shader: Arc<RenderShader>,
     pub render_category: RenderCategory, //
     pub uniform_values: Arc<Vec<u8>>,    //
-    pub textures: Vec<Arc<RenderTexture>>,
+    pub textures: Vec<Option<Arc<RenderTexture>>>,
     pub ltc_texture: Option<Arc<RenderTexture>>,
 }
 

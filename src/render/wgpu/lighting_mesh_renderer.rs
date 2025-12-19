@@ -153,7 +153,7 @@ struct MaterialBindGroupEntry {
     #[allow(dead_code)]
     pub uniform_buffer: wgpu::Buffer,
     #[allow(dead_code)]
-    pub textures: Vec<Arc<RenderTexture>>,
+    pub textures: Vec<Option<Arc<RenderTexture>>>,
 
     pub ltc_bind_group: Option<wgpu::BindGroup>,
     #[allow(dead_code)]
@@ -440,14 +440,18 @@ impl LightingMeshRenderer {
 
         let material_binding_offset = 1;
         for (i, texture) in render_pass.textures.iter().enumerate() {
-            entries.push(wgpu::BindGroupEntry {
-                binding: (material_binding_offset + 2 * i + 0) as u32,
-                resource: wgpu::BindingResource::TextureView(&texture.view),
-            });
-            entries.push(wgpu::BindGroupEntry {
-                binding: (material_binding_offset + 2 * i + 1) as u32,
-                resource: wgpu::BindingResource::Sampler(&texture.sampler),
-            });
+            let binding_texture = (material_binding_offset + 2 * i + 0) as u32;
+            let binding_sampler = (material_binding_offset + 2 * i + 1) as u32;
+            if let Some(texture) = texture {
+                entries.push(wgpu::BindGroupEntry {
+                    binding: binding_texture,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                });
+                entries.push(wgpu::BindGroupEntry {
+                    binding: binding_sampler,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                });
+            }
         }
 
         let material_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -950,24 +954,27 @@ impl LightingMeshRenderer {
             count: None,
         }];
         let material_binding_offset = 1;
-        let texture_size = pass.textures.len();
-        for i in 0..texture_size {
-            material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: material_binding_offset + (2 * i + 0) as u32,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            });
-            material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: material_binding_offset + (2 * i + 1) as u32,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            });
+        for (i, texture) in pass.textures.iter().enumerate() {
+            let binding_texture = material_binding_offset + (2 * i + 0) as u32;
+            let binding_sampler = material_binding_offset + (2 * i + 1) as u32;
+            if let Some(_) = texture {
+                material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
+                    binding: binding_texture,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                });
+                material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
+                    binding: binding_sampler,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                });
+            }
         }
 
         let material_bind_group_layout =
