@@ -5,7 +5,6 @@ use super::render_item::RenderItem;
 use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
-use crate::render::wgpu::texture;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
