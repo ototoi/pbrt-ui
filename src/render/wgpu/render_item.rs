@@ -16,6 +16,7 @@ use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::conversion::normal_map::convert_luma8_to_normal_map;
+use crate::conversion::normal_map::convert_luma32f_to_normal_map;
 use crate::conversion::spectrum::Spectrum;
 use crate::conversion::texture_node::DynaImage;
 use crate::conversion::texture_node::TextureSizeType;
@@ -656,11 +657,26 @@ fn get_normal_texture_from_image(
         DynaImage::ImageLuma8(img) => {
             // Convert grayscale heightmap to normal map
             let normal_map = convert_luma8_to_normal_map(img);
-            return Some(get_normal_map_texture_from_rgba_image(device, queue, &normal_map));
+            return Some(get_normal_map_texture_from_rgba_image(
+                device,
+                queue,
+                &normal_map,
+            ));
+        }
+        DynaImage::ImageLuma32F(img) => {
+            // Convert float heightmap to normal map
+            let normal_map = convert_luma32f_to_normal_map(img);
+            return Some(get_normal_map_texture_from_rgba_image(
+                device,
+                queue,
+                &normal_map,
+            ));
         }
         _ => {
+            return None;
+            //panic!("Unsupported image format for normal map conversion");
             // For other image types, fallback to color texture conversion
-            return get_color_texture_from_image(device, queue, texture_image);
+            //return get_color_texture_from_image(device, queue, texture_image);
         }
     }
 }
@@ -721,6 +737,7 @@ fn create_render_textures(
             if let Some(image) = texture_node.image_variants.get(&size_type) {
                 let image = image.read().unwrap();
                 let texture = if is_bump_map.get(&texture_id).is_some() {
+                    //println!("Create Normal Map Texture: name={}", texture_node.get_name());
                     get_normal_texture_from_image(device, queue, &image) //calculate normal map texture
                 } else {
                     get_color_texture_from_image(device, queue, &image)
