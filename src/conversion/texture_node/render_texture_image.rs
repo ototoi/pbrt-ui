@@ -18,6 +18,11 @@ const RENDER_SIZE: u32 = 1024;
 // Perlin Noise Implementation for FBM texture
 // Based on pbrt-r3 noise implementation
 const NOISEPERMSIZE: u32 = 256;
+// FBM frequency scaling (lacunarity) - determines how much the frequency increases per octave
+const FBM_LACUNARITY: f32 = 1.99;
+// Default UV scaling for FBM texture generation
+const FBM_DEFAULT_SCALE: f32 = 4.0;
+
 const NOISEPERM: [u32; 512] = [
     151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69,
     142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219,
@@ -57,6 +62,7 @@ fn noise_weight(t: f32) -> f32 {
 
 #[inline]
 fn grad(x: u32, y: u32, z: u32, dx: f32, dy: f32, dz: f32) -> f32 {
+    // SAFETY: x, y, z must be masked with (NOISEPERMSIZE - 1) by caller to ensure valid array access
     let h = NOISEPERM[NOISEPERM[NOISEPERM[x as usize] as usize + y as usize] as usize + z as usize];
     let h = h & 15;
     let u = if h < 8 || h == 12 || h == 13 { dx } else { dy };
@@ -112,7 +118,7 @@ fn fbm(px: f32, py: f32, pz: f32, omega: f32, octaves: u32) -> f32 {
     let mut o = 1.0;
     for _ in 0..octaves {
         sum += o * noise(lambda * px, lambda * py, lambda * pz);
-        lambda *= 1.99;
+        lambda *= FBM_LACUNARITY;
         o *= omega;
     }
     sum
@@ -562,7 +568,7 @@ fn render_fbm_texture_image(texture: &Texture, size_type: TextureSizeType) -> Op
     let mut image_buffer = image::ImageBuffer::new(size, size);
     
     // Scale factor for UV coordinates
-    let scale = 4.0; // Default frequency/scale for nice visual results
+    let scale = FBM_DEFAULT_SCALE;
     
     for y in 0..size {
         for x in 0..size {
