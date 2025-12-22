@@ -427,6 +427,22 @@ fn render_scale_texture_image(
     return scale_texture(&tex1.read().unwrap(), &tex2.read().unwrap());
 }
 
+/// Renders a fractal Brownian motion (FBM) procedural texture into a grayscale image.
+///
+/// The FBM parameters (such as number of octaves and roughness) are read from the
+/// given `texture`'s property map (for example, `"integer octaves"` and
+/// `"float roughness"`). The `size_type` parameter determines the resolution of the
+/// generated image by selecting one of the predefined sizes (`ICON_SIZE`,
+/// `DISPLAY_SIZE`, or `RENDER_SIZE`).
+///
+/// # Parameters
+/// - `texture`: Source texture whose properties configure the FBM noise generation.
+/// - `size_type`: Desired output resolution category for the generated texture image.
+///
+/// # Returns
+/// Returns `Some(DynaImage)` containing the generated FBM grayscale image on success.
+/// In practice this function always returns `Some`, but the `Option` return type allows
+/// it to conform to the texture rendering interface used elsewhere in this module.
 fn render_fbm_texture_image(texture: &Texture, size_type: TextureSizeType) -> Option<DynaImage> {
     // Get parameters from property map
     let props = texture.as_property_map();
