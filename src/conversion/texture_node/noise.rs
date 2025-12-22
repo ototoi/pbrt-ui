@@ -48,11 +48,16 @@ fn noise_weight(t: f32) -> f32 {
 
 #[inline]
 fn grad(x: u32, y: u32, z: u32, dx: f32, dy: f32, dz: f32) -> f32 {
-    // SAFETY: x, y, z are masked with (NOISEPERMSIZE - 1) to ensure valid array access
-    let x = x & (NOISEPERMSIZE - 1);
-    let y = y & (NOISEPERMSIZE - 1);
-    let z = z & (NOISEPERMSIZE - 1);
-    let h = NOISEPERM[NOISEPERM[NOISEPERM[x as usize] as usize + y as usize] as usize + z as usize];
+    // Mask x, y, z to the base permutation size (256) and convert to usize.
+    let x = (x & (NOISEPERMSIZE - 1)) as usize;
+    let y = (y & (NOISEPERMSIZE - 1)) as usize;
+    let z = (z & (NOISEPERMSIZE - 1)) as usize;
+    // SAFETY: All indices into NOISEPERM are masked with & 511 to stay within the 512-element table.
+    let h = NOISEPERM
+        [ (NOISEPERM
+            [ (NOISEPERM[x & 511] as usize + y) & 511 ]
+          as usize
+          + z) & 511 ];
     let h = h & 15;
     let u = if h < 8 || h == 12 || h == 13 { dx } else { dy };
     let v = if h < 4 || h == 12 || h == 13 { dy } else { dz };
