@@ -61,6 +61,10 @@ fn lerp(t: f32, a: f32, b: f32) -> f32 {
     a + t * (b - a)
 }
 
+/// 3D Perlin noise function.
+///
+/// Given 3D coordinates `(x, y, z)`, returns a smooth pseudo-random value
+/// with an output range approximately in `[-1.0, 1.0]`.
 pub fn noise(x: f32, y: f32, z: f32) -> f32 {
     // Compute noise cell coordinates and offsets
     let ix = x.floor() as i32;
