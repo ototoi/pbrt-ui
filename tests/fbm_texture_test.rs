@@ -4,6 +4,11 @@ use pbrt_ui::model::base::{Matrix4x4, Property, PropertyMap};
 use pbrt_ui::model::scene::Texture;
 use std::collections::HashMap;
 
+// Minimum threshold for detecting meaningful variation in FBM noise patterns
+// This value is chosen to be small enough to detect subtle variations while
+// being large enough to avoid false positives from floating-point precision
+const VARIATION_THRESHOLD: f32 = 0.01;
+
 #[test]
 fn test_fbm_texture_basic() {
     // Create a basic FBM texture with default parameters
@@ -31,7 +36,7 @@ fn test_fbm_texture_basic() {
         
         // Check that we have some variation (not all the same value)
         let first_value = img.get_pixel(0, 0)[0];
-        let has_variation = img.pixels().any(|p| (p[0] - first_value).abs() > 0.01);
+        let has_variation = img.pixels().any(|p| (p[0] - first_value).abs() > VARIATION_THRESHOLD);
         assert!(has_variation, "FBM texture should have variation, not be constant");
     } else {
         panic!("FBM texture should be ImageLuma32F type");

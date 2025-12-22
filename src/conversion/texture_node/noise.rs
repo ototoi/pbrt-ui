@@ -45,7 +45,10 @@ fn noise_weight(t: f32) -> f32 {
 
 #[inline]
 fn grad(x: u32, y: u32, z: u32, dx: f32, dy: f32, dz: f32) -> f32 {
-    // SAFETY: x, y, z must be masked with (NOISEPERMSIZE - 1) by caller to ensure valid array access
+    // SAFETY: x, y, z are masked with (NOISEPERMSIZE - 1) to ensure valid array access
+    let x = x & (NOISEPERMSIZE - 1);
+    let y = y & (NOISEPERMSIZE - 1);
+    let z = z & (NOISEPERMSIZE - 1);
     let h = NOISEPERM[NOISEPERM[NOISEPERM[x as usize] as usize + y as usize] as usize + z as usize];
     let h = h & 15;
     let u = if h < 8 || h == 12 || h == 13 { dx } else { dy };
@@ -73,13 +76,41 @@ pub fn noise(x: f32, y: f32, z: f32) -> f32 {
     let iz = (iz as u32) & (NOISEPERMSIZE - 1);
 
     let w000 = grad(ix, iy, iz, dx, dy, dz);
-    let w100 = grad(ix + 1, iy, iz, dx - 1.0, dy, dz);
-    let w010 = grad(ix, iy + 1, iz, dx, dy - 1.0, dz);
-    let w110 = grad(ix + 1, iy + 1, iz, dx - 1.0, dy - 1.0, dz);
-    let w001 = grad(ix, iy, iz + 1, dx, dy, dz - 1.0);
-    let w101 = grad(ix + 1, iy, iz + 1, dx - 1.0, dy, dz - 1.0);
-    let w011 = grad(ix, iy + 1, iz + 1, dx, dy - 1.0, dz - 1.0);
-    let w111 = grad(ix + 1, iy + 1, iz + 1, dx - 1.0, dy - 1.0, dz - 1.0);
+    let w100 = grad((ix + 1) & (NOISEPERMSIZE - 1), iy, iz, dx - 1.0, dy, dz);
+    let w010 = grad(ix, (iy + 1) & (NOISEPERMSIZE - 1), iz, dx, dy - 1.0, dz);
+    let w110 = grad(
+        (ix + 1) & (NOISEPERMSIZE - 1),
+        (iy + 1) & (NOISEPERMSIZE - 1),
+        iz,
+        dx - 1.0,
+        dy - 1.0,
+        dz,
+    );
+    let w001 = grad(ix, iy, (iz + 1) & (NOISEPERMSIZE - 1), dx, dy, dz - 1.0);
+    let w101 = grad(
+        (ix + 1) & (NOISEPERMSIZE - 1),
+        iy,
+        (iz + 1) & (NOISEPERMSIZE - 1),
+        dx - 1.0,
+        dy,
+        dz - 1.0,
+    );
+    let w011 = grad(
+        ix,
+        (iy + 1) & (NOISEPERMSIZE - 1),
+        (iz + 1) & (NOISEPERMSIZE - 1),
+        dx,
+        dy - 1.0,
+        dz - 1.0,
+    );
+    let w111 = grad(
+        (ix + 1) & (NOISEPERMSIZE - 1),
+        (iy + 1) & (NOISEPERMSIZE - 1),
+        (iz + 1) & (NOISEPERMSIZE - 1),
+        dx - 1.0,
+        dy - 1.0,
+        dz - 1.0,
+    );
 
     // Compute trilinear interpolation of weights
     let wx = noise_weight(dx);
