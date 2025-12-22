@@ -34,9 +34,20 @@ fn test_fbm_texture_basic() {
             assert!(value >= 0.0 && value <= 1.0, "Pixel values should be in [0, 1] range, got {}", value);
         }
         
-        // Check that we have some variation (not all the same value)
-        let first_value = img.get_pixel(0, 0)[0];
-        let has_variation = img.pixels().any(|p| (p[0] - first_value).abs() > VARIATION_THRESHOLD);
+        // Check that we have some variation (not all the same value) by
+        // ensuring the range of pixel values exceeds VARIATION_THRESHOLD.
+        let mut min_value = f32::MAX;
+        let mut max_value = f32::MIN;
+        for p in img.pixels() {
+            let v = p[0];
+            if v < min_value {
+                min_value = v;
+            }
+            if v > max_value {
+                max_value = v;
+            }
+        }
+        let has_variation = (max_value - min_value) > VARIATION_THRESHOLD;
         assert!(has_variation, "FBM texture should have variation, not be constant");
     } else {
         panic!("FBM texture should be ImageLuma32F type");
