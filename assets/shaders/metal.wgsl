@@ -63,11 +63,11 @@ fn sample_k(uv: vec2<f32>) -> vec3<f32> {
 
 #ifdef USE_TEXTURE_BUMPMAP
 @group(2)
-@binding(5)
+@binding(7)
 var bumpmap_texture: texture_2d<f32>;
 
 @group(2)
-@binding(6)
+@binding(8)
 var bumpmap_sampler: sampler;
 #endif
 
