@@ -125,6 +125,23 @@ pub fn noise(x: f32, y: f32, z: f32) -> f32 {
     lerp(wz, y0, y1)
 }
 
+/// Computes fractal Brownian motion (FBM) by summing multiple octaves of 3D Perlin noise.
+///
+/// # Parameters
+/// - `px`, `py`, `pz`: The input point in 3D space at which the FBM value is evaluated.
+///   These are typically texture, object, or world-space coordinates.
+/// - `omega`: The per-octave amplitude scaling factor (also called roughness or persistence).
+///   Each successive octave is multiplied by this value; for `0.0 <= omega < 1.0` the
+///   contribution of higher octaves decreases, producing a bounded sum.
+/// - `octaves`: The number of noise octaves (layers) to accumulate. Higher values add
+///   more detail but increase evaluation cost.
+///
+/// # Returns
+/// The FBM value at the given point. Assuming the underlying `noise` function produces
+/// values in approximately `[-1.0, 1.0]` and `0.0 <= omega < 1.0`, the result will lie
+/// roughly within:
+/// `[-(1.0 - omega.powi(octaves as i32)) / (1.0 - omega),
+///   +(1.0 - omega.powi(octaves as i32)) / (1.0 - omega)]`.
 pub fn fbm(px: f32, py: f32, pz: f32, omega: f32, octaves: u32) -> f32 {
     // Compute sum of octaves of noise for FBm
     let mut sum = 0.0;
