@@ -471,7 +471,9 @@ fn render_fbm_texture_image(texture: &Texture, size_type: TextureSizeType) -> Op
             // Normalize coordinates to [0, 1] and scale
             let u = (x as f32 / size as f32) * scale;
             let v = (y as f32 / size as f32) * scale;
-            let w = 0.0; // Z coordinate
+            // Use a fixed Z slice (w = 0.0) so the generated FBM texture is a 2D image.
+            // If 3D FBM textures are needed in the future, this could be exposed as a parameter.
+            let w = 0.0;
             
             // Compute FBM noise value
             let noise_value = fbm(u, v, w, roughness, octaves);
