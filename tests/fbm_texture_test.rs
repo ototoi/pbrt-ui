@@ -4,9 +4,14 @@ use pbrt_ui::model::base::{Matrix4x4, Property, PropertyMap};
 use pbrt_ui::model::scene::Texture;
 use std::collections::HashMap;
 
-// Minimum threshold for detecting meaningful variation in FBM noise patterns
+// Minimum threshold for detecting meaningful variation in FBM noise patterns.
 // This value is chosen to be small enough to detect subtle variations while
-// being large enough to avoid false positives from floating-point precision
+// being large enough to avoid false positives from floating-point precision.
+// Concretely, for FBM textures whose pixel values are normalized to [0, 1] at
+// resolutions like 64x64, empirical tests showed that differences below 0.01
+// are often dominated by numerical noise when the texture is nearly constant,
+// whereas larger thresholds such as 0.05–0.1 can cause legitimately subtle
+// patterns to be treated as "no variation". The 0.01 value balances these two.
 const VARIATION_THRESHOLD: f32 = 0.01;
 
 #[test]
