@@ -412,6 +412,29 @@ fn create_metal_render_passes(
         "roughness".to_string(),
         RenderUniformValue::Float(roughness),
     ));
+    
+    // Handle bumpmap texture and uniform
+    if let Some(texture) = get_texture(
+        &material.props,
+        "bumpmap",
+        resource_manager,
+        render_resource_manager,
+    ) {
+        let texture = render_resource_manager
+            .get_texture(texture.get_id())
+            .unwrap();
+        uniform_values.push((
+            "bumpmap".to_string(),
+            RenderUniformValue::Texture(texture.clone()),
+        ));
+    } else {
+        // Add default bumpmap uniform with identity UV transform (scale=1, offset=0)
+        // This ensures consistent MaterialUniforms structure regardless of texture presence
+        uniform_values.push((
+            "bumpmap".to_string(),
+            RenderUniformValue::Vec4([1.0, 1.0, 0.0, 0.0]), // scale=(1,1), offset=(0,0)
+        ));
+    }
     //println!("{}: Plastic Shader Type: {}", material.get_name(),shader_type);
     let render_pass = create_render_pass(
         device,
