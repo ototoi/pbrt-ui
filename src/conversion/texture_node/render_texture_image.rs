@@ -11,9 +11,14 @@ use crate::conversion::texture_node::DynaImage;
 use image::ImageBuffer;
 use image::buffer::ConvertBuffer as _;
 
+use super::noise::{fbm, FBM_LACUNARITY};
+
 const ICON_SIZE: u32 = 64;
 const DISPLAY_SIZE: u32 = 256;
-//const RENDER_SIZE: u32 = 1024;
+const RENDER_SIZE: u32 = 1024;
+
+// Default UV scaling for FBM texture generation
+const FBM_DEFAULT_SCALE: f32 = 4.0;
 
 fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
     let props = texture.as_property_map();
@@ -422,6 +427,86 @@ fn render_scale_texture_image(
     return scale_texture(&tex1.read().unwrap(), &tex2.read().unwrap());
 }
 
+/// Renders a fractal Brownian motion (FBM) procedural texture into a grayscale image.
+///
+/// The FBM parameters (such as number of octaves and roughness) are read from the
+/// given `texture`'s property map (for example, `"integer octaves"` and
+/// `"float roughness"`). The `size_type` parameter determines the resolution of the
+/// generated image by selecting one of the predefined sizes (`ICON_SIZE`,
+/// `DISPLAY_SIZE`, or `RENDER_SIZE`).
+///
+/// # Parameters
+/// - `texture`: Source texture whose properties configure the FBM noise generation.
+/// - `size_type`: Desired output resolution category for the generated texture image.
+///
+/// # Returns
+/// Returns `Some(DynaImage)` containing the generated FBM grayscale image on success.
+/// In practice this function always returns `Some`, but the `Option` return type allows
+/// it to conform to the texture rendering interface used elsewhere in this module.
+fn render_fbm_texture_image(texture: &Texture, size_type: TextureSizeType) -> Option<DynaImage> {
+    // Get parameters from property map
+    let props = texture.as_property_map();
+    
+    // Read octaves parameter (default: 8, as per pbrt-r3 reference)
+    let octaves = if let Some(Property::Ints(v)) = props.get("integer octaves") {
+        if !v.is_empty() {
+            v[0] as u32
+        } else {
+            8
+        }
+    } else {
+        8
+    };
+    
+    // Read roughness/omega parameter (default: 0.5, as per pbrt-r3 reference)
+    let roughness = if let Some(Property::Floats(v)) = props.get("float roughness") {
+        if !v.is_empty() {
+            v[0]
+        } else {
+            0.5
+        }
+    } else {
+        0.5
+    };
+    
+    // Determine output size based on size_type
+    let size = match size_type {
+        TextureSizeType::Icon => ICON_SIZE,
+        TextureSizeType::Display => DISPLAY_SIZE,
+        TextureSizeType::Render => RENDER_SIZE,
+    };
+    
+    // Generate FBM texture
+    let mut image_buffer = image::ImageBuffer::new(size, size);
+    
+    // Scale factor for UV coordinates
+    let scale = FBM_DEFAULT_SCALE;
+    
+    for y in 0..size {
+        for x in 0..size {
+            // Normalize coordinates to [0, 1] and scale
+            let u = (x as f32 / size as f32) * scale;
+            let v = (y as f32 / size as f32) * scale;
+            // Use a fixed Z slice (w = 0.0) so the generated FBM texture is a 2D image.
+            // The choice of 0.0 is arbitrary but consistent; any constant Z could be used for a 2D slice.
+            // If 3D FBM textures are needed in the future, this could be exposed as a parameter.
+            let w = 0.0;
+            
+            // Compute FBM noise value
+            let noise_value = fbm(u, v, w, roughness, octaves);
+            
+            // Normalize to [0, 1] range
+            // FBM typically produces values in roughly [-1, 1] range
+            let normalized = (noise_value + 1.0) * 0.5;
+            let clamped = normalized.clamp(0.0, 1.0);
+            
+            image_buffer.put_pixel(x, y, image::Luma([clamped]));
+        }
+    }
+    
+    Some(DynaImage::ImageLuma32F(image_buffer))
+}
+
 pub fn render_texture_image(
     texture: &Texture,
     dependencies: &HashMap<String, Arc<RwLock<DynaImage>>>,
@@ -440,6 +525,9 @@ pub fn render_texture_image(
         }
         "scale" => {
             return render_scale_texture_image(texture, dependencies);
+        }
+        "fbm" => {
+            return render_fbm_texture_image(texture, size_type);
         }
         _ => {
             return None; // Placeholder return
