@@ -3,7 +3,10 @@
 
 const NOISEPERMSIZE: u32 = 256;
 
-// FBM frequency scaling (lacunarity) - determines how much the frequency increases per octave
+// FBM frequency scaling (lacunarity) - determines how much the frequency increases per octave.
+// The value 1.99 is taken from the pbrt-r3 implementation of FBM noise (matching its default
+// lacunarity). It is chosen to be slightly less than 2.0 to approximate frequency doubling per
+// octave while reducing numerical artifacts that can appear with an exact factor of 2.
 pub const FBM_LACUNARITY: f32 = 1.99;
 
 const NOISEPERM: [u32; 512] = [
