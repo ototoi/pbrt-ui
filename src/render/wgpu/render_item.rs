@@ -250,9 +250,9 @@ fn create_uniform_value_bytes(
             RenderUniformValue::Float(v) => {
                 bytes.extend_from_slice(bytemuck::bytes_of(v));
                 if remain == 0 {
-                    remain = 16; //std140 vec4 alignment
+                    remain = 4; //std140 vec4 alignment
                 }
-                remain -= 4;
+                remain -= 1;
                 type_variables.push(("f32".to_string(), name.clone())); //
             }
             RenderUniformValue::Vec4(v) => {
@@ -270,18 +270,18 @@ fn create_uniform_value_bytes(
             RenderUniformValue::Int(v) => {
                 bytes.extend_from_slice(bytemuck::bytes_of(v));
                 if remain == 0 {
-                    remain = 16; //std140 vec4 alignment
+                    remain = 4; //std140 vec4 alignment
                 }
-                remain -= 4;
+                remain -= 1;
                 type_variables.push(("i32".to_string(), name.clone())); //
             }
             RenderUniformValue::Bool(v) => {
                 let int_value: u32 = if *v { 1 } else { 0 };
                 bytes.extend_from_slice(bytemuck::bytes_of(&int_value));
                 if remain == 0 {
-                    remain = 16; //std140 vec4 alignment
+                    remain = 4; //std140 vec4 alignment
                 }
-                remain -= 4;
+                remain -= 1;
                 type_variables.push(("u32".to_string(), name.clone())); //
             }
             RenderUniformValue::Mat4(v) => {
@@ -297,6 +297,14 @@ fn create_uniform_value_bytes(
                 type_variables.push(("mat4x4<f32>".to_string(), name.clone())); //
             }
             RenderUniformValue::Texture(v) => {
+                if remain != 0 {
+                    for _ in 0..remain {
+                        bytes.extend_from_slice(bytemuck::bytes_of(&0.0f32));
+                        type_variables.push(("f32".to_string(), format!("_pad{}", padding_count))); //
+                        padding_count += 1;
+                    }
+                    remain = 0;
+                }
                 let scale_offset: [f32; 4] = [v.scale[0], v.scale[1], v.delta[0], v.delta[1]];
                 bytes.extend_from_slice(bytemuck::bytes_of(&scale_offset));
                 type_variables.push(("vec4<f32>".to_string(), format!("{}_uv_factor", name))); //
@@ -456,9 +464,9 @@ pub fn create_render_pass(
         render_resource_manager,
     );
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);
-    //println!(
-    //    "Create Render Pass: shader_type={}, uniform_values={:?}",
-    //    shader_type, uniform_values
+    // println!(
+    //    "Create Render Pass: uniform_values_types={:?}, uniform_values={:?}",
+    //    _uniform_values_types, uniform_values
     //);
 
     let mut textures = vec![];
