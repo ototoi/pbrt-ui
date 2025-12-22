@@ -488,6 +488,7 @@ fn render_fbm_texture_image(texture: &Texture, size_type: TextureSizeType) -> Op
             let u = (x as f32 / size as f32) * scale;
             let v = (y as f32 / size as f32) * scale;
             // Use a fixed Z slice (w = 0.0) so the generated FBM texture is a 2D image.
+            // The choice of 0.0 is arbitrary but consistent; any constant Z could be used for a 2D slice.
             // If 3D FBM textures are needed in the future, this could be exposed as a parameter.
             let w = 0.0;
             
