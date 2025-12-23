@@ -16,7 +16,7 @@ A graphical user interface for <a href="https://www.pbrt.org/">PBRT</a> – a ph
 
 ### Preprocessor Highlights
 
-The built-in preprocessor enables powerful macro expansion, conditional compilation, and file inclusion in your PBRT scenes. See <a>`src/preprocessor/README.md`</a> for full technical documentation.
+The built-in preprocessor enables powerful macro expansion, conditional compilation, and file inclusion in your PBRT scenes. See [`src/preprocessor/README.md`](src/preprocessor/README.md) for full technical documentation.
 
 **Features include:**
 - `#define` for constants and macros (with parameters)
@@ -79,9 +79,9 @@ Feel free to open issues or submit pull requests. For major changes, please open
 
 ## License
 
-This project is licensed under the MIT License. See <a>LICENSE</a> for details.
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ## References
 
-- <a href="https://www.pbrt.org/">PBRT</a>
-- See <a>`src/preprocessor/README.md`</a> for in-depth documentation on the preprocessor.
+- [PBRT](https://www.pbrt.org/)
+- See [`src/preprocessor/README.md`](src/preprocessor/README.md) for in-depth documentation on the preprocessor.
