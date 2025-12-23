@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use super::matrix4x4::Matrix4x4;
 use super::vector3::Vector3;
 
@@ -12,14 +14,14 @@ pub struct Quaternion {
 impl Quaternion {
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         if w >= 0.0 {
-            Quaternion { x, y, z, w }
+            return Quaternion { x, y, z, w };
         } else {
-            Quaternion {
+            return Quaternion {
                 x: -x,
                 y: -y,
                 z: -z,
                 w: -w,
-            }
+            };
         }
     }
 
@@ -34,22 +36,22 @@ impl Quaternion {
 
     pub fn normalize(&self) -> Self {
         let l = f32::sqrt(Quaternion::dot(self, self));
-        Quaternion::new(self.x / l, self.y / l, self.z / l, self.w / l)
+        return Quaternion::new(self.x / l, self.y / l, self.z / l, self.w / l);
     }
 
     pub fn dot(&self, q2: &Quaternion) -> f32 {
-        (self.x * q2.x) + (self.y * q2.y) + (self.z * q2.z) + (self.w * q2.w)
+        return (self.x * q2.x) + (self.y * q2.y) + (self.z * q2.z) + (self.w * q2.w);
     }
 
     pub fn slerp(t: f32, q1: &Quaternion, q2: &Quaternion) -> Quaternion {
         const T: f32 = 1.0 - f32::EPSILON;
         let c = Self::dot(q1, q2).clamp(0.0, 1.0);
         if c > T {
-            *q1
+            return *q1;
         } else {
             let theta = f32::acos(c);
             let s = f32::recip(f32::sin(theta));
-            ((*q1) * f32::sin((1.0 - t) * theta) + (*q2) * f32::sin(t * theta)) * s
+            return ((*q1) * f32::sin((1.0 - t) * theta) + (*q2) * f32::sin(t * theta)) * s;
         }
     }
 
@@ -70,16 +72,16 @@ impl Quaternion {
         let wz = z * w;
 
         let mut m = Matrix4x4::identity();
-        m.m[0] = 1.0 - 2.0 * (yy + zz);
-        m.m[1] = 2.0 * (xy + wz);
-        m.m[2] = 2.0 * (xz - wy);
-        m.m[4] = 2.0 * (xy - wz);
-        m.m[4 + 1] = 1.0 - 2.0 * (xx + zz);
-        m.m[4 + 2] = 2.0 * (yz + wx);
-        m.m[4 * 2 ] = 2.0 * (xz + wy);
+        m.m[4 * 0 + 0] = 1.0 - 2.0 * (yy + zz);
+        m.m[4 * 0 + 1] = 2.0 * (xy + wz);
+        m.m[4 * 0 + 2] = 2.0 * (xz - wy);
+        m.m[4 * 1 + 0] = 2.0 * (xy - wz);
+        m.m[4 * 1 + 1] = 1.0 - 2.0 * (xx + zz);
+        m.m[4 * 1 + 2] = 2.0 * (yz + wx);
+        m.m[4 * 2 + 0] = 2.0 * (xz + wy);
         m.m[4 * 2 + 1] = 2.0 * (yz - wx);
         m.m[4 * 2 + 2] = 1.0 - 2.0 * (xx + yy);
-        m.transpose()
+        return m.transpose();
     }
 
     pub fn from_angle_axis(theta: f32, axis: &Vector3) -> Self {
@@ -87,7 +89,7 @@ impl Quaternion {
         let sin_theta = f32::sin(theta);
         let cos_theta = f32::cos(theta);
         let v = axis.normalize() * sin_theta;
-        Quaternion::new(v.x, v.y, v.z, cos_theta)
+        return Quaternion::new(v.x, v.y, v.z, cos_theta);
     }
 
     pub fn from_matrix(m: &Matrix4x4) -> Self {
@@ -96,32 +98,32 @@ impl Quaternion {
             // Compute w from matrix trace, then xyz
             // 4w^2 = m[0][0] + m[1][1] + m[2][2] + m[3][3] (but m[3][3] == 1)
             let s = f32::sqrt(trace + 1.0) * 2.0;
-            let x = (m.m[4 * 2 + 1] - m.m[4 + 2]) / s; //21 12
-            let y = (m.m[2] - m.m[4 * 2 ]) / s; //02 20
-            let z = (m.m[4] - m.m[1]) / s; //10 01
+            let x = (m.m[4 * 2 + 1] - m.m[4 * 1 + 2]) / s; //21 12
+            let y = (m.m[4 * 0 + 2] - m.m[4 * 2 + 0]) / s; //02 20
+            let z = (m.m[4 * 1 + 0] - m.m[4 * 0 + 1]) / s; //10 01
             let w = s / 4.0;
-            Quaternion::new(x, y, z, w)
-        } else if m.m[0] > m.m[4 + 1] && m.m[0] > m.m[4 * 2 + 2] {
-            let s = f32::sqrt(1.0 + m.m[0] - m.m[4 + 1] - m.m[4 * 2 + 2]) * 2.0;
+            return Quaternion::new(x, y, z, w);
+        } else if m.m[4 * 0 + 0] > m.m[4 * 1 + 1] && m.m[4 * 0 + 0] > m.m[4 * 2 + 2] {
+            let s = f32::sqrt(1.0 + m.m[4 * 0 + 0] - m.m[4 * 1 + 1] - m.m[4 * 2 + 2]) * 2.0;
             let x = s / 4.0;
-            let y = (m.m[4] + m.m[1]) / s;
-            let z = (m.m[2] + m.m[4 * 2 ]) / s;
-            let w = (m.m[4 * 2 + 1] - m.m[4 + 2]) / s;
-            Quaternion::new(x, y, z, w)
-        } else if m.m[4 + 1] > m.m[4 * 2 + 2] {
-            let s = f32::sqrt(1.0 + m.m[4 + 1] - m.m[0] - m.m[4 * 2 + 2]) * 2.0;
-            let x = (m.m[4] + m.m[1]) / s;
+            let y = (m.m[4 * 1 + 0] + m.m[4 * 0 + 1]) / s;
+            let z = (m.m[4 * 0 + 2] + m.m[4 * 2 + 0]) / s;
+            let w = (m.m[4 * 2 + 1] - m.m[4 * 1 + 2]) / s;
+            return Quaternion::new(x, y, z, w);
+        } else if m.m[4 * 1 + 1] > m.m[4 * 2 + 2] {
+            let s = f32::sqrt(1.0 + m.m[4 * 1 + 1] - m.m[4 * 0 + 0] - m.m[4 * 2 + 2]) * 2.0;
+            let x = (m.m[4 * 1 + 0] + m.m[4 * 0 + 1]) / s;
             let y = s / 4.0;
-            let z = (m.m[4 * 2 + 1] + m.m[4 + 2]) / s;
-            let w = (m.m[2] - m.m[4 * 2 ]) / s;
-            Quaternion::new(x, y, z, w)
+            let z = (m.m[4 * 2 + 1] + m.m[4 * 1 + 2]) / s;
+            let w = (m.m[4 * 0 + 2] - m.m[4 * 2 + 0]) / s;
+            return Quaternion::new(x, y, z, w);
         } else {
-            let s = f32::sqrt(1.0 + m.m[4 * 2 + 2] - m.m[0] - m.m[4 + 1]) * 2.0;
-            let x = (m.m[2] + m.m[4 * 2 ]) / s;
-            let y = (m.m[4 * 2 + 1] + m.m[4 + 2]) / s;
+            let s = f32::sqrt(1.0 + m.m[4 * 2 + 2] - m.m[4 * 0 + 0] - m.m[4 * 1 + 1]) * 2.0;
+            let x = (m.m[4 * 0 + 2] + m.m[4 * 2 + 0]) / s;
+            let y = (m.m[4 * 2 + 1] + m.m[4 * 1 + 2]) / s;
             let z = s / 4.0;
-            let w = (m.m[4] - m.m[1]) / s;
-            Quaternion::new(x, y, z, w)
+            let w = (m.m[4 * 1 + 0] - m.m[4 * 0 + 1]) / s;
+            return Quaternion::new(x, y, z, w);
         }
     }
 }
@@ -177,17 +179,17 @@ impl std::ops::Mul<f32> for Quaternion {
 impl std::ops::Neg for Quaternion {
     type Output = Quaternion;
     fn neg(self) -> Quaternion {
-        Quaternion {
+        return Quaternion {
             x: -self.x,
             y: -self.y,
             z: -self.z,
             w: -self.w,
-        }
+        };
     }
 }
 
 impl From<Matrix4x4> for Quaternion {
     fn from(m: Matrix4x4) -> Self {
-        Quaternion::from_matrix(&m)
+        return Quaternion::from_matrix(&m);
     }
 }

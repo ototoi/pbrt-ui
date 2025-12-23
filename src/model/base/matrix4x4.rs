@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use super::vector3::Vector3;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -111,23 +113,23 @@ impl Matrix4x4 {
         let cos_theta = f32::cos(f32::to_radians(theta));
         let mut m = Matrix4x4::identity();
         // Compute rotation of first basis vector
-        m.m[0] = a.x * a.x + (1.0 - a.x * a.x) * cos_theta;
-        m.m[1] = a.x * a.y * (1.0 - cos_theta) - a.z * sin_theta;
-        m.m[2] = a.x * a.z * (1.0 - cos_theta) + a.y * sin_theta;
-        m.m[3] = 0.0;
+        m.m[4 * 0 + 0] = a.x * a.x + (1.0 - a.x * a.x) * cos_theta;
+        m.m[4 * 0 + 1] = a.x * a.y * (1.0 - cos_theta) - a.z * sin_theta;
+        m.m[4 * 0 + 2] = a.x * a.z * (1.0 - cos_theta) + a.y * sin_theta;
+        m.m[4 * 0 + 3] = 0.0;
 
         // Compute rotations of second basis vector
-        m.m[4] = a.x * a.y * (1.0 - cos_theta) + a.z * sin_theta;
-        m.m[4 + 1] = a.y * a.y + (1.0 - a.y * a.y) * cos_theta;
-        m.m[4 + 2] = a.y * a.z * (1.0 - cos_theta) - a.x * sin_theta;
-        m.m[4 + 3] = 0.0;
+        m.m[4 * 1 + 0] = a.x * a.y * (1.0 - cos_theta) + a.z * sin_theta;
+        m.m[4 * 1 + 1] = a.y * a.y + (1.0 - a.y * a.y) * cos_theta;
+        m.m[4 * 1 + 2] = a.y * a.z * (1.0 - cos_theta) - a.x * sin_theta;
+        m.m[4 * 1 + 3] = 0.0;
 
         // Compute rotation of third basis vector
-        m.m[4 * 2 ] = a.x * a.z * (1.0 - cos_theta) - a.y * sin_theta;
+        m.m[4 * 2 + 0] = a.x * a.z * (1.0 - cos_theta) - a.y * sin_theta;
         m.m[4 * 2 + 1] = a.y * a.z * (1.0 - cos_theta) + a.x * sin_theta;
         m.m[4 * 2 + 2] = a.z * a.z + (1.0 - a.z * a.z) * cos_theta;
         m.m[4 * 2 + 3] = 0.0;
-        m
+        return m;
     }
 
     pub fn scale(x: f32, y: f32, z: f32) -> Self {
@@ -272,7 +274,7 @@ impl Matrix4x4 {
             }
         }
 
-        Some(Matrix4x4 { m: minv })
+        return Some(Matrix4x4 { m: minv });
     }
 
     pub fn transform_point(&self, p: &Vector3) -> Vector3 {
@@ -284,9 +286,9 @@ impl Matrix4x4 {
         let zp = self.m[8] * x + self.m[9] * y + self.m[10] * z + self.m[11];
         let wp = self.m[12] * x + self.m[13] * y + self.m[14] * z + self.m[15];
         if wp == 1.0 {
-            Vector3::new(xp, yp, zp)
+            return Vector3::new(xp, yp, zp);
         } else {
-            Vector3::new(xp / wp, yp / wp, zp / wp)
+            return Vector3::new(xp / wp, yp / wp, zp / wp);
         }
     }
 
@@ -297,7 +299,7 @@ impl Matrix4x4 {
         let xp = self.m[0] * x + self.m[1] * y + self.m[2] * z;
         let yp = self.m[4] * x + self.m[5] * y + self.m[6] * z;
         let zp = self.m[8] * x + self.m[9] * y + self.m[10] * z;
-        Vector3::new(xp, yp, zp)
+        return Vector3::new(xp, yp, zp);
     }
 
     pub fn transform_normal(&self, p: &Vector3) -> Vector3 {
@@ -307,13 +309,13 @@ impl Matrix4x4 {
         let xp = self.m[0] * x + self.m[4] * y + self.m[8] * z;
         let yp = self.m[1] * x + self.m[5] * y + self.m[9] * z;
         let zp = self.m[2] * x + self.m[6] * y + self.m[10] * z;
-        Vector3::new(xp, yp, zp)
+        return Vector3::new(xp, yp, zp);
     }
 }
 
 #[inline(always)]
 fn mul4x4(a: &[f32], b: &[f32]) -> f32 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
 }
 
 impl std::ops::Mul for Matrix4x4 {
