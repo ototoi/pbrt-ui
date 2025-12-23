@@ -26,10 +26,10 @@ The built-in preprocessor enables powerful macro expansion, conditional compilat
 
 ## Prerequisites
 
-- Rust (for building the preprocessor; see <a href="https://www.rust-lang.org/">rust-lang.org</a>)
-- <a href="https://www.pbrt.org/">PBRT</a> (external renderer, for final renders)
-- Node.js &amp; npm (if frontend is web-based; clarify if necessary)
-- OS: Windows, Linux, or macOS (specify your tested platforms)
+- Rust (for building the preprocessor; see [rust-lang.org](https://www.rust-lang.org/))
+- [PBRT](https://www.pbrt.org/) (external renderer, for final renders)
+- Node.js & npm (if frontend is web-based)
+- OS: Windows, Linux, or macOS
 
 ## Installation
 
@@ -47,7 +47,9 @@ npm run build
 1. Launch PBRT-UI:
 
     ```sh
-    # Example: (Replace with your actual launch command)
+    # Build and run:
+    cargo run --bin pbrt-ui
+    # Or run the built binary:
     ./target/debug/pbrt-ui
     ```
 
@@ -62,7 +64,7 @@ npm run build
 #define HEIGHT 600
 
 #ifdef DEBUG
-#   info("Debug mode!")
+#define DEBUG_MODE 1
 #endif
 
 #include "common.pbrt"
