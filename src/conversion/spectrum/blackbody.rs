@@ -13,7 +13,7 @@ pub fn blackbody(lambda: &[f64], t: f64) -> Vec<f64> {
         let le_i = (2.0 * H * C * C) / (lambda5 * (f64::exp((H * C) / (l * KB * t)) - 1.0));
         le[i] = le_i;
     }
-    le
+    return le;
 }
 
 pub fn blackbody_normalized(lambda: &[f32], t: f32) -> Vec<f32> {
@@ -27,5 +27,5 @@ pub fn blackbody_normalized(lambda: &[f32], t: f32) -> Vec<f32> {
         le[i] /= max_l[0];
     }
     let le: Vec<f32> = le.iter().map(|x| *x as f32).collect();
-    le
+    return le;
 }

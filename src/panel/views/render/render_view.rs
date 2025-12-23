@@ -7,9 +7,9 @@ use std::sync::Arc;
 #[inline]
 pub fn gamma_correct(value: f32) -> f32 {
     if value <= 0.0031308 {
-        12.92 * value
+        return 12.92 * value;
     } else {
-        1.055 * f32::powf(value, 1.0 / 2.4) - 0.055
+        return 1.055 * f32::powf(value, 1.0 / 2.4) - 0.055;
     }
 }
 /*
@@ -49,12 +49,12 @@ fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
     };
     let image = egui::ImageData::Color(Arc::new(image));
     let options = egui::TextureOptions::LINEAR;
-    
-    egui::epaint::ImageDelta {
+    let delta = egui::epaint::ImageDelta {
         image,
         options,
         pos: None,
-    }
+    };
+    return delta;
 }
 
 fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {

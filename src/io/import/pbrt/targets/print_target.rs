@@ -11,11 +11,11 @@ type Float = f32;
 fn get_param_type(s: &str) -> (&str, &str) {
     let ss: Vec<&str> = s.split_ascii_whitespace().collect();
     if ss.len() == 2 {
-        (ss[0], ss[1])
+        return (ss[0], ss[1]);
     } else if ss.len() == 1 {
-        ("", ss[0])
+        return ("", ss[0]);
     } else {
-        ("", s)
+        return ("", s);
     }
 }
 
@@ -39,7 +39,7 @@ fn get_type(s: &str) -> &str {
 
 fn get_key((key_type, key_name): (&str, &str)) -> String {
     if key_type.is_empty() {
-        key_name.to_string()
+        return key_name.to_string();
     } else {
         format!("{} {}", key_type, key_name)
     }
@@ -94,7 +94,7 @@ impl PrintTarget {
     }
 
     pub fn get_indent(&self) -> String {
-        self.get_indent_i(self.indent.get())
+        return self.get_indent_i(self.indent.get());
     }
 
     pub fn get_indent_i(&self, count: i32) -> String {
@@ -102,7 +102,7 @@ impl PrintTarget {
         for _ in 0..count {
             s += "    ";
         }
-        s
+        return s;
     }
 
     fn print(&self, s: &str) {
@@ -120,7 +120,7 @@ impl PrintTarget {
             }
         }
         s += "]";
-        s
+        return s;
     }
 
     fn convert_values(&self, params: &ParamSet, key: &str) -> String {
@@ -201,7 +201,7 @@ impl PrintTarget {
             }
         }
         s += "]";
-        s
+        return s;
     }
 
     fn convert_params(&self, params: &ParamSet) -> String {
@@ -216,7 +216,7 @@ impl PrintTarget {
                 s += &format!("{indent}\"{key_type} {key_name}\" {values}");
             }
         }
-        s
+        return s;
     }
 
     fn with_params(&self, params: &ParamSet) -> String {
@@ -230,9 +230,9 @@ impl PrintTarget {
             })
             .collect::<Vec<_>>();
         if !keys.is_empty() {
-            format!(" {}", self.convert_params(params))
+            return format!(" {}", self.convert_params(params));
         } else {
-            String::from("")
+            return String::from("");
         }
     }
 }

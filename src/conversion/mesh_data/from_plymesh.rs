@@ -172,11 +172,11 @@ fn create_reader(filanme: &str) -> Result<Box<dyn BufRead>> {
         let reader = std::io::BufReader::new(f);
         let reader = flate2::read::GzDecoder::new(reader);
         let reader = std::io::BufReader::new(reader);
-        Ok(Box::new(reader))
+        return Ok(Box::new(reader));
     } else {
         let f = std::fs::File::open(filanme)?;
         let reader = std::io::BufReader::new(f);
-        Ok(Box::new(reader))
+        return Ok(Box::new(reader));
     }
 }
 
@@ -262,13 +262,13 @@ pub fn load_from_ply(filename: &str) -> Result<MeshData> {
             }
         }
     }
-    Ok(MeshData {
+    return Ok(MeshData {
         indices: vertex_indices,
         positions: p,
         tangents: s,
         normals: n,
         uvs: uv,
-    })
+    });
 }
 
 pub fn create_mesh_data_from_plymesh(shape: &Shape) -> Option<MeshData> {
@@ -277,14 +277,14 @@ pub fn create_mesh_data_from_plymesh(shape: &Shape) -> Option<MeshData> {
     if let Some(fullpath) = shape.as_property_map().find_one_string("string fullpath") {
         match load_from_ply(&fullpath) {
             Ok(mesh_data) => {
-                Some(mesh_data)
+                return Some(mesh_data);
             }
             Err(e) => {
                 log::error!("Error loading ply file: {}", e);
-                None
+                return None;
             }
         }
     } else {
-        None
+        return None;
     }
 }

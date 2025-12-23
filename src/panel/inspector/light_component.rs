@@ -42,6 +42,6 @@ impl InspectorPanel {
             is_changed = true;
             props.add_string("string edition", &Uuid::new_v4().to_string());
         }
-        is_changed
+        return is_changed;
     }
 }

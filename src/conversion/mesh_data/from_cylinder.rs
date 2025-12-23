@@ -69,5 +69,5 @@ pub fn create_mesh_data_from_cylinder(shape: &Shape) -> Option<MeshData> {
         uvs,
         tangents: vec![],
     };
-    Some(mesh_data)
+    return Some(mesh_data);
 }

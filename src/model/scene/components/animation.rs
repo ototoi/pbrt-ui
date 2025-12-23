@@ -21,7 +21,7 @@ impl AnimationComponent {
         }
     }
     pub fn get_keys(&self) -> Vec<(String, String)> {
-        vec![]
+        return vec![];
     }
 }
 

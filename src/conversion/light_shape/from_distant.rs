@@ -17,7 +17,7 @@ fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
         point[yy] = y;
         points.push(Vector3::new(point[0], point[1], point[2]));
     }
-    points
+    return points;
 }
 
 pub fn create_light_shape_from_distant(light: &Light) -> Option<LightShape> {
@@ -37,5 +37,5 @@ pub fn create_light_shape_from_distant(light: &Light) -> Option<LightShape> {
     lines.push(vec![from, to]);
     lines.push(create_circle_points(2, 16)); //todo:align direction of the circle with the direction of the light
     let shape = LightShape { lines };
-    Some(shape)
+    return Some(shape);
 }

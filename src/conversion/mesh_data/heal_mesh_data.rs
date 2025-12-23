@@ -161,7 +161,7 @@ fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
         Vector3::new(0.0, v1.z, -v1.y) / f32::sqrt(v1.y * v1.y + v1.z * v1.z)
     };
     let v3 = Vector3::cross(v1, &v2).normalize();
-    (v2, v3)
+    return (v2, v3);
 }
 /*
 #[inline]
@@ -200,14 +200,14 @@ fn difference_of_products_f32(a: f32, b: f32, c: f32, d: f32) -> f32 {
     //X =  a * b - cd
     //Y = -c * d + cd
     //Z = X + Y = a * b - c * d
-    a * b - c * d
+    return a * b - c * d;
 }
 
 fn difference_of_products_v3(a: f32, b: Vector3, c: f32, d: Vector3) -> Vector3 {
     //X =  a * b - cd
     //Y = -c * d + cd
     //Z = X + Y = a * b - c * d
-    a * b - c * d
+    return a * b - c * d;
 }
 
 fn heal_tangents(mesh_data: &mut MeshData) {

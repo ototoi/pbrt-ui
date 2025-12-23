@@ -31,39 +31,39 @@ impl std::error::Error for PbrtError {}
 
 impl std::fmt::Display for PbrtError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.msg)
+        return write!(f, "{}", &self.msg);
     }
 }
 
 impl From<&str> for PbrtError {
     fn from(value: &str) -> Self {
-        PbrtError::error(value)
+        return PbrtError::error(value);
     }
 }
 
 impl From<String> for PbrtError {
     fn from(value: String) -> Self {
-        PbrtError::error(&value)
+        return PbrtError::error(&value);
     }
 }
 
 impl From<std::io::Error> for PbrtError {
     fn from(value: std::io::Error) -> Self {
         let msg = value.to_string();
-        PbrtError::error(&msg)
+        return PbrtError::error(&msg);
     }
 }
 
 impl From<ParseIntError> for PbrtError {
     fn from(value: ParseIntError) -> Self {
         let msg = value.to_string();
-        PbrtError::error(&msg)
+        return PbrtError::error(&msg);
     }
 }
 
 impl From<Box<dyn Error>> for PbrtError {
     fn from(value: Box<dyn Error>) -> Self {
         let msg = value.to_string();
-        PbrtError::error(&msg)
+        return PbrtError::error(&msg);
     }
 }

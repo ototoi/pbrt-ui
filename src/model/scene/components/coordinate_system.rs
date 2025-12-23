@@ -12,7 +12,7 @@ impl CoordinateSystemComponent {
         CoordinateSystemComponent { up }
     }
     pub fn get_up_vector(&self) -> Vector3 {
-        self.up
+        return self.up;
     }
 }
 

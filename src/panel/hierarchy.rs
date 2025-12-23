@@ -96,7 +96,7 @@ fn show_tree(
             }
         });
     }
-    selected_id
+    return selected_id;
 }
 
 impl Panel for HierarchyPanel {

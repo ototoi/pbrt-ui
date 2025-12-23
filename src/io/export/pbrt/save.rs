@@ -60,12 +60,12 @@ fn get_world_matrix(node: &Arc<RwLock<Node>>) -> Result<Matrix4x4, PbrtError> {
         let local_matrix = node
             .get_component::<TransformComponent>()
             .ok_or(PbrtError::error("Transform is not found!"))?;
-        Ok(parent_matrix * local_matrix.get_local_matrix())
+        return Ok(parent_matrix * local_matrix.get_local_matrix());
     } else {
         let local_matrix = node
             .get_component::<TransformComponent>()
             .ok_or(PbrtError::error("Transform is not found!"))?;
-        Ok(local_matrix.get_local_matrix())
+        return Ok(local_matrix.get_local_matrix());
     }
 }
 
@@ -784,7 +784,7 @@ impl PbrtSaver {
         self.write_world_black(node, &mut writer)?;
         writer.flush()?;
         self.copy_resources(node, path)?;
-        Ok(())
+        return Ok(());
     }
 }
 
@@ -796,5 +796,5 @@ pub fn save_pbrt(
     let mut pbrt_writer = PbrtSaver::new(options);
     pbrt_writer.write(node, path)?;
 
-    Ok(())
+    return Ok(());
 }

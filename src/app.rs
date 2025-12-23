@@ -55,7 +55,7 @@ impl PbrtUIApp {
             let fullpath = scene.get_fullpath();
             return fullpath;
         }
-        None
+        return None;
     }
 }
 

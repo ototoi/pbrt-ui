@@ -78,5 +78,5 @@ pub fn create_mesh_data_from_sphere(shape: &Shape) -> Option<MeshData> {
         indices,
         tangents,
     };
-    Some(mesh_data)
+    return Some(mesh_data);
 }

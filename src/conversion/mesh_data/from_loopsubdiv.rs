@@ -53,7 +53,7 @@ impl SDVertex {
         if let Some(f) = self.start_face.as_ref() {
             return f.upgrade();
         }
-        None
+        return None;
     }
 
     pub fn valence(&self) -> u32 {
@@ -70,7 +70,7 @@ impl SDVertex {
                 f = f2;
                 nf += 1;
             }
-            nf
+            return nf;
         } else {
             // Compute valence of boundary vertex
             let mut nf = 1;
@@ -94,7 +94,7 @@ impl SDVertex {
                 }
                 nf += 1;
             }
-            nf + 1
+            return nf + 1;
         }
     }
 
@@ -163,7 +163,7 @@ impl SDVertex {
                 }
             }
         }
-        points
+        return points;
     }
 }
 
@@ -185,7 +185,7 @@ impl SDFace {
                 return i as i32;
             }
         }
-        -1
+        return -1;
     }
 
     pub fn next_face(&self, v: &SDVertex) -> Option<Arc<RefCell<SDFace>>> {
@@ -194,7 +194,7 @@ impl SDFace {
             && let Some(f) = self.f[i as usize].as_ref() {
                 return f.upgrade();
             }
-        None
+        return None;
     }
 
     pub fn prev_face(&self, v: &SDVertex) -> Option<Arc<RefCell<SDFace>>> {
@@ -203,7 +203,7 @@ impl SDFace {
             && let Some(f) = self.f[PREV[i as usize]].as_ref() {
                 return f.upgrade();
             }
-        None
+        return None;
     }
 
     pub fn next_vert(&self, v: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
@@ -212,7 +212,7 @@ impl SDFace {
             && let Some(f) = self.v[NEXT[i as usize]].as_ref() {
                 return f.upgrade();
             }
-        None
+        return None;
     }
 
     pub fn prev_vert(&self, v: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
@@ -221,7 +221,7 @@ impl SDFace {
             && let Some(f) = self.v[PREV[i as usize]].as_ref() {
                 return f.upgrade();
             }
-        None
+        return None;
     }
 
     pub fn other_vert(&self, v0: &SDVertex, v1: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
@@ -234,14 +234,14 @@ impl SDFace {
                 return Some(vi);
             }
         }
-        None
+        return None;
     }
 
     pub fn get_child(&self, i: usize) -> Option<Arc<RefCell<SDFace>>> {
         if let Some(child) = self.children[i].as_ref() {
             return child.upgrade();
         }
-        None
+        return None;
     }
 }
 
@@ -277,13 +277,13 @@ impl SDEdge {
         //println!("{:?}_{:?}", v0, v1);
         assert!(v0 < v1);
 
-        format!("{:?}_{:?}", v0, v1)
+        return format!("{:?}_{:?}", v0, v1);
     }
 
     pub fn get_position(&self, i: usize) -> Vector3 {
         let v = self.v[i].as_ref().unwrap().upgrade().unwrap();
-        
-        v.as_ref().borrow().p
+        let p = v.as_ref().borrow().p;
+        return p;
     }
 }
 
@@ -295,7 +295,7 @@ fn weight_one_ring(vert: &SDVertex, beta: f32) -> Vector3 {
     for pp in p_ring.iter() {
         p += beta * *pp;
     }
-    p
+    return p;
 }
 
 fn weight_boundary(vert: &SDVertex, beta: f32) -> Vector3 {
@@ -304,19 +304,19 @@ fn weight_boundary(vert: &SDVertex, beta: f32) -> Vector3 {
     let mut p = (1.0 - 2.0 * beta) * vert.p;
     p += beta * p_ring[0];
     p += beta * p_ring[p_ring.len() - 1];
-    p
+    return p;
 }
 
 fn beta(valence: u32) -> f32 {
     if valence == 3 {
-        3.0 / 16.0
+        return 3.0 / 16.0;
     } else {
-        3.0 / (8.0 * valence as f32)
+        return 3.0 / (8.0 * valence as f32);
     }
 }
 
 fn loop_gamma(valence: u32) -> f32 {
-    1.0 / (valence as f32 + 3.0 / (8.0 * beta(valence)))
+    return 1.0 / (valence as f32 + 3.0 / (8.0 * beta(valence)));
 }
 
 fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshData> {
@@ -716,7 +716,7 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
         tangents: _s,
     };
 
-    Some(mesh_data)
+    return Some(mesh_data);
 }
 
 pub fn create_mesh_data_from_loopsubdiv(shape: &Shape) -> Option<MeshData> {
@@ -740,5 +740,5 @@ pub fn create_mesh_data_from_loopsubdiv(shape: &Shape) -> Option<MeshData> {
         .chunks(3)
         .map(|v| Vector3::new(v[0], v[1], v[2]))
         .collect::<Vec<_>>();
-    loop_subdiv(levels, indices, p)
+    return loop_subdiv(levels, indices, p);
 }

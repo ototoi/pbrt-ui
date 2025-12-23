@@ -163,7 +163,7 @@ pub fn parse_property_entry(param: &HashMap<PropetyParseKey, String>) -> (String
         _ => panic!("Unknown parameter type: {}", key_type),
     };
     let value_range = parse_range(&key_type, &value_range);
-    (
+    return (
         name.to_string(),
         PropertyEntry {
             key_type,
@@ -172,5 +172,5 @@ pub fn parse_property_entry(param: &HashMap<PropetyParseKey, String>) -> (String
             value_range,
             ..Default::default()
         },
-    )
+    );
 }

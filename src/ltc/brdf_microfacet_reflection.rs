@@ -8,10 +8,10 @@ pub trait MicrofacetDistribution {
     fn d(&self, wh: &glam::Vec3) -> f32;
     fn lambda(&self, w: &glam::Vec3) -> f32;
     fn g1(&self, w: &glam::Vec3) -> f32 {
-        1.0 / (1.0 + self.lambda(w))
+        return 1.0 / (1.0 + self.lambda(w));
     }
     fn g(&self, wo: &glam::Vec3, wi: &glam::Vec3) -> f32 {
-        1.0 / (1.0 + self.lambda(wo) + self.lambda(wi))
+        return 1.0 / (1.0 + self.lambda(wo) + self.lambda(wi));
     }
     fn sample_wh(&self, wo: &glam::Vec3, u: &glam::Vec2) -> glam::Vec3;
     fn pdf(&self, wo: &glam::Vec3, wh: &glam::Vec3) -> f32;

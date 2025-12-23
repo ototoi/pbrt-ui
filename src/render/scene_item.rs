@@ -41,7 +41,7 @@ fn has_component<T: Component>(node: &Arc<RwLock<Node>>) -> bool {
 fn get_local_matrix(node: &Arc<RwLock<Node>>) -> Matrix4x4 {
     let node = node.read().unwrap();
     let t = node.get_component::<TransformComponent>().unwrap();
-    t.get_local_matrix()
+    return t.get_local_matrix();
 }
 
 /*
@@ -85,5 +85,5 @@ pub fn get_scene_items(node: &Arc<RwLock<Node>>) -> Vec<SceneItem> {
     let mut items = Vec::new();
     let parent_matrix = Matrix4x4::identity();
     get_scene_item(&parent_matrix, node, &mut items);
-    items
+    return items;
 }

@@ -54,7 +54,7 @@ fn get_lines_material(
     };
     let render_material = Arc::new(render_material);
     render_resource_manager.add_material(&render_material);
-    Some(render_material)
+    return Some(render_material);
 }
 
 pub fn get_render_axis_gizmo_items(
@@ -123,7 +123,7 @@ pub fn get_render_axis_gizmo_items(
             render_items.push(Arc::new(RenderItem::Lines(render_item)));
         }
     }
-    render_items
+    return render_items;
 }
 
 pub fn get_render_grid_gizmo_items(
@@ -231,5 +231,5 @@ pub fn get_render_grid_gizmo_items(
         };
         render_items.push(Arc::new(RenderItem::Lines(render_item)));
     }
-    render_items
+    return render_items;
 }

@@ -24,7 +24,7 @@ impl MaterialComponent {
     pub fn get_keys(&self) -> Vec<(String, String)> {
         let material = self.material.read().unwrap();
         let props = material.as_property_map();
-        props.get_keys()
+        return props.get_keys();
     }
 
     pub fn get_type(&self) -> String {

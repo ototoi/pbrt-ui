@@ -87,5 +87,5 @@ pub fn create_plane_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOut
         });
     }
 
-    None
+    return None;
 }

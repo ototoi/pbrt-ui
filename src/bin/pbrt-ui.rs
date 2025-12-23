@@ -40,11 +40,11 @@ fn get_wgpu_options() -> eframe::egui_wgpu::WgpuConfiguration {
             }
         });
     }
-    
-    eframe::egui_wgpu::WgpuConfiguration {
+    let wgpu_options = eframe::egui_wgpu::WgpuConfiguration {
         wgpu_setup,
         ..Default::default()
-    }
+    };
+    return wgpu_options;
 }
 
 fn main() -> eframe::Result {

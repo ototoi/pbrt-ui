@@ -49,12 +49,12 @@ impl LightComponent {
     pub fn get_keys(&self) -> Vec<(String, String)> {
         let light = self.light.read().unwrap();
         let props = light.as_property_map();
-        
-        props
+        let keys = props
             .0
             .iter()
             .map(|(key_type, key_value, _prop)| (key_type.clone(), key_value.to_string()))
-            .collect()
+            .collect();
+        return keys;
     }
 
     pub fn get_type(&self) -> String {

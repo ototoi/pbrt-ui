@@ -13,8 +13,8 @@ impl FilmComponent {
         FilmComponent { props }
     }
     pub fn get_keys(&self) -> Vec<(String, String)> {
-        
-        self.props.get_keys()
+        let keys = self.props.get_keys();
+        return keys;
     }
 }
 

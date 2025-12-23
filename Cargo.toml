@@ -46,3 +46,6 @@ wgpu = { version = "25.0.2", default-features = true, features = ["vulkan"] }
 
 [dev-dependencies]
 naga = "25.0.1"
+
+[lints.clippy]
+needless_return = "allow"

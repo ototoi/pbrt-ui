@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 fn is_no_variant(node: &TextureNode, size_type: TextureSizeType) -> bool {
-    node.image_variants.get(&size_type).is_none()
+    return node.image_variants.get(&size_type).is_none();
 }
 
 fn sort_texture_nodes_by_dependency(
@@ -56,7 +56,7 @@ fn sort_texture_nodes_by_dependency(
             }
         }
     }
-    ordered_nodes
+    return ordered_nodes;
 }
 
 fn create_image_variants_for_nodes(
@@ -118,14 +118,14 @@ pub fn create_image_variant(
     size_type: TextureSizeType,
 ) -> Option<Arc<RwLock<DynaImage>>> {
     if let Some(image) = texture_node.read().unwrap().image_variants.get(&size_type) {
-        Some(image.clone())
+        return Some(image.clone());
     } else {
         let texture_nodes = vec![texture_node.clone()];
         create_image_variants_for_nodes(&texture_nodes, resource_manager, size_type);
         if let Some(image) = texture_node.read().unwrap().image_variants.get(&size_type) {
             return Some(image.clone());
         }
-        None
+        return None;
     }
 }
 

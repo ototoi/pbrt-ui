@@ -81,7 +81,7 @@ fn get_default_root_node() -> Arc<RwLock<Node>> {
             &Vector3::new(0.0, 1.0, 0.0),
         ));
     }
-    root_node
+    return root_node;
 }
 
 impl Default for AppController {
@@ -223,7 +223,7 @@ impl AppController {
     }
 
     pub fn get_camera_node(&self) -> Option<Arc<RwLock<Node>>> {
-        Node::find_node_by_component::<CameraComponent>(&self.root_node)
+        return Node::find_node_by_component::<CameraComponent>(&self.root_node);
     }
 }
 

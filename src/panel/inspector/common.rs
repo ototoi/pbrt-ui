@@ -22,18 +22,18 @@ fn get_label3(key_type: &str) -> (String, String, String) {
 #[inline]
 pub fn gamma_correct(value: f32) -> f32 {
     if value <= 0.0031308 {
-        12.92 * value
+        return 12.92 * value;
     } else {
-        1.055 * f32::powf(value, 1.0 / 2.4) - 0.055
+        return 1.055 * f32::powf(value, 1.0 / 2.4) - 0.055;
     }
 }
 
 #[inline]
 pub fn inverse_gamma_correct(value: f32) -> f32 {
     if value <= 0.04045 {
-        value * 1.0 / 12.92
+        return value * 1.0 / 12.92;
     } else {
-        f32::powf((value + 0.055) * 1.0 / 1.055, 2.4)
+        return f32::powf((value + 0.055) * 1.0 / 1.055, 2.4);
     }
 }
 
@@ -52,7 +52,7 @@ fn xyz_to_rgb(xyz: &[f32]) -> [f32; 3] {
     rgb[0] = 3.240479 * xyz[0] - 1.537_15 * xyz[1] - 0.498535 * xyz[2];
     rgb[1] = -0.969256 * xyz[0] + 1.875991 * xyz[1] + 0.041556 * xyz[2];
     rgb[2] = 0.055648 * xyz[0] - 0.204043 * xyz[1] + 1.057311 * xyz[2];
-    rgb
+    return rgb;
 }
 
 fn rgb_to_xyz(rgb: &[f32]) -> [f32; 3] {
@@ -60,13 +60,13 @@ fn rgb_to_xyz(rgb: &[f32]) -> [f32; 3] {
     xyz[0] = 0.412453 * rgb[0] + 0.357580 * rgb[1] + 0.180423 * rgb[2];
     xyz[1] = 0.212671 * rgb[0] + 0.715160 * rgb[1] + 0.072169 * rgb[2];
     xyz[2] = 0.019334 * rgb[0] + 0.119193 * rgb[1] + 0.950227 * rgb[2];
-    xyz
+    return xyz;
 }
 
 fn get_intensity(value: &[f32]) -> (f32, Vec<f32>) {
     let intensity = value.iter().fold(1.0f32, |acc, &x| acc.max(x));
     let new_value = value.iter().map(|&x| x / intensity).collect::<Vec<f32>>();
-    (intensity, new_value)
+    return (intensity, new_value);
 }
 
 fn show_rgb(ui: &mut egui::Ui, value: &mut [f32]) -> bool {
@@ -87,7 +87,7 @@ fn show_rgb(ui: &mut egui::Ui, value: &mut [f32]) -> bool {
         value[1] = new_value[1] * intensity;
         value[2] = new_value[2] * intensity;
     }
-    is_changed
+    return is_changed;
 }
 
 fn show_floats(
@@ -175,7 +175,7 @@ fn show_floats(
             }
         });
     }
-    is_changed
+    return is_changed;
 }
 
 fn show_ints(
@@ -227,7 +227,7 @@ fn show_ints(
             });
         }
     }
-    is_changed
+    return is_changed;
 }
 
 fn show_strings(
@@ -417,7 +417,7 @@ fn show_strings(
             is_changed = true;
         }
     }
-    is_changed
+    return is_changed;
 }
 
 fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut Vec<bool>) -> bool {
@@ -425,7 +425,7 @@ fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut V
         && Checkbox::without_text(&mut value[0]).ui(ui).changed() {
             return true;
         }
-    false
+    return false;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -615,7 +615,7 @@ fn show_color_like(
         let key = PropertyMap::get_key(t, n);
         props.insert(&key, p.clone());
     }
-    is_changed
+    return is_changed;
 }
 
 fn is_color_like(key_type: &str, key_name: &str) -> bool {
@@ -629,7 +629,7 @@ fn is_color_like(key_type: &str, key_name: &str) -> bool {
     //if key_name.starts_with("tex") {
     //    return true;
     //}
-    false
+    return false;
 }
 
 pub fn show_properties(
@@ -706,7 +706,7 @@ pub fn show_properties(
                 props.add_string("string edition", &Uuid::new_v4().to_string());
             }
         });
-    is_changed
+    return is_changed;
 }
 
 pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -> bool {
@@ -729,7 +729,7 @@ pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -
     if is_changed {
         props.add_string("string edition", &Uuid::new_v4().to_string());
     }
-    is_changed
+    return is_changed;
 }
 
 pub fn show_component_props(
@@ -754,5 +754,5 @@ pub fn show_component_props(
             }
             ui.add_space(3.0);
         });
-    is_changed
+    return is_changed;
 }

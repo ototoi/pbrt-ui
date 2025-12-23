@@ -48,5 +48,5 @@ pub fn create_light_shape(node: &Arc<RwLock<Node>>) -> Option<LightShape> {
             }
         }
     }
-    None
+    return None;
 }

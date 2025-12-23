@@ -129,22 +129,22 @@ impl PropertyMap {
 
     pub fn entry(&self, key: &str) -> Option<(&String, &String, &Property)> {
         let (_key_type, key_name) = Self::get_param_type(key);
-        
-        self
+        let entry = self
             .0
             .iter()
             .find(|(_, k, _)| k == key_name)
-            .map(|(a, b, c)| (a, b, c))
+            .map(|(a, b, c)| (a, b, c));
+        return entry;
     }
 
     pub fn entry_mut(&mut self, key: &str) -> Option<(&mut String, &mut String, &mut Property)> {
         let (_key_type, key_name) = Self::get_param_type(key);
-        
-        self
+        let entry = self
             .0
             .iter_mut()
             .find(|(_, k, _)| k == key_name)
-            .map(|(a, b, c)| (a, b, c))
+            .map(|(a, b, c)| (a, b, c));
+        return entry;
     }
 
     //--------------------------------------------------//
@@ -152,11 +152,11 @@ impl PropertyMap {
     pub fn get_param_type(s: &str) -> (&str, &str) {
         let ss: Vec<&str> = s.split_ascii_whitespace().collect();
         if ss.len() == 2 {
-            (ss[0], ss[1])
+            return (ss[0], ss[1]);
         } else if ss.len() == 1 {
-            ("", ss[0])
+            return ("", ss[0]);
         } else {
-            ("", s)
+            return ("", s);
         }
     }
 
@@ -164,7 +164,7 @@ impl PropertyMap {
         if key_type.is_empty() {
             return key_name.to_string();
         }
-        format!("{} {}", key_type, key_name)
+        return format!("{} {}", key_type, key_name);
     }
 }
 
@@ -212,32 +212,32 @@ impl ParamSet {
         if let Some(Property::Floats(v)) = self.get(key) {
             return v.clone();
         }
-        vec![]
+        return vec![];
     }
     pub fn get_ints(&self, key: &str) -> Vec<i32> {
         if let Some(Property::Ints(v)) = self.get(key) {
             return v.clone();
         }
-        vec![]
+        return vec![];
     }
     pub fn get_bools(&self, key: &str) -> Vec<bool> {
         if let Some(Property::Bools(v)) = self.get(key) {
             return v.clone();
         }
-        vec![]
+        return vec![];
     }
     pub fn get_strings(&self, key: &str) -> Vec<String> {
         if let Some(Property::Strings(v)) = self.get(key) {
             return v.clone();
         }
-        vec![]
+        return vec![];
     }
 
     pub fn get_points(&self, key: &str) -> Vec<f32> {
         if let Some(Property::Floats(v)) = self.get(key) {
             return v.clone();
         }
-        vec![]
+        return vec![];
     }
     //--------------------------------------------------//
     pub fn find_one_float(&self, key: &str) -> Option<f32> {
@@ -245,28 +245,28 @@ impl ParamSet {
             && !v.is_empty() {
                 return Some(v[0]);
             }
-        None
+        return None;
     }
     pub fn find_one_int(&self, key: &str) -> Option<i32> {
         if let Some(Property::Ints(v)) = self.get(key)
             && !v.is_empty() {
                 return Some(v[0]);
             }
-        None
+        return None;
     }
     pub fn find_one_bool(&self, key: &str) -> Option<bool> {
         if let Some(Property::Bools(v)) = self.get(key)
             && !v.is_empty() {
                 return Some(v[0]);
             }
-        None
+        return None;
     }
     pub fn find_one_string(&self, key: &str) -> Option<String> {
         if let Some(Property::Strings(v)) = self.get(key)
             && !v.is_empty() {
                 return Some(v[0].clone());
             }
-        None
+        return None;
     }
     //--------------------------------------------------//
     pub fn remove(&mut self, key: &str) {

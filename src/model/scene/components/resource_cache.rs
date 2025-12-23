@@ -45,7 +45,7 @@ impl ResourceCacheComponent {
     }
 
     pub fn get_resource_cache_manager(&self) -> Arc<RwLock<ResourceCacheManager>> {
-        self.resource_cache_manager.clone()
+        return self.resource_cache_manager.clone();
     }
 }
 

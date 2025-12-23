@@ -64,7 +64,7 @@ fn create_texture_views(
         nodes.push(node);
     }
 
-    nodes
+    return nodes;
 }
 
 fn show_texture_view(ui: &mut egui::Ui, node: &TextureView) -> Option<Uuid> {
@@ -106,7 +106,7 @@ fn show_texture_views(ui: &mut egui::Ui, nodes: &Vec<TextureView>) -> Option<Uui
             selected_id = Some(id);
         }
     }
-    selected_id
+    return selected_id;
 }
 
 #[derive(Debug, Clone)]

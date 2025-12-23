@@ -59,13 +59,13 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         align_to(local_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    
-    device.create_buffer(&wgpu::BufferDescriptor {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    })
+    });
+    return buffer;
 }
 
 fn create_material_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -76,13 +76,13 @@ fn create_material_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wg
         align_to(material_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    
-    device.create_buffer(&wgpu::BufferDescriptor {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    })
+    });
+    return buffer;
 }
 
 impl LinesRenderer {
@@ -390,7 +390,7 @@ impl LinesRenderer {
 
         let render_items = Vec::new();
 
-        LinesRenderer {
+        return LinesRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -404,6 +404,6 @@ impl LinesRenderer {
             material_uniform_buffer,
             material_uniform_alignment,
             render_items,
-        }
+        };
     }
 }

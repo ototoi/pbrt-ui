@@ -130,7 +130,7 @@ fn decompose_matrix(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::model::base::*;
 
     fn near_equal(a: f32, b: f32, epsilon: f32) -> bool {
@@ -142,7 +142,7 @@ mod tests {
         let m = Matrix4x4::translate(1.0, 2.0, 3.0)
             * Matrix4x4::rotate(1.0, 0.0, 1.0, 0.0)
             * Matrix4x4::scale(-2.0, 2.0, 3.0);
-        let (t, q, s) = m.decompose(1e-6).unwrap();
+        let (t, _q, s) = m.decompose(1e-6).unwrap();
         assert!(near_equal(t.x, 1.0, 1e-6));
         assert!(near_equal(t.y, 2.0, 1e-6));
         assert!(near_equal(t.z, 3.0, 1e-6));

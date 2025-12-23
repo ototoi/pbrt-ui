@@ -6,7 +6,7 @@ pub fn spectrum_samples_sorted(lambda: &[f32], _vals: &[f32]) -> bool {
             return false;
         }
     }
-    true
+    return true;
 }
 
 pub fn sort_spectrum_samples(lambda: &mut [f32], vals: &mut [f32]) {
@@ -24,7 +24,7 @@ pub fn sort_spectrum_samples(lambda: &mut [f32], vals: &mut [f32]) {
 
 #[inline]
 fn lerp(t: f32, v1: f32, v2: f32) -> f32 {
-    (1.0 - t) * v1 + t * v2
+    return (1.0 - t) * v1 + t * v2;
 }
 
 pub fn average_spectrum_samples(
@@ -67,11 +67,11 @@ pub fn average_spectrum_samples(
 
     // Loop over wavelength sample segments and add contributions
     let interp = |w: f32, i: usize| {
-        lerp(
+        return lerp(
             (w - lambda[i]) / (lambda[i + 1] - lambda[i]),
             vals[i],
             vals[i + 1],
-        )
+        );
     };
     while i + 1 < n && lambda_end >= lambda[i] {
         let seg_lambda_start = f32::max(lambda_start, lambda[i]);
@@ -81,7 +81,7 @@ pub fn average_spectrum_samples(
             * (seg_lambda_end - seg_lambda_start);
         i += 1;
     }
-    sum / (lambda_end - lambda_start)
+    return sum / (lambda_end - lambda_start);
 }
 
 pub fn sample_spectrum(lambda: &[f32], vals: &[f32]) -> [f32; SPECTRAL_SAMPLES] {
@@ -99,7 +99,7 @@ pub fn sample_spectrum(lambda: &[f32], vals: &[f32]) -> [f32; SPECTRAL_SAMPLES] 
         );
         x[i] = average_spectrum_samples(lambda, vals, wl0, wl1);
     }
-    x
+    return x;
 }
 
 pub fn xyz_to_rgb(xyz: &[f32]) -> [f32; 3] {
@@ -107,7 +107,7 @@ pub fn xyz_to_rgb(xyz: &[f32]) -> [f32; 3] {
     rgb[0] = 3.240479 * xyz[0] - 1.537_15 * xyz[1] - 0.498535 * xyz[2];
     rgb[1] = -0.969256 * xyz[0] + 1.875991 * xyz[1] + 0.041556 * xyz[2];
     rgb[2] = 0.055648 * xyz[0] - 0.204043 * xyz[1] + 1.057311 * xyz[2];
-    rgb
+    return rgb;
 }
 
 pub fn rgb_to_xyz(rgb: &[f32]) -> [f32; 3] {
@@ -115,5 +115,5 @@ pub fn rgb_to_xyz(rgb: &[f32]) -> [f32; 3] {
     xyz[0] = 0.412453 * rgb[0] + 0.357580 * rgb[1] + 0.180423 * rgb[2];
     xyz[1] = 0.212671 * rgb[0] + 0.715160 * rgb[1] + 0.072169 * rgb[2];
     xyz[2] = 0.019334 * rgb[0] + 0.119193 * rgb[1] + 0.950227 * rgb[2];
-    xyz
+    return xyz;
 }

@@ -35,7 +35,7 @@ impl ResourceManager {
                     && filename == name {
                         return true;
                     }
-                false
+                return false;
             })
             .cloned()
     }
@@ -49,7 +49,7 @@ impl ResourceManager {
                     && filename == name {
                         return true;
                     }
-                false
+                return false;
             })
             .cloned()
     }

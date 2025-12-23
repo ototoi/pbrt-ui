@@ -90,6 +90,6 @@ impl OptionProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        LazyCell::new(OptionProperties::new)
+        return LazyCell::new(OptionProperties::new);
     }
 }

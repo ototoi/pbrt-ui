@@ -28,7 +28,7 @@ fn search_pbrt_file(dir: &std::path::Path) -> Option<std::path::PathBuf> {
             }
         }
     }
-    None
+    return None;
 }
 
 fn pbrt_parse_targz(filename: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
@@ -53,23 +53,23 @@ fn pbrt_parse_targz(filename: &str, context: &mut dyn ParseTarget) -> Result<(),
             return pbrt_parse_string_core(&s, context);
         }
     }
-    Err(PbrtError::from(std::io::Error::from(
+    return Err(PbrtError::from(std::io::Error::from(
         std::io::ErrorKind::NotFound,
-    )))
+    )));
 }
 
 pub fn pbrt_parse_file(filename: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
     if filename.ends_with(".tar.gz") {
-        pbrt_parse_targz(filename, context)
+        return pbrt_parse_targz(filename, context);
     } else {
         let s = read_file_with_include(filename)?;
-        pbrt_parse_string_core(&s, context)
+        return pbrt_parse_string_core(&s, context);
     }
 }
 
 pub fn pbrt_parse_string(s: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
     let ops = parse_opnodes(s)?;
-    evaluate_opnodes(&ops, context)
+    return evaluate_opnodes(&ops, context);
 }
 
 pub fn pbrt_parse_file_without_include(
@@ -77,23 +77,23 @@ pub fn pbrt_parse_file_without_include(
     context: &mut dyn ParseTarget,
 ) -> Result<(), PbrtError> {
     let s = read_file_without_include(filename)?;
-    pbrt_parse_string_core(&s, context)
+    return pbrt_parse_string_core(&s, context);
 }
 //-----------------------------------
 
 pub fn pbrt_parse_string_core(s: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
     let ops = parse_opnodes_core(s)?;
-    evaluate_opnodes(&ops, context)
+    return evaluate_opnodes(&ops, context);
 }
 
 fn parse_opnodes(s: &str) -> Result<Vec<OPNode>, PbrtError> {
     let r = remove_comments(s);
     match r {
         Ok((_, s)) => {
-            parse_opnodes_core(&s)
+            return parse_opnodes_core(&s);
         }
         Err(e) => {
-            Err(PbrtError::from(e.to_string()))
+            return Err(PbrtError::from(e.to_string()));
         }
     }
 }
@@ -106,10 +106,10 @@ fn parse_opnodes_core(s: &str) -> Result<Vec<OPNode>, PbrtError> {
     )))(s);
     match result {
         Ok((_, nodes)) => {
-            Ok(nodes)
+            return Ok(nodes);
         }
         Err(e) => {
-            Err(PbrtError::from(e.to_string()))
+            return Err(PbrtError::from(e.to_string()));
         }
     }
 }
@@ -392,7 +392,7 @@ fn evaluate_opnodes(ops: &[OPNode], context: &mut dyn ParseTarget) -> Result<(),
             }
         }
     }
-    Ok(())
+    return Ok(());
 }
 
 /*
@@ -474,7 +474,7 @@ fn parse_operation(s: &str) -> IResult<&str, OPNode> {
 
 fn parse_op_void<'a>(s: &'a str, name: &str) -> IResult<&'a str, OPNode> {
     let (s, _) = sequence::terminated(bytes::complete::tag(name), space0)(s)?;
-    Ok((s, OPNode::new(name, None, None)))
+    return Ok((s, OPNode::new(name, None, None)));
 }
 
 fn parse_op_float_n<'a>(s: &'a str, opname: &str, n: usize) -> IResult<&'a str, OPNode> {
@@ -491,7 +491,7 @@ fn parse_op_float_n<'a>(s: &'a str, opname: &str, n: usize) -> IResult<&'a str, 
         .map(|x| (*x).parse::<f32>().unwrap() as Float)
         .collect();
     args.add_floats("args", &v);
-    Ok((s, OPNode::new(op, Some(args), None)))
+    return Ok((s, OPNode::new(op, Some(args), None)));
 }
 
 fn parse_op_floats<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNode> {
@@ -516,7 +516,7 @@ fn parse_op_floats<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNode> {
         .map(|x| (*x).parse::<f32>().unwrap() as Float)
         .collect();
     args.add_floats("arg1", &v);
-    Ok((s, OPNode::new(op, Some(args), None)))
+    return Ok((s, OPNode::new(op, Some(args), None)));
 }
 
 fn parse_op_string<'a>(s: &'a str, opname: &'a str) -> IResult<&'a str, OPNode> {
@@ -526,7 +526,7 @@ fn parse_op_string<'a>(s: &'a str, opname: &'a str) -> IResult<&'a str, OPNode> 
     ))(s)?;
     let mut args = ParamSet::new();
     args.add_string("arg1", name);
-    Ok((s, OPNode::new(op, Some(args), None)))
+    return Ok((s, OPNode::new(op, Some(args), None)));
 }
 
 fn parse_op_string_string<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNode> {
@@ -538,7 +538,7 @@ fn parse_op_string_string<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNo
     let mut args = ParamSet::new();
     args.add_string("arg1", b);
     args.add_string("arg2", c);
-    Ok((s, OPNode::new(op, Some(args), None)))
+    return Ok((s, OPNode::new(op, Some(args), None)));
 }
 
 fn parse_op_string_params<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNode> {
@@ -549,7 +549,7 @@ fn parse_op_string_params<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNo
     ))(s)?;
     let mut args = ParamSet::new();
     args.add_string("arg1", a);
-    Ok((s, OPNode::new(op, Some(args), Some(params))))
+    return Ok((s, OPNode::new(op, Some(args), Some(params))));
 }
 
 fn parse_op_string_string_string_params<'a>(s: &'a str, opname: &str) -> IResult<&'a str, OPNode> {
@@ -562,47 +562,47 @@ fn parse_op_string_string_string_params<'a>(s: &'a str, opname: &str) -> IResult
     args.add_string("arg1", a[0]);
     args.add_string("arg2", a[1]);
     args.add_string("arg3", a[2]);
-    Ok((s, OPNode::new(op, Some(args), Some(params))))
+    return Ok((s, OPNode::new(op, Some(args), Some(params))));
 }
 
 fn parse_identity(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "Identity")
+    return parse_op_void(s, "Identity");
 }
 //fn pbrt_translate(&mut self, dx: Float, dy: Float, dz: Float);
 fn parse_translate(s: &str) -> IResult<&str, OPNode> {
-    parse_op_float_n(s, "Translate", 3)
+    return parse_op_float_n(s, "Translate", 3);
 }
 
 //fn pbrt_rotate(&mut self, angle: Float, ax: Float, ay: Float, az: Float);
 fn parse_rotate(s: &str) -> IResult<&str, OPNode> {
-    parse_op_float_n(s, "Rotate", 4)
+    return parse_op_float_n(s, "Rotate", 4);
 }
 
 //fn pbrt_scale(&mut self, sx: Float, sy: Float, sz: Float);
 fn parse_scale(s: &str) -> IResult<&str, OPNode> {
-    parse_op_float_n(s, "Scale", 3)
+    return parse_op_float_n(s, "Scale", 3);
 }
 
 fn parse_look_at(s: &str) -> IResult<&str, OPNode> {
-    parse_op_float_n(s, "LookAt", 9)
+    return parse_op_float_n(s, "LookAt", 9);
 }
 
 fn parse_concat_transform(s: &str) -> IResult<&str, OPNode> {
-    parse_op_floats(s, "ConcatTransform")
+    return parse_op_floats(s, "ConcatTransform");
 }
 
 fn parse_transform(s: &str) -> IResult<&str, OPNode> {
-    parse_op_floats(s, "Transform")
+    return parse_op_floats(s, "Transform");
 }
 
 //fn pbrt_coordinate_system(&mut self, name: &str);
 fn parse_coordinate_system(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string(s, "CoordinateSystem")
+    return parse_op_string(s, "CoordinateSystem");
 }
 
 //fn pbrt_coord_sys_transform(&mut self, name: &str);
 fn parse_coord_sys_transform(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string(s, "CoordSysTransform")
+    return parse_op_string(s, "CoordSysTransform");
 }
 
 fn parse_active_transform(s: &str) -> IResult<&str, OPNode> {
@@ -622,124 +622,124 @@ fn parse_active_transform(s: &str) -> IResult<&str, OPNode> {
     //fn pbrt_active_transform_end_time(&mut self);
     //fn pbrt_active_transform_start_time(&mut self);
     let name = String::from(op) + t;
-    Ok((s, OPNode::new(&name, None, None)))
+    return Ok((s, OPNode::new(&name, None, None)));
 }
 
 //fn pbrt_transform_times(&mut self, start: Float, end: Float);
 fn parse_transform_times(s: &str) -> IResult<&str, OPNode> {
-    parse_op_float_n(s, "TransformTimes", 2)
+    return parse_op_float_n(s, "TransformTimes", 2);
 }
 
 fn parse_pixel_filter(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "PixelFilter")
+    return parse_op_string_params(s, "PixelFilter");
 }
 
 fn parse_film(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Film")
+    return parse_op_string_params(s, "Film");
 }
 
 fn parse_sampler(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Sampler")
+    return parse_op_string_params(s, "Sampler");
 }
 
 fn parse_accelerator(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Accelerator")
+    return parse_op_string_params(s, "Accelerator");
 }
 
 fn parse_integrator(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Integrator")
+    return parse_op_string_params(s, "Integrator");
 }
 
 fn parse_camera(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Camera")
+    return parse_op_string_params(s, "Camera");
 }
 
 fn parse_make_named_medium(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "MakeNamedMedium")
+    return parse_op_string_params(s, "MakeNamedMedium");
 }
 
 fn parse_medium_interface(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_string(s, "MediumInterface")
+    return parse_op_string_string(s, "MediumInterface");
 }
 
 fn parse_world_begin(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "WorldBegin")
+    return parse_op_void(s, "WorldBegin");
 }
 
 fn parse_attribute_begin(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "AttributeBegin")
+    return parse_op_void(s, "AttributeBegin");
 }
 
 fn parse_attribute_end(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "AttributeEnd")
+    return parse_op_void(s, "AttributeEnd");
 }
 
 fn parse_transform_begin(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "TransformBegin")
+    return parse_op_void(s, "TransformBegin");
 }
 
 fn parse_transform_end(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "TransformEnd")
+    return parse_op_void(s, "TransformEnd");
 }
 
 fn parse_texture(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_string_string_params(s, "Texture")
+    return parse_op_string_string_string_params(s, "Texture");
 }
 
 fn parse_material(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Material")
+    return parse_op_string_params(s, "Material");
 }
 
 fn parse_make_named_material(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "MakeNamedMaterial")
+    return parse_op_string_params(s, "MakeNamedMaterial");
 }
 
 fn parse_named_material(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string(s, "NamedMaterial")
+    return parse_op_string(s, "NamedMaterial");
 }
 
 fn parse_light_source(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "LightSource")
+    return parse_op_string_params(s, "LightSource");
 }
 
 fn parse_area_light_source(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "AreaLightSource")
+    return parse_op_string_params(s, "AreaLightSource");
 }
 
 fn parse_shape(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Shape")
+    return parse_op_string_params(s, "Shape");
 }
 
 fn parse_reverse_orientation(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "ReverseOrientation")
+    return parse_op_void(s, "ReverseOrientation");
 }
 
 fn parse_object_begin(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string(s, "ObjectBegin")
+    return parse_op_string(s, "ObjectBegin");
 }
 
 fn parse_object_end(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "ObjectEnd")
+    return parse_op_void(s, "ObjectEnd");
 }
 
 fn parse_object_instance(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string(s, "ObjectInstance")
+    return parse_op_string(s, "ObjectInstance");
 }
 
 fn parse_world_end(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "WorldEnd")
+    return parse_op_void(s, "WorldEnd");
 }
 
 fn parse_work_dir_begin(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string(s, "WorkDirBegin")
+    return parse_op_string(s, "WorkDirBegin");
 }
 
 fn parse_work_dir_end(s: &str) -> IResult<&str, OPNode> {
-    parse_op_void(s, "WorkDirEnd")
+    return parse_op_void(s, "WorkDirEnd");
 }
 
 fn parse_include(s: &str) -> IResult<&str, OPNode> {
-    parse_op_string_params(s, "Include")
+    return parse_op_string_params(s, "Include");
 }
 
 #[cfg(test)]

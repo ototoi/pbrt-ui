@@ -39,15 +39,15 @@ impl RenderHistory {
     }
 
     pub fn get_id(&self) -> Uuid {
-        self.id
+        return self.id;
     }
 
     pub fn get_name(&self) -> String {
-        self.name.clone()
+        return self.name.clone();
     }
 
     pub fn get_state(&self) -> RenderState {
-        self.state
+        return self.state;
     }
 
     pub fn update(&mut self) -> Result<RenderState, PbrtError> {
@@ -64,7 +64,7 @@ impl RenderHistory {
         if self.state == RenderState::Finished {
             self.session = None;
         }
-        Ok(self.state)
+        return Ok(self.state);
     }
 
     pub fn render(
@@ -81,7 +81,7 @@ impl RenderHistory {
         self.state = session.get_state();
         //println!("Render session created for history: {}", self.name);
         self.session = Some(session);
-        Ok(())
+        return Ok(());
     }
 
     pub fn cancel(&mut self) -> Result<(), PbrtError> {
@@ -89,10 +89,10 @@ impl RenderHistory {
             session.cancel()?;
             self.state = session.get_state();
         }
-        Ok(())
+        return Ok(());
     }
 
     pub fn get_image_data(&self) -> Option<Arc<Mutex<ImageData>>> {
-        self.image_data.clone()
+        return self.image_data.clone();
     }
 }

@@ -58,13 +58,13 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         align_to(local_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    
-    device.create_buffer(&wgpu::BufferDescriptor {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    })
+    });
+    return buffer;
 }
 
 fn get_base_color(_item: &RenderItem) -> [f32; 4] {
@@ -83,7 +83,7 @@ fn get_base_color(_item: &RenderItem) -> [f32; 4] {
         _ => {} // Default color for other items
     }
     */
-    [1.0, 0.0, 1.0, 1.0]// Default color for Solid
+    return [1.0, 0.0, 1.0, 1.0]; // Default color for Solid
 }
 
 impl SolidMeshRenderer {
@@ -161,7 +161,7 @@ impl SolidMeshRenderer {
         };
         resources.insert(per_frame_resources);
 
-        vec![]
+        return vec![];
     }
 
     pub fn paint(
@@ -356,7 +356,7 @@ impl SolidMeshRenderer {
             }],
         });
 
-        SolidMeshRenderer {
+        return SolidMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -365,6 +365,6 @@ impl SolidMeshRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
-        }
+        };
     }
 }

@@ -22,7 +22,7 @@ fn remove_empty_node(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<Node>>> {
                     return None;
                 }
     }
-    Some(node.clone())
+    return Some(node.clone());
 }
 
 fn remove_empty_nodes(root: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
@@ -37,7 +37,7 @@ fn remove_empty_nodes(root: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
         }
         root.children = new_children;
     }
-    root.clone()
+    return root.clone();
 }
 
 fn remove_identity_node(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<Node>>> {
@@ -59,7 +59,7 @@ fn remove_identity_node(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<Node>>> {
                     return Some(node.children[0].clone());
                 }
     }
-    Some(node.clone())
+    return Some(node.clone());
 }
 
 fn remove_identity_nodes(root: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
@@ -74,12 +74,12 @@ fn remove_identity_nodes(root: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
         }
         root.children = new_children;
     }
-    root.clone()
+    return root.clone();
 }
 
 pub fn optimize_nodes(node: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
     let node = node.clone();
     let node = remove_empty_nodes(&node);
-    
-    remove_identity_nodes(&node)
+    let node = remove_identity_nodes(&node);
+    return node;
 }

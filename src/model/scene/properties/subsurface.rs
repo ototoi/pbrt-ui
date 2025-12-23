@@ -214,6 +214,6 @@ impl SubsurfaceProperties {
         for (name, _, _) in SUBSURFACE_PARAMETER_TABLE.iter() {
             names.push(name.to_string());
         }
-        names
+        return names;
     }
 }

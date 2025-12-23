@@ -58,7 +58,7 @@ fn create_mesh_data_core(shape: &Shape) -> Option<MeshData> {
             println!("Unknown shape type: {}", mesh_type);
         }
     }
-    None
+    return None;
 }
 
 pub fn create_mesh_data(shape: &Shape) -> Option<MeshData> {
@@ -66,5 +66,5 @@ pub fn create_mesh_data(shape: &Shape) -> Option<MeshData> {
         heal_mesh_data(&mut mesh_data);
         return Some(mesh_data);
     }
-    None
+    return None;
 }

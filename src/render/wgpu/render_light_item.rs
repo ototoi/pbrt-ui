@@ -50,7 +50,7 @@ fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
         Vector3::new(0.0, v1.z, -v1.y) / f32::sqrt(v1.y * v1.y + v1.z * v1.z)
     };
     let v3 = Vector3::cross(v1, &v2).normalize();
-    (v2, v3)
+    return (v2, v3);
 }
 
 fn get_light_type(node: &Arc<RwLock<Node>>) -> Option<String> {
@@ -60,7 +60,7 @@ fn get_light_type(node: &Arc<RwLock<Node>>) -> Option<String> {
         let light = light.read().unwrap();
         return Some(light.get_type());
     }
-    None// No LightComponent found
+    return None; // No LightComponent found
 }
 
 fn get_light_id_edition(node: &Arc<RwLock<Node>>) -> Option<(Uuid, String)> {
@@ -72,7 +72,7 @@ fn get_light_id_edition(node: &Arc<RwLock<Node>>) -> Option<(Uuid, String)> {
         let edition = light.get_edition();
         return Some((id, edition));
     }
-    None// No LightComponent found
+    return None; // No LightComponent found
 }
 
 fn get_directional_light_item(
@@ -142,7 +142,7 @@ fn get_directional_light_item(
         };
         return Some(RenderItem::Light(render_item));
     }
-    None
+    return None;
 }
 
 fn get_point_light_item(
@@ -215,7 +215,7 @@ fn get_point_light_item(
         };
         return Some(RenderItem::Light(render_item));
     }
-    None// Point lights are not yet supported
+    return None; // Point lights are not yet supported
 }
 
 fn get_spot_light_item(
@@ -308,7 +308,7 @@ fn get_spot_light_item(
         };
         return Some(RenderItem::Light(render_item));
     }
-    None// Point lights are not yet supported
+    return None; // Point lights are not yet supported
 }
 
 fn get_sphere_light_item(
@@ -388,7 +388,7 @@ fn get_sphere_light_item(
         light: render_light.clone(),
         matrix: glam::Mat4::from(matrix),
     };
-    Some(RenderItem::Light(render_item))
+    return Some(RenderItem::Light(render_item));
 }
 
 fn get_disk_light_item(
@@ -474,7 +474,7 @@ fn get_disk_light_item(
         light: render_light.clone(),
         matrix: glam::Mat4::from(matrix),
     };
-    Some(RenderItem::Light(render_item))
+    return Some(RenderItem::Light(render_item));
 }
 
 fn get_rects_light_item(
@@ -573,7 +573,7 @@ fn get_rects_light_item(
             return Some(RenderItem::Light(render_item));
         }
     }
-    None
+    return None;
 }
 
 fn get_area_light_item_core(
@@ -622,7 +622,7 @@ fn get_area_light_item_core(
             // Unsupported shape type for area light
         }
     }
-    None// No area light item created
+    return None; // No area light item created
 }
 
 fn get_area_light_item(
@@ -650,11 +650,11 @@ fn get_area_light_item(
             render_resource_manager,
         );
     }
-    None
+    return None;
 }
 
 fn get_image_data(image: &DynaImage) -> image::Rgba32FImage {
-    image.to_rgba32f()
+    return image.to_rgba32f();
 }
 
 fn get_texture_from_image(
@@ -689,7 +689,7 @@ fn get_texture_from_image(
         },
         size,
     );
-    texture
+    return texture;
 }
 
 fn get_render_texture(
@@ -744,7 +744,7 @@ fn get_render_texture(
             }
         }
     }
-    None// Texture not found
+    return None; // Texture not found
 }
 
 fn get_rotation_matrix(matrix: &Matrix4x4) -> Matrix4x4 {
@@ -752,7 +752,7 @@ fn get_rotation_matrix(matrix: &Matrix4x4) -> Matrix4x4 {
     rot.m[3] = 0.0;
     rot.m[7] = 0.0;
     rot.m[11] = 0.0;
-    rot
+    return rot;
 }
 
 fn get_infinite_light_item(
@@ -831,7 +831,7 @@ fn get_infinite_light_item(
             return Some(RenderItem::Light(render_item));
         }
     }
-    None// Placeholder for light retrieval logic
+    return None; // Placeholder for light retrieval logic
 }
 
 fn get_lines_material(
@@ -869,7 +869,7 @@ fn get_lines_material(
     };
     let render_material = Arc::new(render_material);
     render_resource_manager.add_material(&render_material);
-    Some(render_material)
+    return Some(render_material);
 }
 
 fn get_light_gizmo_material(
@@ -896,7 +896,7 @@ fn get_light_gizmo_material(
             &base_color,
         );
     }
-    None
+    return None;
 }
 
 fn get_light_gizmo(
@@ -927,7 +927,7 @@ fn get_light_gizmo(
             }
         }
     }
-    None
+    return None;
 }
 
 //private
@@ -970,7 +970,7 @@ fn get_render_light_item(
             }
         }
     }
-    None// Placeholder for light retrieval logic
+    return None; // Placeholder for light retrieval logic
 }
 
 pub fn get_render_light_items(
@@ -1007,7 +1007,7 @@ pub fn get_render_light_items(
                 render_items.push(Arc::new(RenderItem::Light(light_item)));
             }
         }
-    render_items
+    return render_items;
 }
 
 fn get_point_light_offset(node: &Arc<RwLock<Node>>) -> Option<Vector3> {
@@ -1024,7 +1024,7 @@ fn get_point_light_offset(node: &Arc<RwLock<Node>>) -> Option<Vector3> {
             return Some(Vector3::new(from[0], from[1], from[2]));
         }
     }
-    None// Default offset
+    return None; // Default offset
 }
 
 pub fn get_render_light_gizmo_item(
@@ -1050,5 +1050,5 @@ pub fn get_render_light_gizmo_item(
         };
         return Some(RenderItem::Lines(render_item));
     }
-    None
+    return None;
 }

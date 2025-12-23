@@ -48,7 +48,7 @@ pub fn get_mesh(
             return Some(mesh);
         }
     }
-    None
+    return None;
 }
 
 fn get_base_diffuse_key(material: &Material) -> Option<String> {
@@ -78,17 +78,17 @@ fn get_base_diffuse_key(material: &Material) -> Option<String> {
         }
         _ => {}
     }
-    None
+    return None;
 }
 
 fn roughness_to_alpha(roughness: f32) -> f32 {
     let roughness = f32::max(roughness, 1e-3);
     let x = f32::ln(roughness);
-    1.62142
+    return 1.62142
         + 0.819955 * x
         + 0.1734 * x * x
         + 0.0171201 * x * x * x
-        + 0.000640711 * x * x * x * x
+        + 0.000640711 * x * x * x * x;
 }
 
 fn create_basic_render_passes(
@@ -123,7 +123,7 @@ fn create_basic_render_passes(
         "ggx",
         render_resource_manager,
     );
-    vec![render_pass]
+    return vec![render_pass];
 }
 
 fn create_matte_render_passes(
@@ -199,7 +199,7 @@ fn create_matte_render_passes(
         &ltc_type,
         render_resource_manager,
     );
-    vec![render_pass]
+    return vec![render_pass];
 }
 
 fn create_plastic_render_passes(
@@ -276,7 +276,7 @@ fn create_plastic_render_passes(
         "microfacet_reflection",
         render_resource_manager,
     );
-    vec![render_pass]
+    return vec![render_pass];
 }
 
 fn create_uber_render_passes(
@@ -286,13 +286,13 @@ fn create_uber_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    create_plastic_render_passes(
+    return create_plastic_render_passes(
         device,
         queue,
         material,
         resource_manager,
         render_resource_manager,
-    )
+    );
 }
 
 fn create_substrate_render_passes(
@@ -302,13 +302,13 @@ fn create_substrate_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    create_plastic_render_passes(
+    return create_plastic_render_passes(
         device,
         queue,
         material,
         resource_manager,
         render_resource_manager,
-    )
+    );
 }
 
 fn create_glass_render_passes(
@@ -367,7 +367,7 @@ fn create_glass_render_passes(
         );
         passes.push(render_pass);
     }
-    passes
+    return passes;
 }
 
 fn create_metal_render_passes(
@@ -444,7 +444,7 @@ fn create_metal_render_passes(
         "microfacet_reflection",
         render_resource_manager,
     );
-    vec![render_pass]
+    return vec![render_pass];
 }
 
 fn create_render_material_from_material(
@@ -530,13 +530,13 @@ fn create_render_material_from_material(
             passes.extend(new_passes);
         }
     }
-    
-    RenderMaterial {
+    let render_material = RenderMaterial {
         id,
         edition,
         material_type,
         passes,
-    }
+    };
+    return render_material;
 }
 
 fn create_render_material_from_light(
@@ -578,13 +578,13 @@ fn create_render_material_from_light(
             passes.push(pass);
         }
     }
-    
-    RenderMaterial {
+    let render_material = RenderMaterial {
         id,
         edition,
         material_type,
         passes,
-    }
+    };
+    return render_material;
 }
 
 pub fn get_render_material(
@@ -641,7 +641,7 @@ pub fn get_render_material(
         render_resource_manager.add_material(&render_material);
         return Some(render_material);
     }
-    None
+    return None;
 }
 
 pub fn get_render_mesh_item(
@@ -672,5 +672,5 @@ pub fn get_render_mesh_item(
         };
         return Some(RenderItem::Mesh(render_item));
     }
-    None
+    return None;
 }

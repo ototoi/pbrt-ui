@@ -23,5 +23,5 @@ pub fn create_mesh_data_from_trianglemesh(shape: &Shape) -> Option<MeshData> {
             };
             return Some(mesh_data);
         }
-    None
+    return None;
 }

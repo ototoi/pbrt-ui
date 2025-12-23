@@ -43,7 +43,7 @@ impl Node {
         };
         let c = Arc::new(RwLock::new(node));
         Node::add_child(parent, &c);
-        c
+        return c;
     }
 
     pub fn is_enabled(&self) -> bool {

@@ -72,11 +72,11 @@ fn coordinate_system(d1: &Vector3) -> (Vector3, Vector3, Vector3) {
     if f32::abs(v1.x) > f32::abs(v1.y) {
         let v2 = Vector3::new(-v1.z, 0.0, v1.x).normalize();
         let v3 = Vector3::cross(&v1, &v2).normalize();
-        (v1, v2, v3)
+        return (v1, v2, v3);
     } else {
         let v2 = Vector3::new(0.0, v1.z, -v1.y).normalize();
         let v3 = Vector3::cross(&v1, &v2).normalize();
-        (v1, v2, v3)
+        return (v1, v2, v3);
     }
 }
 
@@ -120,20 +120,20 @@ impl SceneTarget {
                 }
             }
         }
-        None
+        return None;
     }
 
     fn get_current_local_matrix(&self) -> Matrix4x4 {
         let len = self.transforms.len();
         if len == 0 {
-            Matrix4x4::identity()
+            return Matrix4x4::identity();
         } else if len == 1 {
-            self.transforms[0].get_world_matrix()
+            return self.transforms[0].get_world_matrix();
         } else {
             let current_world = self.transforms[len - 1].get_world_matrix();
             let parent_inverse_world = self.transforms[len - 2].get_world_inverse_matrix();
-            
-            parent_inverse_world * current_world
+            let cuurent_local = parent_inverse_world * current_world;
+            return cuurent_local;
         }
     }
 
@@ -146,7 +146,7 @@ impl SceneTarget {
                 component.set_local_matrix(local_matrix);
             }
         }
-        node
+        return node;
     }
 
     fn register_texture(&mut self, texture: &Arc<RwLock<Texture>>) {
@@ -384,7 +384,7 @@ impl SceneTarget {
                 log::warn!("Shape {} not supported", name);
             }
         }
-        None
+        return None;
     }
 }
 
@@ -973,6 +973,6 @@ impl SceneTarget {
             let mut root_node = root_node.write().unwrap();
             root_node.add_component(resource_component);
         }
-        root_node
+        return root_node;
     }
 }

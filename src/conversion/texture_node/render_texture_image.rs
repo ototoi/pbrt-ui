@@ -59,23 +59,23 @@ fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
                     }
             }
     }
-    None
+    return None;
 }
 
 fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
     match image {
         DynaImage::ImageLuma8(img) => {
             let float_image: ImageBuffer<image::Luma<f32>, Vec<f32>> = img.clone().convert();
-            DynaImage::ImageLuma32F(float_image)
+            return DynaImage::ImageLuma32F(float_image);
         }
         DynaImage::ImageLuma32F(img) => {
-            DynaImage::ImageLuma32F(img.clone())
+            return DynaImage::ImageLuma32F(img.clone());
         }
         DynaImage::ImageRgb8(_) => {
-            DynaImage::ImageRgb32F(image.to_rgb32f())// convert_to_float_image_buffer(image);
+            return DynaImage::ImageRgb32F(image.to_rgb32f()); // convert_to_float_image_buffer(image);
         }
         DynaImage::ImageRgb32F(img) => {
-            DynaImage::ImageRgb32F(img.clone())
+            return DynaImage::ImageRgb32F(img.clone());
         }
     }
 }
@@ -92,10 +92,10 @@ fn resize_image(image: &DynaImage, width: u32, height: u32) -> DynaImage {
                     }
                 }
             }
-        resized
+        return resized;
     } else {
-        
-        image.resize(width, height, image::imageops::FilterType::CatmullRom)
+        let resized = image.resize(width, height, image::imageops::FilterType::CatmullRom);
+        return resized;
     }
 }
 
@@ -106,20 +106,20 @@ fn resize_image_for_size_type(
     match size_type {
         TextureSizeType::Render => image,
         TextureSizeType::Display => {
-            
-            image.resize_exact(
+            let resized = image.resize_exact(
                 DISPLAY_SIZE,
                 DISPLAY_SIZE,
                 image::imageops::FilterType::CatmullRom,
-            )
+            );
+            return resized;
         }
         TextureSizeType::Icon => {
-            
-            image.resize_exact(
+            let resized = image.resize_exact(
                 ICON_SIZE,
                 ICON_SIZE,
                 image::imageops::FilterType::CatmullRom,
-            )
+            );
+            return resized;
         }
     }
 }
@@ -158,9 +158,9 @@ fn unify_channels(images: &HashMap<String, Arc<DynaImage>>) -> HashMap<String, A
                 }
             }
         }
-        new_images
+        return new_images;
     } else {
-        images.clone()
+        return images.clone();
     }
 }
 
@@ -176,7 +176,7 @@ fn get_dependent_image(
         let image = Arc::new(RwLock::new(image));
         return Some(image);
     }
-    None
+    return None;
 }
 
 fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) -> Option<DynaImage> {
@@ -207,17 +207,17 @@ fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) ->
                 }
             }
         }
-    None
+    return None;
 }
 
 fn render_constant_texture_image(texture: &Texture) -> Option<DynaImage> {
     if let Some(color_image) = get_color_texture_image(texture, "value") {
-        Some(color_image)
+        return Some(color_image);
     } else {
         // Default to white if color not found
         let color = image::Rgb([1.0, 1.0, 1.0]);
         let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
-        Some(DynaImage::ImageRgb32F(image_buffer))
+        return Some(DynaImage::ImageRgb32F(image_buffer));
     }
 }
 
@@ -234,7 +234,7 @@ fn mix_pixel_rgb(
         let c = c1 * (1.0 - a) + c2 * a;
         result[i as usize] = c;
     }
-    result
+    return result;
 }
 
 fn mix_texture_rgb(
@@ -250,7 +250,7 @@ fn mix_texture_rgb(
         let c = mix_pixel_rgb(p1, p2, a);
         *pixel = c;
     }
-    image_buffer
+    return image_buffer;
 }
 
 fn mix_texture_float(
@@ -266,7 +266,7 @@ fn mix_texture_float(
         let c = p1[0] * (1.0 - a[0]) + p2[0] * a[0];
         *pixel = image::Luma([c]);
     }
-    image_buffer
+    return image_buffer;
 }
 
 fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option<DynaImage> {
@@ -311,7 +311,7 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         let image_buffer = mix_texture_float(tex1, tex2, amount);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
-    None
+    return None;
 }
 
 fn render_mix_texture_image(
@@ -330,11 +330,11 @@ fn render_mix_texture_image(
 
 fn scale_pixel_helper(p1: f32, p2: f32) -> f32 {
     if p2 >= 0.0 {
-        
-        p1 * p2
+        let c = p1 * p2;
+        return c;
     } else {
-        
-        ((1.0 - p1) * -p2).max(0.0)
+        let c = ((1.0 - p1) * -p2).max(0.0);
+        return c;
     }
 }
 
@@ -344,12 +344,12 @@ fn scale_pixel_rgb(p1: &image::Rgb<f32>, p2: &image::Rgb<f32>) -> image::Rgb<f32
         let c = scale_pixel_helper(p1[i as usize], p2[i as usize]);
         result[i as usize] = c;
     }
-    result
+    return result;
 }
 
 fn scale_pixel_float(p1: &image::Luma<f32>, p2: &image::Luma<f32>) -> image::Luma<f32> {
     let c = scale_pixel_helper(p1[0], p2[0]);
-    image::Luma([c])
+    return image::Luma([c]);
 }
 
 fn scale_texture_float(
@@ -363,7 +363,7 @@ fn scale_texture_float(
         let c = scale_pixel_float(p1, p2);
         *pixel = c;
     }
-    image_buffer
+    return image_buffer;
 }
 
 fn scale_texture_rgb(
@@ -377,7 +377,7 @@ fn scale_texture_rgb(
         let c = scale_pixel_rgb(p1, p2);
         *pixel = c;
     }
-    image_buffer
+    return image_buffer;
 }
 
 fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
@@ -409,7 +409,7 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
         let image_buffer = scale_texture_float(tex1, tex2);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
-    None
+    return None;
 }
 
 fn render_scale_texture_image(
@@ -509,22 +509,22 @@ pub fn render_texture_image(
     let texture_type = texture.get_type();
     match texture_type.as_str() {
         "imagemap" => {
-            load_imagemap_texture_image(texture, size_type)
+            return load_imagemap_texture_image(texture, size_type);
         }
         "constant" => {
-            render_constant_texture_image(texture)
+            return render_constant_texture_image(texture);
         }
         "mix" => {
-            render_mix_texture_image(texture, dependencies)
+            return render_mix_texture_image(texture, dependencies);
         }
         "scale" => {
-            render_scale_texture_image(texture, dependencies)
+            return render_scale_texture_image(texture, dependencies);
         }
         "fbm" => {
-            render_fbm_texture_image(texture, size_type)
+            return render_fbm_texture_image(texture, size_type);
         }
         _ => {
-            None// Placeholder return
+            return None; // Placeholder return
         }
     }
 }

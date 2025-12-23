@@ -16,7 +16,7 @@ pub struct PreferencesWindow {
 fn get_config(controller: &Arc<RwLock<AppController>>) -> Arc<RwLock<AppConfig>> {
     let mut controller = controller.write().unwrap();
     controller.load_config();
-    controller.get_config()
+    return controller.get_config();
 }
 
 impl PreferencesWindow {

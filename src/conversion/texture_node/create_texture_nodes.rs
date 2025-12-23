@@ -39,8 +39,7 @@ fn initialize_texture_node(
 
 fn get_dependent_texture_keys(texture: &Texture) -> Vec<String> {
     let props = texture.as_property_map();
-    
-    props
+    let keys = props
         .get_keys()
         .iter()
         .filter(|(key_type, key_name)| {
@@ -55,7 +54,8 @@ fn get_dependent_texture_keys(texture: &Texture) -> Vec<String> {
             }
         })
         .map(|(_key_type, key_name)| key_name.clone())
-        .collect()
+        .collect();
+    return keys;
 }
 
 fn remove_stale_texture_nodes(

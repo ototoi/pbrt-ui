@@ -54,13 +54,13 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         align_to(local_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    
-    device.create_buffer(&wgpu::BufferDescriptor {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    })
+    });
+    return buffer;
 }
 
 impl WireMeshRenderer {
@@ -133,7 +133,7 @@ impl WireMeshRenderer {
         };
         resources.insert(per_frame_resources);
 
-        vec![]
+        return vec![];
     }
 
     pub fn paint(
@@ -302,7 +302,7 @@ impl WireMeshRenderer {
             }],
         });
 
-        WireMeshRenderer {
+        return WireMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -311,6 +311,6 @@ impl WireMeshRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
-        }
+        };
     }
 }

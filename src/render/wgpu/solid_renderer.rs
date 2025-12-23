@@ -93,7 +93,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 &self.camera_to_clip,
             );
         }
-        command_buffers
+        return command_buffers;
     }
 
     fn paint(
@@ -120,10 +120,10 @@ impl SolidRenderer {
         let queue = &render_state.queue;
         let mesh_renderer = SolidMeshRenderer::new(device, queue, render_state.target_format);
         let lines_renderer = LinesRenderer::new(device, queue, render_state.target_format);
-        Some(SolidRenderer {
+        return Some(SolidRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),
-        })
+        });
     }
 
     pub fn render(

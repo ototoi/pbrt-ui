@@ -11,7 +11,7 @@ fn coordinate_system(v1: &Vector3) -> (Vector3, Vector3) {
         Vector3::new(0.0, v1.z, -v1.y) / f32::sqrt(v1.y * v1.y + v1.z * v1.z)
     };
     let v3 = Vector3::cross(v1, &v2).normalize();
-    (v2, v3)
+    return (v2, v3);
 }
 
 fn create_circle_points(radius: f32, div: usize) -> Vec<Vector3> {
@@ -26,7 +26,7 @@ fn create_circle_points(radius: f32, div: usize) -> Vec<Vector3> {
         point[1] = y;
         points.push(Vector3::new(point[0], point[1], point[2]));
     }
-    points
+    return points;
 }
 
 fn create_spot_lines(radius: f32, div: usize) -> Vec<Vec<Vector3>> {
@@ -38,7 +38,7 @@ fn create_spot_lines(radius: f32, div: usize) -> Vec<Vec<Vector3>> {
         let line = vec![Vector3::new(0.0, 0.0, 0.0), Vector3::new(x, y, 1.0)];
         lines.push(line);
     }
-    lines
+    return lines;
 }
 
 fn apply_transform(lines: &mut Vec<Vec<Vector3>>, mat: &Matrix4x4) {
@@ -91,5 +91,5 @@ pub fn create_light_shape_from_spot(light: &Light) -> Option<LightShape> {
     apply_transform(&mut lines, &mat);
 
     let light_shape = LightShape { lines };
-    Some(light_shape)
+    return Some(light_shape);
 }

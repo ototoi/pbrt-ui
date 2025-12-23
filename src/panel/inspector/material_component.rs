@@ -19,7 +19,7 @@ impl InspectorPanel {
         let material = component.get_material();
         let mut material = material.write().unwrap();
         let props = material.as_property_map_mut();
-        self.show_material_props(index, "Material", ui, props, resource_selector)
+        return self.show_material_props(index, "Material", ui, props, resource_selector);
     }
 
     fn show_material_props(
@@ -91,6 +91,6 @@ impl InspectorPanel {
                 }
                 ui.add_space(3.0);
             });
-        is_changed
+        return is_changed;
     }
 }

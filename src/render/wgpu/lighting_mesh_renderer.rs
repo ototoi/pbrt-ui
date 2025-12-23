@@ -143,7 +143,7 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
     };
     let u_axis = direction.cross(up).normalize();
     let v_axis = direction.cross(u_axis).normalize();
-    (u_axis, v_axis)
+    return (u_axis, v_axis);
 }
 
 #[derive(Debug, Clone)]
@@ -215,20 +215,20 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         )
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    
-    device.create_buffer(&wgpu::BufferDescriptor {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    })
+    });
+    return buffer;
 }
 
 fn get_shader_has_lighting(category: RenderCategory) -> bool {
     if category == RenderCategory::Emissive {
         return false;
     }
-    true
+    return true;
 }
 
 impl LightingMeshRenderer {
@@ -269,7 +269,7 @@ impl LightingMeshRenderer {
                 _ => {}
             }
         }
-        (mesh_items, light_items)
+        return (mesh_items, light_items);
     }
 
     // -------------------------------------------------------
@@ -484,14 +484,14 @@ impl LightingMeshRenderer {
 
         let id = render_pass.id;
         let textures = render_pass.textures.clone();
-        MaterialBindGroupEntry {
+        return MaterialBindGroupEntry {
             id,
             material_bind_group,
             uniform_buffer,
             textures,
             ltc_bind_group,
             ltc_texture,
-        }
+        };
     }
 
     pub fn prepare_materials(
@@ -628,12 +628,12 @@ impl LightingMeshRenderer {
                 resource: wgpu::BindingResource::Sampler(light_sampler),
             },
         ];
-        
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Light Bind Group"),
             layout,
             entries: &entries,
-        })
+        });
+        return light_bind_group;
     }
 
     fn prepare_lights(
@@ -1064,8 +1064,7 @@ impl LightingMeshRenderer {
         });
 
         // Create a uniform buffer for material properties
-        
-        PipelineEntry {
+        let entry = PipelineEntry {
             pipeline,
             material_bind_group_layout,
             material_bind_groups: Vec::new(),
@@ -1073,7 +1072,8 @@ impl LightingMeshRenderer {
             material_indices: Vec::new(),
             sort_order,
             enable_lighting: has_lighting,
-        }
+        };
+        return entry;
     }
 }
 
@@ -1414,7 +1414,7 @@ impl LightingMeshRenderer {
             pipelines: materials,
         };
         pass.init(device, queue);
-        pass
+        return pass;
     }
 
     pub fn init(&mut self, _device: &wgpu::Device, _queue: &wgpu::Queue) {

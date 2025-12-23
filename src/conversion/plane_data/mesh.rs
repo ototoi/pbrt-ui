@@ -135,5 +135,5 @@ pub fn create_plane_meshes_from_mesh(mesh: &MeshData, threthould: f32) -> Vec<Pl
     for plane in planes.iter_mut() {
         optimize_plane_mesh(plane);
     }
-    planes
+    return planes;
 }

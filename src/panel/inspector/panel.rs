@@ -211,7 +211,7 @@ impl InspectorPanel {
                 is_changed = true;
                 props.add_string("string edition", &Uuid::new_v4().to_string());
             }
-        is_changed
+        return is_changed;
     }
 
     fn show_option_component(
@@ -243,7 +243,7 @@ impl InspectorPanel {
             is_changed = true;
             props.add_string("string edition", &Uuid::new_v4().to_string());
         }
-        is_changed
+        return is_changed;
     }
 
     fn show_other_component(
@@ -264,7 +264,7 @@ impl InspectorPanel {
             is_changed = true;
             props.add_string("string edition", &Uuid::new_v4().to_string());
         }
-        is_changed
+        return is_changed;
     }
 
     pub fn show_resource(&self, ui: &mut egui::Ui, id: Uuid) {

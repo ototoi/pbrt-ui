@@ -38,14 +38,14 @@ impl Material {
     }
 
     pub fn get_id(&self) -> Uuid {
-        self.id
+        return self.id;
     }
 
     pub fn get_name(&self) -> String {
-        self
+        return self
             .props
             .find_one_string("string name_")
-            .unwrap_or_default()
+            .unwrap_or_default();
     }
 
     pub fn set_name(&mut self, name: &str) {
@@ -53,17 +53,17 @@ impl Material {
     }
 
     pub fn get_type(&self) -> String {
-        self
+        return self
             .props
             .find_one_string("string type")
-            .unwrap_or_default()
+            .unwrap_or_default();
     }
 
     pub fn get_edition(&self) -> String {
-        self
+        return self
             .props
             .find_one_string("string edition")
-            .unwrap_or_default()
+            .unwrap_or_default();
     }
 }
 

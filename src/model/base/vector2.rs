@@ -38,10 +38,10 @@ impl std::ops::Add<Vector2> for Vector2 {
     type Output = Vector2;
     #[inline]
     fn add(self, rhs: Vector2) -> Vector2 {
-        Vector2 {
+        return Vector2 {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
-        }
+        };
     }
 }
 
@@ -49,10 +49,10 @@ impl std::ops::Sub<Vector2> for Vector2 {
     type Output = Vector2;
     #[inline]
     fn sub(self, rhs: Vector2) -> Vector2 {
-        Vector2 {
+        return Vector2 {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
-        }
+        };
     }
 }
 
@@ -60,10 +60,10 @@ impl std::ops::Mul<f32> for Vector2 {
     type Output = Vector2;
     #[inline]
     fn mul(self, rhs: f32) -> Vector2 {
-        Vector2 {
+        return Vector2 {
             x: self.x * rhs,
             y: self.y * rhs,
-        }
+        };
     }
 }
 
@@ -71,10 +71,10 @@ impl std::ops::Mul<Vector2> for f32 {
     type Output = Vector2;
     #[inline]
     fn mul(self, rhs: Vector2) -> Vector2 {
-        Vector2 {
+        return Vector2 {
             x: self * rhs.x,
             y: self * rhs.y,
-        }
+        };
     }
 }
 
@@ -98,9 +98,9 @@ impl std::ops::Neg for Vector2 {
     type Output = Vector2;
     #[inline]
     fn neg(self) -> Vector2 {
-        Vector2 {
+        return Vector2 {
             x: -self.x,
             y: -self.y,
-        }
+        };
     }
 }

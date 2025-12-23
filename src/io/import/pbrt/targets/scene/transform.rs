@@ -8,10 +8,10 @@ pub struct Transform {
 
 impl Transform {
     pub fn new() -> Self {
-        Transform {
+        return Transform {
             m: Matrix4x4::identity(),
             im: Matrix4x4::identity(),
-        }
+        };
     }
 
     pub fn identity() -> Self {
@@ -125,15 +125,15 @@ impl TransformSet {
                 return true;
             }
         }
-        false
+        return false;
     }
 
     //------------------------------------------------------------
     pub fn get_world_matrix(&self) -> Matrix4x4 {
-        self.transforms[0].m
+        return self.transforms[0].m;
     }
 
     pub fn get_world_inverse_matrix(&self) -> Matrix4x4 {
-        self.transforms[0].im
+        return self.transforms[0].im;
     }
 }

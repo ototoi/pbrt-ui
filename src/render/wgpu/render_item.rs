@@ -97,7 +97,7 @@ pub fn get_bool(props: &PropertyMap, key: &str) -> Option<bool> {
             && !v.is_empty() {
                 return Some(v[0]);
             }
-    None
+    return None;
 }
 
 pub fn get_float(props: &PropertyMap, key: &str) -> Option<f32> {
@@ -106,7 +106,7 @@ pub fn get_float(props: &PropertyMap, key: &str) -> Option<f32> {
             && !v.is_empty() {
                 return Some(v[0]);
             }
-    None
+    return None;
 }
 
 pub fn get_string(props: &PropertyMap, key: &str) -> Option<String> {
@@ -115,7 +115,7 @@ pub fn get_string(props: &PropertyMap, key: &str) -> Option<String> {
             && !v.is_empty() {
                 return Some(v[0].clone());
             }
-    None
+    return None;
 }
 
 pub fn get_color(
@@ -160,7 +160,7 @@ pub fn get_color(
             return Some([v[0], v[1], v[2], 1.0]);
         }
     }
-    None
+    return None;
 }
 
 pub fn get_texture(
@@ -188,7 +188,7 @@ pub fn get_texture(
                         }
                     }
                 }
-    None
+    return None;
 }
 
 pub fn get_shader_type(
@@ -218,7 +218,7 @@ pub fn get_shader_type(
             }
         }
     }
-    format!("{}{}", shader_type, s)
+    return format!("{}{}", shader_type, s);
 }
 
 fn create_uniform_value_bytes(
@@ -304,16 +304,16 @@ fn create_uniform_value_bytes(
         //remain = 0;
     }
 
-    (type_variables, bytes)
+    return (type_variables, bytes);
 }
 
 fn get_shader_id_from_type(shader_type: &str) -> Uuid {
-    Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes())
+    return Uuid::new_v3(&Uuid::NAMESPACE_OID, shader_type.as_bytes());
 }
 
 fn get_fallback_shader_source() -> String {
-    
-    include_str!("shaders/basic_material.wgsl").to_string()
+    let code = include_str!("shaders/basic_material.wgsl").to_string();
+    return code;
 }
 
 fn create_defines(uniform_values: &[(String, RenderUniformValue)]) -> Vec<(String, String)> {
@@ -327,7 +327,7 @@ fn create_defines(uniform_values: &[(String, RenderUniformValue)]) -> Vec<(Strin
             ));
         }
     }
-    defines
+    return defines;
 }
 
 fn generate_shader_source(
@@ -371,7 +371,7 @@ fn generate_shader_source(
             }
         }
     }
-    None
+    return None;
 }
 
 fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniformValue)]) -> String {
@@ -387,7 +387,7 @@ fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniform
     }
 
     // fallback to basic_material.wgsl
-    get_fallback_shader_source()
+    return get_fallback_shader_source();
 }
 
 fn get_shader_module(
@@ -396,11 +396,11 @@ fn get_shader_module(
     uniform_values: &[(String, RenderUniformValue)],
 ) -> wgpu::ShaderModule {
     let source = get_shader_source(shader_type, uniform_values);
-    
-    device.create_shader_module(wgpu::ShaderModuleDescriptor {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(format!("Shader : {}", shader_type).as_str()),
         source: wgpu::ShaderSource::Wgsl(source.into()),
-    })
+    });
+    return shader;
 }
 
 pub fn create_render_shader(
@@ -424,7 +424,7 @@ pub fn create_render_shader(
     };
     let render_shader = Arc::new(render_shader);
     render_resource_manager.add_shader(&render_shader);
-    render_shader
+    return render_shader;
 }
 
 pub fn create_render_pass(
@@ -468,7 +468,7 @@ pub fn create_render_pass(
         textures,
         ltc_texture,
     };
-    Arc::new(render_pass)
+    return Arc::new(render_pass);
 }
 
 fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>> {
@@ -477,7 +477,7 @@ fn get_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceManager>
         node.add_component::<ResourceComponent>(ResourceComponent::new());
     }
     let component = node.get_component::<ResourceComponent>().unwrap();
-    component.get_resource_manager()
+    return component.get_resource_manager();
 }
 
 fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderResourceManager>> {
@@ -486,7 +486,7 @@ fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderRes
         node.add_component::<RenderResourceComponent>(RenderResourceComponent::new());
     }
     let component = node.get_component::<RenderResourceComponent>().unwrap();
-    component.get_resource_manager()
+    return component.get_resource_manager();
 }
 
 fn get_resource_cache_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceCacheManager>> {
@@ -495,7 +495,7 @@ fn get_resource_cache_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<ResourceCa
         node.add_component::<ResourceCacheComponent>(ResourceCacheComponent::new());
     }
     let component = node.get_component::<ResourceCacheComponent>().unwrap();
-    component.get_resource_cache_manager()
+    return component.get_resource_cache_manager();
 }
 
 fn convert_to_f16(data: &[f32]) -> Vec<half::f16> {
@@ -503,7 +503,7 @@ fn convert_to_f16(data: &[f32]) -> Vec<half::f16> {
     for &value in data.iter() {
         f16_data.push(half::f16::from_f32(value));
     }
-    f16_data
+    return f16_data;
 }
 
 fn get_texture_from_rgba_image(
@@ -540,7 +540,7 @@ fn get_texture_from_rgba_image(
         },
         size,
     );
-    texture
+    return texture;
 }
 
 fn get_normal_map_texture_from_rgba_image(
@@ -577,7 +577,7 @@ fn get_normal_map_texture_from_rgba_image(
         },
         size,
     );
-    texture
+    return texture;
 }
 
 fn get_texture_from_rgba32f_image(
@@ -614,7 +614,7 @@ fn get_texture_from_rgba32f_image(
         },
         size,
     );
-    texture
+    return texture;
 }
 
 fn get_color_texture_from_image(
@@ -625,15 +625,15 @@ fn get_color_texture_from_image(
     match &texture_image {
         DynaImage::ImageRgb32F(_) => {
             let img = texture_image.to_rgba32f();
-            Some(get_texture_from_rgba32f_image(device, queue, &img))
+            return Some(get_texture_from_rgba32f_image(device, queue, &img));
         }
         DynaImage::ImageRgb8(_) => {
             let img = texture_image.to_rgba8();
-            Some(get_texture_from_rgba_image(device, queue, &img))
+            return Some(get_texture_from_rgba_image(device, queue, &img));
         }
         _ => {
             let img = texture_image.to_rgba32f();
-            Some(get_texture_from_rgba32f_image(device, queue, &img))
+            return Some(get_texture_from_rgba32f_image(device, queue, &img));
         }
     }
 }
@@ -654,7 +654,7 @@ fn covert_rgb32f_to_luma32f(
             luma_image.put_pixel(x, y, image::Luma([luma]));
         }
     }
-    luma_image
+    return luma_image;
 }
 
 fn convert_rgb8_to_luma8(image: &image::RgbImage) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
@@ -671,7 +671,7 @@ fn convert_rgb8_to_luma8(image: &image::RgbImage) -> image::ImageBuffer<image::L
             luma_image.put_pixel(x, y, image::Luma([luma]));
         }
     }
-    luma_image
+    return luma_image;
 }
 
 fn get_normal_texture_from_image(
@@ -683,42 +683,42 @@ fn get_normal_texture_from_image(
         DynaImage::ImageLuma8(img) => {
             // Convert grayscale heightmap to normal map
             let normal_map = convert_luma8_to_normal_map(img);
-            Some(get_normal_map_texture_from_rgba_image(
+            return Some(get_normal_map_texture_from_rgba_image(
                 device,
                 queue,
                 &normal_map,
-            ))
+            ));
         }
         DynaImage::ImageLuma32F(img) => {
             // Convert float heightmap to normal map
             let normal_map = convert_luma32f_to_normal_map(img);
-            Some(get_normal_map_texture_from_rgba_image(
+            return Some(get_normal_map_texture_from_rgba_image(
                 device,
                 queue,
                 &normal_map,
-            ))
+            ));
         }
         DynaImage::ImageRgb8(img) => {
             let img = convert_rgb8_to_luma8(img);
             let normal_map = convert_luma8_to_normal_map(&img);
-            Some(get_normal_map_texture_from_rgba_image(
+            return Some(get_normal_map_texture_from_rgba_image(
                 device,
                 queue,
                 &normal_map,
-            ))
+            ));
         }
         DynaImage::ImageRgb32F(img) => {
             // todo : convert to luma32f first
             let img = covert_rgb32f_to_luma32f(img);
             let normal_map = convert_luma32f_to_normal_map(&img);
-            Some(get_normal_map_texture_from_rgba_image(
+            return Some(get_normal_map_texture_from_rgba_image(
                 device,
                 queue,
                 &normal_map,
-            ))
+            ));
         }
         _ => {
-            None
+            return None;
             //panic!("Unsupported image format for normal map conversion");
             // For other image types, fallback to color texture conversion
             //return get_color_texture_from_image(device, queue, texture_image);
@@ -914,5 +914,5 @@ pub fn get_render_items(
         }
     }
 
-    render_items
+    return render_items;
 }

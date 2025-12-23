@@ -40,7 +40,7 @@ fn create_history(name: &str, config: &Arc<RwLock<AppConfig>>) -> Box<RenderHist
     let filename = format!("render_image_{}.exr", name); //should be configurable
     let output_image_path = render_output_directory.join(filename);
     history.output_image_path = output_image_path.to_str().unwrap().to_string();
-    history
+    return history;
 }
 
 impl RenderPanel {

@@ -187,7 +187,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
             }
         }
 
-        commands
+        return commands;
     }
 
     fn paint(
@@ -212,12 +212,12 @@ impl LightingRenderer {
         let copy_texture_renderer =
             LinearToSrgbRenderer::new(device, queue, render_state.target_format);
         // Create the lighting renderer with the mesh and lines renderers
-        Some(LightingRenderer {
+        return Some(LightingRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),
             copy_texture_renderer: Arc::new(RwLock::new(copy_texture_renderer)),
             frame_buffers: Arc::new(RwLock::new(HashMap::new())),
-        })
+        });
     }
 
     pub fn render(

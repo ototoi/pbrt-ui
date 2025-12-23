@@ -19,9 +19,9 @@ use utils::*;
 
 impl Spectrum {
     pub fn zero() -> Spectrum {
-        Spectrum {
+        return Spectrum {
             c: [0.0; SPECTRAL_SAMPLES],
-        }
+        };
     }
 
     pub fn from_sampled(lambda: &[f32], vals: &[f32]) -> Spectrum {
@@ -33,9 +33,9 @@ impl Spectrum {
             sort_spectrum_samples(&mut slambda, &mut sv);
             return Self::from_sampled(&slambda, &sv);
         }
-        Spectrum {
+        return Spectrum {
             c: sample_spectrum(lambda, vals),
-        }
+        };
     }
 
     pub fn load_from_file(path: &str) -> Result<Spectrum, PbrtError> {
@@ -53,10 +53,10 @@ impl Spectrum {
                     wls.push(vals[2 * j]);
                     v.push(vals[2 * j + 1]);
                 }
-                Ok(Spectrum::from_sampled(&wls, &v))
+                return Ok(Spectrum::from_sampled(&wls, &v));
             }
             Err(e) => {
-                Err(e)
+                return Err(e);
             }
         }
     }
@@ -70,7 +70,7 @@ impl Spectrum {
             let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i ]);
             s += Self::from_sampled(&CIE_LAMBDA, &v) * values[2 * i + 1];
         }
-        s
+        return s;
     }
 
     pub fn to_xyz(&self) -> [f32; 3] {
@@ -86,11 +86,11 @@ impl Spectrum {
         xyz[0] *= scale;
         xyz[1] *= scale;
         xyz[2] *= scale;
-        xyz
+        return xyz;
     }
 
     pub fn to_rgb(&self) -> [f32; 3] {
         let xyz = self.to_xyz();
-        xyz_to_rgb(&xyz)
+        return xyz_to_rgb(&xyz);
     }
 }
