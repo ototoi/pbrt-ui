@@ -3,7 +3,7 @@
 A graphical user interface for [PBRT](https://www.pbrt.org/) – a physically based renderer.  
 **pbrt-ui** lets you interactively configure scenes, visualize, and preprocess rendering inputs, making PBRT easier and more accessible for artists, researchers, and tinkerers.
 
-![PBRT-UI Screenshot](https://github.com/user-attachments/assets/bdf9b2f4-0327-4950-9485-18c1b749d04f)
+![PBRT-UI interface showing a rendered green car with scene hierarchy panel and rendering parameters](https://github.com/user-attachments/assets/bdf9b2f4-0327-4950-9485-18c1b749d04f)
 
 ## Features
 
