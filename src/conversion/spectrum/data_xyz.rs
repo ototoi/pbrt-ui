@@ -1,3 +1,5 @@
+#![allow(clippy::unreadable_literal)]
+
 const SPECTRAL_SAMPLES: usize = 60;
 
 #[rustfmt::skip]

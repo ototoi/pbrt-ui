@@ -198,6 +198,12 @@ const SUBSURFACE_PARAMETER_TABLE: [(&str, [f32; 3], [f32; 3]); 47] = [
 #[derive(Debug, Clone)]
 pub struct SubsurfaceProperties {}
 
+impl Default for SubsurfaceProperties {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubsurfaceProperties {
     pub fn new() -> Self {
         SubsurfaceProperties {}

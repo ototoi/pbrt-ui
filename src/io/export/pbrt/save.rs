@@ -112,14 +112,12 @@ fn write_transform(
 
 fn get_material_ignore_keys(material: &Material) -> Vec<String> {
     let mut ignore_keys = Vec::new();
-    if material.get_type() == "subsurface" {
-        if let Some(name_value) = material.props.find_one_string("string name") {
-            if !name_value.is_empty() {
+    if material.get_type() == "subsurface"
+        && let Some(name_value) = material.props.find_one_string("string name")
+            && !name_value.is_empty() {
                 ignore_keys.push("sigma_a".to_string());
                 ignore_keys.push("sigma_s".to_string());
             }
-        }
-    }
     ignore_keys
 }
 
@@ -164,7 +162,7 @@ impl PbrtSaver {
             } else if let Property::Bools(v) = value {
                 let values = v
                     .iter()
-                    .map(|v| format!("\"{}\"", v.to_string()))
+                    .map(|v| format!("\"{}\"", v))
                     .collect::<Vec<_>>()
                     .join(" ");
                 writer.write(format!(" \"{} {}\" [{}]", kt, kn, values).as_bytes())?;

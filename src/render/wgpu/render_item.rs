@@ -92,35 +92,29 @@ impl RenderItem {
 }
 
 pub fn get_bool(props: &PropertyMap, key: &str) -> Option<bool> {
-    if let Some((_key_type, _key_name, value)) = props.entry(key) {
-        if let Property::Bools(v) = value {
-            if v.len() >= 1 {
+    if let Some((_key_type, _key_name, value)) = props.entry(key)
+        && let Property::Bools(v) = value
+            && !v.is_empty() {
                 return Some(v[0]);
             }
-        }
-    }
     return None;
 }
 
 pub fn get_float(props: &PropertyMap, key: &str) -> Option<f32> {
-    if let Some((_key_type, _key_name, value)) = props.entry(key) {
-        if let Property::Floats(v) = value {
-            if v.len() >= 1 {
+    if let Some((_key_type, _key_name, value)) = props.entry(key)
+        && let Property::Floats(v) = value
+            && !v.is_empty() {
                 return Some(v[0]);
             }
-        }
-    }
     return None;
 }
 
 pub fn get_string(props: &PropertyMap, key: &str) -> Option<String> {
-    if let Some((_key_type, _key_name, value)) = props.entry(key) {
-        if let Property::Strings(v) = value {
-            if v.len() >= 1 {
+    if let Some((_key_type, _key_name, value)) = props.entry(key)
+        && let Property::Strings(v) = value
+            && !v.is_empty() {
                 return Some(v[0].clone());
             }
-        }
-    }
     return None;
 }
 
@@ -131,25 +125,23 @@ pub fn get_color(
 ) -> Option<[f32; 4]> {
     if let Some((key_type, _key_name, value)) = props.entry(key) {
         if key_type == "blackbody" {
-            if let Property::Floats(v) = value {
-                if v.len() >= 2 {
-                    let s = Spectrum::from_blackbody(&v);
+            if let Property::Floats(v) = value
+                && v.len() >= 2 {
+                    let s = Spectrum::from_blackbody(v);
                     let rgb = s.to_rgb();
                     return Some([rgb[0], rgb[1], rgb[2], 1.0]);
                 }
-            }
         } else if key_type == "spectrum" {
-            if let Property::Strings(v) = value {
-                if v.len() >= 1 {
+            if let Property::Strings(v) = value
+                && !v.is_empty() {
                     let name = v[0].clone();
                     if let Some(resource) = resource_manager.find_spectrum_by_filename(&name) {
                         let resource = resource.read().unwrap();
-                        if let Some(fullpath) = resource.get_fullpath() {
-                            if let Ok(spectrum) = Spectrum::load_from_file(&fullpath) {
+                        if let Some(fullpath) = resource.get_fullpath()
+                            && let Ok(spectrum) = Spectrum::load_from_file(&fullpath) {
                                 let rgb = spectrum.to_rgb();
                                 return Some([rgb[0], rgb[1], rgb[2], 1.0]);
                             }
-                        }
                     }
                     log::warn!(
                         "Spectrum resource not found for key: {} with value: {}",
@@ -157,20 +149,15 @@ pub fn get_color(
                         name
                     );
                 }
-            }
         } else if key_type == "float" {
-            if let Property::Floats(v) = value {
-                if v.len() >= 1 {
+            if let Property::Floats(v) = value
+                && !v.is_empty() {
                     // Assuming the first three values are RGB
                     return Some([v[0], v[0], v[0], 1.0]);
                 }
-            }
-        } else {
-            if let Property::Floats(v) = value {
-                if v.len() >= 3 {
-                    return Some([v[0], v[1], v[2], 1.0]);
-                }
-            }
+        } else if let Property::Floats(v) = value
+        && v.len() >= 3 {
+            return Some([v[0], v[1], v[2], 1.0]);
         }
     }
     return None;
@@ -182,10 +169,10 @@ pub fn get_texture(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderTexture>> {
-    if let Some((key_type, _key_name, value)) = props.entry(key) {
-        if key_type == "texture" {
-            if let Property::Strings(v) = value {
-                if v.len() >= 1 {
+    if let Some((key_type, _key_name, value)) = props.entry(key)
+        && key_type == "texture"
+            && let Property::Strings(v) = value
+                && !v.is_empty() {
                     let name = v[0].clone();
                     if let Some(texture) = resource_manager.find_texture_by_name(&name) {
                         let texture = texture.read().unwrap();
@@ -201,9 +188,6 @@ pub fn get_texture(
                         }
                     }
                 }
-            }
-        }
-    }
     return None;
 }
 
@@ -335,15 +319,12 @@ fn get_fallback_shader_source() -> String {
 fn create_defines(uniform_values: &[(String, RenderUniformValue)]) -> Vec<(String, String)> {
     let mut defines = Vec::new();
     for (name, value) in uniform_values.iter() {
-        match value {
-            RenderUniformValue::Texture(_) => {
-                //ex. USE_TEXTURE_KD
-                defines.push((
-                    format!("USE_TEXTURE_{}", name.to_uppercase()),
-                    "1".to_string(),
-                ));
-            }
-            _ => {}
+        if let RenderUniformValue::Texture(_) = value {
+            //ex. USE_TEXTURE_KD
+            defines.push((
+                format!("USE_TEXTURE_{}", name.to_uppercase()),
+                "1".to_string(),
+            ));
         }
     }
     return defines;
@@ -353,7 +334,7 @@ fn generate_shader_source(
     shader_type: &str,
     uniform_values: &[(String, RenderUniformValue)],
 ) -> Option<String> {
-    let modified_shader_type = get_shader_type(shader_type, &uniform_values.to_vec());
+    let modified_shader_type = get_shader_type(shader_type, uniform_values);
     let cache_dir = dirs::cache_dir()
         .unwrap()
         .join("pbrt_ui")
@@ -361,7 +342,7 @@ fn generate_shader_source(
         .join("shaders");
     let prebuilt_shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
 
-    let defines = create_defines(&uniform_values);
+    let defines = create_defines(uniform_values);
     if prebuilt_shader_path.exists() {
         let base_path = dirs::cache_dir()
             .unwrap()
@@ -396,11 +377,10 @@ fn generate_shader_source(
 fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniformValue)]) -> String {
     let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
     let shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
-    if shader_path.exists() {
-        if let Ok(code) = std::fs::read_to_string(shader_path) {
+    if shader_path.exists()
+        && let Ok(code) = std::fs::read_to_string(shader_path) {
             return code;
         }
-    }
 
     if let Some(generated_source) = generate_shader_source(shader_type, uniform_values) {
         return generated_source;
@@ -436,7 +416,7 @@ pub fn create_render_shader(
     if let Some(shader) = render_resource_manager.get_shader(shader_id) {
         return shader.clone();
     }
-    let shader_module = get_shader_module(device, &shader_type, uniform_values);
+    let shader_module = get_shader_module(device, shader_type, uniform_values);
     let render_shader = RenderShader {
         id: shader_id,
         name: modified_shader_type.clone(),
@@ -539,7 +519,7 @@ fn get_texture_from_rgba_image(
     };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Render Texture"),
-        size: size,
+        size,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -552,10 +532,10 @@ fn get_texture_from_rgba_image(
     let image_raw = image.as_raw();
     queue.write_texture(
         texture.as_image_copy(),
-        bytemuck::cast_slice(&image_raw),
+        bytemuck::cast_slice(image_raw),
         wgpu::TexelCopyBufferLayout {
             offset: 0,
-            bytes_per_row: Some(1 * 4 * dimensions.0),
+            bytes_per_row: Some(4 * dimensions.0),
             rows_per_image: None,
         },
         size,
@@ -576,7 +556,7 @@ fn get_normal_map_texture_from_rgba_image(
     };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Normal Map Texture"),
-        size: size,
+        size,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -589,10 +569,10 @@ fn get_normal_map_texture_from_rgba_image(
     let image_raw = image.as_raw();
     queue.write_texture(
         texture.as_image_copy(),
-        bytemuck::cast_slice(&image_raw),
+        bytemuck::cast_slice(image_raw),
         wgpu::TexelCopyBufferLayout {
             offset: 0,
-            bytes_per_row: Some(1 * 4 * dimensions.0),
+            bytes_per_row: Some(4 * dimensions.0),
             rows_per_image: None,
         },
         size,
@@ -613,7 +593,7 @@ fn get_texture_from_rgba32f_image(
     };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Render Texture"),
-        size: size,
+        size,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -767,13 +747,12 @@ fn create_render_textures(
     {
         for (_id, material) in resource_manager.materials.iter() {
             let material = material.read().unwrap();
-            if let Some(bump) = get_string(material.as_property_map(), "bumpmap") {
-                if let Some(texture) = resource_manager.find_texture_by_name(&bump) {
+            if let Some(bump) = get_string(material.as_property_map(), "bumpmap")
+                && let Some(texture) = resource_manager.find_texture_by_name(&bump) {
                     let texture = texture.read().unwrap();
                     let texture_id = texture.get_id();
                     is_bump_map.insert(texture_id);
                 }
-            }
         }
     }
 
@@ -781,12 +760,11 @@ fn create_render_textures(
         let texture = texture.read().unwrap();
         let texture_id = texture.get_id();
         let texture_edition = texture.get_edition();
-        if let Some(render_texture) = render_resource_manager.get_texture(texture_id) {
-            if texture_edition == render_texture.edition {
+        if let Some(render_texture) = render_resource_manager.get_texture(texture_id)
+            && texture_edition == render_texture.edition {
                 //println!("Skip Create Render Texture from Cache: id={}", id);
                 continue;
             }
-        }
         let wrap = get_string(texture.as_property_map(), "wrap").unwrap_or("repeat".to_string());
         let swrap = get_string(texture.as_property_map(), "swrap").unwrap_or(wrap.clone());
         let twrap = get_string(texture.as_property_map(), "twrap").unwrap_or(wrap.clone());
@@ -811,8 +789,8 @@ fn create_render_textures(
                     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
                     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                         label: Some("Render Texture Sampler"),
-                        address_mode_u: address_mode_u,
-                        address_mode_v: address_mode_v,
+                        address_mode_u,
+                        address_mode_v,
                         min_filter: wgpu::FilterMode::Linear,
                         mag_filter: wgpu::FilterMode::Linear,
                         ..Default::default()

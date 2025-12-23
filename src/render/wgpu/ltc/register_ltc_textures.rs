@@ -124,7 +124,7 @@ pub fn get_ltc_texture(
     name: &str,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderTexture>> {
-    if name == "" {
+    if name.is_empty() {
         return None;
     }
     if let Some((id, data)) = get_id_and_textures(name) {

@@ -50,7 +50,7 @@ pub fn create_plane_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOut
     let mut outline_edges: Vec<Edge> = Vec::new();
     for edge in edges.iter() {
         if edge.twin.is_none() {
-            outline_edges.push(edge.clone());
+            outline_edges.push(*edge);
         }
     }
     let mut outline_loops: Vec<Edge> = Vec::new();
@@ -64,8 +64,8 @@ pub fn create_plane_outline_from_plane_mesh(mesh: &PlaneMesh) -> Option<PlaneOut
                 {
                     break;
                 } else {
-                    outline_loops.push(next.clone());
-                    current_edge = next.clone();
+                    outline_loops.push(*next);
+                    current_edge = *next;
                 }
             } else {
                 return None;

@@ -74,8 +74,8 @@ fn create_lines_from_outline(plane: &PlaneMesh) -> Option<Vec<Vector3>> {
 }
 
 fn create_lines_from_rect(plane: &PlaneMesh) -> Option<Vec<Vec<Vector3>>> {
-    if let Some(outline) = create_plane_outline_from_plane_mesh(plane) {
-        if let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99) {
+    if let Some(outline) = create_plane_outline_from_plane_mesh(plane)
+        && let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99) {
             let mut total_lines = Vec::new();
             let center = Vector3::new(rect.position[0], rect.position[1], rect.position[2]);
             let u_axis = Vector3::new(rect.u_axis[0], rect.u_axis[1], rect.u_axis[2]);
@@ -98,7 +98,6 @@ fn create_lines_from_rect(plane: &PlaneMesh) -> Option<Vec<Vec<Vector3>>> {
             total_lines.push(lines);
             return Some(total_lines);
         }
-    }
     return None;
 }
 

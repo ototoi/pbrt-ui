@@ -5,7 +5,7 @@ use crate::model::base::*;
 use eframe::egui;
 
 impl InspectorPanel {
-    pub fn show_mesh_preview(&self, ui: &mut egui::Ui, width: f32, props: &mut PropertyMap) {
+    pub fn show_mesh_preview(&self, ui: &mut egui::Ui, width: f32, _props: &mut PropertyMap) {
         let width = width.min(ui.available_width());
         egui_extras::StripBuilder::new(ui)
             .size(egui_extras::Size::exact(width))

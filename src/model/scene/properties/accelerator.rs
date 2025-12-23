@@ -32,6 +32,6 @@ impl AcceleratorProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| AcceleratorProperties::new());
+        return LazyCell::new(AcceleratorProperties::new);
     }
 }

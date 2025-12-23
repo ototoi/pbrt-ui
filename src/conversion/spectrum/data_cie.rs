@@ -1,3 +1,5 @@
+#![allow(clippy::unreadable_literal)]
+
 pub const CIE_SAMPLES: usize = 471;
 
 #[rustfmt::skip]

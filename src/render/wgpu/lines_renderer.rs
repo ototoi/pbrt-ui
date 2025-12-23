@@ -1,8 +1,6 @@
-use crate::render::wgpu::material::RenderUniformValue;
 
 use super::lines::RenderLinesVertex;
 use super::render_item::RenderItem;
-use super::render_item::get_color;
 use std::sync::Arc;
 
 use eframe::wgpu;
@@ -148,19 +146,17 @@ impl LinesRenderer {
             for (i, item) in render_items.iter().enumerate() {
                 let matrix = item.get_matrix();
 
-                if let RenderItem::Lines(line_item) = item.as_ref() {
-                    if let Some(material) = line_item.material.as_ref() {
-                        if material.passes.len() > 0 {
+                if let RenderItem::Lines(line_item) = item.as_ref()
+                    && let Some(material) = line_item.material.as_ref()
+                        && !material.passes.is_empty() {
                             let offset = i as wgpu::BufferAddress * self.material_uniform_alignment;
                             let uniform_buffer = &material.passes[0].uniform_values;
                             queue.write_buffer(
                                 &self.material_uniform_buffer,
                                 offset,
-                                &uniform_buffer,
+                                uniform_buffer,
                             );
                         }
-                    }
-                }
 
                 {
                     let uniform = LocalUniforms {
@@ -316,7 +312,7 @@ impl LinesRenderer {
                 targets: &[Some(target_format.into())],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: primitive,
+            primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: false,

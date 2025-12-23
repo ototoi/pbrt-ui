@@ -91,15 +91,15 @@ impl Default for SceneTarget {
         materials.insert(mat.read().unwrap().get_id(), mat.clone());
         SceneTarget {
             api_state: APIState::OptionsBlock,
-            nodes: nodes,
-            transforms: transforms,
-            graphics_states: graphics_states,
+            nodes,
+            transforms,
+            graphics_states,
             render_options: RenderOptions::default(),
             named_coordinate_systems: HashMap::new(),
             meshes: HashMap::new(),
             textures: HashMap::new(),
             image_textures: HashMap::new(),
-            materials: materials,
+            materials,
             resources: HashMap::new(),
             work_dirs: Vec::new(),
         }
@@ -112,7 +112,7 @@ impl SceneTarget {
     }
 
     fn find_file_path(&self, filename: &str) -> Option<String> {
-        if self.work_dirs.len() > 0 {
+        if !self.work_dirs.is_empty() {
             for dir in self.work_dirs.iter().rev() {
                 let path = Path::new(dir).join(filename);
                 if path.exists() {
@@ -172,8 +172,8 @@ impl SceneTarget {
     }
 
     fn register_other_resources(&mut self, params: &ParamSet) {
-        if let Some(filename) = params.find_one_string("string bsdffile") {
-            if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+        if let Some(filename) = params.find_one_string("string bsdffile")
+            && let Some(fullpath) = self.find_file_path(filename.as_str()) {
                 match std::path::absolute(fullpath) {
                     Ok(fullpath) => {
                         let name = fullpath
@@ -200,10 +200,9 @@ impl SceneTarget {
                     }
                 }
             }
-        }
 
-        if let Some(filename) = params.find_one_string("string lensfile") {
-            if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+        if let Some(filename) = params.find_one_string("string lensfile")
+            && let Some(fullpath) = self.find_file_path(filename.as_str()) {
                 match std::path::absolute(fullpath) {
                     Ok(fullpath) => {
                         let name = fullpath
@@ -230,13 +229,12 @@ impl SceneTarget {
                     }
                 }
             }
-        }
 
         {
             for (key_type, key_name) in params.get_keys().iter() {
-                if key_type == "spectrum" {
-                    if let Some(filename) = params.find_one_string(&key_name) {
-                        if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+                if key_type == "spectrum"
+                    && let Some(filename) = params.find_one_string(key_name)
+                        && let Some(fullpath) = self.find_file_path(filename.as_str()) {
                             match std::path::absolute(fullpath) {
                                 Ok(fullpath) => {
                                     let name = fullpath
@@ -266,13 +264,11 @@ impl SceneTarget {
                                 }
                             }
                         }
-                    }
-                }
             }
         }
 
-        if let Some(filename) = params.find_one_string("string mapname") {
-            if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+        if let Some(filename) = params.find_one_string("string mapname")
+            && let Some(fullpath) = self.find_file_path(filename.as_str()) {
                 match std::path::absolute(fullpath) {
                     Ok(fullpath) => {
                         let name = fullpath
@@ -308,15 +304,14 @@ impl SceneTarget {
                     }
                 }
             }
-        }
     }
 
     fn add_fullpath_params(&self, params: &mut ParamSet) {
         let mut new_props = vec![];
         for (key_type, key_name) in params.get_keys().iter() {
-            if key_type == "spectrum" {
-                if let Some(filename) = params.find_one_string(&key_name) {
-                    if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+            if key_type == "spectrum"
+                && let Some(filename) = params.find_one_string(key_name)
+                    && let Some(fullpath) = self.find_file_path(filename.as_str()) {
                         match std::path::absolute(fullpath) {
                             Ok(fullpath) => {
                                 let fullpath = fullpath.to_str().unwrap().to_string();
@@ -328,8 +323,6 @@ impl SceneTarget {
                             }
                         }
                     }
-                }
-            }
         }
         for (key, value) in new_props.iter() {
             params.insert(key, value.clone());
@@ -341,8 +334,8 @@ impl SceneTarget {
         match shape_type.as_str() {
             "plymesh" => {
                 let title = ShapeComponent::get_name_from_type(name);
-                if let Some(filename) = params.find_one_string("filename") {
-                    if let Some(fullpath) = self.find_file_path(filename.as_str()) {
+                if let Some(filename) = params.find_one_string("filename")
+                    && let Some(fullpath) = self.find_file_path(filename.as_str()) {
                         match std::path::absolute(fullpath) {
                             Ok(fullpath) => {
                                 let fullpath = fullpath.to_str().unwrap().to_string();
@@ -358,7 +351,7 @@ impl SceneTarget {
                                 {
                                     let mut node = node.write().unwrap();
                                     if let Some(mesh) = self.meshes.get(&fullpath) {
-                                        let component = ShapeComponent::with_shape(&mesh);
+                                        let component = ShapeComponent::with_shape(mesh);
                                         node.add_component(component);
                                     } else {
                                         let component =
@@ -375,7 +368,6 @@ impl SceneTarget {
                             }
                         }
                     }
-                }
             }
             "trianglemesh" | "sphere" | "disk" | "cylinder" | "cone" | "paraboloid"
             | "hyperboloid" | "loopsubdiv" => {
@@ -554,8 +546,8 @@ impl ParseTarget for SceneTarget {
             .insert("camera".to_string(), t);
     }
 
-    fn make_named_medium(&mut self, name: &str, params: &ParamSet) {}
-    fn medium_interface(&mut self, inside_name: &str, outside_name: &str) {}
+    fn make_named_medium(&mut self, _name: &str, _params: &ParamSet) {}
+    fn medium_interface(&mut self, _inside_name: &str, _outside_name: &str) {}
 
     fn world_begin(&mut self) {
         if self.named_coordinate_systems.get("camera").is_none() {
@@ -633,8 +625,8 @@ impl ParseTarget for SceneTarget {
         let t = self.get_current_transform().clone();
         let transform = t.get_world_matrix();
         if tex_name == "imagemap" {
-            if let Some(filename) = params.find_one_string("string filename") {
-                if let Some(filename) = self.find_file_path(filename.as_str()) {
+            if let Some(filename) = params.find_one_string("string filename")
+                && let Some(filename) = self.find_file_path(filename.as_str()) {
                     let filepath = Path::new(&filename);
                     assert!(filepath.exists());
                     match std::path::absolute(filepath) {
@@ -650,7 +642,6 @@ impl ParseTarget for SceneTarget {
                         }
                     }
                 }
-            }
         } else {
             let texture = Arc::new(RwLock::new(Texture::new(
                 name, _type, tex_name, None, &params, &transform,
@@ -664,7 +655,7 @@ impl ParseTarget for SceneTarget {
         let name = mat_type.to_case(Case::UpperCamel);
         let mut material = Material::new(&name, mat_type, params);
         let id = material.get_id();
-        let new_name = format!("{}_{}", name, id.to_string());
+        let new_name = format!("{}_{}", name, id);
         material.set_name(&new_name);
         let material = Arc::new(RwLock::new(material));
         self.materials.insert(id, material.clone());
@@ -682,7 +673,7 @@ impl ParseTarget for SceneTarget {
             self.materials.insert(id, material.clone());
 
             let attr = self.graphics_states.last_mut().unwrap();
-            if let Some(_) = attr.materials.get(name) {
+            if attr.materials.get(name).is_some() {
                 log::warn!("Material {} already exists", name);
             }
             attr.materials.insert(name.to_string(), material.clone());
@@ -693,7 +684,7 @@ impl ParseTarget for SceneTarget {
 
     fn named_material(&mut self, name: &str) {
         let attr = self.graphics_states.last_mut().unwrap();
-        if name == "" || name == "none" {
+        if name.is_empty() || name == "none" {
             attr.current_material = None;
         } else if let Some(material) = attr.materials.get(name) {
             attr.current_material = Some(material.clone());
@@ -805,14 +796,14 @@ impl ParseTarget for SceneTarget {
                 }
                 if let Some((light_type, light_params)) = attr.area_light.as_ref() {
                     node.set_name("AreaLight");
-                    let component = AreaLightComponent::new(&light_type, light_params);
+                    let component = AreaLightComponent::new(light_type, light_params);
                     node.add_component(component);
                 }
             }
         } else {
             {
                 let attr = self.graphics_states.last().unwrap();
-                if let Some(_) = attr.area_light.as_ref() {
+                if attr.area_light.as_ref().is_some() {
                     log::warn!("Area light source cannot be animated");
                 }
             }
@@ -837,15 +828,15 @@ impl ParseTarget for SceneTarget {
         }
     }
     fn reverse_orientation(&mut self) {}
-    fn object_begin(&mut self, name: &str) {}
+    fn object_begin(&mut self, _name: &str) {}
     fn object_end(&mut self) {}
-    fn object_instance(&mut self, name: &str) {}
+    fn object_instance(&mut self, _name: &str) {}
     fn world_end(&mut self) {}
 
-    fn parse_file(&mut self, filename: &str) {
+    fn parse_file(&mut self, _filename: &str) {
         //
     }
-    fn parse_string(&mut self, s: &str) {
+    fn parse_string(&mut self, _s: &str) {
         //
     }
 
@@ -854,7 +845,7 @@ impl ParseTarget for SceneTarget {
         self.work_dirs.push(path.to_string());
     }
     fn work_dir_end(&mut self) {
-        if self.work_dirs.len() > 0 {
+        if !self.work_dirs.is_empty() {
             self.work_dirs.pop();
         } else {
             log::warn!("WorkDirEnd without work dir begin");
@@ -869,7 +860,7 @@ impl ParseTarget for SceneTarget {
 
 fn find_node_by<T: Component>(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<Node>>> {
     let n = node.read().unwrap();
-    if let Some(_) = n.get_component::<T>() {
+    if n.get_component::<T>().is_some() {
         return Some(node.clone());
     }
     for child in n.children.iter() {
@@ -961,7 +952,7 @@ impl SceneTarget {
                 for (id, material) in self.materials.iter() {
                     resource_manager
                         .materials
-                        .insert(id.clone(), material.clone());
+                        .insert(*id, material.clone());
                 }
                 for (_path, mesh) in self.meshes.iter() {
                     let id = mesh.read().unwrap().get_id();
@@ -970,7 +961,7 @@ impl SceneTarget {
                 for (id, texture) in self.textures.iter() {
                     resource_manager
                         .textures
-                        .insert(id.clone(), texture.clone());
+                        .insert(*id, texture.clone());
                 }
                 for (_path, resource) in self.resources.iter() {
                     let id = resource.read().unwrap().get_id();

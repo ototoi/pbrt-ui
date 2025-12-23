@@ -50,8 +50,8 @@ impl Spectrum {
                 let mut wls = Vec::new();
                 let mut v = Vec::new();
                 for j in 0..(vals.len() / 2) {
-                    wls.push(vals[2 * j] as f32);
-                    v.push(vals[2 * j + 1] as f32);
+                    wls.push(vals[2 * j]);
+                    v.push(vals[2 * j + 1]);
                 }
                 return Ok(Spectrum::from_sampled(&wls, &v));
             }
@@ -67,7 +67,7 @@ impl Spectrum {
         let n_values = n_values / 2;
         let mut s = Self::zero();
         for i in 0..n_values {
-            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i + 0]);
+            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i ]);
             s += Self::from_sampled(&CIE_LAMBDA, &v) * values[2 * i + 1];
         }
         return s;

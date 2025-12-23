@@ -20,7 +20,7 @@ fn replace_properties(props: &mut PropertyMap) {
 }
 
 fn create_shape(name: &str, props: &PropertyMap) -> Arc<RwLock<Shape>> {
-    let mesh = Shape::new(name, &props);
+    let mesh = Shape::new(name, props);
     Arc::new(RwLock::new(mesh))
 }
 

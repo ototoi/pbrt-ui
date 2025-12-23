@@ -5,7 +5,6 @@ use super::material::RenderUniformValue;
 use super::render_item::LinesRenderItem;
 use super::render_item::RenderItem;
 use super::render_item::create_render_pass;
-use super::render_item::get_shader_type;
 use super::render_resource::RenderResourceManager;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::Node;
@@ -26,16 +25,15 @@ fn get_lines_material(
     render_resource_manager: &mut RenderResourceManager,
     base_color: &[f32; 4],
 ) -> Option<Arc<RenderMaterial>> {
-    if let Some(mat) = render_resource_manager.get_material(id) {
-        if mat.edition == edition {
+    if let Some(mat) = render_resource_manager.get_material(id)
+        && mat.edition == edition {
             return Some(mat.clone());
         }
-    }
     // Create a default material for the light gizmo
     let mut uniform_values = Vec::new();
     uniform_values.push((
         "base_color".to_string(),
-        RenderUniformValue::Vec4(base_color.clone()),
+        RenderUniformValue::Vec4(*base_color),
     ));
     let edition = edition.to_string();
     let material_type = "lines".to_string();

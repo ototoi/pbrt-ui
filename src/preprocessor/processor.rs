@@ -99,11 +99,11 @@ impl Preprocessor {
     /// Process source code
     pub fn process(&mut self, source: &str) -> PreprocessorResult<String> {
         let mut output = String::new();
-        let mut lines = source.lines().enumerate();
+        let lines = source.lines().enumerate();
         let mut conditional_stack: Vec<bool> = Vec::new();
         let mut skip_depth = 0usize;
 
-        while let Some((line_num, line)) = lines.next() {
+        for (line_num, line) in lines {
             let line_number = line_num + 1;
             let trimmed = line.trim_start();
 
@@ -347,10 +347,10 @@ impl Preprocessor {
     /// Replace whole word occurrences
     fn replace_word(&self, text: &str, word: &str, replacement: &str) -> String {
         let mut result = String::new();
-        let mut chars = text.chars().peekable();
+        let chars = text.chars().peekable();
         let mut current_word = String::new();
 
-        while let Some(ch) = chars.next() {
+        for ch in chars {
             if ch.is_alphanumeric() || ch == '_' {
                 current_word.push(ch);
             } else {

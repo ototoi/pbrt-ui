@@ -40,10 +40,10 @@ pub fn average_spectrum_samples(
     assert!(lambda_start <= lambda_end);
 
     // Handle cases with out-of-bounds range or single sample only
-    if lambda_end as f32 <= lambda[0] {
+    if lambda_end <= lambda[0] {
         return vals[0];
     }
-    if lambda_start as f32 >= lambda[n - 1] {
+    if lambda_start >= lambda[n - 1] {
         return vals[n - 1];
     }
     if n == 1 {
@@ -104,7 +104,7 @@ pub fn sample_spectrum(lambda: &[f32], vals: &[f32]) -> [f32; SPECTRAL_SAMPLES] 
 
 pub fn xyz_to_rgb(xyz: &[f32]) -> [f32; 3] {
     let mut rgb: [f32; 3] = [0.0; 3];
-    rgb[0] = 3.240479 * xyz[0] - 1.537150 * xyz[1] - 0.498535 * xyz[2];
+    rgb[0] = 3.240479 * xyz[0] - 1.537_15 * xyz[1] - 0.498535 * xyz[2];
     rgb[1] = -0.969256 * xyz[0] + 1.875991 * xyz[1] + 0.041556 * xyz[2];
     rgb[2] = 0.055648 * xyz[0] - 0.204043 * xyz[1] + 1.057311 * xyz[2];
     return rgb;

@@ -49,7 +49,7 @@ fn from_byte(v: u8) -> f32 {
 
 fn xyz_to_rgb(xyz: &[f32]) -> [f32; 3] {
     let mut rgb: [f32; 3] = [0.0; 3];
-    rgb[0] = 3.240479 * xyz[0] - 1.537150 * xyz[1] - 0.498535 * xyz[2];
+    rgb[0] = 3.240479 * xyz[0] - 1.537_15 * xyz[1] - 0.498535 * xyz[2];
     rgb[1] = -0.969256 * xyz[0] + 1.875991 * xyz[1] + 0.041556 * xyz[2];
     rgb[2] = 0.055648 * xyz[0] - 0.204043 * xyz[1] + 1.057311 * xyz[2];
     return rgb;
@@ -180,8 +180,8 @@ fn show_floats(
 
 fn show_ints(
     ui: &mut egui::Ui,
-    key_type: &str,
-    key_name: &str,
+    _key_type: &str,
+    _key_name: &str,
     range: &Option<ValueRange>,
     value: &mut Vec<i32>,
 ) -> bool {
@@ -239,9 +239,9 @@ fn show_strings(
     own_id: Option<Uuid>,
 ) -> bool {
     let mut is_changed = false;
-    if value.len() >= 1 {
+    if !value.is_empty() {
         if key_name == "splitmethod" {
-            let types = vec!["sah", "hlbvh", "middle", "equal"]
+            let types = ["sah", "hlbvh", "middle", "equal"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -258,7 +258,7 @@ fn show_strings(
                     }
                 });
         } else if key_name == "strategy" {
-            let types = vec!["all", "one"]
+            let types = ["all", "one"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -275,7 +275,7 @@ fn show_strings(
                     }
                 });
         } else if key_name == "lightsamplestrategy" {
-            let types = vec!["uniform", "power", "spatial"]
+            let types = ["uniform", "power", "spatial"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -292,7 +292,7 @@ fn show_strings(
                     }
                 });
         } else if key_name == "wrap" {
-            let types = vec!["repeat", "black", "clamp"] //mirror
+            let types = ["repeat", "black", "clamp"] //mirror
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -309,7 +309,7 @@ fn show_strings(
                     }
                 });
         } else if key_name == "mapping" {
-            let types = vec!["uv", "spherical", "cylindrical", "planar"]
+            let types = ["uv", "spherical", "cylindrical", "planar"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
@@ -413,21 +413,18 @@ fn show_strings(
                         }
                     }
                 });
-        } else {
-            if ui.text_edit_singleline(&mut value[0]).changed() {
-                is_changed = true;
-            }
+        } else if ui.text_edit_singleline(&mut value[0]).changed() {
+            is_changed = true;
         }
     }
     return is_changed;
 }
 
 fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut Vec<bool>) -> bool {
-    if value.len() == 1 {
-        if Checkbox::without_text(&mut value[0]).ui(ui).changed() {
+    if value.len() == 1
+        && Checkbox::without_text(&mut value[0]).ui(ui).changed() {
             return true;
         }
-    }
     return false;
 }
 
@@ -463,15 +460,11 @@ fn show_color_like(
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
             ui.horizontal(|ui| {
-                if color_type != ColorType::Spd {
-                    if ui.small_button("S").clicked() {
+                if color_type != ColorType::Spd
+                    && ui.small_button("S").clicked() {
                         is_changed = true;
                         let search_key = format!("{}_{:?}", key_name, ColorType::Spd);
-                        let backup_value = if let Some(p) = props.get(&search_key) {
-                            Some(p.clone())
-                        } else {
-                            None
-                        };
+                        let backup_value = props.get(&search_key).cloned();
 
                         if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
                             backups.push((
@@ -487,16 +480,11 @@ fn show_color_like(
                             }
                         }
                     }
-                }
-                if color_type != ColorType::Texture {
-                    if ui.small_button("T").clicked() {
+                if color_type != ColorType::Texture
+                    && ui.small_button("T").clicked() {
                         is_changed = true;
                         let search_key = format!("{}_{:?}", key_name, ColorType::Texture);
-                        let backup_value = if let Some(p) = props.get(&search_key) {
-                            Some(p.clone())
-                        } else {
-                            None
-                        };
+                        let backup_value = props.get(&search_key).cloned();
 
                         if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
                             backups.push((
@@ -512,9 +500,8 @@ fn show_color_like(
                             }
                         }
                     }
-                }
-                if color_type != ColorType::Value {
-                    if ui.small_button("V").clicked() {
+                if color_type != ColorType::Value
+                    && ui.small_button("V").clicked() {
                         is_changed = true;
                         let search_key = format!("{}_{:?}", key_name, ColorType::Value);
                         let backup_value = if let Some((t, _, p)) = props.entry(&search_key) {
@@ -539,23 +526,21 @@ fn show_color_like(
                             }
                         }
                     }
-                }
             });
             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                 if key_type == "color" || key_type == "rgb" {
-                    if let Some(v) = props.get_mut(key_name) {
-                        if let Property::Floats(value) = v {
+                    if let Some(v) = props.get_mut(key_name)
+                        && let Property::Floats(value) = v {
                             ui.horizontal(|ui| {
                                 if show_rgb(ui, value) {
                                     is_changed = true;
                                 }
                             });
                         }
-                    }
                 } else if key_type == "xyz" {
-                    if let Some(v) = props.get_mut(key_name) {
-                        if let Property::Floats(value) = v {
-                            let mut rgb = xyz_to_rgb(&value);
+                    if let Some(v) = props.get_mut(key_name)
+                        && let Property::Floats(value) = v {
+                            let mut rgb = xyz_to_rgb(value);
                             ui.horizontal(|ui| {
                                 if show_rgb(ui, &mut rgb) {
                                     is_changed = true;
@@ -566,7 +551,6 @@ fn show_color_like(
                             value[1] = xyz[1];
                             value[2] = xyz[2];
                         }
-                    }
                 } else if key_type == "spectrum" {
                     if let Some(v) = props.get_mut(key_name) {
                         //if let Property::Strings(value) = v {
@@ -592,8 +576,8 @@ fn show_color_like(
                                 });
                         }
                     }
-                } else if key_type == "texture" {
-                    if let Some(v) = props.get_mut(key_name) {
+                } else if key_type == "texture"
+                    && let Some(v) = props.get_mut(key_name) {
                         //if let Property::Strings(value) = v {
                         //    ui.text_edit_singleline(&mut value[0]);
                         //}
@@ -624,7 +608,6 @@ fn show_color_like(
                                 });
                         }
                     }
-                }
             });
         });
     });
@@ -639,11 +622,10 @@ fn is_color_like(key_type: &str, key_name: &str) -> bool {
     if key_type == "color" || key_type == "rgb" || key_type == "xyz" || key_type == "spectrum" {
         return true;
     }
-    if key_type == "texture" {
-        if key_name != "bumpmap" {
+    if key_type == "texture"
+        && key_name != "bumpmap" {
             return true;
         }
-    }
     //if key_name.starts_with("tex") {
     //    return true;
     //}
@@ -665,17 +647,13 @@ pub fn show_properties(
         .auto_shrink([false, true])
         .body(|mut body| {
             let own_id = props.find_one_string("string id");
-            let own_id = if let Some(id) = own_id {
-                Some(Uuid::parse_str(&id).unwrap_or(Uuid::default()))
-            } else {
-                None
-            };
+            let own_id = own_id.map(|id| Uuid::parse_str(&id).unwrap_or_default());
             for (key_type, key_name, range) in keys.iter() {
                 //let label_name = key_name.to_case(Case::Title);
                 let label_name = key_name.to_string();
                 body.row(18.0, |mut row| {
                     row.col(|ui| {
-                        ui.label(&format!("{}", label_name));
+                        ui.label(label_name.to_string());
                     });
                     row.col(|ui| {
                         let mut key_type = key_type.clone();
@@ -694,35 +672,32 @@ pub fn show_properties(
                             ) {
                                 is_changed = true;
                             }
-                        } else {
-                            if let Some(v) = props.get_mut(key_name) {
-                                if let Property::Floats(value) = v {
-                                    if show_floats(ui, key_type, key_name, range, value) {
-                                        is_changed = true;
-                                    }
-                                } else if let Property::Ints(value) = v {
-                                    if show_ints(ui, key_type, key_name, range, value) {
-                                        is_changed = true;
-                                    }
-                                } else if let Property::Strings(value) = v {
-                                    if show_strings(
-                                        ui,
-                                        key_type,
-                                        key_name,
-                                        value,
-                                        resource_selector,
-                                        own_id,
-                                    ) {
-                                        is_changed = true;
-                                    }
-                                } else if let Property::Bools(value) = v {
-                                    if show_bools(ui, key_type, key_name, value) {
-                                        is_changed = true;
-                                    }
+                        } else if let Some(v) = props.get_mut(key_name) {
+                            if let Property::Floats(value) = v {
+                                if show_floats(ui, key_type, key_name, range, value) {
+                                    is_changed = true;
                                 }
-                            } else {
-                                ui.label("No property found");
-                            }
+                            } else if let Property::Ints(value) = v {
+                                if show_ints(ui, key_type, key_name, range, value) {
+                                    is_changed = true;
+                                }
+                            } else if let Property::Strings(value) = v {
+                                if show_strings(
+                                    ui,
+                                    key_type,
+                                    key_name,
+                                    value,
+                                    resource_selector,
+                                    own_id,
+                                ) {
+                                    is_changed = true;
+                                }
+                            } else if let Property::Bools(value) = v
+                                && show_bools(ui, key_type, key_name, value) {
+                                    is_changed = true;
+                                }
+                        } else {
+                            ui.label("No property found");
                         }
                     });
                 });
@@ -736,8 +711,8 @@ pub fn show_properties(
 
 pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -> bool {
     let mut is_changed = false;
-    if let Some(v) = props.get_mut("type") {
-        if let Property::Strings(s) = v {
+    if let Some(v) = props.get_mut("type")
+        && let Property::Strings(s) = v {
             egui::ComboBox::from_id_salt("type")
                 .selected_text(s[0].clone())
                 .show_ui(ui, |ui| {
@@ -751,7 +726,6 @@ pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -
                     }
                 });
         }
-    }
     if is_changed {
         props.add_string("string edition", &Uuid::new_v4().to_string());
     }
@@ -775,7 +749,7 @@ pub fn show_component_props(
                 ui.label(title);
             });
             ui.separator();
-            if show_properties(index, ui, props, &keys, resource_selector) {
+            if show_properties(index, ui, props, keys, resource_selector) {
                 is_changed = true;
             }
             ui.add_space(3.0);

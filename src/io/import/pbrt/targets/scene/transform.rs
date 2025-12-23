@@ -22,7 +22,7 @@ impl Transform {
     }
     //------------------------------------------------------------
     pub fn mul_transform(&mut self, other: &Transform) {
-        self.m = self.m * other.m;
+        self.m *= other.m;
         self.im = other.im * self.im;
     }
 
@@ -99,7 +99,7 @@ impl TransformSet {
     pub fn mul_transform(&mut self, t: &Transform) {
         for i in 0..2 {
             if self.state as u8 & (1 << i) != 0 {
-                self.transforms[i].mul_transform(&t);
+                self.transforms[i].mul_transform(t);
             }
         }
     }

@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use super::matrix4x4::Matrix4x4;
 use super::vector3::Vector3;
 

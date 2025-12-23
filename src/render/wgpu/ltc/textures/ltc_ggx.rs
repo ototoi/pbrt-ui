@@ -8,7 +8,7 @@
 
 // Skip cargo fmt
 #[rustfmt::skip]
-pub const LTC_GGX_1: [f32; 16384] = [
+pub static LTC_GGX_1: [f32; 16384] = [
     1.0, 0.0, 0.0, 2e-05,
 	1.0, 0.0, 0.0, 0.000503905,
 	1.0, 0.0, 0.0, 0.00201562,
@@ -4108,7 +4108,7 @@ pub const LTC_GGX_1: [f32; 16384] = [
 ];
 
 #[rustfmt::skip]
-pub const LTC_GGX_2: [f32; 16384] = [
+pub static LTC_GGX_2: [f32; 16384] = [
 	1.0, 0.0, 0.0, 0.0,
 	1.0, 7.91421e-31, 0.0, 0.0,
 	1.0, 1.04392e-24, 0.0, 0.0,

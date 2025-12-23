@@ -58,6 +58,6 @@ impl CameraProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| CameraProperties::new());
+        return LazyCell::new(CameraProperties::new);
     }
 }

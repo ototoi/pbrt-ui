@@ -33,6 +33,6 @@ impl MappingProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| MappingProperties::new());
+        return LazyCell::new(MappingProperties::new);
     }
 }

@@ -48,6 +48,6 @@ impl SamplerProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| SamplerProperties::new());
+        return LazyCell::new(SamplerProperties::new);
     }
 }

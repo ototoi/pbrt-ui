@@ -25,7 +25,7 @@ impl InspectorPanel {
                 });
                 ui.separator();
                 let types = properties.get_types();
-                show_type(ui, props, &types);
+                show_type(ui, props, types);
                 ui.separator();
                 let t = props.find_one_string("string type").unwrap();
                 let mut keys = Vec::new();
@@ -39,7 +39,7 @@ impl InspectorPanel {
                             let key = PropertyMap::get_key(key_type, key_name);
                             props.insert(&key, init.clone());
                         }
-                        keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                        keys.push((key_type.clone(), key_name.clone(), *range));
                     }
                 }
                 show_properties(index, ui, props, &keys, resource_selector);

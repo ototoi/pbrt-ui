@@ -60,17 +60,17 @@ fn get_scene_item(parent_matrix: &Matrix4x4, node: &Arc<RwLock<Node>>, items: &m
     let local_matrix = get_local_matrix(node);
     let world_matrix = *parent_matrix * local_matrix;
 
-    if has_component::<ShapeComponent>(&node) && has_component::<MaterialComponent>(&node) {
+    if has_component::<ShapeComponent>(node) && has_component::<MaterialComponent>(node) {
         let item = SceneItem::new(node.clone(), SceneItemType::Mesh, world_matrix);
         items.push(item);
     }
 
-    if has_component::<LightComponent>(&node) {
+    if has_component::<LightComponent>(node) {
         let item = SceneItem::new(node.clone(), SceneItemType::Light, world_matrix);
         items.push(item);
     }
 
-    if has_component::<CameraComponent>(&node) {
+    if has_component::<CameraComponent>(node) {
         let item = SceneItem::new(node.clone(), SceneItemType::Camera, world_matrix);
         items.push(item);
     }

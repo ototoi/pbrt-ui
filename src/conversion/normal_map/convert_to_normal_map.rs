@@ -74,10 +74,10 @@ pub fn convert_luma32f_to_normal_map(
         for x in 0..width {
             // Sample neighboring pixels with wrapping at edges
             // Wrapping ensures seamless tiling for tileable textures
-            let left = heightmap.get_pixel(if x > 0 { x - 1 } else { width - 1 }, y)[0] as f32;
-            let right = heightmap.get_pixel(if x < width - 1 { x + 1 } else { 0 }, y)[0] as f32;
-            let top = heightmap.get_pixel(x, if y > 0 { y - 1 } else { height - 1 })[0] as f32;
-            let bottom = heightmap.get_pixel(x, if y < height - 1 { y + 1 } else { 0 })[0] as f32;
+            let left = heightmap.get_pixel(if x > 0 { x - 1 } else { width - 1 }, y)[0];
+            let right = heightmap.get_pixel(if x < width - 1 { x + 1 } else { 0 }, y)[0];
+            let top = heightmap.get_pixel(x, if y > 0 { y - 1 } else { height - 1 })[0];
+            let bottom = heightmap.get_pixel(x, if y < height - 1 { y + 1 } else { 0 })[0];
 
             // Calculate gradients (Sobel-like operator)
             let dx = (right - left) * strength;

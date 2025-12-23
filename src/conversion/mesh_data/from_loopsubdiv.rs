@@ -190,41 +190,37 @@ impl SDFace {
 
     pub fn next_face(&self, v: &SDVertex) -> Option<Arc<RefCell<SDFace>>> {
         let i = self.vnum(v);
-        if i >= 0 {
-            if let Some(f) = self.f[i as usize].as_ref() {
+        if i >= 0
+            && let Some(f) = self.f[i as usize].as_ref() {
                 return f.upgrade();
             }
-        }
         return None;
     }
 
     pub fn prev_face(&self, v: &SDVertex) -> Option<Arc<RefCell<SDFace>>> {
         let i = self.vnum(v);
-        if i >= 0 {
-            if let Some(f) = self.f[PREV[i as usize]].as_ref() {
+        if i >= 0
+            && let Some(f) = self.f[PREV[i as usize]].as_ref() {
                 return f.upgrade();
             }
-        }
         return None;
     }
 
     pub fn next_vert(&self, v: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
         let i = self.vnum(v);
-        if i >= 0 {
-            if let Some(f) = self.v[NEXT[i as usize]].as_ref() {
+        if i >= 0
+            && let Some(f) = self.v[NEXT[i as usize]].as_ref() {
                 return f.upgrade();
             }
-        }
         return None;
     }
 
     pub fn prev_vert(&self, v: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
         let i = self.vnum(v);
-        if i >= 0 {
-            if let Some(f) = self.v[PREV[i as usize]].as_ref() {
+        if i >= 0
+            && let Some(f) = self.v[PREV[i as usize]].as_ref() {
                 return f.upgrade();
             }
-        }
         return None;
     }
 
@@ -360,7 +356,7 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
     for i in 0..n_faces {
         //let f = faces[i].borrow();
         for en in 0..3 {
-            let v0 = TRI[en + 0];
+            let v0 = TRI[en];
             let v1 = TRI[en + 1];
 
             //let ff = faces[i].borrow();
@@ -418,11 +414,7 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
         }
         if !v.boundary && v.valence() == 6 {
             v.regular = true;
-        } else if v.boundary && v.valence() == 4 {
-            v.regular = true;
-        } else {
-            v.regular = false;
-        }
+        } else { v.regular = v.boundary && v.valence() == 4; }
     }
 
     // Refine _LoopSubdiv_ into triangles
@@ -741,7 +733,7 @@ pub fn create_mesh_data_from_loopsubdiv(shape: &Shape) -> Option<MeshData> {
 
     let indices = shape.as_property_map().get_ints("indices");
     let p = shape.as_property_map().get_floats("P");
-    if indices.len() == 0 || p.len() == 0 {
+    if indices.is_empty() || p.is_empty() {
         return None;
     }
     let p = p

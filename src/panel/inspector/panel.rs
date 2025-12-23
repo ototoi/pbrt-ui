@@ -12,13 +12,11 @@ use crate::model::scene::FilmComponent;
 use crate::model::scene::IntegratorComponent;
 use crate::model::scene::IntegratorProperties;
 use crate::model::scene::LightComponent;
-use crate::model::scene::LightProperties;
 use crate::model::scene::MappingProperties;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
 use crate::model::scene::Node;
 use crate::model::scene::OptionProperties;
-use crate::model::scene::Properties;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::SamplerComponent;
 use crate::model::scene::SamplerProperties;
@@ -30,7 +28,6 @@ use crate::panel::Panel;
 
 use std::any::Any;
 use std::collections::HashMap;
-use std::f32::consts::E;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -38,7 +35,6 @@ use convert_case::{Case, Casing};
 use eframe::egui;
 use eframe::egui::Checkbox;
 use eframe::egui::Widget;
-use tar::Entry;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -123,7 +119,7 @@ impl InspectorPanel {
                     ui,
                     "Camera",
                     &mut component.props,
-                    &(*camera_properties),
+                    &camera_properties,
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<FilmComponent>() {
@@ -135,8 +131,8 @@ impl InspectorPanel {
                     ui,
                     "Sampler",
                     &mut component.props,
-                    &(*sampler_properties),
-                    &resource_selector,
+                    &sampler_properties,
+                    resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<IntegratorComponent>() {
                 let integrator_properties = IntegratorProperties::get_instance();
@@ -145,7 +141,7 @@ impl InspectorPanel {
                     ui,
                     "Integrator",
                     &mut component.props,
-                    &(*integrator_properties),
+                    &integrator_properties,
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<AcceleratorComponent>() {
@@ -155,7 +151,7 @@ impl InspectorPanel {
                     ui,
                     "Accelerator",
                     &mut component.props,
-                    &(*accelerator_properties),
+                    &accelerator_properties,
                     resource_selector,
                 );
             } else if let Some(component) = component.downcast_mut::<CoordinateSystemComponent>() {
@@ -167,7 +163,7 @@ impl InspectorPanel {
                     ui,
                     "CoordinateSystem",
                     &mut props,
-                    &resource_selector,
+                    resource_selector,
                 );
             } else if let Some(_component) = component.downcast_mut::<AnimationComponent>() {
                 let mut props = PropertyMap::new(); //todo
@@ -206,16 +202,15 @@ impl InspectorPanel {
                 keys.push((
                     entry.key_type.clone(),
                     entry.key_name.clone(),
-                    entry.value_range.clone(),
+                    entry.value_range,
                 ));
             }
         }
-        if show_component_props(index, &name, ui, props, &keys, resource_selector) {
-            if ShapeComponent::is_ediable(&shape_type) {
+        if show_component_props(index, &name, ui, props, &keys, resource_selector)
+            && ShapeComponent::is_ediable(&shape_type) {
                 is_changed = true;
                 props.add_string("string edition", &Uuid::new_v4().to_string());
             }
-        }
         return is_changed;
     }
 
@@ -240,7 +235,7 @@ impl InspectorPanel {
                 keys.push((
                     entry.key_type.clone(),
                     entry.key_name.clone(),
-                    entry.value_range.clone(),
+                    entry.value_range,
                 ));
             }
         }
@@ -300,7 +295,7 @@ impl InspectorPanel {
                             texture_keys.push((
                                 entry.key_type.clone(),
                                 entry.key_name.clone(),
-                                entry.value_range.clone(),
+                                entry.value_range,
                             ));
                         }
                     }
@@ -318,7 +313,7 @@ impl InspectorPanel {
                             mapping_keys.push((
                                 entry.key_type.clone(),
                                 entry.key_name.clone(),
-                                entry.value_range.clone(),
+                                entry.value_range,
                             ));
                         }
                     }
@@ -373,11 +368,10 @@ impl InspectorPanel {
                 let material_properties = MaterialProperties::get_instance();
                 if let Some(params) = material_properties.get_entries(&mat_type) {
                     for entry in params.iter() {
-                        if hide_sigma {
-                            if entry.key_name == "sigma_a" || entry.key_name == "sigma_s" {
+                        if hide_sigma
+                            && (entry.key_name == "sigma_a" || entry.key_name == "sigma_s") {
                                 continue;
                             }
-                        }
                         if props.get(&entry.key_name).is_none() {
                             let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
                             props.insert(&key, entry.default_value.clone());
@@ -385,7 +379,7 @@ impl InspectorPanel {
                         keys.push((
                             entry.key_type.clone(),
                             entry.key_name.clone(),
-                            entry.value_range.clone(),
+                            entry.value_range,
                         ));
                     }
                 }
@@ -397,7 +391,7 @@ impl InspectorPanel {
                     ui.text_edit_singleline(&mut name);
                 });
                 ui.separator();
-                show_type(ui, props, &material_properties.get_types());
+                show_type(ui, props, material_properties.get_types());
                 ui.separator();
                 self.show_material_preview(ui, 300.0, props);
                 ui.separator();
@@ -419,7 +413,7 @@ impl InspectorPanel {
                         keys.push((
                             entry.key_type.clone(),
                             entry.key_name.clone(),
-                            entry.value_range.clone(),
+                            entry.value_range,
                         ));
                     }
                 }

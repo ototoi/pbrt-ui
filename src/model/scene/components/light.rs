@@ -12,9 +12,9 @@ pub struct LightComponent {
 }
 
 fn replace_properties(props: &mut PropertyMap) {
-    if let Some(prop) = props.get_mut("string type") {
-        if let Property::Strings(v) = prop {
-            assert!(v.len() >= 1);
+    if let Some(prop) = props.get_mut("string type")
+        && let Property::Strings(v) = prop {
+            assert!(!v.is_empty());
             if v[0] == "exinfinite" {
                 v[0] = "infinite".to_string();
                 log::warn!("Replaced exinfinite with infinite");
@@ -24,7 +24,6 @@ fn replace_properties(props: &mut PropertyMap) {
                 log::warn!("Replaced area with diffuse");
             }
         }
-    }
 
     if let Some((_, key_name, _)) = props.entry_mut("conedelta") {
         *key_name = "conedeltaangle".to_string();

@@ -74,11 +74,10 @@ impl Shape {
     //------------------------------------------------------------
 
     pub fn get_floats(&self, key: &str) -> Option<&[f32]> {
-        if let Some(prop) = self.props.get(key) {
-            if let Property::Floats(arr) = prop {
+        if let Some(prop) = self.props.get(key)
+            && let Property::Floats(arr) = prop {
                 return Some(arr);
             }
-        }
         None
     }
 
@@ -87,43 +86,38 @@ impl Shape {
     }
 
     pub fn get_indices(&self) -> Option<&[i32]> {
-        if let Some(prop) = self.props.get("indices") {
-            if let Property::Ints(arr) = prop {
+        if let Some(prop) = self.props.get("indices")
+            && let Property::Ints(arr) = prop {
                 return Some(arr);
             }
-        }
         None
     }
 
     pub fn get_positions(&self) -> Option<&[f32]> {
-        if let Some(prop) = self.props.get("P") {
-            if let Property::Floats(arr) = prop {
+        if let Some(prop) = self.props.get("P")
+            && let Property::Floats(arr) = prop {
                 return Some(arr);
             }
-        }
         None
     }
 
     pub fn get_normals(&self) -> Option<&[f32]> {
-        if let Some(prop) = self.props.get("N") {
-            if let Property::Floats(arr) = prop {
+        if let Some(prop) = self.props.get("N")
+            && let Property::Floats(arr) = prop {
                 return Some(arr);
             }
-        }
         None
     }
 
     pub fn get_uvs(&self) -> Option<&[f32]> {
-        if let Some(prop) = self.props.get("uv") {
-            if let Property::Floats(arr) = prop {
+        if let Some(prop) = self.props.get("uv")
+            && let Property::Floats(arr) = prop {
                 return Some(arr);
             }
-        }
-        if let Some(prop) = self.props.get("st") {
-            if let Property::Floats(arr) = prop {
+        if let Some(prop) = self.props.get("st")
+            && let Property::Floats(arr) = prop {
                 return Some(arr);
             }
-        }
         None
     }
 }

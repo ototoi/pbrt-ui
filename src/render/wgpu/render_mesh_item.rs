@@ -38,11 +38,10 @@ pub fn get_mesh(
         let shape = component.get_shape();
         let shape = shape.read().unwrap();
         let mesh_id = shape.get_id();
-        if let Some(mesh) = render_resource_manager.get_mesh(mesh_id) {
-            if mesh.edition == shape.get_edition() {
+        if let Some(mesh) = render_resource_manager.get_mesh(mesh_id)
+            && mesh.edition == shape.get_edition() {
                 return Some(mesh.clone());
             }
-        }
         if let Some(mesh) = RenderMesh::from_shape(device, queue, &shape) {
             let mesh = Arc::new(mesh);
             render_resource_manager.add_mesh(&mesh);
@@ -601,11 +600,10 @@ pub fn get_render_material(
         let light = light.get_light();
         let light = light.read().unwrap();
         let light_id = light.get_id();
-        if let Some(mat) = render_resource_manager.get_material(light_id) {
-            if mat.edition == light.get_edition() {
+        if let Some(mat) = render_resource_manager.get_material(light_id)
+            && mat.edition == light.get_edition() {
                 return Some(mat.clone());
             }
-        }
         let render_material = create_render_material_from_light(
             device,
             queue,
@@ -621,11 +619,10 @@ pub fn get_render_material(
         let material = component.get_material();
         let material = material.read().unwrap();
         let material_id = material.get_id();
-        if let Some(mat) = render_resource_manager.get_material(material_id) {
-            if mat.edition == material.get_edition() {
+        if let Some(mat) = render_resource_manager.get_material(material_id)
+            && mat.edition == material.get_edition() {
                 return Some(mat.clone());
             }
-        }
         let render_material = create_render_material_from_material(
             device,
             queue,
@@ -662,7 +659,7 @@ pub fn get_render_mesh_item(
                 device,
                 queue,
                 &item.node,
-                &resource_manager,
+                resource_manager,
                 render_resource_manager,
             )
         } else {

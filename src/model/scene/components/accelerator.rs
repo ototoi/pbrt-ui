@@ -10,7 +10,7 @@ impl AcceleratorComponent {
     pub fn new(t: &str, props: &PropertyMap) -> Self {
         let mut props = props.clone();
         props.insert("string type", Property::from(t));
-        AcceleratorComponent { props: props }
+        AcceleratorComponent { props }
     }
 
     pub fn get_keys(&self) -> Vec<(String, String)> {

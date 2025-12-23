@@ -48,9 +48,9 @@ fn convert_node_to_tree(
             children.push(convert_node_to_tree(child, selected_id, nodes_info));
         }
     }
-    let name = format!("{}", node.get_name());
+    let name = node.get_name().to_string();
     SelectedTree {
-        name: name,
+        name,
         id: node.get_id(),
         selected: selected_id == Some(node.get_id()),
         children,
@@ -65,7 +65,7 @@ fn show_tree(
     nodes_info: &mut HashMap<Uuid, bool>,
 ) -> Option<Uuid> {
     let mut selected_id = None;
-    let id = tree.id.clone();
+    let id = tree.id;
     let id = ui.make_persistent_id(id);
     if !tree.has_children {
         let name = tree.name.clone();
@@ -133,9 +133,8 @@ impl Panel for HierarchyPanel {
                     let controller = self.controller.read().unwrap();
                     let current_node_id = controller.get_current_node_id();
                     let root_node = controller.get_root_node();
-                    let root_tree =
-                        convert_node_to_tree(&root_node, current_node_id, &mut self.nodes_info);
-                    root_tree
+                    
+                    convert_node_to_tree(&root_node, current_node_id, &mut self.nodes_info)
                 };
 
                 egui::ScrollArea::vertical()

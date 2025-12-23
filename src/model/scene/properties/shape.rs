@@ -63,6 +63,6 @@ impl ShapeProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| ShapeProperties::new());
+        return LazyCell::new(ShapeProperties::new);
     }
 }

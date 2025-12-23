@@ -1,4 +1,3 @@
-use super::material::RenderUniformValue;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use std::sync::Arc;
@@ -68,7 +67,7 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
     return buffer;
 }
 
-fn get_base_color(item: &RenderItem) -> [f32; 4] {
+fn get_base_color(_item: &RenderItem) -> [f32; 4] {
     /*
     match item {
         RenderItem::Mesh(mesh_item) => {
@@ -171,8 +170,8 @@ impl SolidMeshRenderer {
         render_pass: &mut wgpu::RenderPass<'static>,
         resources: &egui_wgpu::CallbackResources,
     ) {
-        if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            if !per_frame_resources.render_items.is_empty() {
+        if let Some(per_frame_resources) = resources.get::<PerFrameResources>()
+            && !per_frame_resources.render_items.is_empty() {
                 let local_uniform_alignment = self.local_uniform_alignment;
                 render_pass.set_pipeline(&self.pipeline); //
                 render_pass.set_bind_group(0, &self.global_bind_group, &[]);
@@ -195,7 +194,6 @@ impl SolidMeshRenderer {
                     }
                 }
             }
-        }
     }
 }
 
@@ -301,7 +299,7 @@ impl SolidMeshRenderer {
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: primitive,
+            primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,

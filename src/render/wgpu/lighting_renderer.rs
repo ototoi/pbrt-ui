@@ -70,8 +70,8 @@ impl PerFrameCallback {
         let color_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Final Render Texture"),
             size: wgpu::Extent3d {
-                width: width,
-                height: height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -86,8 +86,8 @@ impl PerFrameCallback {
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Final Depth Texture"),
             size: wgpu::Extent3d {
-                width: width,
-                height: height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -117,7 +117,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
         let render_items = get_render_items(device, queue, &self.node, RenderMode::Lighting);
         let commands = vec![];
         // Prepare the frame buffers
-        self.prepare_frame_buffers(device, &screen_descriptor, &self.rect);
+        self.prepare_frame_buffers(device, screen_descriptor, &self.rect);
         {
             let frame_buffers = self.frame_buffers.read().unwrap();
             if let Some((color_texture, depth_texture)) =

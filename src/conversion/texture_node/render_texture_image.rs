@@ -11,7 +11,7 @@ use crate::conversion::texture_node::DynaImage;
 use image::ImageBuffer;
 use image::buffer::ConvertBuffer as _;
 
-use super::noise::{fbm, FBM_LACUNARITY};
+use super::noise::fbm;
 
 const ICON_SIZE: u32 = 64;
 const DISPLAY_SIZE: u32 = 256;
@@ -25,27 +25,25 @@ fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
     if let Some((key_type, key_name, value)) = props.entry(key) {
         if let Property::Floats(v) = value {
             if key_type == "blackbody" {
-                let s = Spectrum::from_blackbody(&v);
+                let s = Spectrum::from_blackbody(v);
                 let color = s.to_rgb();
-                let color = image::Rgb([color[0] as f32, color[1] as f32, color[2] as f32]);
+                let color = image::Rgb([color[0], color[1], color[2]]);
                 let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
                 return Some(DynaImage::ImageRgb32F(image_buffer));
-            } else {
-                if v.len() == 1 {
-                    let value = image::Luma([v[0] as f32]);
-                    let image_buffer = image::ImageBuffer::from_pixel(1, 1, value);
-                    return Some(DynaImage::ImageLuma32F(image_buffer));
-                } else if v.len() == 3 {
-                    let color = image::Rgb([(v[0]) as f32, (v[1]) as f32, (v[2]) as f32]);
-                    let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
-                    return Some(DynaImage::ImageRgb32F(image_buffer));
-                }
+            } else if v.len() == 1 {
+                let value = image::Luma([v[0]]);
+                let image_buffer = image::ImageBuffer::from_pixel(1, 1, value);
+                return Some(DynaImage::ImageLuma32F(image_buffer));
+            } else if v.len() == 3 {
+                let color = image::Rgb([(v[0]), (v[1]), (v[2])]);
+                let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
+                return Some(DynaImage::ImageRgb32F(image_buffer));
             }
-        } else if let Property::Strings(_name) = value {
-            if key_type == "spectrum" {
+        } else if let Property::Strings(_name) = value
+            && key_type == "spectrum" {
                 let fullpath_name = format!("{}_fullpath", key_name);
-                if let Some(src) = props.get(&fullpath_name) {
-                    if let Property::Strings(v) = src {
+                if let Some(src) = props.get(&fullpath_name)
+                    && let Property::Strings(v) = src {
                         assert!(
                             v.len() == 1,
                             "Spectrum fullpath must have exactly one value"
@@ -54,14 +52,12 @@ fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
                         if let Ok(s) = Spectrum::load_from_file(&fullpath) {
                             let color = s.to_rgb();
                             let color =
-                                image::Rgb([color[0] as f32, color[1] as f32, color[2] as f32]);
+                                image::Rgb([color[0], color[1], color[2]]);
                             let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
                             return Some(DynaImage::ImageRgb32F(image_buffer));
                         }
                     }
-                }
             }
-        }
     }
     return None;
 }
@@ -87,8 +83,8 @@ fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
 fn resize_image(image: &DynaImage, width: u32, height: u32) -> DynaImage {
     if (1, 1) == image.dimensions() {
         let mut resized = image.resize(width, height, image::imageops::FilterType::Nearest);
-        if let DynaImage::ImageLuma32F(dst) = &mut resized {
-            if let DynaImage::ImageLuma32F(src) = image {
+        if let DynaImage::ImageLuma32F(dst) = &mut resized
+            && let DynaImage::ImageLuma32F(src) = image {
                 let vv = src.get_pixel(0, 0)[0];
                 for y in 0..height {
                     for x in 0..width {
@@ -96,7 +92,6 @@ fn resize_image(image: &DynaImage, width: u32, height: u32) -> DynaImage {
                     }
                 }
             }
-        }
         return resized;
     } else {
         let resized = image.resize(width, height, image::imageops::FilterType::CatmullRom);
@@ -189,8 +184,8 @@ fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) ->
     // if scale != 1.0 { --- IGNORE ---
     //     println!("Imagemap scale other than 1.0 is not supported yet."); --- IGNORE ---
     // } --- IGNORE ---
-    if let Some(path) = texture.get_fullpath() {
-        if let Ok(image) = image::open(path) {
+    if let Some(path) = texture.get_fullpath()
+        && let Ok(image) = image::open(path) {
             let image = resize_image_for_size_type(image, size_type);
             match image {
                 image::DynamicImage::ImageLuma8(img) => {
@@ -212,7 +207,6 @@ fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) ->
                 }
             }
         }
-    }
     return None;
 }
 
@@ -232,7 +226,7 @@ fn mix_pixel_rgb(
     p2: &image::Rgb<f32>,
     a: &image::Rgb<f32>,
 ) -> image::Rgb<f32> {
-    let mut result = p1.clone();
+    let mut result = *p1;
     for i in 0..3 {
         let c1: f32 = p1[i as usize];
         let c2: f32 = p2[i as usize];
@@ -254,7 +248,7 @@ fn mix_texture_rgb(
         let p2 = tex2.get_pixel(x, y);
         let a = amount.get_pixel(x, y); // Assuming amount is a grayscale image
         let c = mix_pixel_rgb(p1, p2, a);
-        *pixel = c.into();
+        *pixel = c;
     }
     return image_buffer;
 }
@@ -284,9 +278,9 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         dim1.1.max(dim2.1).max(dim3.1),
     );
 
-    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
-    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
-    let amount = resize_image(&amount, dimf.0, dimf.1);
+    let tex1 = resize_image(tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(tex2, dimf.0, dimf.1);
+    let amount = resize_image(amount, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
@@ -306,7 +300,7 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         DynaImage::ImageRgb32F(amount),
     ) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref())
     {
-        let image_buffer = mix_texture_rgb(&tex1, &tex2, &amount);
+        let image_buffer = mix_texture_rgb(tex1, tex2, amount);
         return Some(DynaImage::ImageRgb32F(image_buffer));
     } else if let (
         DynaImage::ImageLuma32F(tex1),
@@ -314,7 +308,7 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         DynaImage::ImageLuma32F(amount),
     ) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref())
     {
-        let image_buffer = mix_texture_float(&tex1, &tex2, &amount);
+        let image_buffer = mix_texture_float(tex1, tex2, amount);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
     return None;
@@ -345,7 +339,7 @@ fn scale_pixel_helper(p1: f32, p2: f32) -> f32 {
 }
 
 fn scale_pixel_rgb(p1: &image::Rgb<f32>, p2: &image::Rgb<f32>) -> image::Rgb<f32> {
-    let mut result = p1.clone();
+    let mut result = *p1;
     for i in 0..3 {
         let c = scale_pixel_helper(p1[i as usize], p2[i as usize]);
         result[i as usize] = c;
@@ -367,7 +361,7 @@ fn scale_texture_float(
         let p1 = tex1.get_pixel(x, y);
         let p2 = tex2.get_pixel(x, y);
         let c = scale_pixel_float(p1, p2);
-        *pixel = c.into();
+        *pixel = c;
     }
     return image_buffer;
 }
@@ -381,7 +375,7 @@ fn scale_texture_rgb(
         let p1 = tex1.get_pixel(x, y);
         let p2 = tex2.get_pixel(x, y);
         let c = scale_pixel_rgb(p1, p2);
-        *pixel = c.into();
+        *pixel = c;
     }
     return image_buffer;
 }
@@ -391,8 +385,8 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
     let dim2 = tex2.dimensions();
     let dimf = (dim1.0.max(dim2.0), dim1.1.max(dim2.1));
 
-    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
-    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
+    let tex1 = resize_image(tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(tex2, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
@@ -407,12 +401,12 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
     if let (DynaImage::ImageRgb32F(tex1), DynaImage::ImageRgb32F(tex2)) =
         (tex1.as_ref(), tex2.as_ref())
     {
-        let image_buffer = scale_texture_rgb(&tex1, &tex2);
+        let image_buffer = scale_texture_rgb(tex1, tex2);
         return Some(DynaImage::ImageRgb32F(image_buffer));
     } else if let (DynaImage::ImageLuma32F(tex1), DynaImage::ImageLuma32F(tex2)) =
         (tex1.as_ref(), tex2.as_ref())
     {
-        let image_buffer = scale_texture_float(&tex1, &tex2);
+        let image_buffer = scale_texture_float(tex1, tex2);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
     return None;

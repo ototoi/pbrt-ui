@@ -139,7 +139,7 @@ fn safe_div(a: f32, b: f32) -> f32 {
     if a.abs() < 1e-6 && b.abs() < 1e-6 {
         0.0
     } else {
-        (a / b)
+        a / b
     }
 }
 
@@ -198,7 +198,7 @@ pub struct BrdfMicrofacetReflection;
 
 impl BrdfMicrofacetReflection {
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 }
 
@@ -246,13 +246,13 @@ impl Brdf for BrdfMicrofacetReflection {
 
         // Compute the BRDF value
         let d = distribution.d(&wh);
-        let g = distribution.g(&wo, &wi);
+        let g = distribution.g(wo, wi);
 
         // BRDF formula: f(wo, wi) = F * D * G / (4 * cos_theta_o * cos_theta_i)
         //let value = safe_div(d * g, 4.0 * cos_theta_o * cos_theta_i);
         let value = safe_div(d * g, 4.0 * cos_theta_o);
         // Compute PDF
-        let pdf = safe_div(distribution.pdf(&wo, &wh), 4.0 * v_dot_wh.abs());
+        let pdf = safe_div(distribution.pdf(wo, &wh), 4.0 * v_dot_wh.abs());
 
         (value, pdf)
     }
@@ -275,9 +275,9 @@ impl Brdf for BrdfMicrofacetReflection {
 
         // Reflect V about wh to get wi (L)
         // Standard reflection formula: wi = -V + 2(wh·V)wh
-        let wi = -(*V) + 2.0 * wh * wh.dot(*V);
+        
 
-        wi
+        -(*V) + 2.0 * wh * wh.dot(*V)
     }
 }
 

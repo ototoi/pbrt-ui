@@ -55,11 +55,10 @@ impl RenderHistory {
             let next_state = session.update()?;
             self.state = next_state;
 
-            if self.image_data.is_none() {
-                if let Some(image_data) = session.get_image_data() {
+            if self.image_data.is_none()
+                && let Some(image_data) = session.get_image_data() {
                     self.image_data = Some(image_data);
                 }
-            }
         }
 
         if self.state == RenderState::Finished {

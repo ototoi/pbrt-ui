@@ -40,7 +40,7 @@ impl LogPanel {
             });
         log::set_max_level(log::LevelFilter::Info);
 
-        Self { data: data }
+        Self { data }
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
@@ -48,7 +48,7 @@ impl LogPanel {
 
         let text_style = egui::TextStyle::Body;
         let row_height = ui.text_style_height(&text_style);
-        let size = text_style.resolve(&ui.style()).size;
+        let size = text_style.resolve(ui.style()).size;
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .stick_to_bottom(true)
@@ -69,7 +69,7 @@ impl LogPanel {
                     ui.horizontal(|ui| {
                         ui.label(level_text);
                         ui.label(":");
-                        ui.label(format!("{}", log.1));
+                        ui.label(log.1.to_string());
                     });
                 }
             });

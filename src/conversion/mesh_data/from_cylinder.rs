@@ -53,12 +53,12 @@ pub fn create_mesh_data_from_cylinder(shape: &Shape) -> Option<MeshData> {
             let i2 = ix1 + (iv + 1);
             let i3 = ix0 + (iv + 1);
 
-            indices.push(i0 as i32);
-            indices.push(i1 as i32);
-            indices.push(i2 as i32);
-            indices.push(i0 as i32);
-            indices.push(i2 as i32);
-            indices.push(i3 as i32);
+            indices.push(i0);
+            indices.push(i1);
+            indices.push(i2);
+            indices.push(i0);
+            indices.push(i2);
+            indices.push(i3);
         }
     }
 

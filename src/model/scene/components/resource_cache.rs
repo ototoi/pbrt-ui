@@ -12,6 +12,12 @@ pub struct ResourceCacheManager {
     pub textures: HashMap<Uuid, Arc<RwLock<TextureNode>>>,
 }
 
+impl Default for ResourceCacheManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceCacheManager {
     pub fn new() -> Self {
         Self {
@@ -23,6 +29,12 @@ impl ResourceCacheManager {
 #[derive(Debug, Clone)]
 pub struct ResourceCacheComponent {
     resource_cache_manager: Arc<RwLock<ResourceCacheManager>>,
+}
+
+impl Default for ResourceCacheComponent {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ResourceCacheComponent {

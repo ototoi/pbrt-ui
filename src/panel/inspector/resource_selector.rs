@@ -26,13 +26,13 @@ impl ResourceSelector {
             let texture = texture.read().unwrap();
             //let t = texture.get_type();
             let name = texture.get_name();
-            texture_items.push((id.clone(), name.clone(), name.clone()));
+            texture_items.push((*id, name.clone(), name.clone()));
         }
         texture_items.sort_by(|a, b| a.1.cmp(&b.1));
         for (id, material) in manager.materials.iter() {
             let material = material.read().unwrap();
             let name = material.get_name();
-            material_items.push((id.clone(), name.clone(), name.clone()));
+            material_items.push((*id, name.clone(), name.clone()));
         }
         material_items.sort_by(|a, b| a.1.cmp(&b.1));
         for (id, resource) in manager.other_resources.iter() {
@@ -40,12 +40,12 @@ impl ResourceSelector {
             if resource.get_type() == "spd" {
                 let name = resource.get_name().to_lowercase();
                 let filename = resource.get_filename().unwrap();
-                spd_items.push((id.clone(), name.clone(), filename.clone(), filename.clone()));
+                spd_items.push((*id, name.clone(), filename.clone(), filename.clone()));
             }
             if resource.get_type() == "bsdffile" {
                 let name = resource.get_name().to_lowercase();
                 let filename = resource.get_filename().unwrap();
-                bsdffile_items.push((id.clone(), name.clone(), filename.clone(), filename.clone()));
+                bsdffile_items.push((*id, name.clone(), filename.clone(), filename.clone()));
             }
         }
         spd_items.sort_by(|a, b| a.1.cmp(&b.1));
@@ -60,10 +60,10 @@ impl ResourceSelector {
             .collect();
 
         Self {
-            texture_items: texture_items,
-            material_items: material_items,
-            spd_items: spd_items,
-            bsdffile_items: bsdffile_items,
+            texture_items,
+            material_items,
+            spd_items,
+            bsdffile_items,
         }
     }
     //pub fn get_texture_items(&self) -> &[ResourceSelectionItem] {

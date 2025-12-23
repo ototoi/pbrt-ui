@@ -1,5 +1,4 @@
 use crate::model::base::Matrix4x4;
-use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 use crate::model::base::Vector3;
 use crate::model::scene::CameraComponent;
@@ -43,7 +42,7 @@ fn set_node_after_load(node: &Arc<RwLock<Node>>) {
             .map(|t| (t.read().unwrap().get_order(), t.clone()))
             .collect::<Vec<_>>();
         textures.sort_by(|a, b| a.0.cmp(&b.0));
-        if let Some(cache_component) = node.get_component::<ResourceCacheComponent>() {
+        if let Some(_cache_component) = node.get_component::<ResourceCacheComponent>() {
             /*
             let texture_cache_manager = cache_component.get_texture_cache_manager();
             let texture_cache_manager = texture_cache_manager.write().unwrap();
@@ -85,6 +84,12 @@ fn get_default_root_node() -> Arc<RwLock<Node>> {
     return root_node;
 }
 
+impl Default for AppController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppController {
     pub fn new() -> Self {
         let root_node = get_default_root_node();
@@ -111,11 +116,7 @@ impl AppController {
     }
 
     pub fn get_current_node_id(&self) -> Option<Uuid> {
-        if let Some(node) = &self.current_node {
-            Some(node.read().unwrap().get_id())
-        } else {
-            None
-        }
+        self.current_node.as_ref().map(|node| node.read().unwrap().get_id())
     }
 
     pub fn get_node_by_id(&self, id: Uuid) -> Option<Arc<RwLock<Node>>> {
@@ -133,11 +134,7 @@ impl AppController {
     }
 
     pub fn get_current_resource_id(&self) -> Option<Uuid> {
-        if let Some(resource) = &self.current_resource {
-            Some(resource.read().unwrap().get_id())
-        } else {
-            None
-        }
+        self.current_resource.as_ref().map(|resource| resource.read().unwrap().get_id())
     }
 
     pub fn set_current_resource(&mut self, resource: &Arc<RwLock<dyn ResourceObject>>) {

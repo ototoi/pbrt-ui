@@ -15,8 +15,8 @@ impl AnimationComponent {
     ) -> Self {
         AnimationComponent {
             transforms: [
-                (start_transform.clone(), start_time),
-                (end_transform.clone(), end_time),
+                (*start_transform, start_time),
+                (*end_transform, end_time),
             ],
         }
     }

@@ -26,7 +26,6 @@ pub fn read_float_file(path: &str) -> Result<Vec<f32>, PbrtError> {
                     }
                     return 0.0;
                 })
-                .map(|f| f as f32)
                 .collect();
             values.append(&mut vv);
         }

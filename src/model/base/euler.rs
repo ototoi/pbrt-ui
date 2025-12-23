@@ -8,7 +8,7 @@ impl Quaternion {
         let x = F::atan2(2.0 * (qw * qx + qy * qz), 1.0 - 2.0 * (qx * qx + qy * qy));
         let y = F::asin(2.0 * (qw * qy - qx * qz));
         let z = F::atan2(2.0 * (qz * qw + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz));
-        return (x as f32, y as f32, z as f32);
+        return (x, y, z);
     }
 
     pub fn from_euler_angles(x: f32, y: f32, z: f32) -> Self {
@@ -25,7 +25,7 @@ impl Quaternion {
         let qx = sx * cy * cz - cx * sy * sz;
         let qy = sx * cy * sz + cx * sy * cz;
         let qz = cx * cy * sz - sx * sy * cz;
-        let q = Quaternion::new(qx as f32, qy as f32, qz as f32, qw as f32);
+        let q = Quaternion::new(qx, qy, qz, qw);
         return q.normalize();
     }
 }

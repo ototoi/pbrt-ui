@@ -8,22 +8,22 @@ fn remove_microfaces(mesh_data: &mut MeshData) {
     // Remove microfaces by checking if the indices are valid
     let mut new_indices = Vec::new();
     for i in 0..mesh_data.indices.len() / 3 {
-        let idx0 = mesh_data.indices[3 * i + 0] as usize;
+        let idx0 = mesh_data.indices[3 * i ] as usize;
         let idx1 = mesh_data.indices[3 * i + 1] as usize;
         let idx2 = mesh_data.indices[3 * i + 2] as usize;
 
         let p0 = Vector3::new(
-            mesh_data.positions[3 * idx0 + 0],
+            mesh_data.positions[3 * idx0 ],
             mesh_data.positions[3 * idx0 + 1],
             mesh_data.positions[3 * idx0 + 2],
         );
         let p1 = Vector3::new(
-            mesh_data.positions[3 * idx1 + 0],
+            mesh_data.positions[3 * idx1 ],
             mesh_data.positions[3 * idx1 + 1],
             mesh_data.positions[3 * idx1 + 2],
         );
         let p2 = Vector3::new(
-            mesh_data.positions[3 * idx2 + 0],
+            mesh_data.positions[3 * idx2 ],
             mesh_data.positions[3 * idx2 + 1],
             mesh_data.positions[3 * idx2 + 2],
         );
@@ -53,22 +53,22 @@ fn heal_normals(mesh_data: &mut MeshData) {
     if mesh_data.normals.len() != num_vertices * 3 {
         let mut normals = vec![Vector3::zero(); num_vertices];
         for i in 0..mesh_data.indices.len() / 3 {
-            let idx0 = mesh_data.indices[3 * i + 0] as usize;
+            let idx0 = mesh_data.indices[3 * i ] as usize;
             let idx1 = mesh_data.indices[3 * i + 1] as usize;
             let idx2 = mesh_data.indices[3 * i + 2] as usize;
 
             let p0 = Vector3::new(
-                mesh_data.positions[3 * idx0 + 0],
+                mesh_data.positions[3 * idx0 ],
                 mesh_data.positions[3 * idx0 + 1],
                 mesh_data.positions[3 * idx0 + 2],
             );
             let p1 = Vector3::new(
-                mesh_data.positions[3 * idx1 + 0],
+                mesh_data.positions[3 * idx1 ],
                 mesh_data.positions[3 * idx1 + 1],
                 mesh_data.positions[3 * idx1 + 2],
             );
             let p2 = Vector3::new(
-                mesh_data.positions[3 * idx2 + 0],
+                mesh_data.positions[3 * idx2 ],
                 mesh_data.positions[3 * idx2 + 1],
                 mesh_data.positions[3 * idx2 + 2],
             );
@@ -100,7 +100,7 @@ fn heal_normals(mesh_data: &mut MeshData) {
                 //println!("Warning: Normal for vertex {} is zero, setting to default (0.0, 1.0, 0.0)", i);
             }
             let normal = normals[i].normalize();
-            mesh_data.normals[idx + 0] = normal.x;
+            mesh_data.normals[idx] = normal.x;
             mesh_data.normals[idx + 1] = normal.y;
             mesh_data.normals[idx + 2] = normal.z;
         }
@@ -114,7 +114,7 @@ fn heal_uvs(mesh_data: &mut MeshData) {
         mesh_data.uvs.resize(num_vertices * 2, 0.0);
         for i in 0..num_vertices {
             let idx = 2 * i;
-            mesh_data.uvs[idx + 0] = -1.0; // Default U
+            mesh_data.uvs[idx] = -1.0; // Default U
             mesh_data.uvs[idx + 1] = -1.0; // Default V
         }
         /*
@@ -143,8 +143,8 @@ fn heal_uvs(mesh_data: &mut MeshData) {
         */
         for i in 0..num_vertices {
             let idx = 2 * i;
-            if mesh_data.uvs[idx + 0] < 0.0 {
-                mesh_data.uvs[idx + 0] = 0.0; // Default U
+            if mesh_data.uvs[idx] < 0.0 {
+                mesh_data.uvs[idx] = 0.0; // Default U
             }
             if mesh_data.uvs[idx + 1] < 0.0 {
                 mesh_data.uvs[idx + 1] = 0.0; // Default V
@@ -223,7 +223,7 @@ fn heal_tangents(mesh_data: &mut MeshData) {
             let mut tangents = vec![Vector3::zero(); num_vertices];
             for i in 0..num_vertices {
                 let n = Vector3::new(
-                    mesh_data.normals[3 * i + 0],
+                    mesh_data.normals[3 * i ],
                     mesh_data.normals[3 * i + 1],
                     mesh_data.normals[3 * i + 2],
                 );
@@ -240,7 +240,7 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                     tangents[i] = tangents[i].normalize();
                 }
                 let idx = 3 * i;
-                mesh_data.tangents[idx + 0] = tangents[i].x;
+                mesh_data.tangents[idx] = tangents[i].x;
                 mesh_data.tangents[idx + 1] = tangents[i].y;
                 mesh_data.tangents[idx + 2] = tangents[i].z;
             }
@@ -250,29 +250,29 @@ fn heal_tangents(mesh_data: &mut MeshData) {
             let mut face_tangents = vec![Vector3::zero(); num_faces];
             let mut ref_indices = vec![Vec::new(); num_vertices];
             for i in 0..num_faces {
-                let idx0 = mesh_data.indices[3 * i + 0] as usize;
+                let idx0 = mesh_data.indices[3 * i ] as usize;
                 let idx1 = mesh_data.indices[3 * i + 1] as usize;
                 let idx2 = mesh_data.indices[3 * i + 2] as usize;
 
                 let p0 = Vector3::new(
-                    mesh_data.positions[3 * idx0 + 0],
+                    mesh_data.positions[3 * idx0 ],
                     mesh_data.positions[3 * idx0 + 1],
                     mesh_data.positions[3 * idx0 + 2],
                 );
                 let p1 = Vector3::new(
-                    mesh_data.positions[3 * idx1 + 0],
+                    mesh_data.positions[3 * idx1 ],
                     mesh_data.positions[3 * idx1 + 1],
                     mesh_data.positions[3 * idx1 + 2],
                 );
                 let p2 = Vector3::new(
-                    mesh_data.positions[3 * idx2 + 0],
+                    mesh_data.positions[3 * idx2 ],
                     mesh_data.positions[3 * idx2 + 1],
                     mesh_data.positions[3 * idx2 + 2],
                 );
 
-                let uv0 = Vector2::new(mesh_data.uvs[2 * idx0 + 0], mesh_data.uvs[2 * idx0 + 1]);
-                let uv1 = Vector2::new(mesh_data.uvs[2 * idx1 + 0], mesh_data.uvs[2 * idx1 + 1]);
-                let uv2 = Vector2::new(mesh_data.uvs[2 * idx2 + 0], mesh_data.uvs[2 * idx2 + 1]);
+                let uv0 = Vector2::new(mesh_data.uvs[2 * idx0 ], mesh_data.uvs[2 * idx0 + 1]);
+                let uv1 = Vector2::new(mesh_data.uvs[2 * idx1 ], mesh_data.uvs[2 * idx1 + 1]);
+                let uv2 = Vector2::new(mesh_data.uvs[2 * idx2 ], mesh_data.uvs[2 * idx2 + 1]);
 
                 let duv02 = uv0 - uv2;
                 let duv12 = uv1 - uv2;
@@ -372,7 +372,7 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                         tangents[i] = tangents[i].normalize();
                     }
                     let idx = i * 3;
-                    mesh_data.tangents[idx + 0] = tangents[i].x;
+                    mesh_data.tangents[idx] = tangents[i].x;
                     mesh_data.tangents[idx + 1] = tangents[i].y;
                     mesh_data.tangents[idx + 2] = tangents[i].z;
                 }
@@ -385,56 +385,56 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                 };
                 for i in 0..num_vertices {
                     let idx = 3 * i;
-                    new_positions[idx + 0] = mesh_data.positions[idx + 0];
+                    new_positions[idx] = mesh_data.positions[idx];
                     new_positions[idx + 1] = mesh_data.positions[idx + 1];
                     new_positions[idx + 2] = mesh_data.positions[idx + 2];
-                    new_normals[idx + 0] = mesh_data.normals[idx + 0];
+                    new_normals[idx] = mesh_data.normals[idx];
                     new_normals[idx + 1] = mesh_data.normals[idx + 1];
                     new_normals[idx + 2] = mesh_data.normals[idx + 2];
                     if let Some(ref mut uvs) = new_uvs {
-                        uvs[2 * i + 0] = mesh_data.uvs[2 * i + 0];
+                        uvs[2 * i ] = mesh_data.uvs[2 * i ];
                         uvs[2 * i + 1] = mesh_data.uvs[2 * i + 1];
                     }
                 }
                 for i in 0..num_faces {
-                    let idx0 = mesh_data.indices[3 * i + 0] as usize;
+                    let idx0 = mesh_data.indices[3 * i ] as usize;
                     let idx1 = mesh_data.indices[3 * i + 1] as usize;
                     let idx2 = mesh_data.indices[3 * i + 2] as usize;
                     if let Some(new_idx) = indices_map.get(&(3 * i)) {
-                        new_positions[3 * new_idx + 0] = mesh_data.positions[3 * idx0 + 0];
+                        new_positions[3 * new_idx ] = mesh_data.positions[3 * idx0 ];
                         new_positions[3 * new_idx + 1] = mesh_data.positions[3 * idx0 + 1];
                         new_positions[3 * new_idx + 2] = mesh_data.positions[3 * idx0 + 2];
-                        new_normals[3 * new_idx + 0] = mesh_data.normals[3 * idx0 + 0];
+                        new_normals[3 * new_idx ] = mesh_data.normals[3 * idx0 ];
                         new_normals[3 * new_idx + 1] = mesh_data.normals[3 * idx0 + 1];
                         new_normals[3 * new_idx + 2] = mesh_data.normals[3 * idx0 + 2];
                         if let Some(ref mut uvs) = new_uvs {
-                            uvs[2 * new_idx + 0] = mesh_data.uvs[2 * idx0 + 0];
+                            uvs[2 * new_idx ] = mesh_data.uvs[2 * idx0 ];
                             uvs[2 * new_idx + 1] = mesh_data.uvs[2 * idx0 + 1];
                         }
-                        mesh_data.indices[3 * i + 0] = *new_idx as i32;
+                        mesh_data.indices[3 * i ] = *new_idx as i32;
                     }
                     if let Some(new_idx) = indices_map.get(&(3 * i + 1)) {
-                        new_positions[3 * new_idx + 0] = mesh_data.positions[3 * idx1 + 0];
+                        new_positions[3 * new_idx ] = mesh_data.positions[3 * idx1 ];
                         new_positions[3 * new_idx + 1] = mesh_data.positions[3 * idx1 + 1];
                         new_positions[3 * new_idx + 2] = mesh_data.positions[3 * idx1 + 2];
-                        new_normals[3 * new_idx + 0] = mesh_data.normals[3 * idx1 + 0];
+                        new_normals[3 * new_idx ] = mesh_data.normals[3 * idx1 ];
                         new_normals[3 * new_idx + 1] = mesh_data.normals[3 * idx1 + 1];
                         new_normals[3 * new_idx + 2] = mesh_data.normals[3 * idx1 + 2];
                         if let Some(ref mut uvs) = new_uvs {
-                            uvs[2 * new_idx + 0] = mesh_data.uvs[2 * idx1 + 0];
+                            uvs[2 * new_idx ] = mesh_data.uvs[2 * idx1 ];
                             uvs[2 * new_idx + 1] = mesh_data.uvs[2 * idx1 + 1];
                         }
                         mesh_data.indices[3 * i + 1] = *new_idx as i32;
                     }
                     if let Some(new_idx) = indices_map.get(&(3 * i + 2)) {
-                        new_positions[3 * new_idx + 0] = mesh_data.positions[3 * idx2 + 0];
+                        new_positions[3 * new_idx ] = mesh_data.positions[3 * idx2 ];
                         new_positions[3 * new_idx + 1] = mesh_data.positions[3 * idx2 + 1];
                         new_positions[3 * new_idx + 2] = mesh_data.positions[3 * idx2 + 2];
-                        new_normals[3 * new_idx + 0] = mesh_data.normals[3 * idx2 + 0];
+                        new_normals[3 * new_idx ] = mesh_data.normals[3 * idx2 ];
                         new_normals[3 * new_idx + 1] = mesh_data.normals[3 * idx2 + 1];
                         new_normals[3 * new_idx + 2] = mesh_data.normals[3 * idx2 + 2];
                         if let Some(ref mut uvs) = new_uvs {
-                            uvs[2 * new_idx + 0] = mesh_data.uvs[2 * idx2 + 0];
+                            uvs[2 * new_idx ] = mesh_data.uvs[2 * idx2 ];
                             uvs[2 * new_idx + 1] = mesh_data.uvs[2 * idx2 + 1];
                         }
                         mesh_data.indices[3 * i + 2] = *new_idx as i32;
@@ -449,7 +449,7 @@ fn heal_tangents(mesh_data: &mut MeshData) {
             } else {
                 let mut tangents = vec![Vector3::zero(); num_vertices];
                 for i in 0..num_faces {
-                    let idx0 = mesh_data.indices[3 * i + 0] as usize;
+                    let idx0 = mesh_data.indices[3 * i ] as usize;
                     let idx1 = mesh_data.indices[3 * i + 1] as usize;
                     let idx2 = mesh_data.indices[3 * i + 2] as usize;
                     let tangent = face_tangents[i];
@@ -467,7 +467,7 @@ fn heal_tangents(mesh_data: &mut MeshData) {
                         tangents[i] = tangents[i].normalize();
                     }
                     let idx = 3 * i;
-                    mesh_data.tangents[idx + 0] = tangents[i].x;
+                    mesh_data.tangents[idx] = tangents[i].x;
                     mesh_data.tangents[idx + 1] = tangents[i].y;
                     mesh_data.tangents[idx + 2] = tangents[i].z;
                 }
@@ -476,16 +476,16 @@ fn heal_tangents(mesh_data: &mut MeshData) {
 
         for i in 0..num_vertices {
             let idx = 3 * i;
-            let x = mesh_data.tangents[idx + 0];
+            let x = mesh_data.tangents[idx];
             let y = mesh_data.tangents[idx + 1];
             let z = mesh_data.tangents[idx + 2];
             let length = f32::sqrt(x * x + y * y + z * z);
             if length < 1e-8 {
-                mesh_data.tangents[idx + 0] = 1.0;
+                mesh_data.tangents[idx] = 1.0;
                 mesh_data.tangents[idx + 1] = 0.0;
                 mesh_data.tangents[idx + 2] = 0.0;
             } else {
-                mesh_data.tangents[idx + 0] = x / length;
+                mesh_data.tangents[idx] = x / length;
                 mesh_data.tangents[idx + 1] = y / length;
                 mesh_data.tangents[idx + 2] = z / length;
             }

@@ -92,19 +92,19 @@ fn remove_comment_result(s: &str) -> Result<String, Error> {
             return Ok(s);
         }
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            return Err(Error::other(e.to_string()));
         }
     }
 }
 
 fn parse_tokens(s: &str) -> Result<Vec<String>, Error> {
-    let r = nom::combinator::all_consuming(nom::multi::many0(parse_one))(&s);
+    let r = nom::combinator::all_consuming(nom::multi::many0(parse_one))(s);
     match r {
         Ok((_, vs)) => {
             return Ok(vs);
         }
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            return Err(Error::other(e.to_string()));
         }
     }
 }
@@ -197,7 +197,7 @@ pub fn parse_params(s: &str) -> IResult<&str, String> {
         )),
     )(s)?;
     let mut ss = String::new();
-    if v.len() > 0 {
+    if !v.is_empty() {
         for (key, value) in v {
             let sv = value.join(" ");
             ss += &format!("|\"{}\" [{}]", key, sv);

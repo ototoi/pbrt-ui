@@ -181,7 +181,7 @@ fn create_reader(filanme: &str) -> Result<Box<dyn BufRead>> {
 }
 
 pub fn load_from_ply(filename: &str) -> Result<MeshData> {
-    let mut reader = create_reader(&filename)?;
+    let mut reader = create_reader(filename)?;
     let vertex_parser = parser::Parser::<Vertex>::new();
     let face_parser = parser::Parser::<Face>::new();
     let header = vertex_parser.read_header(&mut reader).unwrap();

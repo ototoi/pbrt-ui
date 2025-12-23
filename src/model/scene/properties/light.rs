@@ -60,6 +60,6 @@ impl LightProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| LightProperties::new());
+        return LazyCell::new(LightProperties::new);
     }
 }

@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use super::vector3::Vector3;
 
 #[derive(Clone, Copy, PartialEq)]

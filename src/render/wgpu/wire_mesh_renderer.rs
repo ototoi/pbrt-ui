@@ -142,8 +142,8 @@ impl WireMeshRenderer {
         render_pass: &mut wgpu::RenderPass<'static>,
         resources: &egui_wgpu::CallbackResources,
     ) {
-        if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            if !per_frame_resources.render_items.is_empty() {
+        if let Some(per_frame_resources) = resources.get::<PerFrameResources>()
+            && !per_frame_resources.render_items.is_empty() {
                 let local_uniform_alignment = self.local_uniform_alignment;
                 render_pass.set_pipeline(&self.pipeline); //
                 render_pass.set_bind_group(0, &self.global_bind_group, &[]);
@@ -166,7 +166,6 @@ impl WireMeshRenderer {
                     }
                 }
             }
-        }
     }
 }
 
@@ -249,7 +248,7 @@ impl WireMeshRenderer {
                 targets: &[Some(target_format.into())],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: primitive,
+            primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,

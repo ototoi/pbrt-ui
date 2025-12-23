@@ -60,6 +60,6 @@ impl IntegratorProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| IntegratorProperties::new());
+        return LazyCell::new(IntegratorProperties::new);
     }
 }

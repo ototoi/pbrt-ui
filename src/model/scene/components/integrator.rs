@@ -10,7 +10,7 @@ impl IntegratorComponent {
     pub fn new(t: &str, props: &PropertyMap) -> Self {
         let mut props = props.clone();
         props.insert("string type", Property::from(t));
-        IntegratorComponent { props: props }
+        IntegratorComponent { props }
     }
     pub fn get_keys(&self) -> Vec<(String, String)> {
         let keys = self.props.get_keys();

@@ -88,9 +88,9 @@ pub fn generate_ltc_array_code(
             let idx = i + j * width;
             // Writing to a String cannot fail, so unwrap is safe
             let v = data[idx];
-            let _ = write!(
+            let _ = writeln!(
                 &mut code,
-                "    {:>9.6}, {:>9.6}, {:>9.6}, {:>9.6}, // [{:>2}, {:>2}]\n",
+                "    {:>9.6}, {:>9.6}, {:>9.6}, {:>9.6}, // [{:>2}, {:>2}]",
                 v.x, v.y, v.z, v.w, i, j
             );
         }

@@ -64,7 +64,7 @@ fn create_image_variants_for_nodes(
     resource_manager: &ResourceManager,
     size_type: TextureSizeType,
 ) {
-    let ordered_nodes = sort_texture_nodes_by_dependency(&texture_nodes);
+    let ordered_nodes = sort_texture_nodes_by_dependency(texture_nodes);
     /*
     println!("Creating image variants for size_type: {:?}", size_type);
     for (i, node) in texture_nodes.iter().enumerate() {

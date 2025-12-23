@@ -45,12 +45,12 @@ impl TextureNode {
         {
             let mut from = from.write().unwrap();
             let id = to.read().unwrap().id;
-            from.outputs.insert(id, Arc::downgrade(&to));
+            from.outputs.insert(id, Arc::downgrade(to));
         }
         {
             let mut to = to.write().unwrap();
             to.inputs
-                .insert(key.to_string(), Some(Arc::downgrade(&from)));
+                .insert(key.to_string(), Some(Arc::downgrade(from)));
         }
     }
 }

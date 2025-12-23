@@ -123,7 +123,7 @@ impl RenderSession {
         }
         return Ok(Self {
             state: RenderState::Saving,
-            tasks: tasks,
+            tasks,
             receiver: image_receiver,
         });
     }

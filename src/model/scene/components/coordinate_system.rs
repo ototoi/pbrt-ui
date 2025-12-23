@@ -8,7 +8,7 @@ pub struct CoordinateSystemComponent {
 
 impl CoordinateSystemComponent {
     pub fn new(up: &Vector3) -> Self {
-        let up = up.clone();
+        let up = *up;
         CoordinateSystemComponent { up }
     }
     pub fn get_up_vector(&self) -> Vector3 {

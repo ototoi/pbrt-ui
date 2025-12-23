@@ -139,6 +139,6 @@ impl MaterialProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| MaterialProperties::new());
+        return LazyCell::new(MaterialProperties::new);
     }
 }

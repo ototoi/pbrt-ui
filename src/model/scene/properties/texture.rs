@@ -57,7 +57,7 @@ impl TextureProperties {
             .collect();
         let mut names: Vec<String> = vec![];
         for (name, _) in props.iter() {
-            if !names.contains(&name) {
+            if !names.contains(name) {
                 names.push(name.clone());
             }
         }
@@ -76,6 +76,6 @@ impl TextureProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| TextureProperties::new());
+        return LazyCell::new(TextureProperties::new);
     }
 }
