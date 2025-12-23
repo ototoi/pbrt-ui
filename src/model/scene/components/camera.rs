@@ -10,7 +10,7 @@ impl CameraComponent {
     pub fn new(t: &str, props: &PropertyMap) -> Self {
         let mut props = props.clone();
         props.insert("string type", Property::from(t));
-        CameraComponent { props: props }
+        CameraComponent { props }
     }
 }
 

@@ -117,6 +117,12 @@ pub struct RenderResourceComponent {
     pub resource_manager: Arc<RwLock<RenderResourceManager>>,
 }
 
+impl Default for RenderResourceComponent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RenderResourceComponent {
     pub fn new() -> Self {
         Self {

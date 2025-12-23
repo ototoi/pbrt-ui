@@ -67,17 +67,17 @@ impl DynaImage {
         nheight: u32,
         filter: imageops::FilterType,
     ) -> DynaImage {
-        return self.resize(nwidth, nheight, filter);
+        self.resize(nwidth, nheight, filter)
     }
 
     pub fn to_rgb8(&self) -> image::RgbImage {
         match self {
             DynaImage::ImageLuma8(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb8(img) => img.clone(),
             DynaImage::ImageLuma32F(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb32F(img) => {
                 let width = img.width();
@@ -94,7 +94,7 @@ impl DynaImage {
                         ]),
                     );
                 }
-                return result_image;
+                result_image
             }
         }
     }
@@ -102,16 +102,16 @@ impl DynaImage {
     pub fn to_rgba8(&self) -> image::RgbaImage {
         match self {
             DynaImage::ImageLuma8(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb8(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageLuma32F(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb32F(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
         }
     }
@@ -119,7 +119,7 @@ impl DynaImage {
     pub fn to_rgb32f(&self) -> image::Rgb32FImage {
         match self {
             DynaImage::ImageLuma8(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb8(img) => {
                 let mut result_image = image::ImageBuffer::new(img.width(), img.height());
@@ -134,10 +134,10 @@ impl DynaImage {
                         ]),
                     );
                 }
-                return result_image;
+                result_image
             }
             DynaImage::ImageLuma32F(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb32F(img) => img.clone(),
         }
@@ -146,16 +146,16 @@ impl DynaImage {
     pub fn to_rgba32f(&self) -> image::Rgba32FImage {
         match self {
             DynaImage::ImageLuma8(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb8(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageLuma32F(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
             DynaImage::ImageRgb32F(img) => {
-                return img.clone().convert();
+                img.clone().convert()
             }
         }
     }

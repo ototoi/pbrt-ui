@@ -4,9 +4,9 @@ use crate::model::scene::Light;
 
 fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
     let mut points = Vec::new();
-    let xx = ((axis + 1) % 3) as usize;
-    let yy = ((axis + 2) % 3) as usize;
-    let zz = axis as usize;
+    let xx = (axis + 1) % 3 ;
+    let yy = (axis + 2) % 3 ;
+    let zz = axis;
     for i in 0..=div {
         let angle = (i as f32 / div as f32) * std::f32::consts::PI * 2.0;
         let x = angle.cos();
@@ -17,10 +17,10 @@ fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
         point[yy] = y;
         points.push(Vector3::new(point[0], point[1], point[2]));
     }
-    return points;
+    points
 }
 
-pub fn create_light_shape_from_point(light: &Light) -> Option<LightShape> {
+pub fn create_light_shape_from_point(_light: &Light) -> Option<LightShape> {
     let axis_x = vec![Vector3::new(-1.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)];
     let axis_y = vec![Vector3::new(0.0, -1.0, 0.0), Vector3::new(0.0, 1.0, 0.0)];
     let axis_z = vec![Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, 0.0, 1.0)];
@@ -38,5 +38,5 @@ pub fn create_light_shape_from_point(light: &Light) -> Option<LightShape> {
     lines.push(circle_z);
 
     let light_shape = LightShape { lines };
-    return Some(light_shape);
+    Some(light_shape)
 }

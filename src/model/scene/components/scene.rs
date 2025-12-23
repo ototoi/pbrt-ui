@@ -9,7 +9,7 @@ pub struct SceneComponent {
 impl SceneComponent {
     pub fn new(props: &PropertyMap) -> Self {
         let props = props.clone();
-        SceneComponent { props: props }
+        SceneComponent { props }
     }
 
     pub fn get_filename(&self) -> Option<String> {

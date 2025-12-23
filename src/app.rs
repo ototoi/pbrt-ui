@@ -1,5 +1,4 @@
 use crate::controller::AppController;
-use crate::io::export;
 use crate::io::export::pbrt::*;
 use crate::io::import::pbrt::*;
 use crate::model::scene::SceneComponent;
@@ -56,7 +55,7 @@ impl PbrtUIApp {
             let fullpath = scene.get_fullpath();
             return fullpath;
         }
-        return None;
+        None
     }
 }
 
@@ -97,8 +96,8 @@ impl PbrtUIApp {
                     dialog = dialog.set_directory(import_directory);
                 }
 
-                if let Some(path) = dialog.pick_file() {
-                    if path.exists() {
+                if let Some(path) = dialog.pick_file()
+                    && path.exists() {
                         if let Some(parent) = path.parent() {
                             let mut config = config.write().unwrap();
                             config.import_file_directory = parent.to_str().unwrap().to_string();
@@ -106,7 +105,6 @@ impl PbrtUIApp {
                         let path = path.to_str().unwrap().to_string();
                         commands.push(MenuCommand::Import(path));
                     }
-                }
                 ui.close_kind(UiKind::Menu);
             }
             if ui.button("Export").clicked() {
@@ -127,12 +125,11 @@ impl PbrtUIApp {
                 }
 
                 if let Some(path) = dialog.save_file() {
-                    if let Some(parent) = path.parent() {
-                        if parent.exists() {
+                    if let Some(parent) = path.parent()
+                        && parent.exists() {
                             let mut config = config.write().unwrap();
                             config.export_file_directory = parent.to_str().unwrap().to_string();
                         }
-                    }
 
                     let path = path.to_str().unwrap().to_string();
                     commands.push(MenuCommand::Export(path));
@@ -159,7 +156,7 @@ impl PbrtUIApp {
         });
 
         if let Some(msg) = self.opening_modal.as_mut() {
-            let modal = egui::Modal::new(egui::Id::new(&msg)).show(ctx, |ui| {
+            let modal = egui::Modal::new(egui::Id::new(msg)).show(ctx, |ui| {
                 ui.heading("Quit");
                 ui.separator();
                 ui.label("Are you sure you want to quit?");
@@ -186,7 +183,7 @@ impl PbrtUIApp {
         for command in commands.iter() {
             match command {
                 MenuCommand::Import(path) => {
-                    match load_pbrt(&path) {
+                    match load_pbrt(path) {
                         Ok(node) => {
                             // Handle successful load
                             let controller = self.controller.clone();
@@ -194,12 +191,11 @@ impl PbrtUIApp {
                             controller.set_root_node(&node);
                             {
                                 let node = node.read().unwrap();
-                                if let Some(scene) = node.get_component::<SceneComponent>() {
-                                    if let Some(fullpath) = scene.get_fullpath() {
+                                if let Some(scene) = node.get_component::<SceneComponent>()
+                                    && let Some(fullpath) = scene.get_fullpath() {
                                         let title = format!("PBRT UI - {}", fullpath);
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
                                     }
-                                }
                             }
                             log::info!("Loaded PBRT file: {}", path);
                         }

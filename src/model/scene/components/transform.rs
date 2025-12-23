@@ -57,7 +57,7 @@ impl TransformComponent {
             rotation[2].to_radians(),
         );
         let scale = Vector3::new(scale[0], scale[1], scale[2]);
-        return (position, rotation, scale);
+        (position, rotation, scale)
     }
 
     pub fn get_local_matrix(&self) -> Matrix4x4 {
@@ -66,20 +66,20 @@ impl TransformComponent {
         let t = Matrix4x4::translate(position.x, position.y, position.z);
         let r = rotation.to_matrix();
         let s = Matrix4x4::scale(scale.x, scale.y, scale.z);
-        return t * r * s;
+        t * r * s
     }
 
     pub fn is_identity(&self) -> bool {
         let position = self.props.get_floats("float position");
         let rotation = self.props.get_floats("float rotation");
         let scale = self.props.get_floats("float scale");
-        return position == vec![0.0, 0.0, 0.0]
+        position == vec![0.0, 0.0, 0.0]
             && rotation == vec![0.0, 0.0, 0.0]
-            && scale == vec![1.0, 1.0, 1.0];
+            && scale == vec![1.0, 1.0, 1.0]
     }
 
     pub fn get_keys(&self) -> Vec<(String, String)> {
-        return self.props.get_keys();
+        self.props.get_keys()
     }
 }
 

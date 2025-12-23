@@ -2,7 +2,8 @@ use super::matrix4x4::Matrix4x4;
 
 impl Matrix4x4 {
     pub fn to_clip(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> Matrix4x4 {
-        let m = Matrix4x4::new(
+        
+        Matrix4x4::new(
             (2.0 * n) / (r - l),
             0.0,
             -(r + l) / (r - l),
@@ -19,8 +20,7 @@ impl Matrix4x4 {
             0.0,
             1.0,
             0.0,
-        );
-        return m;
+        )
     }
 
     // hint:
@@ -38,7 +38,7 @@ impl Matrix4x4 {
         let r = w * n;
         let b = -h * n;
         let t = h * n;
-        return Self::to_clip(l, r, b, t, n, f);
+        Self::to_clip(l, r, b, t, n, f)
     }
 
     // This matrix converts OpenGL clip space to WGPU clip space

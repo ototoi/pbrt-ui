@@ -7,9 +7,9 @@ use std::sync::Arc;
 #[inline]
 pub fn gamma_correct(value: f32) -> f32 {
     if value <= 0.0031308 {
-        return 12.92 * value;
+        12.92 * value
     } else {
-        return 1.055 * f32::powf(value, 1.0 / 2.4) - 0.055;
+        1.055 * f32::powf(value, 1.0 / 2.4) - 0.055
     }
 }
 /*
@@ -29,13 +29,13 @@ fn to_byte(a: f32) -> u8 {
 }
 
 fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
-    let width = render_image.width as usize;
-    let height = render_image.height as usize;
+    let width = render_image.width;
+    let height = render_image.height;
     let mut pixels: Vec<egui::Color32> = Vec::with_capacity(width * height);
     for y in 0..height {
         for x in 0..width {
             let index = y * width + x;
-            let r = render_image.data[3 * index + 0];
+            let r = render_image.data[3 * index ];
             let g = render_image.data[3 * index + 1];
             let b = render_image.data[3 * index + 2];
             let pixel = egui::Color32::from_rgb(to_byte(r), to_byte(g), to_byte(b));
@@ -49,12 +49,12 @@ fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
     };
     let image = egui::ImageData::Color(Arc::new(image));
     let options = egui::TextureOptions::LINEAR;
-    let delta = egui::epaint::ImageDelta {
+    
+    egui::epaint::ImageDelta {
         image,
         options,
         pos: None,
-    };
-    return delta;
+    }
 }
 
 fn show_render_view(ui: &mut egui::Ui, history: &mut RenderHistory) {

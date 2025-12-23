@@ -55,11 +55,11 @@ impl RenderLines {
             contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        return Some(RenderLines {
+        Some(RenderLines {
             id,
             edition: edition.to_string(),
             vertex_buffer,
             vertex_count,
-        });
+        })
     }
 }

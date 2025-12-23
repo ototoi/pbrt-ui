@@ -7,16 +7,16 @@ pub struct BrdfGGX;
 
 impl BrdfGGX {
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 }
 
 fn lambda(alpha: f32, cosTheta: f32) -> f32 {
     if cosTheta < 1.0 {
         let a = 1.0 / (alpha * cosTheta.acos().tan());
-        return 0.5 * (-1.0 + (1.0 + 1.0 / (a * a)).sqrt());
+        0.5 * (-1.0 + (1.0 + 1.0 / (a * a)).sqrt())
     } else {
-        return 0.0;
+        0.0
     }
 }
 
@@ -51,8 +51,8 @@ impl Brdf for BrdfGGX {
         let phi = 2.0 * std::f32::consts::PI * U1;
         let r = alpha * (U2 / (1.0 - U2)).sqrt();
         let N = glam::Vec3::new(r * phi.cos(), r * phi.sin(), 1.0).normalize();
-        let L = -(*V) + 2.0 * N * N.dot(*V);
-        L
+        
+        -(*V) + 2.0 * N * N.dot(*V)
     }
 }
 

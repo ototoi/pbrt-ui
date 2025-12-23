@@ -7,15 +7,14 @@ pub struct SamplerComponent {
 }
 
 fn replace_properties(props: &mut PropertyMap) {
-    if let Some(prop) = props.get_mut("string type") {
-        if let Property::Strings(v) = prop {
-            assert!(v.len() >= 1);
+    if let Some(prop) = props.get_mut("string type")
+        && let Property::Strings(v) = prop {
+            assert!(!v.is_empty());
             if v[0] == "02sequence" {
                 v[0] = "lowdiscrepancy".to_string();
                 log::warn!("Replaced 02sequence with lowdiscrepancy");
             }
         }
-    }
 }
 
 impl SamplerComponent {
@@ -23,11 +22,11 @@ impl SamplerComponent {
         let mut props = props.clone();
         props.insert("string type", Property::from(t));
         replace_properties(&mut props);
-        SamplerComponent { props: props }
+        SamplerComponent { props }
     }
     pub fn get_keys(&self) -> Vec<(String, String)> {
-        let keys = self.props.get_keys();
-        return keys;
+        
+        self.props.get_keys()
     }
 }
 

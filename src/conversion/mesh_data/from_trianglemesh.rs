@@ -4,8 +4,8 @@ use crate::model::scene::Shape;
 pub fn create_mesh_data_from_trianglemesh(shape: &Shape) -> Option<MeshData> {
     let mesh_type = shape.get_type();
     assert!(mesh_type == "trianglemesh", "Mesh type is not trianglemesh");
-    if let Some(indices) = shape.get_indices() {
-        if let Some(positions) = shape.get_positions() {
+    if let Some(indices) = shape.get_indices()
+        && let Some(positions) = shape.get_positions() {
             let indices = indices.to_vec();
             let positions = positions.to_vec();
             let normals: Vec<f32> = Vec::new();
@@ -15,14 +15,13 @@ pub fn create_mesh_data_from_trianglemesh(shape: &Shape) -> Option<MeshData> {
                 uvs = v.to_vec();
             }
             let mesh_data = MeshData {
-                indices: indices,
-                positions: positions,
+                indices,
+                positions,
                 tangents: s,
-                normals: normals,
-                uvs: uvs,
+                normals,
+                uvs,
             };
             return Some(mesh_data);
         }
-    }
-    return None;
+    None
 }

@@ -21,18 +21,18 @@ pub fn read_file_with_include(path: &str) -> Result<String, Error> {
         ss += &print_work_dir_begin(&dirs);
         ss += &read_file_with_include_core(path.as_path(), &mut dirs)?;
         ss += &print_work_dir_end();
-        return Ok(ss);
+        Ok(ss)
     } else {
-        return Err(Error::from(ErrorKind::NotFound));
+        Err(Error::from(ErrorKind::NotFound))
     }
 }
 
 pub fn read_file_without_include(path: &str) -> Result<String, Error> {
     let path = Path::new(path);
     if path.exists() {
-        return read_file_without_include_core(path);
+        read_file_without_include_core(path)
     } else {
-        return Err(Error::from(ErrorKind::NotFound));
+        Err(Error::from(ErrorKind::NotFound))
     }
 }
 
@@ -47,21 +47,21 @@ fn read_to_string(path: &Path) -> Result<String, Error> {
         let mut reader = flate2::read::GzDecoder::new(reader);
         let mut s = String::new();
         reader.read_to_string(&mut s)?;
-        return Ok(s);
+        Ok(s)
     } else {
         let s = fs::read_to_string(path)?;
-        return Ok(s);
+        Ok(s)
     }
 }
 
 fn read_file_with_include_core(path: &Path, dirs: &mut Vec<PathBuf>) -> Result<String, Error> {
     let s = read_to_string(path)?;
-    return evaluate_include(&s, dirs);
+    evaluate_include(&s, dirs)
 }
 
 pub fn read_file_without_include_core(path: &Path) -> Result<String, Error> {
     let s = read_to_string(path)?;
-    return remove_comment_result(&s);
+    remove_comment_result(&s)
 }
 
 fn get_next_path(filename: &Path, dirs: &[PathBuf]) -> Option<PathBuf> {
@@ -72,39 +72,39 @@ fn get_next_path(filename: &Path, dirs: &[PathBuf]) -> Option<PathBuf> {
             return Some(path);
         }
     }
-    return None;
+    None
 }
 
 fn print_work_dir_begin(dirs: &[PathBuf]) -> String {
     let path = &dirs[dirs.len() - 1];
     let path = path.as_path().to_str().unwrap();
-    return format!("WorkDirBegin \"{}\"\n", path);
+    format!("WorkDirBegin \"{}\"\n", path)
 }
 
 fn print_work_dir_end() -> String {
-    return "WorkDirEnd\n".to_string();
+    "WorkDirEnd\n".to_string()
 }
 
 fn remove_comment_result(s: &str) -> Result<String, Error> {
     let r = remove_comments(s);
     match r {
         Ok((_, s)) => {
-            return Ok(s);
+            Ok(s)
         }
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            Err(Error::other(e.to_string()))
         }
     }
 }
 
 fn parse_tokens(s: &str) -> Result<Vec<String>, Error> {
-    let r = nom::combinator::all_consuming(nom::multi::many0(parse_one))(&s);
+    let r = nom::combinator::all_consuming(nom::multi::many0(parse_one))(s);
     match r {
         Ok((_, vs)) => {
-            return Ok(vs);
+            Ok(vs)
         }
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            Err(Error::other(e.to_string()))
         }
     }
 }
@@ -142,7 +142,7 @@ fn evaluate_include(s: &str, dirs: &mut Vec<PathBuf>) -> Result<String, Error> {
     }
     //ss += &print_work_dir_end();
     //print!("ss:{}", ss);
-    return Ok(ss);
+    Ok(ss)
 }
 
 fn parse_one(s: &str) -> IResult<&str, String> {
@@ -161,22 +161,22 @@ fn parse_token(s: &str) -> IResult<&str, String> {
         character::complete::alpha1,
         bytes::complete::take_while(|c: char| c.is_alphanumeric() || c == '_'),
     ))(s)?;
-    return Ok((s, format!("{}{}", a, b)));
+    Ok((s, format!("{}{}", a, b)))
 }
 
 fn parse_float(s: &str) -> IResult<&str, String> {
     let (s, a) = nom::number::complete::recognize_float(s)?;
-    return Ok((s, a.to_string()));
+    Ok((s, a.to_string()))
 }
 
 fn parse_any(s: &str) -> IResult<&str, String> {
     let (s, a) = character::complete::anychar(s)?;
-    return Ok((s, a.to_string()));
+    Ok((s, a.to_string()))
 }
 
 fn parse_space1(s: &str) -> IResult<&str, String> {
     let (s, a) = character::complete::multispace1(s)?;
-    return Ok((s, a.to_string()));
+    Ok((s, a.to_string()))
 }
 
 fn parse_string_literal(s: &str) -> IResult<&str, String> {
@@ -185,7 +185,7 @@ fn parse_string_literal(s: &str) -> IResult<&str, String> {
         bytes::complete::take_until("\""),
         character::complete::char('"'),
     )(s)?;
-    return Ok((s, format!("{}{}{}", "\"", a, "\"")));
+    Ok((s, format!("{}{}{}", "\"", a, "\"")))
 }
 
 pub fn parse_params(s: &str) -> IResult<&str, String> {
@@ -197,13 +197,13 @@ pub fn parse_params(s: &str) -> IResult<&str, String> {
         )),
     )(s)?;
     let mut ss = String::new();
-    if v.len() > 0 {
+    if !v.is_empty() {
         for (key, value) in v {
             let sv = value.join(" ");
             ss += &format!("|\"{}\" [{}]", key, sv);
         }
     }
-    return Ok((s, ss));
+    Ok((s, ss))
 }
 
 fn parse_include(s: &str) -> IResult<&str, String> {
@@ -214,5 +214,5 @@ fn parse_include(s: &str) -> IResult<&str, String> {
     ))(s)?;
     let ss = format!("{}|{}{}", op, a, params);
     //print!("parse_include:{}", ss);
-    return Ok((s, ss));
+    Ok((s, ss))
 }

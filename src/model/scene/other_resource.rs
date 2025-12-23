@@ -27,21 +27,21 @@ impl OtherResource {
     }
 
     pub fn get_id(&self) -> Uuid {
-        return self.id;
+        self.id
     }
 
     pub fn get_name(&self) -> String {
-        return self
+        self
             .props
             .find_one_string("string name")
-            .unwrap_or_default();
+            .unwrap_or_default()
     }
 
     pub fn get_type(&self) -> String {
-        return self
+        self
             .props
             .find_one_string("string type")
-            .unwrap_or_default();
+            .unwrap_or_default()
     }
 
     pub fn get_filename(&self) -> Option<String> {

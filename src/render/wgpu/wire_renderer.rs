@@ -95,7 +95,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 );
             }
         }
-        return command_buffers;
+        command_buffers
     }
 
     fn paint(
@@ -122,10 +122,10 @@ impl WireRenderer {
         let queue = &render_state.queue;
         let mesh_renderer = WireMeshRenderer::new(device, queue, render_state.target_format);
         let lines_renderer = LinesRenderer::new(device, queue, render_state.target_format);
-        return Some(WireRenderer {
+        Some(WireRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),
-        });
+        })
     }
 
     pub fn render(

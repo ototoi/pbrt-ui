@@ -57,12 +57,12 @@ impl ShapeProperties {
                 param.insert(PropetyParseKey::KeyName, key_name.to_string());
                 param.insert(PropetyParseKey::DefaultValue, default_value.to_string());
                 param.insert(PropetyParseKey::ValueRange, value_range.to_string());
-                return parse_property_entry(&param);
+                parse_property_entry(&param)
             })
             .collect();
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| ShapeProperties::new());
+        LazyCell::new(ShapeProperties::new)
     }
 }

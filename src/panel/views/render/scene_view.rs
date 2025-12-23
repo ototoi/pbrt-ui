@@ -4,7 +4,6 @@ use crate::model::base::Property;
 use crate::model::base::Quaternion;
 use crate::model::base::Vector3;
 use crate::model::scene::CameraComponent;
-use crate::model::scene::CameraProperties;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
@@ -21,8 +20,8 @@ use eframe::egui;
 use egui::Vec2;
 
 pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) {
-    if response.dragged_by(egui::PointerButton::Primary) {
-        if let Some(camera_node) = Node::find_node_by_component::<CameraComponent>(&root_node) {
+    if response.dragged_by(egui::PointerButton::Primary)
+        && let Some(camera_node) = Node::find_node_by_component::<CameraComponent>(root_node) {
             let mut camera_node = camera_node.write().unwrap();
             if let Some(component) = camera_node.get_component_mut::<TransformComponent>() {
                 let rotation_y = response.drag_motion().x * 0.01;
@@ -54,7 +53,6 @@ pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) 
                 }
             }
         }
-    }
 }
 
 pub struct SceneView {
@@ -102,27 +100,21 @@ impl SceneView {
                     w2c = local_to_world.inverse().unwrap();
                 }
                 if let Some(camera) = camera_node.get_component::<CameraComponent>() {
-                    if let Some(prop) = camera.props.get("fov") {
-                        if let Property::Floats(f) = prop {
-                            if f.len() > 0 {
+                    if let Some(prop) = camera.props.get("fov")
+                        && let Property::Floats(f) = prop
+                            && !f.is_empty() {
                                 fov = f[0].to_radians();
                             }
-                        }
-                    }
-                    if let Some(prop) = camera.props.get("znear") {
-                        if let Property::Floats(f) = prop {
-                            if f.len() > 0 && f[0] > 0.0 {
+                    if let Some(prop) = camera.props.get("znear")
+                        && let Property::Floats(f) = prop
+                            && !f.is_empty() && f[0] > 0.0 {
                                 znear = f[0];
                             }
-                        }
-                    }
-                    if let Some(prop) = camera.props.get("zfar") {
-                        if let Property::Floats(f) = prop {
-                            if f.len() > 0 && f[0] > znear {
+                    if let Some(prop) = camera.props.get("zfar")
+                        && let Property::Floats(f) = prop
+                            && !f.is_empty() && f[0] > znear {
                                 zfar = f[0];
                             }
-                        }
-                    }
                 }
                 if let Some(film) = camera_node.get_component::<FilmComponent>() {
                     let width = film

@@ -36,7 +36,7 @@ fn optimize_outline(outline: &PlaneOutline, threthould: f32) -> PlaneOutline {
         optimized.positions.push(v.y);
         optimized.positions.push(v.z);
     }
-    return optimized;
+    optimized
 }
 
 pub fn create_plane_rect_from_plane_outline(
@@ -87,5 +87,5 @@ pub fn create_plane_rect_from_plane_outline(
         };
         return Some(rect);
     }
-    return None;
+    None
 }

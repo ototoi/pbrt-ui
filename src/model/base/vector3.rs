@@ -60,11 +60,11 @@ impl std::ops::Add<Vector3> for Vector3 {
     type Output = Vector3;
     #[inline]
     fn add(self, rhs: Vector3) -> Vector3 {
-        return Vector3 {
+        Vector3 {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
             z: self.z + rhs.z,
-        };
+        }
     }
 }
 
@@ -72,11 +72,11 @@ impl std::ops::Sub<Vector3> for Vector3 {
     type Output = Vector3;
     #[inline]
     fn sub(self, rhs: Vector3) -> Vector3 {
-        return Vector3 {
+        Vector3 {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             z: self.z - rhs.z,
-        };
+        }
     }
 }
 
@@ -84,11 +84,11 @@ impl std::ops::Mul<f32> for Vector3 {
     type Output = Vector3;
     #[inline]
     fn mul(self, rhs: f32) -> Vector3 {
-        return Vector3 {
+        Vector3 {
             x: self.x * rhs,
             y: self.y * rhs,
             z: self.z * rhs,
-        };
+        }
     }
 }
 
@@ -97,17 +97,17 @@ impl std::ops::Div<f32> for Vector3 {
     #[inline]
     fn div(self, rhs: f32) -> Vector3 {
         if rhs != 0.0 {
-            return Vector3 {
+            Vector3 {
                 x: self.x / rhs,
                 y: self.y / rhs,
                 z: self.z / rhs,
-            };
+            }
         } else {
-            return Vector3 {
+            Vector3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
-            };
+            }
         }
     }
 }
@@ -116,11 +116,11 @@ impl std::ops::Mul<Vector3> for f32 {
     type Output = Vector3;
     #[inline]
     fn mul(self, rhs: Vector3) -> Vector3 {
-        return Vector3 {
+        Vector3 {
             x: self * rhs.x,
             y: self * rhs.y,
             z: self * rhs.z,
-        };
+        }
     }
 }
 
@@ -146,10 +146,10 @@ impl std::ops::Neg for Vector3 {
     type Output = Vector3;
     #[inline]
     fn neg(self) -> Vector3 {
-        return Vector3 {
+        Vector3 {
             x: -self.x,
             y: -self.y,
             z: -self.z,
-        };
+        }
     }
 }

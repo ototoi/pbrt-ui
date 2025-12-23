@@ -24,7 +24,7 @@ impl std::ops::Mul<f32> for Spectrum {
         for i in 0..SPECTRAL_SAMPLES {
             result.c[i] = self.c[i] * rhs;
         }
-        return result;
+        result
     }
 }
 
@@ -38,6 +38,6 @@ impl std::ops::Mul<Spectrum> for Spectrum {
         for i in 0..SPECTRAL_SAMPLES {
             result.c[i] = self.c[i] * rhs.c[i];
         }
-        return result;
+        result
     }
 }

@@ -5,6 +5,7 @@ use std::sync::Weak;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 struct Small {
     e: u8,
 }
@@ -15,11 +16,6 @@ impl Small {
     }
 }
 
-impl Default for Small {
-    fn default() -> Self {
-        Small { e: 0 }
-    }
-}
 
 #[derive(Debug, Clone)]
 struct Big {
@@ -54,27 +50,19 @@ impl C {
 trait IObject: Debug {}
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 struct AObject {
     pub c: u8,
-}
-impl Default for AObject {
-    fn default() -> Self {
-        AObject { c: 0 }
-    }
 }
 
 impl IObject for AObject {}
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 struct BObject {
     pub c: u8,
 }
 
-impl Default for BObject {
-    fn default() -> Self {
-        BObject { c: 0 }
-    }
-}
 
 impl IObject for BObject {}
 
@@ -157,8 +145,8 @@ impl Node {
 
 #[test]
 fn test_enum_size() {
-    let small = Small::default();
-    let big = Big::default();
+    let _small = Small::default();
+    let _big = Big::default();
     println!("size of small: {}", std::mem::size_of::<Small>());
     println!("size of big: {}", std::mem::size_of::<Big>());
     println!("size of C: {}", std::mem::size_of::<C>());
@@ -197,7 +185,7 @@ fn test_node_object() {
     a.add_component(mesh);
 
     let b = Node::new("bnode");
-    let nodes = vec![a, b];
+    let nodes = [a, b];
     for node in nodes.iter() {
         println!("Node: {:?}, {:?}", node.name, node.id);
         if let Some(c) = node.get_component::<TransformComponent>() {

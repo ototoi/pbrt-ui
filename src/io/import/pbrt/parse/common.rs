@@ -9,11 +9,11 @@ use nom::sequence;
 type Float = f32;
 
 pub fn space0(s: &str) -> IResult<&str, &str> {
-    return character::complete::multispace0(s);
+    character::complete::multispace0(s)
 }
 
 pub fn space1(s: &str) -> IResult<&str, &str> {
-    return character::complete::multispace1(s);
+    character::complete::multispace1(s)
 }
 
 pub fn bool_literal(s: &str) -> IResult<&str, &str> {
@@ -24,7 +24,7 @@ pub fn bool_literal(s: &str) -> IResult<&str, &str> {
 }
 
 pub fn float_literal(s: &str) -> IResult<&str, &str> {
-    return number::complete::recognize_float(s);
+    number::complete::recognize_float(s)
 }
 
 pub fn string_literal(s: &str) -> IResult<&str, &str> {
@@ -41,7 +41,7 @@ pub fn parse_literal(s: &str) -> IResult<&str, &str> {
 
 pub fn parse_listed_literal(s: &str) -> IResult<&str, Vec<&str>> {
     let (s, r) = parse_literal(s)?;
-    return Ok((s, vec![r]));
+    Ok((s, vec![r]))
 }
 
 pub fn parse_list(s: &str) -> IResult<&str, Vec<&str>> {
@@ -59,11 +59,11 @@ pub fn parse_list(s: &str) -> IResult<&str, Vec<&str>> {
 pub fn get_param_type(s: &str) -> (&str, &str) {
     let ss: Vec<&str> = s.split_ascii_whitespace().collect();
     if ss.len() == 2 {
-        return (ss[0], ss[1]);
+        (ss[0], ss[1])
     } else if ss.len() == 1 {
-        return ("", ss[0]);
+        ("", ss[0])
     } else {
-        return ("", s);
+        ("", s)
     }
 }
 
@@ -71,11 +71,11 @@ pub fn convert_bool(s: &str) -> Result<bool, std::str::ParseBoolError> {
     let s = String::from(s).to_lowercase();
     let s2: &str = &s;
     match s2 {
-        "true" => return Ok(true),
-        "false" => return Ok(false),
-        "\"true\"" => return Ok(true),
-        "\"false\"" => return Ok(false),
-        _ => return s2.parse::<bool>(),
+        "true" => Ok(true),
+        "false" => Ok(false),
+        "\"true\"" => Ok(true),
+        "\"false\"" => Ok(false),
+        _ => s2.parse::<bool>(),
     }
 }
 
@@ -194,5 +194,5 @@ pub fn parse_params(s: &str) -> IResult<&str, ParamSet> {
             }
         }
     }
-    return Ok((s, params));
+    Ok((s, params))
 }

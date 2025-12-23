@@ -37,9 +37,9 @@ impl Default for AppConfig {
             enable_display_server: false,
             display_server_host: "localhost".to_string(),
             display_server_port: 24158,
-            render_output_directory: render_output_directory,
-            import_file_directory: import_file_directory,
-            export_file_directory: export_file_directory,
+            render_output_directory,
+            import_file_directory,
+            export_file_directory,
         }
     }
 }

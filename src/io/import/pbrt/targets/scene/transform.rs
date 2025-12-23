@@ -8,10 +8,10 @@ pub struct Transform {
 
 impl Transform {
     pub fn new() -> Self {
-        return Transform {
+        Transform {
             m: Matrix4x4::identity(),
             im: Matrix4x4::identity(),
-        };
+        }
     }
 
     pub fn identity() -> Self {
@@ -22,7 +22,7 @@ impl Transform {
     }
     //------------------------------------------------------------
     pub fn mul_transform(&mut self, other: &Transform) {
-        self.m = self.m * other.m;
+        self.m *= other.m;
         self.im = other.im * self.im;
     }
 
@@ -99,7 +99,7 @@ impl TransformSet {
     pub fn mul_transform(&mut self, t: &Transform) {
         for i in 0..2 {
             if self.state as u8 & (1 << i) != 0 {
-                self.transforms[i].mul_transform(&t);
+                self.transforms[i].mul_transform(t);
             }
         }
     }
@@ -125,15 +125,15 @@ impl TransformSet {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     //------------------------------------------------------------
     pub fn get_world_matrix(&self) -> Matrix4x4 {
-        return self.transforms[0].m;
+        self.transforms[0].m
     }
 
     pub fn get_world_inverse_matrix(&self) -> Matrix4x4 {
-        return self.transforms[0].im;
+        self.transforms[0].im
     }
 }

@@ -48,9 +48,9 @@ fn create_lines_from_mesh(plane: &PlaneMesh) -> Option<Vec<Vector3>> {
         lines.push(v0);
     }
     if !lines.is_empty() {
-        return Some(lines);
+        Some(lines)
     } else {
-        return None;
+        None
     }
 }
 
@@ -70,12 +70,12 @@ fn create_lines_from_outline(plane: &PlaneMesh) -> Option<Vec<Vector3>> {
         }
         return Some(lines);
     }
-    return None;
+    None
 }
 
 fn create_lines_from_rect(plane: &PlaneMesh) -> Option<Vec<Vec<Vector3>>> {
-    if let Some(outline) = create_plane_outline_from_plane_mesh(plane) {
-        if let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99) {
+    if let Some(outline) = create_plane_outline_from_plane_mesh(plane)
+        && let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99) {
             let mut total_lines = Vec::new();
             let center = Vector3::new(rect.position[0], rect.position[1], rect.position[2]);
             let u_axis = Vector3::new(rect.u_axis[0], rect.u_axis[1], rect.u_axis[2]);
@@ -98,8 +98,7 @@ fn create_lines_from_rect(plane: &PlaneMesh) -> Option<Vec<Vec<Vector3>>> {
             total_lines.push(lines);
             return Some(total_lines);
         }
-    }
-    return None;
+    None
 }
 
 pub fn create_light_shape_from_mesh_area(_light: &Light, shape: &Shape) -> Option<LightShape> {
@@ -131,17 +130,17 @@ pub fn create_light_shape_from_mesh_area(_light: &Light, shape: &Shape) -> Optio
             return Some(light_shape);
         }
     }
-    return None;
+    None
 }
 
 pub fn create_light_shape_from_area(light: &Light, shape: &Shape) -> Option<LightShape> {
     let shape_type = shape.get_type();
     match shape_type.as_str() {
         "trianglemesh" | "plymesh" => {
-            return create_light_shape_from_mesh_area(light, shape);
+            create_light_shape_from_mesh_area(light, shape)
         }
         _ => {
-            return None;
+            None
         }
     }
 }

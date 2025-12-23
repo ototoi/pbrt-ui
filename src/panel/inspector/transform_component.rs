@@ -33,6 +33,6 @@ impl InspectorPanel {
                 .props
                 .add_string("string edition", &Uuid::new_v4().to_string());
         }
-        return is_changed;
+        is_changed
     }
 }

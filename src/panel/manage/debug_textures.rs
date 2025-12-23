@@ -52,24 +52,24 @@ fn create_texture_views(
         }
 
         let node = TextureView {
-            name: name,
-            ty: ty,
-            edition: edition,
+            name,
+            ty,
+            edition,
             node_edition: cache_edition,
-            dependencies: dependencies,
-            id: id,
+            dependencies,
+            id,
             selected: false,
             children: Vec::new(),
         };
         nodes.push(node);
     }
 
-    return nodes;
+    nodes
 }
 
 fn show_texture_view(ui: &mut egui::Ui, node: &TextureView) -> Option<Uuid> {
     let mut selected_id = None;
-    let id = node.id.clone();
+    let id = node.id;
     let id = ui.make_persistent_id(id);
 
     egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, true)
@@ -106,7 +106,7 @@ fn show_texture_views(ui: &mut egui::Ui, nodes: &Vec<TextureView>) -> Option<Uui
             selected_id = Some(id);
         }
     }
-    return selected_id;
+    selected_id
 }
 
 #[derive(Debug, Clone)]

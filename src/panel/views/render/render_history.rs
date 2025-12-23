@@ -39,15 +39,15 @@ impl RenderHistory {
     }
 
     pub fn get_id(&self) -> Uuid {
-        return self.id;
+        self.id
     }
 
     pub fn get_name(&self) -> String {
-        return self.name.clone();
+        self.name.clone()
     }
 
     pub fn get_state(&self) -> RenderState {
-        return self.state;
+        self.state
     }
 
     pub fn update(&mut self) -> Result<RenderState, PbrtError> {
@@ -55,17 +55,16 @@ impl RenderHistory {
             let next_state = session.update()?;
             self.state = next_state;
 
-            if self.image_data.is_none() {
-                if let Some(image_data) = session.get_image_data() {
+            if self.image_data.is_none()
+                && let Some(image_data) = session.get_image_data() {
                     self.image_data = Some(image_data);
                 }
-            }
         }
 
         if self.state == RenderState::Finished {
             self.session = None;
         }
-        return Ok(self.state);
+        Ok(self.state)
     }
 
     pub fn render(
@@ -82,7 +81,7 @@ impl RenderHistory {
         self.state = session.get_state();
         //println!("Render session created for history: {}", self.name);
         self.session = Some(session);
-        return Ok(());
+        Ok(())
     }
 
     pub fn cancel(&mut self) -> Result<(), PbrtError> {
@@ -90,10 +89,10 @@ impl RenderHistory {
             session.cancel()?;
             self.state = session.get_state();
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn get_image_data(&self) -> Option<Arc<Mutex<ImageData>>> {
-        return self.image_data.clone();
+        self.image_data.clone()
     }
 }

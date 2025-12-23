@@ -19,9 +19,9 @@ use utils::*;
 
 impl Spectrum {
     pub fn zero() -> Spectrum {
-        return Spectrum {
+        Spectrum {
             c: [0.0; SPECTRAL_SAMPLES],
-        };
+        }
     }
 
     pub fn from_sampled(lambda: &[f32], vals: &[f32]) -> Spectrum {
@@ -33,9 +33,9 @@ impl Spectrum {
             sort_spectrum_samples(&mut slambda, &mut sv);
             return Self::from_sampled(&slambda, &sv);
         }
-        return Spectrum {
+        Spectrum {
             c: sample_spectrum(lambda, vals),
-        };
+        }
     }
 
     pub fn load_from_file(path: &str) -> Result<Spectrum, PbrtError> {
@@ -50,13 +50,13 @@ impl Spectrum {
                 let mut wls = Vec::new();
                 let mut v = Vec::new();
                 for j in 0..(vals.len() / 2) {
-                    wls.push(vals[2 * j] as f32);
-                    v.push(vals[2 * j + 1] as f32);
+                    wls.push(vals[2 * j]);
+                    v.push(vals[2 * j + 1]);
                 }
-                return Ok(Spectrum::from_sampled(&wls, &v));
+                Ok(Spectrum::from_sampled(&wls, &v))
             }
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
     }
@@ -67,10 +67,10 @@ impl Spectrum {
         let n_values = n_values / 2;
         let mut s = Self::zero();
         for i in 0..n_values {
-            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i + 0]);
+            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i ]);
             s += Self::from_sampled(&CIE_LAMBDA, &v) * values[2 * i + 1];
         }
-        return s;
+        s
     }
 
     pub fn to_xyz(&self) -> [f32; 3] {
@@ -86,11 +86,11 @@ impl Spectrum {
         xyz[0] *= scale;
         xyz[1] *= scale;
         xyz[2] *= scale;
-        return xyz;
+        xyz
     }
 
     pub fn to_rgb(&self) -> [f32; 3] {
         let xyz = self.to_xyz();
-        return xyz_to_rgb(&xyz);
+        xyz_to_rgb(&xyz)
     }
 }

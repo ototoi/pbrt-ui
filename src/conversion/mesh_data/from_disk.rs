@@ -54,23 +54,23 @@ fn create_disk_plate(
             let i2 = ix1 + (iv + 1);
             let i3 = ix0 + (iv + 1);
 
-            indices.push(i0 as i32);
-            indices.push(i1 as i32);
-            indices.push(i2 as i32);
-            indices.push(i0 as i32);
-            indices.push(i2 as i32);
-            indices.push(i3 as i32);
+            indices.push(i0);
+            indices.push(i1);
+            indices.push(i2);
+            indices.push(i0);
+            indices.push(i2);
+            indices.push(i3);
         }
     }
 
-    let mesh_data = MeshData {
+    
+    MeshData {
         indices,
         positions,
         normals,
         uvs,
         tangents: vec![],
-    };
-    return mesh_data;
+    }
 }
 
 fn create_disk_cylinder(radius: f32, height: f32, flip: bool, vv: f32, udiv: i32) -> MeshData {
@@ -115,23 +115,23 @@ fn create_disk_cylinder(radius: f32, height: f32, flip: bool, vv: f32, udiv: i32
             let i2 = ix1 + (iv + 1);
             let i3 = ix0 + (iv + 1);
 
-            indices.push(i0 as i32);
-            indices.push(i1 as i32);
-            indices.push(i2 as i32);
-            indices.push(i0 as i32);
-            indices.push(i2 as i32);
-            indices.push(i3 as i32);
+            indices.push(i0);
+            indices.push(i1);
+            indices.push(i2);
+            indices.push(i0);
+            indices.push(i2);
+            indices.push(i3);
         }
     }
 
-    let mesh_data = MeshData {
+    
+    MeshData {
         indices,
         positions,
         normals,
         uvs,
         tangents: vec![],
-    };
-    return mesh_data;
+    }
 }
 
 fn merge_mesh_data(meshes: &[MeshData]) -> MeshData {
@@ -147,14 +147,14 @@ fn merge_mesh_data(meshes: &[MeshData]) -> MeshData {
         uvs.extend(shape.uvs.iter());
         index_offset += shape.positions.len() as i32 / 3;
     }
-    let mesh_data = MeshData {
+    
+    MeshData {
         indices,
         positions,
         normals,
         uvs,
         tangents: vec![],
-    };
-    return mesh_data;
+    }
 }
 
 pub fn create_mesh_data_from_disk(shape: &Shape) -> Option<MeshData> {
@@ -176,7 +176,7 @@ pub fn create_mesh_data_from_disk(shape: &Shape) -> Option<MeshData> {
     //let vdiv = shape.as_property_map().find_one_int("vdiv").unwrap_or(4);
 
     if height == 0.0 {
-        return Some(create_disk_plate(radius, innerradius, 0.0, false, udiv));
+        Some(create_disk_plate(radius, innerradius, 0.0, false, udiv))
     } else {
         let mut meshes = Vec::new();
         let top = create_disk_plate(radius, innerradius, height, false, udiv);
@@ -190,6 +190,6 @@ pub fn create_mesh_data_from_disk(shape: &Shape) -> Option<MeshData> {
             meshes.push(inside);
         }
         let mesh_data = merge_mesh_data(&meshes);
-        return Some(mesh_data);
+        Some(mesh_data)
     }
 }

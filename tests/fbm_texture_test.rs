@@ -32,7 +32,7 @@ fn test_fbm_texture_basic() {
         // Check that values are in valid range [0, 1]
         for pixel in img.pixels() {
             let value = pixel[0];
-            assert!(value >= 0.0 && value <= 1.0, "Pixel values should be in [0, 1] range, got {}", value);
+            assert!((0.0..=1.0).contains(&value), "Pixel values should be in [0, 1] range, got {}", value);
         }
         
         // Check that we have some variation (not all the same value) by
@@ -78,7 +78,7 @@ fn test_fbm_texture_with_custom_params() {
         // Check that values are in valid range [0, 1]
         for pixel in img.pixels() {
             let value = pixel[0];
-            assert!(value >= 0.0 && value <= 1.0, "Pixel values should be in [0, 1] range");
+            assert!((0.0..=1.0).contains(&value), "Pixel values should be in [0, 1] range");
         }
     } else {
         panic!("FBM texture should be ImageLuma32F type");

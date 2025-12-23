@@ -11,7 +11,7 @@ use crate::conversion::texture_node::DynaImage;
 use image::ImageBuffer;
 use image::buffer::ConvertBuffer as _;
 
-use super::noise::{fbm, FBM_LACUNARITY};
+use super::noise::fbm;
 
 const ICON_SIZE: u32 = 64;
 const DISPLAY_SIZE: u32 = 256;
@@ -25,27 +25,25 @@ fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
     if let Some((key_type, key_name, value)) = props.entry(key) {
         if let Property::Floats(v) = value {
             if key_type == "blackbody" {
-                let s = Spectrum::from_blackbody(&v);
+                let s = Spectrum::from_blackbody(v);
                 let color = s.to_rgb();
-                let color = image::Rgb([color[0] as f32, color[1] as f32, color[2] as f32]);
+                let color = image::Rgb([color[0], color[1], color[2]]);
                 let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
                 return Some(DynaImage::ImageRgb32F(image_buffer));
-            } else {
-                if v.len() == 1 {
-                    let value = image::Luma([v[0] as f32]);
-                    let image_buffer = image::ImageBuffer::from_pixel(1, 1, value);
-                    return Some(DynaImage::ImageLuma32F(image_buffer));
-                } else if v.len() == 3 {
-                    let color = image::Rgb([(v[0]) as f32, (v[1]) as f32, (v[2]) as f32]);
-                    let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
-                    return Some(DynaImage::ImageRgb32F(image_buffer));
-                }
+            } else if v.len() == 1 {
+                let value = image::Luma([v[0]]);
+                let image_buffer = image::ImageBuffer::from_pixel(1, 1, value);
+                return Some(DynaImage::ImageLuma32F(image_buffer));
+            } else if v.len() == 3 {
+                let color = image::Rgb([(v[0]), (v[1]), (v[2])]);
+                let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
+                return Some(DynaImage::ImageRgb32F(image_buffer));
             }
-        } else if let Property::Strings(_name) = value {
-            if key_type == "spectrum" {
+        } else if let Property::Strings(_name) = value
+            && key_type == "spectrum" {
                 let fullpath_name = format!("{}_fullpath", key_name);
-                if let Some(src) = props.get(&fullpath_name) {
-                    if let Property::Strings(v) = src {
+                if let Some(src) = props.get(&fullpath_name)
+                    && let Property::Strings(v) = src {
                         assert!(
                             v.len() == 1,
                             "Spectrum fullpath must have exactly one value"
@@ -54,32 +52,30 @@ fn get_color_texture_image(texture: &Texture, key: &str) -> Option<DynaImage> {
                         if let Ok(s) = Spectrum::load_from_file(&fullpath) {
                             let color = s.to_rgb();
                             let color =
-                                image::Rgb([color[0] as f32, color[1] as f32, color[2] as f32]);
+                                image::Rgb([color[0], color[1], color[2]]);
                             let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
                             return Some(DynaImage::ImageRgb32F(image_buffer));
                         }
                     }
-                }
             }
-        }
     }
-    return None;
+    None
 }
 
 fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
     match image {
         DynaImage::ImageLuma8(img) => {
             let float_image: ImageBuffer<image::Luma<f32>, Vec<f32>> = img.clone().convert();
-            return DynaImage::ImageLuma32F(float_image);
+            DynaImage::ImageLuma32F(float_image)
         }
         DynaImage::ImageLuma32F(img) => {
-            return DynaImage::ImageLuma32F(img.clone());
+            DynaImage::ImageLuma32F(img.clone())
         }
         DynaImage::ImageRgb8(_) => {
-            return DynaImage::ImageRgb32F(image.to_rgb32f()); // convert_to_float_image_buffer(image);
+            DynaImage::ImageRgb32F(image.to_rgb32f())// convert_to_float_image_buffer(image);
         }
         DynaImage::ImageRgb32F(img) => {
-            return DynaImage::ImageRgb32F(img.clone());
+            DynaImage::ImageRgb32F(img.clone())
         }
     }
 }
@@ -87,8 +83,8 @@ fn convert_to_linear_float_image(image: &DynaImage) -> DynaImage {
 fn resize_image(image: &DynaImage, width: u32, height: u32) -> DynaImage {
     if (1, 1) == image.dimensions() {
         let mut resized = image.resize(width, height, image::imageops::FilterType::Nearest);
-        if let DynaImage::ImageLuma32F(dst) = &mut resized {
-            if let DynaImage::ImageLuma32F(src) = image {
+        if let DynaImage::ImageLuma32F(dst) = &mut resized
+            && let DynaImage::ImageLuma32F(src) = image {
                 let vv = src.get_pixel(0, 0)[0];
                 for y in 0..height {
                     for x in 0..width {
@@ -96,11 +92,10 @@ fn resize_image(image: &DynaImage, width: u32, height: u32) -> DynaImage {
                     }
                 }
             }
-        }
-        return resized;
+        resized
     } else {
-        let resized = image.resize(width, height, image::imageops::FilterType::CatmullRom);
-        return resized;
+        
+        image.resize(width, height, image::imageops::FilterType::CatmullRom)
     }
 }
 
@@ -111,20 +106,20 @@ fn resize_image_for_size_type(
     match size_type {
         TextureSizeType::Render => image,
         TextureSizeType::Display => {
-            let resized = image.resize_exact(
+            
+            image.resize_exact(
                 DISPLAY_SIZE,
                 DISPLAY_SIZE,
                 image::imageops::FilterType::CatmullRom,
-            );
-            return resized;
+            )
         }
         TextureSizeType::Icon => {
-            let resized = image.resize_exact(
+            
+            image.resize_exact(
                 ICON_SIZE,
                 ICON_SIZE,
                 image::imageops::FilterType::CatmullRom,
-            );
-            return resized;
+            )
         }
     }
 }
@@ -163,9 +158,9 @@ fn unify_channels(images: &HashMap<String, Arc<DynaImage>>) -> HashMap<String, A
                 }
             }
         }
-        return new_images;
+        new_images
     } else {
-        return images.clone();
+        images.clone()
     }
 }
 
@@ -181,7 +176,7 @@ fn get_dependent_image(
         let image = Arc::new(RwLock::new(image));
         return Some(image);
     }
-    return None;
+    None
 }
 
 fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) -> Option<DynaImage> {
@@ -189,8 +184,8 @@ fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) ->
     // if scale != 1.0 { --- IGNORE ---
     //     println!("Imagemap scale other than 1.0 is not supported yet."); --- IGNORE ---
     // } --- IGNORE ---
-    if let Some(path) = texture.get_fullpath() {
-        if let Ok(image) = image::open(path) {
+    if let Some(path) = texture.get_fullpath()
+        && let Ok(image) = image::open(path) {
             let image = resize_image_for_size_type(image, size_type);
             match image {
                 image::DynamicImage::ImageLuma8(img) => {
@@ -212,18 +207,17 @@ fn load_imagemap_texture_image(texture: &Texture, size_type: TextureSizeType) ->
                 }
             }
         }
-    }
-    return None;
+    None
 }
 
 fn render_constant_texture_image(texture: &Texture) -> Option<DynaImage> {
     if let Some(color_image) = get_color_texture_image(texture, "value") {
-        return Some(color_image);
+        Some(color_image)
     } else {
         // Default to white if color not found
         let color = image::Rgb([1.0, 1.0, 1.0]);
         let image_buffer = image::ImageBuffer::from_pixel(1, 1, color);
-        return Some(DynaImage::ImageRgb32F(image_buffer));
+        Some(DynaImage::ImageRgb32F(image_buffer))
     }
 }
 
@@ -232,7 +226,7 @@ fn mix_pixel_rgb(
     p2: &image::Rgb<f32>,
     a: &image::Rgb<f32>,
 ) -> image::Rgb<f32> {
-    let mut result = p1.clone();
+    let mut result = *p1;
     for i in 0..3 {
         let c1: f32 = p1[i as usize];
         let c2: f32 = p2[i as usize];
@@ -240,7 +234,7 @@ fn mix_pixel_rgb(
         let c = c1 * (1.0 - a) + c2 * a;
         result[i as usize] = c;
     }
-    return result;
+    result
 }
 
 fn mix_texture_rgb(
@@ -254,9 +248,9 @@ fn mix_texture_rgb(
         let p2 = tex2.get_pixel(x, y);
         let a = amount.get_pixel(x, y); // Assuming amount is a grayscale image
         let c = mix_pixel_rgb(p1, p2, a);
-        *pixel = c.into();
+        *pixel = c;
     }
-    return image_buffer;
+    image_buffer
 }
 
 fn mix_texture_float(
@@ -272,7 +266,7 @@ fn mix_texture_float(
         let c = p1[0] * (1.0 - a[0]) + p2[0] * a[0];
         *pixel = image::Luma([c]);
     }
-    return image_buffer;
+    image_buffer
 }
 
 fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option<DynaImage> {
@@ -284,9 +278,9 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         dim1.1.max(dim2.1).max(dim3.1),
     );
 
-    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
-    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
-    let amount = resize_image(&amount, dimf.0, dimf.1);
+    let tex1 = resize_image(tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(tex2, dimf.0, dimf.1);
+    let amount = resize_image(amount, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
@@ -306,7 +300,7 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         DynaImage::ImageRgb32F(amount),
     ) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref())
     {
-        let image_buffer = mix_texture_rgb(&tex1, &tex2, &amount);
+        let image_buffer = mix_texture_rgb(tex1, tex2, amount);
         return Some(DynaImage::ImageRgb32F(image_buffer));
     } else if let (
         DynaImage::ImageLuma32F(tex1),
@@ -314,10 +308,10 @@ fn mix_texture(tex1: &DynaImage, tex2: &DynaImage, amount: &DynaImage) -> Option
         DynaImage::ImageLuma32F(amount),
     ) = (tex1.as_ref(), tex2.as_ref(), amount.as_ref())
     {
-        let image_buffer = mix_texture_float(&tex1, &tex2, &amount);
+        let image_buffer = mix_texture_float(tex1, tex2, amount);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
-    return None;
+    None
 }
 
 fn render_mix_texture_image(
@@ -336,26 +330,26 @@ fn render_mix_texture_image(
 
 fn scale_pixel_helper(p1: f32, p2: f32) -> f32 {
     if p2 >= 0.0 {
-        let c = p1 * p2;
-        return c;
+        
+        p1 * p2
     } else {
-        let c = ((1.0 - p1) * -p2).max(0.0);
-        return c;
+        
+        ((1.0 - p1) * -p2).max(0.0)
     }
 }
 
 fn scale_pixel_rgb(p1: &image::Rgb<f32>, p2: &image::Rgb<f32>) -> image::Rgb<f32> {
-    let mut result = p1.clone();
+    let mut result = *p1;
     for i in 0..3 {
         let c = scale_pixel_helper(p1[i as usize], p2[i as usize]);
         result[i as usize] = c;
     }
-    return result;
+    result
 }
 
 fn scale_pixel_float(p1: &image::Luma<f32>, p2: &image::Luma<f32>) -> image::Luma<f32> {
     let c = scale_pixel_helper(p1[0], p2[0]);
-    return image::Luma([c]);
+    image::Luma([c])
 }
 
 fn scale_texture_float(
@@ -367,9 +361,9 @@ fn scale_texture_float(
         let p1 = tex1.get_pixel(x, y);
         let p2 = tex2.get_pixel(x, y);
         let c = scale_pixel_float(p1, p2);
-        *pixel = c.into();
+        *pixel = c;
     }
-    return image_buffer;
+    image_buffer
 }
 
 fn scale_texture_rgb(
@@ -381,9 +375,9 @@ fn scale_texture_rgb(
         let p1 = tex1.get_pixel(x, y);
         let p2 = tex2.get_pixel(x, y);
         let c = scale_pixel_rgb(p1, p2);
-        *pixel = c.into();
+        *pixel = c;
     }
-    return image_buffer;
+    image_buffer
 }
 
 fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
@@ -391,8 +385,8 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
     let dim2 = tex2.dimensions();
     let dimf = (dim1.0.max(dim2.0), dim1.1.max(dim2.1));
 
-    let tex1 = resize_image(&tex1, dimf.0, dimf.1);
-    let tex2 = resize_image(&tex2, dimf.0, dimf.1);
+    let tex1 = resize_image(tex1, dimf.0, dimf.1);
+    let tex2 = resize_image(tex2, dimf.0, dimf.1);
 
     let tex1 = convert_to_linear_float_image(&tex1);
     let tex2 = convert_to_linear_float_image(&tex2);
@@ -407,15 +401,15 @@ fn scale_texture(tex1: &DynaImage, tex2: &DynaImage) -> Option<DynaImage> {
     if let (DynaImage::ImageRgb32F(tex1), DynaImage::ImageRgb32F(tex2)) =
         (tex1.as_ref(), tex2.as_ref())
     {
-        let image_buffer = scale_texture_rgb(&tex1, &tex2);
+        let image_buffer = scale_texture_rgb(tex1, tex2);
         return Some(DynaImage::ImageRgb32F(image_buffer));
     } else if let (DynaImage::ImageLuma32F(tex1), DynaImage::ImageLuma32F(tex2)) =
         (tex1.as_ref(), tex2.as_ref())
     {
-        let image_buffer = scale_texture_float(&tex1, &tex2);
+        let image_buffer = scale_texture_float(tex1, tex2);
         return Some(DynaImage::ImageLuma32F(image_buffer));
     }
-    return None;
+    None
 }
 
 fn render_scale_texture_image(
@@ -515,22 +509,22 @@ pub fn render_texture_image(
     let texture_type = texture.get_type();
     match texture_type.as_str() {
         "imagemap" => {
-            return load_imagemap_texture_image(texture, size_type);
+            load_imagemap_texture_image(texture, size_type)
         }
         "constant" => {
-            return render_constant_texture_image(texture);
+            render_constant_texture_image(texture)
         }
         "mix" => {
-            return render_mix_texture_image(texture, dependencies);
+            render_mix_texture_image(texture, dependencies)
         }
         "scale" => {
-            return render_scale_texture_image(texture, dependencies);
+            render_scale_texture_image(texture, dependencies)
         }
         "fbm" => {
-            return render_fbm_texture_image(texture, size_type);
+            render_fbm_texture_image(texture, size_type)
         }
         _ => {
-            return None; // Placeholder return
+            None// Placeholder return
         }
     }
 }

@@ -4,7 +4,6 @@ use super::resource_selector::ResourceSelector;
 use crate::model::base::*;
 use crate::model::scene::LightComponent;
 use crate::model::scene::LightProperties;
-use crate::model::scene::Properties;
 
 use eframe::egui;
 use uuid::Uuid;
@@ -31,11 +30,11 @@ impl InspectorPanel {
                 let key_name = &entry.key_name;
                 let init = &entry.default_value;
                 let range = &entry.value_range;
-                if props.get(&key_name).is_none() {
+                if props.get(key_name).is_none() {
                     let key = PropertyMap::get_key(key_type, key_name);
                     props.insert(&key, init.clone());
                 }
-                keys.push((key_type.clone(), key_name.clone(), range.clone()));
+                keys.push((key_type.clone(), key_name.clone(), *range));
             }
         }
         //-------------------------------------------------------------------
@@ -43,6 +42,6 @@ impl InspectorPanel {
             is_changed = true;
             props.add_string("string edition", &Uuid::new_v4().to_string());
         }
-        return is_changed;
+        is_changed
     }
 }

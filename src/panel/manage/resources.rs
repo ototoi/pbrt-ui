@@ -87,8 +87,8 @@ impl ResourcesPanel {
             let controller = self.app_controller.read().unwrap();
             let root_node = controller.get_root_node();
             let root_node = root_node.read().unwrap();
-            if let Some(resource_component) = root_node.get_component::<ResourceComponent>() {
-                if let Some(resource_cache_component) =
+            if let Some(resource_component) = root_node.get_component::<ResourceComponent>()
+                && let Some(resource_cache_component) =
                     root_node.get_component::<ResourceCacheComponent>()
                 {
                     let resource_manager = resource_component.get_resource_manager();
@@ -111,17 +111,16 @@ impl ResourcesPanel {
                             let texture = texture.read().unwrap();
                             let name = texture.get_name();
                             let edition = texture.get_edition();
-                            if let Some((name, tex_id, tex_edition)) = self.texture_id_map.get(id) {
-                                if edition == *tex_edition {
+                            if let Some((name, tex_id, tex_edition)) = self.texture_id_map.get(id)
+                                && edition == *tex_edition {
                                     // No need to update
                                     icon_data.push(IconData::Textured(
-                                        id.clone(),
+                                        *id,
                                         name.clone(),
                                         *tex_id,
                                     ));
                                     continue;
                                 }
-                            }
 
                             if let Some(texture_node) = resource_cache_manager.textures.get(id) {
                                 let texture_node = texture_node.read().unwrap();
@@ -141,7 +140,7 @@ impl ResourcesPanel {
                                         self.texture_id_map
                                             .insert(*id, (name.clone(), tex_id, edition));
                                         icon_data.push(IconData::Textured(
-                                            id.clone(),
+                                            *id,
                                             name.clone(),
                                             tex_id,
                                         ));
@@ -162,7 +161,7 @@ impl ResourcesPanel {
                             let res = res.read().unwrap();
                             let name = res.get_name();
                             icon_data.push(IconData::Colored(
-                                id.clone(),
+                                *id,
                                 name,
                                 egui::Color32::GREEN,
                             ));
@@ -175,7 +174,7 @@ impl ResourcesPanel {
                             let res = res.read().unwrap();
                             let name = res.get_name();
                             icon_data.push(IconData::Colored(
-                                id.clone(),
+                                *id,
                                 name,
                                 egui::Color32::BLUE,
                             ));
@@ -189,19 +188,18 @@ impl ResourcesPanel {
                             let res = res.read().unwrap();
                             let name = res.get_name();
                             icon_data.push(IconData::Colored(
-                                id.clone(),
+                                *id,
                                 name,
                                 egui::Color32::GRAY,
                             ));
                         }
                     }
                 }
-            }
         }
         {
             if !icon_data.is_empty() {
                 // Sort resources by name
-                icon_data.sort_by(|a, b| a.get_name().cmp(&b.get_name()));
+                icon_data.sort_by_key(|a| a.get_name());
             }
         }
         egui::SidePanel::left("resources_type")

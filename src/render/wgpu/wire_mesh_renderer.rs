@@ -54,13 +54,13 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         align_to(local_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    
+    device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    });
-    return buffer;
+    })
 }
 
 impl WireMeshRenderer {
@@ -133,7 +133,7 @@ impl WireMeshRenderer {
         };
         resources.insert(per_frame_resources);
 
-        return vec![];
+        vec![]
     }
 
     pub fn paint(
@@ -142,8 +142,8 @@ impl WireMeshRenderer {
         render_pass: &mut wgpu::RenderPass<'static>,
         resources: &egui_wgpu::CallbackResources,
     ) {
-        if let Some(per_frame_resources) = resources.get::<PerFrameResources>() {
-            if !per_frame_resources.render_items.is_empty() {
+        if let Some(per_frame_resources) = resources.get::<PerFrameResources>()
+            && !per_frame_resources.render_items.is_empty() {
                 let local_uniform_alignment = self.local_uniform_alignment;
                 render_pass.set_pipeline(&self.pipeline); //
                 render_pass.set_bind_group(0, &self.global_bind_group, &[]);
@@ -166,7 +166,6 @@ impl WireMeshRenderer {
                     }
                 }
             }
-        }
     }
 }
 
@@ -249,7 +248,7 @@ impl WireMeshRenderer {
                 targets: &[Some(target_format.into())],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: primitive,
+            primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: true,
@@ -303,7 +302,7 @@ impl WireMeshRenderer {
             }],
         });
 
-        return WireMeshRenderer {
+        WireMeshRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -312,6 +311,6 @@ impl WireMeshRenderer {
             local_bind_group,
             local_uniform_buffer,
             local_uniform_alignment,
-        };
+        }
     }
 }

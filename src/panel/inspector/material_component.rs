@@ -4,7 +4,6 @@ use super::resource_selector::ResourceSelector;
 use crate::model::base::*;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
-use crate::model::scene::Properties;
 
 use eframe::egui;
 use uuid::Uuid;
@@ -20,7 +19,7 @@ impl InspectorPanel {
         let material = component.get_material();
         let mut material = material.write().unwrap();
         let props = material.as_property_map_mut();
-        return self.show_material_props(index, "Material", ui, props, resource_selector);
+        self.show_material_props(index, "Material", ui, props, resource_selector)
     }
 
     fn show_material_props(
@@ -48,7 +47,7 @@ impl InspectorPanel {
                     ui.text_edit_singleline(&mut name);
                 });
                 ui.separator();
-                if show_type(ui, props, &material_types) {
+                if show_type(ui, props, material_types) {
                     is_changed = true;
                 }
                 ui.separator();
@@ -67,11 +66,10 @@ impl InspectorPanel {
                 }
                 if let Some(params) = material_properties.get_entries(&mat_type) {
                     for entry in params.iter() {
-                        if hide_sigma {
-                            if entry.key_name == "sigma_a" || entry.key_name == "sigma_s" {
+                        if hide_sigma
+                            && (entry.key_name == "sigma_a" || entry.key_name == "sigma_s") {
                                 continue;
                             }
-                        }
                         if props.get(&entry.key_name).is_none() {
                             let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
                             props.insert(&key, entry.default_value.clone());
@@ -79,7 +77,7 @@ impl InspectorPanel {
                         keys.push((
                             entry.key_type.clone(),
                             entry.key_name.clone(),
-                            entry.value_range.clone(),
+                            entry.value_range,
                         ));
                     }
                     if show_properties(index, ui, props, &keys, resource_selector) {
@@ -93,6 +91,6 @@ impl InspectorPanel {
                 }
                 ui.add_space(3.0);
             });
-        return is_changed;
+        is_changed
     }
 }

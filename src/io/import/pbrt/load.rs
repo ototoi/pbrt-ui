@@ -41,6 +41,6 @@ pub fn load_pbrt(path: &str) -> Result<Arc<RwLock<Node>>, PbrtError> {
                 props.add_string("string fullpath", fullpath);
             }
         }
-        return Ok(node);
+        Ok(node)
     }
 }

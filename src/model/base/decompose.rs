@@ -3,7 +3,7 @@ use super::quaternion::Quaternion;
 use super::vector3::Vector3;
 
 fn lerp(t: f32, a: f32, b: f32) -> f32 {
-    return a + t * (b - a);
+    a + t * (b - a)
 }
 
 fn invertible(m: &Matrix4x4) -> bool {
@@ -15,11 +15,11 @@ fn suppress_for_scale(m: Matrix4x4) -> Matrix4x4 {
     for i in 0..3 {
         mm.m[4 * i + i] = m.m[4 * i + i];
     }
-    return mm;
+    mm
 }
 
 fn length(x: f32, y: f32, z: f32) -> f32 {
-    return f32::sqrt(x * x + y * y + z * z);
+    f32::sqrt(x * x + y * y + z * z)
 }
 
 // Decompose a 4x4 matrix into translation, rotation, and scale.
@@ -35,7 +35,7 @@ fn decompose_matrix(
     max_count: i32,
 ) -> Option<(Vector3, Quaternion, Vector3)> {
     // Extract translation _T_ from transformation matrix
-    let t = Vector3::new(m.m[4 * 0 + 3], m.m[4 * 1 + 3], m.m[4 * 2 + 3]);
+    let t = Vector3::new(m.m[3], m.m[4 + 3], m.m[4 * 2 + 3]);
 
     // Compute new transformation matrix _M_ without translation
     let mut mm = *m;
@@ -47,21 +47,21 @@ fn decompose_matrix(
     // Extract rotation _R_ from transformation matrix
     let mut r = mm;
     // pbrt-r3
-    let sx = length(r.m[4 * 0 + 0], r.m[4 * 1 + 0], r.m[4 * 2 + 0]);
-    let sy = length(r.m[4 * 0 + 1], r.m[4 * 1 + 1], r.m[4 * 2 + 1]);
-    let sz = length(r.m[4 * 0 + 2], r.m[4 * 1 + 2], r.m[4 * 2 + 2]);
+    let sx = length(r.m[0], r.m[4], r.m[4 * 2 ]);
+    let sy = length(r.m[1], r.m[4 + 1], r.m[4 * 2 + 1]);
+    let sz = length(r.m[2], r.m[4 + 2], r.m[4 * 2 + 2]);
     if sx != 0.0 {
-        r.m[4 * 0 + 0] /= sx;
-        r.m[4 * 0 + 1] /= sx;
-        r.m[4 * 0 + 2] /= sx;
+        r.m[0] /= sx;
+        r.m[1] /= sx;
+        r.m[2] /= sx;
     }
     if sy != 0.0 {
-        r.m[4 * 1 + 0] /= sy;
-        r.m[4 * 1 + 1] /= sy;
-        r.m[4 * 1 + 2] /= sy;
+        r.m[4] /= sy;
+        r.m[4 + 1] /= sy;
+        r.m[4 + 2] /= sy;
     }
     if sz != 0.0 {
-        r.m[4 * 2 + 0] /= sz;
+        r.m[4 * 2 ] /= sz;
         r.m[4 * 2 + 1] /= sz;
         r.m[4 * 2 + 2] /= sz;
     }
@@ -97,7 +97,7 @@ fn decompose_matrix(
 
             // Compute norm of difference between _R_ and _Rnext_
             for i in 0..3 {
-                let n = f32::abs(r.m[4 * i + 0] - r_next.m[4 * i + 0])
+                let n = f32::abs(r.m[4 * i ] - r_next.m[4 * i ])
                     + f32::abs(r.m[4 * i + 1] - r_next.m[4 * i + 1])
                     + f32::abs(r.m[4 * i + 2] - r_next.m[4 * i + 2]);
                 norm = f32::max(norm, n);
@@ -123,12 +123,12 @@ fn decompose_matrix(
         let s = Vector3::new(s.m[0], s.m[5], s.m[10]);
         return Some((t, q, s));
     }
-    return None;
+    None
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::model::base::*;
 
     fn near_equal(a: f32, b: f32, epsilon: f32) -> bool {
@@ -140,7 +140,7 @@ mod tests {
         let m = Matrix4x4::translate(1.0, 2.0, 3.0)
             * Matrix4x4::rotate(1.0, 0.0, 1.0, 0.0)
             * Matrix4x4::scale(-2.0, 2.0, 3.0);
-        let (t, q, s) = m.decompose(1e-6).unwrap();
+        let (t, _q, s) = m.decompose(1e-6).unwrap();
         assert!(near_equal(t.x, 1.0, 1e-6));
         assert!(near_equal(t.y, 2.0, 1e-6));
         assert!(near_equal(t.z, 3.0, 1e-6));

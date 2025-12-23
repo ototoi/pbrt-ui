@@ -10,11 +10,11 @@ impl FilmComponent {
     pub fn new(film_type: &str, props: &PropertyMap) -> Self {
         let mut props = props.clone();
         props.insert("string type", Property::from(film_type));
-        FilmComponent { props: props }
+        FilmComponent { props }
     }
     pub fn get_keys(&self) -> Vec<(String, String)> {
-        let keys = self.props.get_keys();
-        return keys;
+        
+        self.props.get_keys()
     }
 }
 

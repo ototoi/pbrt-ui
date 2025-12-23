@@ -353,7 +353,7 @@ fn evaluate_bytes(
         }
     }
 
-    return Ok(directive);
+    Ok(directive)
 }
 
 fn send_close_server(hostname: &str) -> Result<(), PbrtError> {
@@ -456,11 +456,11 @@ impl ImageReceiver {
     pub fn get_image_data(&self) -> Option<Arc<Mutex<ImageData>>> {
         let core = self.core.lock().unwrap();
         if core.images.is_empty() {
-            return None; // No images available
+            None// No images available
         } else {
             // Return the first image data found
-            let first_image = core.images.values().next().cloned();
-            return first_image;
+            
+            core.images.values().next().cloned()
         }
     }
 }

@@ -85,7 +85,8 @@ pub fn create_ltc_texture(
         mipmap_filter: wgpu::FilterMode::Nearest,
         ..Default::default()
     });
-    let render_texture = RenderTexture {
+    
+    RenderTexture {
         id,
         edition: Uuid::new_v4().to_string(),
         texture,
@@ -93,8 +94,7 @@ pub fn create_ltc_texture(
         sampler,
         scale: [1.0, 1.0],
         delta: [0.0, 0.0],
-    };
-    return render_texture;
+    }
 }
 
 fn get_id_and_textures(name: &str) -> Option<(Uuid, Vec<Vec<f32>>)> {
@@ -124,7 +124,7 @@ pub fn get_ltc_texture(
     name: &str,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<Arc<RenderTexture>> {
-    if name == "" {
+    if name.is_empty() {
         return None;
     }
     if let Some((id, data)) = get_id_and_textures(name) {
@@ -136,7 +136,7 @@ pub fn get_ltc_texture(
         render_resource_manager.add_texture(&render_texture);
         return Some(render_texture);
     }
-    return None;
+    None
 }
 
 /*

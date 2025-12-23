@@ -32,14 +32,15 @@ fn initialize_texture_node(
             let texture_node = Arc::new(RwLock::new(texture_node));
             resource_cache_manager
                 .textures
-                .insert(id.clone(), texture_node);
+                .insert(id, texture_node);
         }
     }
 }
 
 fn get_dependent_texture_keys(texture: &Texture) -> Vec<String> {
     let props = texture.as_property_map();
-    let keys = props
+    
+    props
         .get_keys()
         .iter()
         .filter(|(key_type, key_name)| {
@@ -54,8 +55,7 @@ fn get_dependent_texture_keys(texture: &Texture) -> Vec<String> {
             }
         })
         .map(|(_key_type, key_name)| key_name.clone())
-        .collect();
-    return keys;
+        .collect()
 }
 
 fn remove_stale_texture_nodes(
@@ -99,12 +99,11 @@ fn connect_texture_dependencies(
                 }
             }
             for (_key, input) in texture_node.inputs.iter() {
-                if let Some(input) = input {
-                    if let Some(input) = input.upgrade() {
+                if let Some(input) = input
+                    && let Some(input) = input.upgrade() {
                         let mut input = input.write().unwrap();
                         input.outputs.remove(&id); // remove this node from outputs of input nodes
                     }
-                }
             }
             texture_node.inputs.clear(); // clear existing dependencies
             //texture_node.outputs.clear(); // clear existing dependencies
@@ -119,8 +118,8 @@ fn connect_texture_dependencies(
             let keys = get_dependent_texture_keys(&texture);
             let props = texture.as_property_map();
             for key in keys.iter() {
-                if let Some(value) = props.get(key) {
-                    if let Property::Strings(names) = value {
+                if let Some(value) = props.get(key)
+                    && let Property::Strings(names) = value {
                         for dep_texture_name in names {
                             if let Some(dep_texture) =
                                 resource_manager.find_texture_by_name(dep_texture_name)
@@ -135,13 +134,12 @@ fn connect_texture_dependencies(
                             }
                         }
                     }
-                }
             }
             texture_node.edition = edition; // update edition
         }
         {
             for (key, dep_texture_node) in dependency_nodes.iter() {
-                TextureNode::set_link(key, &dep_texture_node, &texture_node);
+                TextureNode::set_link(key, dep_texture_node, texture_node);
             }
         }
     }

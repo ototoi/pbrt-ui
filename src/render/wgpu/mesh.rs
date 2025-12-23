@@ -57,7 +57,7 @@ fn get_indices(mesh: &MeshData) -> Vec<u32> {
 
 impl RenderMesh {
     pub fn get_id(&self) -> Uuid {
-        return self.id;
+        self.id
     }
 
     pub fn from_shape(

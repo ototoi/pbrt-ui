@@ -23,7 +23,7 @@ fn get_ltc_fit_bin() -> String {
 fn test_ltc_fit_invalid_format() {
     let temp_dir = TempDir::new().unwrap();
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "--brdf",
             "ggx",
             "-o",
@@ -48,7 +48,7 @@ fn test_ltc_fit_code_format_creates_file() {
     // Note: We use a small size to avoid the fitting bug at 90 degrees
     // This is a pre-existing issue in the fitting code
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -84,7 +84,7 @@ fn test_ltc_fit_exr_format_compatibility() {
 
     // Test that EXR format still works (default format)
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -115,7 +115,7 @@ fn test_ltc_fit_brdf_uppercase_in_const_names() {
 
     // Test that BRDF names are properly uppercased in const names
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "beckmann",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -145,7 +145,7 @@ fn test_ltc_fit_multiple_formats_with_multiple_flags() {
 
     // Test specifying multiple formats with multiple -f flags
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -179,7 +179,7 @@ fn test_ltc_fit_multiple_formats_with_comma_separated() {
 
     // Test specifying multiple formats with comma-separated list
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -211,7 +211,7 @@ fn test_ltc_fit_default_outputs_all_formats() {
 
     // Test that default behavior (no -f flag) outputs all formats
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -241,7 +241,7 @@ fn test_ltc_fit_single_format_only_creates_specified_files() {
 
     // Test that specifying only 'code' does not create EXR files
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -272,7 +272,7 @@ fn test_ltc_fit_custom_nsample() {
 
     // Test that nsample parameter can be customized
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),
@@ -307,7 +307,7 @@ fn test_ltc_fit_default_nsample() {
 
     // Test that default nsample value is 32
     let output = Command::new(get_ltc_fit_bin())
-        .args(&[
+        .args([
             "ggx",
             "-o",
             temp_dir.path().to_str().expect(TEMP_PATH_ERROR),

@@ -1,8 +1,6 @@
-use crate::render::wgpu::material::RenderUniformValue;
 
 use super::lines::RenderLinesVertex;
 use super::render_item::RenderItem;
-use super::render_item::get_color;
 use std::sync::Arc;
 
 use eframe::wgpu;
@@ -61,13 +59,13 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         align_to(local_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    
+    device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    });
-    return buffer;
+    })
 }
 
 fn create_material_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -78,13 +76,13 @@ fn create_material_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wg
         align_to(material_uniform_size, alignment)
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    
+    device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    });
-    return buffer;
+    })
 }
 
 impl LinesRenderer {
@@ -148,19 +146,17 @@ impl LinesRenderer {
             for (i, item) in render_items.iter().enumerate() {
                 let matrix = item.get_matrix();
 
-                if let RenderItem::Lines(line_item) = item.as_ref() {
-                    if let Some(material) = line_item.material.as_ref() {
-                        if material.passes.len() > 0 {
+                if let RenderItem::Lines(line_item) = item.as_ref()
+                    && let Some(material) = line_item.material.as_ref()
+                        && !material.passes.is_empty() {
                             let offset = i as wgpu::BufferAddress * self.material_uniform_alignment;
                             let uniform_buffer = &material.passes[0].uniform_values;
                             queue.write_buffer(
                                 &self.material_uniform_buffer,
                                 offset,
-                                &uniform_buffer,
+                                uniform_buffer,
                             );
                         }
-                    }
-                }
 
                 {
                     let uniform = LocalUniforms {
@@ -316,7 +312,7 @@ impl LinesRenderer {
                 targets: &[Some(target_format.into())],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: primitive,
+            primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: false,
@@ -394,7 +390,7 @@ impl LinesRenderer {
 
         let render_items = Vec::new();
 
-        return LinesRenderer {
+        LinesRenderer {
             pipeline,
             global_bind_group_layout,
             global_bind_group,
@@ -408,6 +404,6 @@ impl LinesRenderer {
             material_uniform_buffer,
             material_uniform_alignment,
             render_items,
-        };
+        }
     }
 }

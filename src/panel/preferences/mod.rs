@@ -16,7 +16,7 @@ pub struct PreferencesWindow {
 fn get_config(controller: &Arc<RwLock<AppController>>) -> Arc<RwLock<AppConfig>> {
     let mut controller = controller.write().unwrap();
     controller.load_config();
-    return controller.get_config();
+    controller.get_config()
 }
 
 impl PreferencesWindow {
@@ -28,7 +28,7 @@ impl PreferencesWindow {
             controller: controller.clone(),
             is_open: false,
             id: egui::Id::new("preferences_window"),
-            config: config,
+            config,
         }
     }
 
@@ -77,11 +77,10 @@ impl PreferencesWindow {
                             dialog = dialog
                                 .set_directory(path.parent().unwrap_or(std::path::Path::new(".")));
                         }
-                        if let Some(new_path) = dialog.pick_file() {
-                            if new_path.exists() {
+                        if let Some(new_path) = dialog.pick_file()
+                            && new_path.exists() {
                                 self.config.pbrt_executable_path = new_path.clone();
                             }
-                        }
                     }
                 });
                 ui.horizontal(|ui| {

@@ -26,7 +26,7 @@ impl Node {
             id: Uuid::new_v4(),
             parent: None,
             children: Vec::new(),
-            components: components,
+            components,
         };
         Arc::new(RwLock::new(node))
     }
@@ -39,11 +39,11 @@ impl Node {
             id: Uuid::new_v4(),
             parent: Some(Arc::downgrade(parent)),
             children: Vec::new(),
-            components: components,
+            components,
         };
         let c = Arc::new(RwLock::new(node));
         Node::add_child(parent, &c);
-        return c;
+        c
     }
 
     pub fn is_enabled(&self) -> bool {

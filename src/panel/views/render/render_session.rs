@@ -20,14 +20,14 @@ fn get_file_path(node: &Arc<RwLock<Node>>) -> Option<String> {
     if let Some(scene) = node.get_component::<SceneComponent>() {
         return scene.get_fullpath();
     }
-    return None;
+    None
 }
 
 fn get_digest(path: &str) -> String {
     let mut hasher = crypto::sha1::Sha1::new();
     hasher.input_str(path);
-    let digest = hasher.result_str();
-    return digest;
+    
+    hasher.result_str()
 }
 
 fn scene_cache_dir(path: Option<String>) -> PathBuf {
@@ -121,11 +121,11 @@ impl RenderSession {
         if let Some(save_task) = tasks.get_mut(&RenderState::Saving) {
             save_task.enter()?;
         }
-        return Ok(Self {
+        Ok(Self {
             state: RenderState::Saving,
-            tasks: tasks,
+            tasks,
             receiver: image_receiver,
-        });
+        })
     }
 
     pub fn get_state(&self) -> RenderState {

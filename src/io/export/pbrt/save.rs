@@ -60,12 +60,12 @@ fn get_world_matrix(node: &Arc<RwLock<Node>>) -> Result<Matrix4x4, PbrtError> {
         let local_matrix = node
             .get_component::<TransformComponent>()
             .ok_or(PbrtError::error("Transform is not found!"))?;
-        return Ok(parent_matrix * local_matrix.get_local_matrix());
+        Ok(parent_matrix * local_matrix.get_local_matrix())
     } else {
         let local_matrix = node
             .get_component::<TransformComponent>()
             .ok_or(PbrtError::error("Transform is not found!"))?;
-        return Ok(local_matrix.get_local_matrix());
+        Ok(local_matrix.get_local_matrix())
     }
 }
 
@@ -112,14 +112,12 @@ fn write_transform(
 
 fn get_material_ignore_keys(material: &Material) -> Vec<String> {
     let mut ignore_keys = Vec::new();
-    if material.get_type() == "subsurface" {
-        if let Some(name_value) = material.props.find_one_string("string name") {
-            if !name_value.is_empty() {
+    if material.get_type() == "subsurface"
+        && let Some(name_value) = material.props.find_one_string("string name")
+            && !name_value.is_empty() {
                 ignore_keys.push("sigma_a".to_string());
                 ignore_keys.push("sigma_s".to_string());
             }
-        }
-    }
     ignore_keys
 }
 
@@ -164,7 +162,7 @@ impl PbrtSaver {
             } else if let Property::Bools(v) = value {
                 let values = v
                     .iter()
-                    .map(|v| format!("\"{}\"", v.to_string()))
+                    .map(|v| format!("\"{}\"", v))
                     .collect::<Vec<_>>()
                     .join(" ");
                 writer.write(format!(" \"{} {}\" [{}]", kt, kn, values).as_bytes())?;
@@ -786,7 +784,7 @@ impl PbrtSaver {
         self.write_world_black(node, &mut writer)?;
         writer.flush()?;
         self.copy_resources(node, path)?;
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -798,5 +796,5 @@ pub fn save_pbrt(
     let mut pbrt_writer = PbrtSaver::new(options);
     pbrt_writer.write(node, path)?;
 
-    return Ok(());
+    Ok(())
 }

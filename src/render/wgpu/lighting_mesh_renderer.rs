@@ -143,7 +143,7 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
     };
     let u_axis = direction.cross(up).normalize();
     let v_axis = direction.cross(u_axis).normalize();
-    return (u_axis, v_axis);
+    (u_axis, v_axis)
 }
 
 #[derive(Debug, Clone)]
@@ -215,20 +215,20 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         )
     };
     let required_size = uniform_alignment * num_items as wgpu::BufferAddress;
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    
+    device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Item Matrices Buffer"),
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    });
-    return buffer;
+    })
 }
 
 fn get_shader_has_lighting(category: RenderCategory) -> bool {
     if category == RenderCategory::Emissive {
         return false;
     }
-    return true;
+    true
 }
 
 impl LightingMeshRenderer {
@@ -269,7 +269,7 @@ impl LightingMeshRenderer {
                 _ => {}
             }
         }
-        return (mesh_items, light_items);
+        (mesh_items, light_items)
     }
 
     // -------------------------------------------------------
@@ -440,7 +440,7 @@ impl LightingMeshRenderer {
 
         let material_binding_offset = 1;
         for (i, texture) in render_pass.textures.iter().enumerate() {
-            let binding_texture = (material_binding_offset + 2 * i + 0) as u32;
+            let binding_texture = (material_binding_offset + 2 * i) as u32;
             let binding_sampler = (material_binding_offset + 2 * i + 1) as u32;
             if let Some(texture) = texture {
                 entries.push(wgpu::BindGroupEntry {
@@ -484,14 +484,14 @@ impl LightingMeshRenderer {
 
         let id = render_pass.id;
         let textures = render_pass.textures.clone();
-        return MaterialBindGroupEntry {
+        MaterialBindGroupEntry {
             id,
             material_bind_group,
             uniform_buffer,
             textures,
             ltc_bind_group,
             ltc_texture,
-        };
+        }
     }
 
     pub fn prepare_materials(
@@ -545,7 +545,7 @@ impl LightingMeshRenderer {
                 }
                 let (_, pass) = tmp_entry.material_indices_map.values().next().unwrap();
 
-                if !self.pipelines.contains_key(&shader_id) {
+                if !self.pipelines.contains_key(shader_id) {
                     let shader = tmp_entry.shader.clone();
                     let shader_id = shader.id;
                     let pipeline = self.create_pipeline(device, queue, &shader.shader, pass);
@@ -554,7 +554,7 @@ impl LightingMeshRenderer {
                 }
                 let entry = self
                     .pipelines
-                    .get_mut(&shader_id)
+                    .get_mut(shader_id)
                     .expect("Pipeline for basic material not found");
                 let mut entry = entry.write().unwrap();
                 entry.mesh_indices = mesh_indices.clone();
@@ -565,7 +565,7 @@ impl LightingMeshRenderer {
                 for (_, (index, pass)) in tmp_entry.material_indices_map.iter() {
                     passes.push((index, pass));
                 }
-                passes.sort_by(|a, b| a.0.cmp(&b.0));
+                passes.sort_by(|a, b| a.0.cmp(b.0));
                 for (_, pass) in passes.iter() {
                     let id = pass.id;
                     if let Some(bind_group_entry) = prev_bind_groups.get(&id) {
@@ -628,12 +628,12 @@ impl LightingMeshRenderer {
                 resource: wgpu::BindingResource::Sampler(light_sampler),
             },
         ];
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Light Bind Group"),
-            layout: layout,
+            layout,
             entries: &entries,
-        });
-        return light_bind_group;
+        })
     }
 
     fn prepare_lights(
@@ -648,9 +648,9 @@ impl LightingMeshRenderer {
         {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
-                if let RenderItem::Light(light_item) = item.as_ref() {
-                    if let RenderItem::Light(item) = item.as_ref() {
-                        if let RenderLight::Sphere(light) = item.light.as_ref() {
+                if let RenderItem::Light(light_item) = item.as_ref()
+                    && let RenderItem::Light(item) = item.as_ref()
+                        && let RenderLight::Sphere(light) = item.light.as_ref() {
                             if light_buffer.len() >= MAX_SPHERE_LIGHT_NUM {
                                 break;
                             }
@@ -667,14 +667,12 @@ impl LightingMeshRenderer {
                             let light = SphereLight {
                                 position: [position.x, position.y, position.z, 1.0],
                                 intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                                radius: radius,
+                                radius,
                                 _pad1: [0.0; 2], // Range of the light // 4 * 4 = 8
                                 ..Default::default()
                             };
                             light_buffer.push(light);
                         }
-                    }
-                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -690,8 +688,8 @@ impl LightingMeshRenderer {
         {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
-                if let RenderItem::Light(light_item) = item.as_ref() {
-                    if let RenderLight::Disk(light) = light_item.light.as_ref() {
+                if let RenderItem::Light(light_item) = item.as_ref()
+                    && let RenderLight::Disk(light) = light_item.light.as_ref() {
                         if light_buffer.len() >= MAX_DISK_LIGHT_NUM {
                             break;
                         }
@@ -718,9 +716,9 @@ impl LightingMeshRenderer {
                             position: [position.x, position.y, position.z, 1.0],
                             direction: [direction.x, direction.y, direction.z, 0.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            radius: radius,
-                            cos_inner_angle: cos_inner_angle,
-                            cos_outer_angle: cos_outer_angle,
+                            radius,
+                            cos_inner_angle,
+                            cos_outer_angle,
                             u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
                             v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
                             twosided: if light.twosided { 1 } else { 0 },
@@ -728,7 +726,6 @@ impl LightingMeshRenderer {
                         };
                         light_buffer.push(light);
                     }
-                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -744,8 +741,8 @@ impl LightingMeshRenderer {
         {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
-                if let RenderItem::Light(light_item) = item.as_ref() {
-                    if let RenderLight::Rect(rect) = light_item.light.as_ref() {
+                if let RenderItem::Light(light_item) = item.as_ref()
+                    && let RenderLight::Rect(rect) = light_item.light.as_ref() {
                         //println!("Rect light item: {:?}", item);
                         if light_buffer.len() >= MAX_RECT_LIGHT_NUM {
                             break;
@@ -781,7 +778,6 @@ impl LightingMeshRenderer {
                         };
                         light_buffer.push(light);
                     }
-                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -797,8 +793,8 @@ impl LightingMeshRenderer {
         {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
-                if let RenderItem::Light(light_item) = item.as_ref() {
-                    if let RenderLight::Infinite(light) = light_item.light.as_ref() {
+                if let RenderItem::Light(light_item) = item.as_ref()
+                    && let RenderLight::Infinite(light) = light_item.light.as_ref() {
                         if light_buffer.len() >= MAX_INFINITE_LIGHT_NUM {
                             break;
                         }
@@ -821,7 +817,6 @@ impl LightingMeshRenderer {
                         };
                         light_buffer.push(light);
                     }
-                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -837,8 +832,8 @@ impl LightingMeshRenderer {
         {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
-                if let RenderItem::Light(light_item) = item.as_ref() {
-                    if let RenderLight::Directional(light) = light_item.light.as_ref() {
+                if let RenderItem::Light(light_item) = item.as_ref()
+                    && let RenderLight::Directional(light) = light_item.light.as_ref() {
                         if light_buffer.len() >= MAX_DIRECTIONAL_LIGHT_NUM {
                             break;
                         }
@@ -856,12 +851,11 @@ impl LightingMeshRenderer {
                         let light = DirectionalLight {
                             direction: [direction[0], direction[1], direction[2], 0.0],
                             intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            radius: radius,
+                            radius,
                             _pad1: [0.0; 3],
                         };
                         light_buffer.push(light);
                     }
-                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -955,9 +949,9 @@ impl LightingMeshRenderer {
         }];
         let material_binding_offset = 1;
         for (i, texture) in pass.textures.iter().enumerate() {
-            let binding_texture = material_binding_offset + (2 * i + 0) as u32;
+            let binding_texture = material_binding_offset + (2 * i) as u32;
             let binding_sampler = material_binding_offset + (2 * i + 1) as u32;
-            if let Some(_) = texture {
+            if texture.is_some() {
                 material_bind_group_entries.push(wgpu::BindGroupLayoutEntry {
                     binding: binding_texture,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -1040,13 +1034,13 @@ impl LightingMeshRenderer {
             label: Some(label.as_str()),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: Some("vs_main"),
                 buffers: &vertex_buffer_layout,
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: shader,
                 entry_point: Some("fs_main"),
                 //targets: &[Some(wgpu_render_state.target_format.into())],
                 targets: &[Some(wgpu::ColorTargetState {
@@ -1056,10 +1050,10 @@ impl LightingMeshRenderer {
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            primitive: primitive,
+            primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: depth_texture_format,
-                depth_write_enabled: depth_write_enabled,
+                depth_write_enabled,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
@@ -1070,7 +1064,8 @@ impl LightingMeshRenderer {
         });
 
         // Create a uniform buffer for material properties
-        let entry = PipelineEntry {
+        
+        PipelineEntry {
             pipeline,
             material_bind_group_layout,
             material_bind_groups: Vec::new(),
@@ -1078,8 +1073,7 @@ impl LightingMeshRenderer {
             material_indices: Vec::new(),
             sort_order,
             enable_lighting: has_lighting,
-        };
-        return entry;
+        }
     }
 }
 
@@ -1420,10 +1414,10 @@ impl LightingMeshRenderer {
             pipelines: materials,
         };
         pass.init(device, queue);
-        return pass;
+        pass
     }
 
-    pub fn init(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn init(&mut self, _device: &wgpu::Device, _queue: &wgpu::Queue) {
         // Initialize pipelines or other resources if needed
     }
 }

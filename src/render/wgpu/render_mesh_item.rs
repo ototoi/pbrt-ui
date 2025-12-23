@@ -38,18 +38,17 @@ pub fn get_mesh(
         let shape = component.get_shape();
         let shape = shape.read().unwrap();
         let mesh_id = shape.get_id();
-        if let Some(mesh) = render_resource_manager.get_mesh(mesh_id) {
-            if mesh.edition == shape.get_edition() {
+        if let Some(mesh) = render_resource_manager.get_mesh(mesh_id)
+            && mesh.edition == shape.get_edition() {
                 return Some(mesh.clone());
             }
-        }
         if let Some(mesh) = RenderMesh::from_shape(device, queue, &shape) {
             let mesh = Arc::new(mesh);
             render_resource_manager.add_mesh(&mesh);
             return Some(mesh);
         }
     }
-    return None;
+    None
 }
 
 fn get_base_diffuse_key(material: &Material) -> Option<String> {
@@ -79,17 +78,17 @@ fn get_base_diffuse_key(material: &Material) -> Option<String> {
         }
         _ => {}
     }
-    return None;
+    None
 }
 
 fn roughness_to_alpha(roughness: f32) -> f32 {
     let roughness = f32::max(roughness, 1e-3);
     let x = f32::ln(roughness);
-    return 1.62142
+    1.62142
         + 0.819955 * x
         + 0.1734 * x * x
         + 0.0171201 * x * x * x
-        + 0.000640711 * x * x * x * x;
+        + 0.000640711 * x * x * x * x
 }
 
 fn create_basic_render_passes(
@@ -124,7 +123,7 @@ fn create_basic_render_passes(
         "ggx",
         render_resource_manager,
     );
-    return vec![render_pass];
+    vec![render_pass]
 }
 
 fn create_matte_render_passes(
@@ -200,7 +199,7 @@ fn create_matte_render_passes(
         &ltc_type,
         render_resource_manager,
     );
-    return vec![render_pass];
+    vec![render_pass]
 }
 
 fn create_plastic_render_passes(
@@ -277,7 +276,7 @@ fn create_plastic_render_passes(
         "microfacet_reflection",
         render_resource_manager,
     );
-    return vec![render_pass];
+    vec![render_pass]
 }
 
 fn create_uber_render_passes(
@@ -287,13 +286,13 @@ fn create_uber_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    return create_plastic_render_passes(
+    create_plastic_render_passes(
         device,
         queue,
         material,
         resource_manager,
         render_resource_manager,
-    );
+    )
 }
 
 fn create_substrate_render_passes(
@@ -303,13 +302,13 @@ fn create_substrate_render_passes(
     resource_manager: &ResourceManager,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderPass>> {
-    return create_plastic_render_passes(
+    create_plastic_render_passes(
         device,
         queue,
         material,
         resource_manager,
         render_resource_manager,
-    );
+    )
 }
 
 fn create_glass_render_passes(
@@ -368,7 +367,7 @@ fn create_glass_render_passes(
         );
         passes.push(render_pass);
     }
-    return passes;
+    passes
 }
 
 fn create_metal_render_passes(
@@ -445,7 +444,7 @@ fn create_metal_render_passes(
         "microfacet_reflection",
         render_resource_manager,
     );
-    return vec![render_pass];
+    vec![render_pass]
 }
 
 fn create_render_material_from_material(
@@ -531,13 +530,13 @@ fn create_render_material_from_material(
             passes.extend(new_passes);
         }
     }
-    let render_material = RenderMaterial {
+    
+    RenderMaterial {
         id,
         edition,
         material_type,
         passes,
-    };
-    return render_material;
+    }
 }
 
 fn create_render_material_from_light(
@@ -579,13 +578,13 @@ fn create_render_material_from_light(
             passes.push(pass);
         }
     }
-    let render_material = RenderMaterial {
+    
+    RenderMaterial {
         id,
         edition,
         material_type,
         passes,
-    };
-    return render_material;
+    }
 }
 
 pub fn get_render_material(
@@ -601,11 +600,10 @@ pub fn get_render_material(
         let light = light.get_light();
         let light = light.read().unwrap();
         let light_id = light.get_id();
-        if let Some(mat) = render_resource_manager.get_material(light_id) {
-            if mat.edition == light.get_edition() {
+        if let Some(mat) = render_resource_manager.get_material(light_id)
+            && mat.edition == light.get_edition() {
                 return Some(mat.clone());
             }
-        }
         let render_material = create_render_material_from_light(
             device,
             queue,
@@ -621,11 +619,10 @@ pub fn get_render_material(
         let material = component.get_material();
         let material = material.read().unwrap();
         let material_id = material.get_id();
-        if let Some(mat) = render_resource_manager.get_material(material_id) {
-            if mat.edition == material.get_edition() {
+        if let Some(mat) = render_resource_manager.get_material(material_id)
+            && mat.edition == material.get_edition() {
                 return Some(mat.clone());
             }
-        }
         let render_material = create_render_material_from_material(
             device,
             queue,
@@ -644,7 +641,7 @@ pub fn get_render_material(
         render_resource_manager.add_material(&render_material);
         return Some(render_material);
     }
-    return None;
+    None
 }
 
 pub fn get_render_mesh_item(
@@ -662,7 +659,7 @@ pub fn get_render_mesh_item(
                 device,
                 queue,
                 &item.node,
-                &resource_manager,
+                resource_manager,
                 render_resource_manager,
             )
         } else {
@@ -675,5 +672,5 @@ pub fn get_render_mesh_item(
         };
         return Some(RenderItem::Mesh(render_item));
     }
-    return None;
+    None
 }

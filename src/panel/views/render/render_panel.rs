@@ -40,7 +40,7 @@ fn create_history(name: &str, config: &Arc<RwLock<AppConfig>>) -> Box<RenderHist
     let filename = format!("render_image_{}.exr", name); //should be configurable
     let output_image_path = render_output_directory.join(filename);
     history.output_image_path = output_image_path.to_str().unwrap().to_string();
-    return history;
+    history
 }
 
 impl RenderPanel {
@@ -56,8 +56,8 @@ impl RenderPanel {
             app_controller: controller.clone(),
             histories: vec![history],
             current: 0,
-            render_view: render_view,
-            scene_view: scene_view,
+            render_view,
+            scene_view,
             render_mode: RenderMode::Wire,
         }
     }
@@ -173,15 +173,14 @@ impl RenderPanel {
                                 .save_file()
                             {
                                 history.output_image_path = path.to_str().unwrap_or("").to_string();
-                                if let Some(parent) = path.parent() {
-                                    if parent.exists() {
+                                if let Some(parent) = path.parent()
+                                    && parent.exists() {
                                         let config =
                                             self.app_controller.read().unwrap().get_config();
                                         let mut config = config.write().unwrap();
                                         config.render_output_directory =
                                             parent.to_str().unwrap_or("").to_string();
                                     }
-                                }
                             }
                         }
 

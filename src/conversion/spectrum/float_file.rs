@@ -24,12 +24,11 @@ pub fn read_float_file(path: &str) -> Result<Vec<f32>, PbrtError> {
                             path
                         );
                     }
-                    return 0.0;
+                    0.0
                 })
-                .map(|f| f as f32)
                 .collect();
             values.append(&mut vv);
         }
     }
-    return Ok(values);
+    Ok(values)
 }

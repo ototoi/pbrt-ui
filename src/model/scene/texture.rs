@@ -47,30 +47,30 @@ impl Texture {
     }
 
     pub fn get_id(&self) -> Uuid {
-        return self.id;
+        self.id
     }
 
     pub fn get_name(&self) -> String {
-        return self.props.find_one_string("string name").unwrap();
+        self.props.find_one_string("string name").unwrap()
     }
 
     pub fn get_type(&self) -> String {
-        return self.props.find_one_string("string type").unwrap();
+        self.props.find_one_string("string type").unwrap()
     }
 
     pub fn get_edition(&self) -> String {
-        return self
+        self
             .props
             .find_one_string("string edition")
-            .unwrap_or_default();
+            .unwrap_or_default()
     }
 
     pub fn get_color_type(&self) -> String {
-        return self.props.find_one_string("string color_type").unwrap();
+        self.props.find_one_string("string color_type").unwrap()
     }
 
     pub fn get_transform(&self) -> Matrix4x4 {
-        return self.transform;
+        self.transform
     }
 
     pub fn get_filename(&self) -> Option<String> {

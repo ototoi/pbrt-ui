@@ -52,12 +52,12 @@ impl TextureProperties {
                 param.insert(PropetyParseKey::KeyName, key_name.to_string());
                 param.insert(PropetyParseKey::DefaultValue, default_value.to_string());
                 param.insert(PropetyParseKey::ValueRange, value_range.to_string());
-                return parse_property_entry(&param);
+                parse_property_entry(&param)
             })
             .collect();
         let mut names: Vec<String> = vec![];
         for (name, _) in props.iter() {
-            if !names.contains(&name) {
+            if !names.contains(name) {
                 names.push(name.clone());
             }
         }
@@ -76,6 +76,6 @@ impl TextureProperties {
         Properties::new(&props)
     }
     pub fn get_instance() -> LazyCell<Properties> {
-        return LazyCell::new(|| TextureProperties::new());
+        LazyCell::new(TextureProperties::new)
     }
 }

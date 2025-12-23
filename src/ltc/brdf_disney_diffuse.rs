@@ -7,7 +7,7 @@ pub struct BrdfDisneyDiffuse;
 
 impl BrdfDisneyDiffuse {
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 }
 
@@ -32,11 +32,11 @@ impl Brdf for BrdfDisneyDiffuse {
         (value, pdf)
     }
 
-    fn sample(&self, V: &glam::Vec3, alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
+    fn sample(&self, _V: &glam::Vec3, _alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let r = U1.sqrt();
         let phi = 2.0 * std::f32::consts::PI * U2;
-        let L = glam::Vec3::new(r * phi.cos(), r * phi.sin(), (1.0 - r * r).sqrt());
-        L
+        
+        glam::Vec3::new(r * phi.cos(), r * phi.sin(), (1.0 - r * r).sqrt())
     }
 }
 
