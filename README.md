@@ -26,9 +26,8 @@ The built-in preprocessor enables powerful macro expansion, conditional compilat
 
 ## Prerequisites
 
-- Rust (for building the preprocessor; see [rust-lang.org](https://www.rust-lang.org/))
+- Rust (for building the project; see [rust-lang.org](https://www.rust-lang.org/))
 - [PBRT](https://www.pbrt.org/) (external renderer, for final renders)
-- Node.js & npm (if frontend is web-based)
 - OS: Windows, Linux, or macOS
 
 ## Installation
@@ -36,10 +35,7 @@ The built-in preprocessor enables powerful macro expansion, conditional compilat
 ```sh
 git clone https://github.com/ototoi/pbrt-ui.git
 cd pbrt-ui
-# Build instructions depend on your stack:
-cargo build         # Build Rust components (preprocessor, etc.)
-npm install         # (If using a frontend framework)
-npm run build
+cargo build --release
 ```
 
 ## Usage
