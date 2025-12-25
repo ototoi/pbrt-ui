@@ -554,7 +554,7 @@ pub fn save_pbrt(
     let writer: Arc<RefCell<dyn Write>> = Arc::new(RefCell::new(writer));
     let mut target = PrintTarget::new_with_params(writer.clone(), false);
 
-    println!("Saving PBRT file to {}", path);
+    // println!("Saving PBRT file to {}", path);
     write_header(&mut target)?;
     write_options_block(node, &mut target)?;
     target.write_str("\n")?;
