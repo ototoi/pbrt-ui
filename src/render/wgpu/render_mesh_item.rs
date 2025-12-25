@@ -39,9 +39,10 @@ pub fn get_mesh(
         let shape = shape.read().unwrap();
         let mesh_id = shape.get_id();
         if let Some(mesh) = render_resource_manager.get_mesh(mesh_id)
-            && mesh.edition == shape.get_edition() {
-                return Some(mesh.clone());
-            }
+            && mesh.edition == shape.get_edition()
+        {
+            return Some(mesh.clone());
+        }
         if let Some(mesh) = RenderMesh::from_shape(device, queue, &shape) {
             let mesh = Arc::new(mesh);
             render_resource_manager.add_mesh(&mesh);
@@ -165,9 +166,6 @@ fn create_matte_render_passes(
         resource_manager,
         render_resource_manager,
     ) {
-        let texture = render_resource_manager
-            .get_texture(texture.get_id())
-            .unwrap();
         uniform_values.push((
             "bumpmap".to_string(),
             RenderUniformValue::Texture(texture.clone()),
@@ -181,7 +179,7 @@ fn create_matte_render_passes(
         ));
     }
     let mut shader_type = "lambertian".to_string();
-    let mut ltc_type = "ggx".to_string();
+    let mut ltc_type = "microfacet_reflection".to_string();
     let sigma = get_float(&material.props, "sigma").unwrap_or(0.0);
     if sigma > 0.0 {
         let sigma = sigma.to_radians() / (0.5 * std::f32::consts::PI);
@@ -250,10 +248,6 @@ fn create_plastic_render_passes(
         resource_manager,
         render_resource_manager,
     ) {
-        //println!("Found bumpmap texture for plastic material");
-        let texture = render_resource_manager
-            .get_texture(texture.get_id())
-            .unwrap();
         uniform_values.push((
             "bumpmap".to_string(),
             RenderUniformValue::Texture(texture.clone()),
@@ -343,7 +337,7 @@ fn create_glass_render_passes(
             "glass_transmission",
             RenderCategory::Transparent,
             &uniform_values,
-            "ggx",
+            "microfacet_reflection",
             render_resource_manager,
         );
         passes.push(render_pass);
@@ -362,7 +356,7 @@ fn create_glass_render_passes(
             "glass_reflection",
             RenderCategory::TransparentSpecular,
             &uniform_values,
-            "ggx",
+            "microfacet_reflection",
             render_resource_manager,
         );
         passes.push(render_pass);
@@ -411,7 +405,7 @@ fn create_metal_render_passes(
         "roughness".to_string(),
         RenderUniformValue::Float(roughness),
     ));
-    
+
     // Handle bumpmap texture and uniform
     if let Some(texture) = get_texture(
         &material.props,
@@ -601,9 +595,10 @@ pub fn get_render_material(
         let light = light.read().unwrap();
         let light_id = light.get_id();
         if let Some(mat) = render_resource_manager.get_material(light_id)
-            && mat.edition == light.get_edition() {
-                return Some(mat.clone());
-            }
+            && mat.edition == light.get_edition()
+        {
+            return Some(mat.clone());
+        }
         let render_material = create_render_material_from_light(
             device,
             queue,
@@ -620,9 +615,10 @@ pub fn get_render_material(
         let material = material.read().unwrap();
         let material_id = material.get_id();
         if let Some(mat) = render_resource_manager.get_material(material_id)
-            && mat.edition == material.get_edition() {
-                return Some(mat.clone());
-            }
+            && mat.edition == material.get_edition()
+        {
+            return Some(mat.clone());
+        }
         let render_material = create_render_material_from_material(
             device,
             queue,
