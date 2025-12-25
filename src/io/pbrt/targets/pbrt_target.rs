@@ -1,7 +1,7 @@
 use crate::model::base::PropertyMap as ParamSet;
 pub type Float = f32;
 
-pub trait ParseTarget {
+pub trait PbrtTarget {
     fn cleanup(&mut self);
     fn identity(&mut self);
     fn translate(&mut self, dx: Float, dy: Float, dz: Float);

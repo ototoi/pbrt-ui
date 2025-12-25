@@ -1,4 +1,4 @@
-use pbrt_ui::io::pbrt::export::{save_pbrt, SavePbrtOptions};
+use pbrt_ui::io::pbrt::export::{SavePbrtOptions, save_pbrt};
 use pbrt_ui::io::pbrt::import::load_pbrt;
 
 fn main() {

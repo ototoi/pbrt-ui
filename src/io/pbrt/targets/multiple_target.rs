@@ -1,4 +1,4 @@
-use crate::io::pbrt::ParseTarget;
+use crate::io::pbrt::PbrtTarget;
 use crate::model::base::ParamSet;
 
 use std::sync::Arc;
@@ -8,7 +8,7 @@ type Float = f32;
 
 #[derive(Default)]
 pub struct MultipleTarget {
-    pub targets: Vec<Arc<RwLock<dyn ParseTarget>>>,
+    pub targets: Vec<Arc<RwLock<dyn PbrtTarget>>>,
 }
 
 impl MultipleTarget {
@@ -16,7 +16,7 @@ impl MultipleTarget {
         Self::default()
     }
 
-    pub fn add_target<T: ParseTarget + 'static>(&mut self, target: Arc<RwLock<T>>) {
+    pub fn add_target<T: PbrtTarget + 'static>(&mut self, target: Arc<RwLock<T>>) {
         self.targets.push(target);
     }
 
@@ -25,7 +25,7 @@ impl MultipleTarget {
     }
 }
 
-impl ParseTarget for MultipleTarget {
+impl PbrtTarget for MultipleTarget {
     fn cleanup(&mut self) {
         for target in &self.targets {
             target.write().unwrap().cleanup();

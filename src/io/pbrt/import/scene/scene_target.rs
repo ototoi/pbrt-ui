@@ -1,9 +1,9 @@
-use crate::io::pbrt::ParseTarget;
 use super::graphics_state::GraphicsState;
 use super::render_options::RenderOptions;
 use super::transform::Transform;
 use super::transform::TransformBit;
 use super::transform::TransformSet;
+use crate::io::pbrt::PbrtTarget;
 use crate::model::base::Matrix4x4;
 use crate::model::base::ParamSet;
 use crate::model::base::Property;
@@ -392,7 +392,7 @@ impl SceneTarget {
     }
 }
 
-impl ParseTarget for SceneTarget {
+impl PbrtTarget for SceneTarget {
     fn cleanup(&mut self) {}
     fn identity(&mut self) {
         let t = Transform::identity();

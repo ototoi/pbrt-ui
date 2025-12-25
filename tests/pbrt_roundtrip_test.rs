@@ -1,4 +1,4 @@
-use pbrt_ui::io::pbrt::export::{save_pbrt, SavePbrtOptions};
+use pbrt_ui::io::pbrt::export::{SavePbrtOptions, save_pbrt};
 use pbrt_ui::io::pbrt::import::load_pbrt;
 use std::fs;
 use std::path::Path;
@@ -44,7 +44,10 @@ WorldEnd
     }
 
     // Check output exists
-    assert!(Path::new(output_file).exists(), "Output file was not created");
+    assert!(
+        Path::new(output_file).exists(),
+        "Output file was not created"
+    );
 
     // Read and print output for inspection
     let output_content = fs::read_to_string(output_file).expect("Failed to read output");

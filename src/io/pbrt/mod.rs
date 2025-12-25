@@ -1,5 +1,5 @@
 pub mod export;
 pub mod import;
-pub mod parse_target;
+pub mod targets;
 
-pub use parse_target::ParseTarget;
+pub use targets::{PbrtTarget, PrintTarget};
