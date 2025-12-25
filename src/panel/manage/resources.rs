@@ -90,111 +90,92 @@ impl ResourcesPanel {
             if let Some(resource_component) = root_node.get_component::<ResourceComponent>()
                 && let Some(resource_cache_component) =
                     root_node.get_component::<ResourceCacheComponent>()
+            {
+                let resource_manager = resource_component.get_resource_manager();
+                let resource_manager = resource_manager.read().unwrap();
+
+                if self.resource_type == ResourceType::All
+                    || self.resource_type == ResourceType::Texture
                 {
-                    let resource_manager = resource_component.get_resource_manager();
-                    let resource_manager = resource_manager.read().unwrap();
+                    let resource_cache_manager =
+                        resource_cache_component.get_resource_cache_manager();
+                    let mut resource_cache_manager = resource_cache_manager.write().unwrap();
+                    create_texture_nodes(&resource_manager, &mut resource_cache_manager);
+                    create_image_variants(
+                        &resource_manager,
+                        &mut resource_cache_manager,
+                        crate::conversion::texture_node::TextureSizeType::Icon,
+                    );
 
-                    if self.resource_type == ResourceType::All
-                        || self.resource_type == ResourceType::Texture
-                    {
-                        let resource_cache_manager =
-                            resource_cache_component.get_resource_cache_manager();
-                        let mut resource_cache_manager = resource_cache_manager.write().unwrap();
-                        create_texture_nodes(&resource_manager, &mut resource_cache_manager);
-                        create_image_variants(
-                            &resource_manager,
-                            &mut resource_cache_manager,
-                            crate::conversion::texture_node::TextureSizeType::Icon,
-                        );
+                    for (id, texture) in resource_manager.textures.iter() {
+                        let texture = texture.read().unwrap();
+                        let name = texture.get_name();
+                        let edition = texture.get_edition();
+                        if let Some((name, tex_id, tex_edition)) = self.texture_id_map.get(id)
+                            && edition == *tex_edition
+                        {
+                            // No need to update
+                            icon_data.push(IconData::Textured(*id, name.clone(), *tex_id));
+                            continue;
+                        }
 
-                        for (id, texture) in resource_manager.textures.iter() {
-                            let texture = texture.read().unwrap();
-                            let name = texture.get_name();
-                            let edition = texture.get_edition();
-                            if let Some((name, tex_id, tex_edition)) = self.texture_id_map.get(id)
-                                && edition == *tex_edition {
-                                    // No need to update
-                                    icon_data.push(IconData::Textured(
-                                        *id,
-                                        name.clone(),
-                                        *tex_id,
-                                    ));
+                        if let Some(texture_node) = resource_cache_manager.textures.get(id) {
+                            let texture_node = texture_node.read().unwrap();
+                            if let Some(image) =
+                                texture_node.image_variants.get(&TextureSizeType::Icon)
+                            {
+                                let image = image.read().unwrap();
+                                if let Some(color_image) = get_image_data(&image) {
+                                    let tex_manager = ui.ctx().tex_manager();
+                                    let mut tex_manager = tex_manager.write();
+                                    let texture_name = format!("texture_{}_icon", id);
+                                    let tex_id = tex_manager.alloc(
+                                        texture_name,
+                                        egui::ImageData::Color(Arc::new(color_image)),
+                                        egui::TextureOptions::LINEAR,
+                                    );
+                                    self.texture_id_map
+                                        .insert(*id, (name.clone(), tex_id, edition));
+                                    icon_data.push(IconData::Textured(*id, name.clone(), tex_id));
                                     continue;
                                 }
-
-                            if let Some(texture_node) = resource_cache_manager.textures.get(id) {
-                                let texture_node = texture_node.read().unwrap();
-                                if let Some(image) =
-                                    texture_node.image_variants.get(&TextureSizeType::Icon)
-                                {
-                                    let image = image.read().unwrap();
-                                    if let Some(color_image) = get_image_data(&image) {
-                                        let tex_manager = ui.ctx().tex_manager();
-                                        let mut tex_manager = tex_manager.write();
-                                        let texture_name = format!("texture_{}_icon", id);
-                                        let tex_id = tex_manager.alloc(
-                                            texture_name,
-                                            egui::ImageData::Color(Arc::new(color_image)),
-                                            egui::TextureOptions::LINEAR,
-                                        );
-                                        self.texture_id_map
-                                            .insert(*id, (name.clone(), tex_id, edition));
-                                        icon_data.push(IconData::Textured(
-                                            *id,
-                                            name.clone(),
-                                            tex_id,
-                                        ));
-                                        continue;
-                                    }
-                                }
-
-                                // Texture node not found
-                                icon_data.push(IconData::Colored(*id, name, egui::Color32::YELLOW));
                             }
-                        }
-                    }
 
-                    if self.resource_type == ResourceType::All
-                        || self.resource_type == ResourceType::Material
-                    {
-                        for (id, res) in resource_manager.materials.iter() {
-                            let res = res.read().unwrap();
-                            let name = res.get_name();
-                            icon_data.push(IconData::Colored(
-                                *id,
-                                name,
-                                egui::Color32::GREEN,
-                            ));
-                        }
-                    }
-                    if self.resource_type == ResourceType::All
-                        || self.resource_type == ResourceType::Mesh
-                    {
-                        for (id, res) in resource_manager.meshes.iter() {
-                            let res = res.read().unwrap();
-                            let name = res.get_name();
-                            icon_data.push(IconData::Colored(
-                                *id,
-                                name,
-                                egui::Color32::BLUE,
-                            ));
-                        }
-                    }
-
-                    if self.resource_type == ResourceType::All
-                        || self.resource_type == ResourceType::Other
-                    {
-                        for (id, res) in resource_manager.other_resources.iter() {
-                            let res = res.read().unwrap();
-                            let name = res.get_name();
-                            icon_data.push(IconData::Colored(
-                                *id,
-                                name,
-                                egui::Color32::GRAY,
-                            ));
+                            // Texture node not found
+                            icon_data.push(IconData::Colored(*id, name, egui::Color32::YELLOW));
                         }
                     }
                 }
+
+                if self.resource_type == ResourceType::All
+                    || self.resource_type == ResourceType::Material
+                {
+                    for (id, res) in resource_manager.materials.iter() {
+                        let res = res.read().unwrap();
+                        let name = res.get_name();
+                        icon_data.push(IconData::Colored(*id, name, egui::Color32::GREEN));
+                    }
+                }
+                if self.resource_type == ResourceType::All
+                    || self.resource_type == ResourceType::Mesh
+                {
+                    for (id, res) in resource_manager.meshes.iter() {
+                        let res = res.read().unwrap();
+                        let name = res.get_name();
+                        icon_data.push(IconData::Colored(*id, name, egui::Color32::BLUE));
+                    }
+                }
+
+                if self.resource_type == ResourceType::All
+                    || self.resource_type == ResourceType::Other
+                {
+                    for (id, res) in resource_manager.other_resources.iter() {
+                        let res = res.read().unwrap();
+                        let name = res.get_name();
+                        icon_data.push(IconData::Colored(*id, name, egui::Color32::GRAY));
+                    }
+                }
+            }
         }
         {
             if !icon_data.is_empty() {

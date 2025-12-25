@@ -1,4 +1,4 @@
-use super::super::super::parse::ParseTarget;
+use crate::io::pbrt::ParseTarget;
 use super::graphics_state::GraphicsState;
 use super::render_options::RenderOptions;
 use super::transform::Transform;
@@ -173,137 +173,139 @@ impl SceneTarget {
 
     fn register_other_resources(&mut self, params: &ParamSet) {
         if let Some(filename) = params.find_one_string("string bsdffile")
-            && let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                match std::path::absolute(fullpath) {
-                    Ok(fullpath) => {
-                        let name = fullpath
-                            .as_path()
-                            .file_stem()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .to_string();
-                        let fullpath = fullpath.to_str().unwrap().to_string();
-                        if !self.resources.contains_key(&fullpath) {
-                            let mut new_params = ParamSet::default();
-                            new_params.add_string("string type", "bsdffile"); //
-                            new_params.add_string("string filename", &filename);
-                            new_params.add_string("string fullpath", &fullpath);
-                            let resource =
-                                Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
-                            self.resources
-                                .insert(fullpath.to_string(), resource.clone());
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("filename error: {}", e);
+            && let Some(fullpath) = self.find_file_path(filename.as_str())
+        {
+            match std::path::absolute(fullpath) {
+                Ok(fullpath) => {
+                    let name = fullpath
+                        .as_path()
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+                    let fullpath = fullpath.to_str().unwrap().to_string();
+                    if !self.resources.contains_key(&fullpath) {
+                        let mut new_params = ParamSet::default();
+                        new_params.add_string("string type", "bsdffile"); //
+                        new_params.add_string("string filename", &filename);
+                        new_params.add_string("string fullpath", &fullpath);
+                        let resource =
+                            Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                        self.resources
+                            .insert(fullpath.to_string(), resource.clone());
                     }
                 }
+                Err(e) => {
+                    log::warn!("filename error: {}", e);
+                }
             }
+        }
 
         if let Some(filename) = params.find_one_string("string lensfile")
-            && let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                match std::path::absolute(fullpath) {
-                    Ok(fullpath) => {
-                        let name = fullpath
-                            .as_path()
-                            .file_stem()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .to_string();
-                        let fullpath = fullpath.to_str().unwrap().to_string();
-                        if !self.resources.contains_key(&fullpath) {
-                            let mut new_params = ParamSet::default();
-                            new_params.add_string("string type", "lensfile"); //
-                            new_params.add_string("string filename", &filename);
-                            new_params.add_string("string fullpath", &fullpath);
-                            let resource =
-                                Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
-                            self.resources
-                                .insert(fullpath.to_string(), resource.clone());
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("filename error: {}", e);
+            && let Some(fullpath) = self.find_file_path(filename.as_str())
+        {
+            match std::path::absolute(fullpath) {
+                Ok(fullpath) => {
+                    let name = fullpath
+                        .as_path()
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+                    let fullpath = fullpath.to_str().unwrap().to_string();
+                    if !self.resources.contains_key(&fullpath) {
+                        let mut new_params = ParamSet::default();
+                        new_params.add_string("string type", "lensfile"); //
+                        new_params.add_string("string filename", &filename);
+                        new_params.add_string("string fullpath", &fullpath);
+                        let resource =
+                            Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                        self.resources
+                            .insert(fullpath.to_string(), resource.clone());
                     }
                 }
+                Err(e) => {
+                    log::warn!("filename error: {}", e);
+                }
             }
+        }
 
         {
             for (key_type, key_name) in params.get_keys().iter() {
                 if key_type == "spectrum"
                     && let Some(filename) = params.find_one_string(key_name)
-                        && let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                            match std::path::absolute(fullpath) {
-                                Ok(fullpath) => {
-                                    let name = fullpath
-                                        .as_path()
-                                        .file_stem()
-                                        .unwrap()
-                                        .to_str()
-                                        .unwrap()
-                                        .to_string();
-                                    let fullpath = fullpath.to_str().unwrap().to_string();
-                                    if !self.resources.contains_key(&fullpath) {
-                                        let mut new_params = ParamSet::default();
-                                        new_params.add_string("string type", "spd"); //
-                                        new_params.add_string("string filename", &filename);
-                                        new_params.add_string("string fullpath", &fullpath);
+                    && let Some(fullpath) = self.find_file_path(filename.as_str())
+                {
+                    match std::path::absolute(fullpath) {
+                        Ok(fullpath) => {
+                            let name = fullpath
+                                .as_path()
+                                .file_stem()
+                                .unwrap()
+                                .to_str()
+                                .unwrap()
+                                .to_string();
+                            let fullpath = fullpath.to_str().unwrap().to_string();
+                            if !self.resources.contains_key(&fullpath) {
+                                let mut new_params = ParamSet::default();
+                                new_params.add_string("string type", "spd"); //
+                                new_params.add_string("string filename", &filename);
+                                new_params.add_string("string fullpath", &fullpath);
 
-                                        let resource = Arc::new(RwLock::new(OtherResource::new(
-                                            &name,
-                                            &new_params,
-                                        )));
-                                        self.resources
-                                            .insert(fullpath.to_string(), resource.clone());
-                                    }
-                                }
-                                Err(e) => {
-                                    log::warn!("filename error: {}", e);
-                                }
+                                let resource =
+                                    Arc::new(RwLock::new(OtherResource::new(&name, &new_params)));
+                                self.resources
+                                    .insert(fullpath.to_string(), resource.clone());
                             }
                         }
+                        Err(e) => {
+                            log::warn!("filename error: {}", e);
+                        }
+                    }
+                }
             }
         }
 
         if let Some(filename) = params.find_one_string("string mapname")
-            && let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                match std::path::absolute(fullpath) {
-                    Ok(fullpath) => {
-                        let name = fullpath
-                            .as_path()
-                            .file_stem()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .to_string();
-                        let fullpath = fullpath.to_str().unwrap().to_string();
+            && let Some(fullpath) = self.find_file_path(filename.as_str())
+        {
+            match std::path::absolute(fullpath) {
+                Ok(fullpath) => {
+                    let name = fullpath
+                        .as_path()
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+                    let fullpath = fullpath.to_str().unwrap().to_string();
 
-                        if !self.image_textures.contains_key(&fullpath) {
-                            let transform = Matrix4x4::identity();
-                            let mut new_params = ParamSet::default();
-                            new_params.add_string("string filename", &filename);
-                            new_params.add_string("string fullpath", &fullpath);
-                            let texture = Arc::new(RwLock::new(Texture::new(
-                                &name,
-                                "spectrum",
-                                "imagemap",
-                                Some(&fullpath),
-                                &new_params,
-                                &transform,
-                            )));
-                            self.textures
-                                .insert(texture.read().unwrap().get_id(), texture.clone());
-                            self.image_textures
-                                .insert(fullpath.to_string(), texture.clone());
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("filename error: {}", e);
+                    if !self.image_textures.contains_key(&fullpath) {
+                        let transform = Matrix4x4::identity();
+                        let mut new_params = ParamSet::default();
+                        new_params.add_string("string filename", &filename);
+                        new_params.add_string("string fullpath", &fullpath);
+                        let texture = Arc::new(RwLock::new(Texture::new(
+                            &name,
+                            "spectrum",
+                            "imagemap",
+                            Some(&fullpath),
+                            &new_params,
+                            &transform,
+                        )));
+                        self.textures
+                            .insert(texture.read().unwrap().get_id(), texture.clone());
+                        self.image_textures
+                            .insert(fullpath.to_string(), texture.clone());
                     }
                 }
+                Err(e) => {
+                    log::warn!("filename error: {}", e);
+                }
             }
+        }
     }
 
     fn add_fullpath_params(&self, params: &mut ParamSet) {
@@ -311,18 +313,19 @@ impl SceneTarget {
         for (key_type, key_name) in params.get_keys().iter() {
             if key_type == "spectrum"
                 && let Some(filename) = params.find_one_string(key_name)
-                    && let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                        match std::path::absolute(fullpath) {
-                            Ok(fullpath) => {
-                                let fullpath = fullpath.to_str().unwrap().to_string();
-                                let new_key = format!("{} {}_fullpath", key_type, key_name);
-                                new_props.push((new_key.clone(), Property::from(fullpath.clone())));
-                            }
-                            Err(_) => {
-                                //
-                            }
-                        }
+                && let Some(fullpath) = self.find_file_path(filename.as_str())
+            {
+                match std::path::absolute(fullpath) {
+                    Ok(fullpath) => {
+                        let fullpath = fullpath.to_str().unwrap().to_string();
+                        let new_key = format!("{} {}_fullpath", key_type, key_name);
+                        new_props.push((new_key.clone(), Property::from(fullpath.clone())));
                     }
+                    Err(_) => {
+                        //
+                    }
+                }
+            }
         }
         for (key, value) in new_props.iter() {
             params.insert(key, value.clone());
@@ -335,39 +338,40 @@ impl SceneTarget {
             "plymesh" => {
                 let title = ShapeComponent::get_name_from_type(name);
                 if let Some(filename) = params.find_one_string("filename")
-                    && let Some(fullpath) = self.find_file_path(filename.as_str()) {
-                        match std::path::absolute(fullpath) {
-                            Ok(fullpath) => {
-                                let fullpath = fullpath.to_str().unwrap().to_string();
-                                let filename = Path::new(&fullpath)
-                                    .file_stem()
-                                    .unwrap()
-                                    .to_str()
-                                    .unwrap()
-                                    .to_string();
-                                let mut params = params.clone();
-                                params.insert("string fullpath", Property::from(fullpath.clone()));
-                                let node = self.create_child_node(&title);
-                                {
-                                    let mut node = node.write().unwrap();
-                                    if let Some(mesh) = self.meshes.get(&fullpath) {
-                                        let component = ShapeComponent::with_shape(mesh);
-                                        node.add_component(component);
-                                    } else {
-                                        let component =
-                                            ShapeComponent::new(&shape_type, &filename, &params);
-                                        let mesh = component.get_shape();
-                                        self.meshes.insert(fullpath.clone(), mesh);
-                                        node.add_component(component);
-                                    }
+                    && let Some(fullpath) = self.find_file_path(filename.as_str())
+                {
+                    match std::path::absolute(fullpath) {
+                        Ok(fullpath) => {
+                            let fullpath = fullpath.to_str().unwrap().to_string();
+                            let filename = Path::new(&fullpath)
+                                .file_stem()
+                                .unwrap()
+                                .to_str()
+                                .unwrap()
+                                .to_string();
+                            let mut params = params.clone();
+                            params.insert("string fullpath", Property::from(fullpath.clone()));
+                            let node = self.create_child_node(&title);
+                            {
+                                let mut node = node.write().unwrap();
+                                if let Some(mesh) = self.meshes.get(&fullpath) {
+                                    let component = ShapeComponent::with_shape(mesh);
+                                    node.add_component(component);
+                                } else {
+                                    let component =
+                                        ShapeComponent::new(&shape_type, &filename, &params);
+                                    let mesh = component.get_shape();
+                                    self.meshes.insert(fullpath.clone(), mesh);
+                                    node.add_component(component);
                                 }
-                                return Some(node);
                             }
-                            Err(e) => {
-                                log::warn!("PlyMesh filename error: {}", e);
-                            }
+                            return Some(node);
+                        }
+                        Err(e) => {
+                            log::warn!("PlyMesh filename error: {}", e);
                         }
                     }
+                }
             }
             "trianglemesh" | "sphere" | "disk" | "cylinder" | "cone" | "paraboloid"
             | "hyperboloid" | "loopsubdiv" => {
@@ -626,22 +630,23 @@ impl ParseTarget for SceneTarget {
         let transform = t.get_world_matrix();
         if tex_name == "imagemap" {
             if let Some(filename) = params.find_one_string("string filename")
-                && let Some(filename) = self.find_file_path(filename.as_str()) {
-                    let filepath = Path::new(&filename);
-                    assert!(filepath.exists());
-                    match std::path::absolute(filepath) {
-                        Ok(fullpath) => {
-                            let fullpath = fullpath.to_str();
-                            let texture = Arc::new(RwLock::new(Texture::new(
-                                name, _type, tex_name, fullpath, &params, &transform,
-                            )));
-                            self.register_texture(&texture);
-                        }
-                        Err(_) => {
-                            log::warn!("Texture file not found");
-                        }
+                && let Some(filename) = self.find_file_path(filename.as_str())
+            {
+                let filepath = Path::new(&filename);
+                assert!(filepath.exists());
+                match std::path::absolute(filepath) {
+                    Ok(fullpath) => {
+                        let fullpath = fullpath.to_str();
+                        let texture = Arc::new(RwLock::new(Texture::new(
+                            name, _type, tex_name, fullpath, &params, &transform,
+                        )));
+                        self.register_texture(&texture);
+                    }
+                    Err(_) => {
+                        log::warn!("Texture file not found");
                     }
                 }
+            }
         } else {
             let texture = Arc::new(RwLock::new(Texture::new(
                 name, _type, tex_name, None, &params, &transform,
@@ -950,18 +955,14 @@ impl SceneTarget {
                 let resource_manager = resource_component.get_resource_manager();
                 let mut resource_manager = resource_manager.write().unwrap();
                 for (id, material) in self.materials.iter() {
-                    resource_manager
-                        .materials
-                        .insert(*id, material.clone());
+                    resource_manager.materials.insert(*id, material.clone());
                 }
                 for (_path, mesh) in self.meshes.iter() {
                     let id = mesh.read().unwrap().get_id();
                     resource_manager.meshes.insert(id, mesh.clone());
                 }
                 for (id, texture) in self.textures.iter() {
-                    resource_manager
-                        .textures
-                        .insert(*id, texture.clone());
+                    resource_manager.textures.insert(*id, texture.clone());
                 }
                 for (_path, resource) in self.resources.iter() {
                     let id = resource.read().unwrap().get_id();

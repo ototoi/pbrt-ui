@@ -26,9 +26,10 @@ fn get_lines_material(
     base_color: &[f32; 4],
 ) -> Option<Arc<RenderMaterial>> {
     if let Some(mat) = render_resource_manager.get_material(id)
-        && mat.edition == edition {
-            return Some(mat.clone());
-        }
+        && mat.edition == edition
+    {
+        return Some(mat.clone());
+    }
     // Create a default material for the light gizmo
     let mut uniform_values = Vec::new();
     uniform_values.push((

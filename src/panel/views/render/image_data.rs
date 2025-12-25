@@ -18,7 +18,7 @@ impl ImageData {
             width,
             height,
             channel_names: channel_names.clone(),
-            data,        // Initialize with empty data
+            data,              // Initialize with empty data
             tiles: Vec::new(), // Initialize with empty tiles
         }
     }

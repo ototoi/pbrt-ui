@@ -133,7 +133,7 @@ impl Panel for HierarchyPanel {
                     let controller = self.controller.read().unwrap();
                     let current_node_id = controller.get_current_node_id();
                     let root_node = controller.get_root_node();
-                    
+
                     convert_node_to_tree(&root_node, current_node_id, &mut self.nodes_info)
                 };
 

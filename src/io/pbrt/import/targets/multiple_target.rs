@@ -1,4 +1,4 @@
-use super::super::parse::ParseTarget;
+use crate::io::pbrt::ParseTarget;
 use crate::model::base::ParamSet;
 
 use std::sync::Arc;

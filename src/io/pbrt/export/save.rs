@@ -1,4 +1,4 @@
-use super::super::copy_utility;
+use super::copy_utility;
 use crate::error::PbrtError;
 use crate::model::base::Matrix4x4;
 use crate::model::base::ParamSet;
@@ -114,10 +114,11 @@ fn get_material_ignore_keys(material: &Material) -> Vec<String> {
     let mut ignore_keys = Vec::new();
     if material.get_type() == "subsurface"
         && let Some(name_value) = material.props.find_one_string("string name")
-            && !name_value.is_empty() {
-                ignore_keys.push("sigma_a".to_string());
-                ignore_keys.push("sigma_s".to_string());
-            }
+        && !name_value.is_empty()
+    {
+        ignore_keys.push("sigma_a".to_string());
+        ignore_keys.push("sigma_s".to_string());
+    }
     ignore_keys
 }
 

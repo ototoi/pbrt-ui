@@ -1,6 +1,6 @@
 use crate::controller::AppController;
-use crate::io::export::pbrt::*;
-use crate::io::import::pbrt::*;
+use crate::io::pbrt::export::*;
+use crate::io::pbrt::import::*;
 use crate::model::scene::SceneComponent;
 use crate::panel::HierarchyPanel;
 use crate::panel::InspectorPanel;
@@ -97,14 +97,15 @@ impl PbrtUIApp {
                 }
 
                 if let Some(path) = dialog.pick_file()
-                    && path.exists() {
-                        if let Some(parent) = path.parent() {
-                            let mut config = config.write().unwrap();
-                            config.import_file_directory = parent.to_str().unwrap().to_string();
-                        }
-                        let path = path.to_str().unwrap().to_string();
-                        commands.push(MenuCommand::Import(path));
+                    && path.exists()
+                {
+                    if let Some(parent) = path.parent() {
+                        let mut config = config.write().unwrap();
+                        config.import_file_directory = parent.to_str().unwrap().to_string();
                     }
+                    let path = path.to_str().unwrap().to_string();
+                    commands.push(MenuCommand::Import(path));
+                }
                 ui.close_kind(UiKind::Menu);
             }
             if ui.button("Export").clicked() {
@@ -126,10 +127,11 @@ impl PbrtUIApp {
 
                 if let Some(path) = dialog.save_file() {
                     if let Some(parent) = path.parent()
-                        && parent.exists() {
-                            let mut config = config.write().unwrap();
-                            config.export_file_directory = parent.to_str().unwrap().to_string();
-                        }
+                        && parent.exists()
+                    {
+                        let mut config = config.write().unwrap();
+                        config.export_file_directory = parent.to_str().unwrap().to_string();
+                    }
 
                     let path = path.to_str().unwrap().to_string();
                     commands.push(MenuCommand::Export(path));
@@ -192,10 +194,11 @@ impl PbrtUIApp {
                             {
                                 let node = node.read().unwrap();
                                 if let Some(scene) = node.get_component::<SceneComponent>()
-                                    && let Some(fullpath) = scene.get_fullpath() {
-                                        let title = format!("PBRT UI - {}", fullpath);
-                                        ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
-                                    }
+                                    && let Some(fullpath) = scene.get_fullpath()
+                                {
+                                    let title = format!("PBRT UI - {}", fullpath);
+                                    ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
+                                }
                             }
                             log::info!("Loaded PBRT file: {}", path);
                         }

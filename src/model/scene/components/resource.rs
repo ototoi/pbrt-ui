@@ -32,9 +32,10 @@ impl ResourceManager {
             .find(|texture| {
                 let texture = texture.read().unwrap();
                 if let Some(filename) = texture.get_filename()
-                    && filename == name {
-                        return true;
-                    }
+                    && filename == name
+                {
+                    return true;
+                }
                 return false;
             })
             .cloned()
@@ -46,9 +47,10 @@ impl ResourceManager {
             .find(|resource| {
                 let resource = resource.read().unwrap();
                 if let Some(filename) = resource.get_filename()
-                    && filename == name {
-                        return true;
-                    }
+                    && filename == name
+                {
+                    return true;
+                }
                 return false;
             })
             .cloned()

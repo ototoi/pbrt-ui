@@ -650,29 +650,27 @@ impl LightingMeshRenderer {
             for item in render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderItem::Light(item) = item.as_ref()
-                        && let RenderLight::Sphere(light) = item.light.as_ref() {
-                            if light_buffer.len() >= MAX_SPHERE_LIGHT_NUM {
-                                break;
-                            }
-                            let matrix = light_item.matrix; //local_to_world
-                            let position = light.position;
-                            let position = matrix.transform_point3(glam::vec3(
-                                position[0],
-                                position[1],
-                                position[2],
-                            ));
-                            //println!("Point light position: {:?}", position);
-                            let intensity = light.intensity;
-                            let radius = light.radius;
-                            let light = SphereLight {
-                                position: [position.x, position.y, position.z, 1.0],
-                                intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                                radius,
-                                _pad1: [0.0; 2], // Range of the light // 4 * 4 = 8
-                                ..Default::default()
-                            };
-                            light_buffer.push(light);
-                        }
+                    && let RenderLight::Sphere(light) = item.light.as_ref()
+                {
+                    if light_buffer.len() >= MAX_SPHERE_LIGHT_NUM {
+                        break;
+                    }
+                    let matrix = light_item.matrix; //local_to_world
+                    let position = light.position;
+                    let position =
+                        matrix.transform_point3(glam::vec3(position[0], position[1], position[2]));
+                    //println!("Point light position: {:?}", position);
+                    let intensity = light.intensity;
+                    let radius = light.radius;
+                    let light = SphereLight {
+                        position: [position.x, position.y, position.z, 1.0],
+                        intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        radius,
+                        _pad1: [0.0; 2], // Range of the light // 4 * 4 = 8
+                        ..Default::default()
+                    };
+                    light_buffer.push(light);
+                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -689,43 +687,41 @@ impl LightingMeshRenderer {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
-                    && let RenderLight::Disk(light) = light_item.light.as_ref() {
-                        if light_buffer.len() >= MAX_DISK_LIGHT_NUM {
-                            break;
-                        }
-                        let matrix = light_item.matrix; //local_to_world
-                        let position = light.position;
-                        let position = matrix.transform_point3(glam::vec3(
-                            position[0],
-                            position[1],
-                            position[2],
-                        ));
-                        let direction = light.direction;
-                        let direction = matrix.transform_vector3(glam::vec3(
-                            direction[0],
-                            direction[1],
-                            direction[2],
-                        ));
-                        //println!("Point light position: {:?}", position);
-                        let intensity = light.intensity;
-                        let radius = light.radius;
-                        let cos_inner_angle = f32::cos(light.inner_angle);
-                        let cos_outer_angle = f32::cos(light.outer_angle);
-                        let (u_axis, v_axis) = get_uv_axis(&direction);
-                        let light = DiskLight {
-                            position: [position.x, position.y, position.z, 1.0],
-                            direction: [direction.x, direction.y, direction.z, 0.0],
-                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            radius,
-                            cos_inner_angle,
-                            cos_outer_angle,
-                            u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
-                            v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
-                            twosided: if light.twosided { 1 } else { 0 },
-                            ..Default::default()
-                        };
-                        light_buffer.push(light);
+                    && let RenderLight::Disk(light) = light_item.light.as_ref()
+                {
+                    if light_buffer.len() >= MAX_DISK_LIGHT_NUM {
+                        break;
                     }
+                    let matrix = light_item.matrix; //local_to_world
+                    let position = light.position;
+                    let position =
+                        matrix.transform_point3(glam::vec3(position[0], position[1], position[2]));
+                    let direction = light.direction;
+                    let direction = matrix.transform_vector3(glam::vec3(
+                        direction[0],
+                        direction[1],
+                        direction[2],
+                    ));
+                    //println!("Point light position: {:?}", position);
+                    let intensity = light.intensity;
+                    let radius = light.radius;
+                    let cos_inner_angle = f32::cos(light.inner_angle);
+                    let cos_outer_angle = f32::cos(light.outer_angle);
+                    let (u_axis, v_axis) = get_uv_axis(&direction);
+                    let light = DiskLight {
+                        position: [position.x, position.y, position.z, 1.0],
+                        direction: [direction.x, direction.y, direction.z, 0.0],
+                        intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        radius,
+                        cos_inner_angle,
+                        cos_outer_angle,
+                        u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
+                        v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
+                        twosided: if light.twosided { 1 } else { 0 },
+                        ..Default::default()
+                    };
+                    light_buffer.push(light);
+                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -742,42 +738,40 @@ impl LightingMeshRenderer {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
-                    && let RenderLight::Rect(rect) = light_item.light.as_ref() {
-                        //println!("Rect light item: {:?}", item);
-                        if light_buffer.len() >= MAX_RECT_LIGHT_NUM {
-                            break;
-                        }
-                        let matrix = light_item.matrix; //local_to_world
-                        let position = rect.position;
-                        let position = matrix.transform_point3(glam::vec3(
-                            position[0],
-                            position[1],
-                            position[2],
-                        ));
-                        let direction = rect.direction;
-                        let direction = matrix.transform_vector3(glam::vec3(
-                            direction[0],
-                            direction[1],
-                            direction[2],
-                        ));
-                        let u_axis = rect.u_axis;
-                        let u_axis =
-                            matrix.transform_vector3(glam::vec3(u_axis[0], u_axis[1], u_axis[2]));
-                        let v_axis = rect.v_axis;
-                        let v_axis =
-                            matrix.transform_vector3(glam::vec3(v_axis[0], v_axis[1], v_axis[2]));
-                        let intensity = rect.intensity;
-                        let light = RectLight {
-                            position: [position.x, position.y, position.z, 1.0],
-                            direction: [direction.x, direction.y, direction.z, 0.0],
-                            u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
-                            v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
-                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            twosided: if rect.twosided { 1 } else { 0 },
-                            ..Default::default()
-                        };
-                        light_buffer.push(light);
+                    && let RenderLight::Rect(rect) = light_item.light.as_ref()
+                {
+                    //println!("Rect light item: {:?}", item);
+                    if light_buffer.len() >= MAX_RECT_LIGHT_NUM {
+                        break;
                     }
+                    let matrix = light_item.matrix; //local_to_world
+                    let position = rect.position;
+                    let position =
+                        matrix.transform_point3(glam::vec3(position[0], position[1], position[2]));
+                    let direction = rect.direction;
+                    let direction = matrix.transform_vector3(glam::vec3(
+                        direction[0],
+                        direction[1],
+                        direction[2],
+                    ));
+                    let u_axis = rect.u_axis;
+                    let u_axis =
+                        matrix.transform_vector3(glam::vec3(u_axis[0], u_axis[1], u_axis[2]));
+                    let v_axis = rect.v_axis;
+                    let v_axis =
+                        matrix.transform_vector3(glam::vec3(v_axis[0], v_axis[1], v_axis[2]));
+                    let intensity = rect.intensity;
+                    let light = RectLight {
+                        position: [position.x, position.y, position.z, 1.0],
+                        direction: [direction.x, direction.y, direction.z, 0.0],
+                        u_axis: [u_axis.x, u_axis.y, u_axis.z, 0.0],
+                        v_axis: [v_axis.x, v_axis.y, v_axis.z, 0.0],
+                        intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        twosided: if rect.twosided { 1 } else { 0 },
+                        ..Default::default()
+                    };
+                    light_buffer.push(light);
+                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -794,29 +788,30 @@ impl LightingMeshRenderer {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
-                    && let RenderLight::Infinite(light) = light_item.light.as_ref() {
-                        if light_buffer.len() >= MAX_INFINITE_LIGHT_NUM {
-                            break;
-                        }
-                        if light_textures.len() >= MAX_LIGHT_TEXTURE_NUM {
-                            break;
-                        }
-                        let mut texture_index = -1;
-                        if let Some(texture) = &light.texture {
-                            // New texture, add it to the list
-                            texture_index = light_textures.len() as i32;
-                            light_textures.push(texture.clone());
-                        }
-
-                        let inv_matrix = light_item.matrix.inverse();
-                        let intensity = light.intensity;
-                        let light = InfiniteLight {
-                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            indices: [texture_index, 0, 0, 0], // Indices for the light texture
-                            inv_matrix: inv_matrix.to_cols_array_2d(),
-                        };
-                        light_buffer.push(light);
+                    && let RenderLight::Infinite(light) = light_item.light.as_ref()
+                {
+                    if light_buffer.len() >= MAX_INFINITE_LIGHT_NUM {
+                        break;
                     }
+                    if light_textures.len() >= MAX_LIGHT_TEXTURE_NUM {
+                        break;
+                    }
+                    let mut texture_index = -1;
+                    if let Some(texture) = &light.texture {
+                        // New texture, add it to the list
+                        texture_index = light_textures.len() as i32;
+                        light_textures.push(texture.clone());
+                    }
+
+                    let inv_matrix = light_item.matrix.inverse();
+                    let intensity = light.intensity;
+                    let light = InfiniteLight {
+                        intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        indices: [texture_index, 0, 0, 0], // Indices for the light texture
+                        inv_matrix: inv_matrix.to_cols_array_2d(),
+                    };
+                    light_buffer.push(light);
+                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(
@@ -833,29 +828,30 @@ impl LightingMeshRenderer {
             let mut light_buffer = Vec::new();
             for item in render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
-                    && let RenderLight::Directional(light) = light_item.light.as_ref() {
-                        if light_buffer.len() >= MAX_DIRECTIONAL_LIGHT_NUM {
-                            break;
-                        }
-                        let matrix = light_item.matrix; //local_to_world
-                        let direction = light.direction;
-                        let direction = matrix.transform_vector3(glam::vec3(
-                            direction[0],
-                            direction[1],
-                            direction[2],
-                        ));
-                        let intensity = light.intensity;
-
-                        let radius = (0.5 * light.source_angle).tan();
-
-                        let light = DirectionalLight {
-                            direction: [direction[0], direction[1], direction[2], 0.0],
-                            intensity: [intensity[0], intensity[1], intensity[2], 1.0],
-                            radius,
-                            _pad1: [0.0; 3],
-                        };
-                        light_buffer.push(light);
+                    && let RenderLight::Directional(light) = light_item.light.as_ref()
+                {
+                    if light_buffer.len() >= MAX_DIRECTIONAL_LIGHT_NUM {
+                        break;
                     }
+                    let matrix = light_item.matrix; //local_to_world
+                    let direction = light.direction;
+                    let direction = matrix.transform_vector3(glam::vec3(
+                        direction[0],
+                        direction[1],
+                        direction[2],
+                    ));
+                    let intensity = light.intensity;
+
+                    let radius = (0.5 * light.source_angle).tan();
+
+                    let light = DirectionalLight {
+                        direction: [direction[0], direction[1], direction[2], 0.0],
+                        intensity: [intensity[0], intensity[1], intensity[2], 1.0],
+                        radius,
+                        _pad1: [0.0; 3],
+                    };
+                    light_buffer.push(light);
+                }
             }
             if !light_buffer.is_empty() {
                 queue.write_buffer(

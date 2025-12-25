@@ -174,13 +174,13 @@ impl RenderPanel {
                             {
                                 history.output_image_path = path.to_str().unwrap_or("").to_string();
                                 if let Some(parent) = path.parent()
-                                    && parent.exists() {
-                                        let config =
-                                            self.app_controller.read().unwrap().get_config();
-                                        let mut config = config.write().unwrap();
-                                        config.render_output_directory =
-                                            parent.to_str().unwrap_or("").to_string();
-                                    }
+                                    && parent.exists()
+                                {
+                                    let config = self.app_controller.read().unwrap().get_config();
+                                    let mut config = config.write().unwrap();
+                                    config.render_output_directory =
+                                        parent.to_str().unwrap_or("").to_string();
+                                }
                             }
                         }
 

@@ -1,5 +1,5 @@
 use super::common::*;
-use super::parse_target::ParseTarget;
+use crate::io::pbrt::ParseTarget;
 use super::read_file::{read_file_with_include, read_file_without_include};
 use super::remove_comments::remove_comments;
 use crate::error::*;

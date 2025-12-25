@@ -35,7 +35,7 @@ fn create_image_delta(render_image: &ImageData) -> egui::epaint::ImageDelta {
     for y in 0..height {
         for x in 0..width {
             let index = y * width + x;
-            let r = render_image.data[3 * index ];
+            let r = render_image.data[3 * index];
             let g = render_image.data[3 * index + 1];
             let b = render_image.data[3 * index + 2];
             let pixel = egui::Color32::from_rgb(to_byte(r), to_byte(g), to_byte(b));

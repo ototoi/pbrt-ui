@@ -2,7 +2,6 @@ use super::super::panel::InspectorPanel;
 //use super::super::common::*;
 use crate::model::scene::Texture;
 
-
 use eframe::egui;
 
 impl InspectorPanel {

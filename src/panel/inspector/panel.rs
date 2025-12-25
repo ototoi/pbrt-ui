@@ -158,13 +158,7 @@ impl InspectorPanel {
                 let mut props = PropertyMap::new();
                 let up = component.get_up_vector();
                 props.add_floats("float up", &[up.x, up.y, up.z]);
-                self.show_other_component(
-                    i,
-                    ui,
-                    "CoordinateSystem",
-                    &mut props,
-                    resource_selector,
-                );
+                self.show_other_component(i, ui, "CoordinateSystem", &mut props, resource_selector);
             } else if let Some(_component) = component.downcast_mut::<AnimationComponent>() {
                 let mut props = PropertyMap::new(); //todo
                 show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
@@ -207,10 +201,11 @@ impl InspectorPanel {
             }
         }
         if show_component_props(index, &name, ui, props, &keys, resource_selector)
-            && ShapeComponent::is_ediable(&shape_type) {
-                is_changed = true;
-                props.add_string("string edition", &Uuid::new_v4().to_string());
-            }
+            && ShapeComponent::is_ediable(&shape_type)
+        {
+            is_changed = true;
+            props.add_string("string edition", &Uuid::new_v4().to_string());
+        }
         return is_changed;
     }
 
@@ -369,9 +364,10 @@ impl InspectorPanel {
                 if let Some(params) = material_properties.get_entries(&mat_type) {
                     for entry in params.iter() {
                         if hide_sigma
-                            && (entry.key_name == "sigma_a" || entry.key_name == "sigma_s") {
-                                continue;
-                            }
+                            && (entry.key_name == "sigma_a" || entry.key_name == "sigma_s")
+                        {
+                            continue;
+                        }
                         if props.get(&entry.key_name).is_none() {
                             let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
                             props.insert(&key, entry.default_value.clone());

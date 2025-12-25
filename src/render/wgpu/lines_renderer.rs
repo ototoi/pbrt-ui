@@ -1,4 +1,3 @@
-
 use super::lines::RenderLinesVertex;
 use super::render_item::RenderItem;
 use std::sync::Arc;
@@ -148,15 +147,12 @@ impl LinesRenderer {
 
                 if let RenderItem::Lines(line_item) = item.as_ref()
                     && let Some(material) = line_item.material.as_ref()
-                        && !material.passes.is_empty() {
-                            let offset = i as wgpu::BufferAddress * self.material_uniform_alignment;
-                            let uniform_buffer = &material.passes[0].uniform_values;
-                            queue.write_buffer(
-                                &self.material_uniform_buffer,
-                                offset,
-                                uniform_buffer,
-                            );
-                        }
+                    && !material.passes.is_empty()
+                {
+                    let offset = i as wgpu::BufferAddress * self.material_uniform_alignment;
+                    let uniform_buffer = &material.passes[0].uniform_values;
+                    queue.write_buffer(&self.material_uniform_buffer, offset, uniform_buffer);
+                }
 
                 {
                     let uniform = LocalUniforms {

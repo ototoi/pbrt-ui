@@ -79,7 +79,6 @@ impl LTC {
         // Clamped cosine distribution
         let D = (1.0 / std::f32::consts::PI) * Loriginal.z.max(0.0);
 
-        
         self.magnitude * D / Jacobian
     }
 

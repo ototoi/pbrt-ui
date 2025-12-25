@@ -421,10 +421,9 @@ fn show_strings(
 }
 
 fn show_bools(ui: &mut egui::Ui, _key_type: &str, _key_name: &str, value: &mut Vec<bool>) -> bool {
-    if value.len() == 1
-        && Checkbox::without_text(&mut value[0]).ui(ui).changed() {
-            return true;
-        }
+    if value.len() == 1 && Checkbox::without_text(&mut value[0]).ui(ui).changed() {
+        return true;
+    }
     return false;
 }
 
@@ -460,97 +459,96 @@ fn show_color_like(
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
             ui.horizontal(|ui| {
-                if color_type != ColorType::Spd
-                    && ui.small_button("S").clicked() {
-                        is_changed = true;
-                        let search_key = format!("{}_{:?}", key_name, ColorType::Spd);
-                        let backup_value = props.get(&search_key).cloned();
+                if color_type != ColorType::Spd && ui.small_button("S").clicked() {
+                    is_changed = true;
+                    let search_key = format!("{}_{:?}", key_name, ColorType::Spd);
+                    let backup_value = props.get(&search_key).cloned();
 
-                        if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
-                            backups.push((
-                                key_type.clone(),
-                                format!("{}_{:?}", key_name, color_type),
-                                prop.clone(),
-                            ));
-                            *key_type = "spectrum".to_string();
-                            if let Some(p) = backup_value {
-                                *prop = p;
-                            } else {
-                                *prop = Property::Strings(vec!["".to_string()]);
-                            }
-                        }
-                    }
-                if color_type != ColorType::Texture
-                    && ui.small_button("T").clicked() {
-                        is_changed = true;
-                        let search_key = format!("{}_{:?}", key_name, ColorType::Texture);
-                        let backup_value = props.get(&search_key).cloned();
-
-                        if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
-                            backups.push((
-                                key_type.clone(),
-                                format!("{}_{:?}", key_name, color_type),
-                                prop.clone(),
-                            ));
-                            *key_type = "texture".to_string();
-                            if let Some(p) = backup_value {
-                                *prop = p;
-                            } else {
-                                *prop = Property::Strings(vec!["".to_string()]);
-                            }
-                        }
-                    }
-                if color_type != ColorType::Value
-                    && ui.small_button("V").clicked() {
-                        is_changed = true;
-                        let search_key = format!("{}_{:?}", key_name, ColorType::Value);
-                        let backup_value = if let Some((t, _, p)) = props.entry(&search_key) {
-                            Some((t.clone(), p.clone()))
+                    if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
+                        backups.push((
+                            key_type.clone(),
+                            format!("{}_{:?}", key_name, color_type),
+                            prop.clone(),
+                        ));
+                        *key_type = "spectrum".to_string();
+                        if let Some(p) = backup_value {
+                            *prop = p;
                         } else {
-                            None
-                        };
-
-                        if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
-                            backups.push((
-                                key_type.clone(),
-                                format!("{}_{:?}", key_name, color_type),
-                                prop.clone(),
-                            ));
-
-                            if let Some((t, p)) = backup_value {
-                                *key_type = t;
-                                *prop = p;
-                            } else {
-                                *key_type = "color".to_string();
-                                *prop = Property::Floats(vec![0.0, 0.0, 0.0]);
-                            }
+                            *prop = Property::Strings(vec!["".to_string()]);
                         }
                     }
+                }
+                if color_type != ColorType::Texture && ui.small_button("T").clicked() {
+                    is_changed = true;
+                    let search_key = format!("{}_{:?}", key_name, ColorType::Texture);
+                    let backup_value = props.get(&search_key).cloned();
+
+                    if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
+                        backups.push((
+                            key_type.clone(),
+                            format!("{}_{:?}", key_name, color_type),
+                            prop.clone(),
+                        ));
+                        *key_type = "texture".to_string();
+                        if let Some(p) = backup_value {
+                            *prop = p;
+                        } else {
+                            *prop = Property::Strings(vec!["".to_string()]);
+                        }
+                    }
+                }
+                if color_type != ColorType::Value && ui.small_button("V").clicked() {
+                    is_changed = true;
+                    let search_key = format!("{}_{:?}", key_name, ColorType::Value);
+                    let backup_value = if let Some((t, _, p)) = props.entry(&search_key) {
+                        Some((t.clone(), p.clone()))
+                    } else {
+                        None
+                    };
+
+                    if let Some((key_type, _, prop)) = props.entry_mut(key_name) {
+                        backups.push((
+                            key_type.clone(),
+                            format!("{}_{:?}", key_name, color_type),
+                            prop.clone(),
+                        ));
+
+                        if let Some((t, p)) = backup_value {
+                            *key_type = t;
+                            *prop = p;
+                        } else {
+                            *key_type = "color".to_string();
+                            *prop = Property::Floats(vec![0.0, 0.0, 0.0]);
+                        }
+                    }
+                }
             });
             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                 if key_type == "color" || key_type == "rgb" {
                     if let Some(v) = props.get_mut(key_name)
-                        && let Property::Floats(value) = v {
-                            ui.horizontal(|ui| {
-                                if show_rgb(ui, value) {
-                                    is_changed = true;
-                                }
-                            });
-                        }
+                        && let Property::Floats(value) = v
+                    {
+                        ui.horizontal(|ui| {
+                            if show_rgb(ui, value) {
+                                is_changed = true;
+                            }
+                        });
+                    }
                 } else if key_type == "xyz" {
                     if let Some(v) = props.get_mut(key_name)
-                        && let Property::Floats(value) = v {
-                            let mut rgb = xyz_to_rgb(value);
-                            ui.horizontal(|ui| {
-                                if show_rgb(ui, &mut rgb) {
-                                    is_changed = true;
-                                }
-                            });
-                            let xyz = rgb_to_xyz(&rgb);
-                            value[0] = xyz[0];
-                            value[1] = xyz[1];
-                            value[2] = xyz[2];
-                        }
+                        && let Property::Floats(value) = v
+                    {
+                        let mut rgb = xyz_to_rgb(value);
+                        ui.horizontal(|ui| {
+                            if show_rgb(ui, &mut rgb) {
+                                is_changed = true;
+                            }
+                        });
+                        let xyz = rgb_to_xyz(&rgb);
+                        value[0] = xyz[0];
+                        value[1] = xyz[1];
+                        value[2] = xyz[2];
+                    }
                 } else if key_type == "spectrum" {
                     if let Some(v) = props.get_mut(key_name) {
                         //if let Property::Strings(value) = v {
@@ -577,37 +575,38 @@ fn show_color_like(
                         }
                     }
                 } else if key_type == "texture"
-                    && let Some(v) = props.get_mut(key_name) {
-                        //if let Property::Strings(value) = v {
-                        //    ui.text_edit_singleline(&mut value[0]);
-                        //}
-                        if let Property::Strings(value) = v {
-                            let mut items = resource_selector.get_texture_items();
-                            if let Some(id) = own_id {
-                                items = items
-                                    .iter()
-                                    .filter(|(item_id, _, _)| *item_id != id)
-                                    .cloned()
-                                    .collect::<Vec<(Uuid, String, String)>>();
-                            }
-                            egui::ComboBox::from_id_salt("texture")
-                                .selected_text(value[0].clone())
-                                .show_ui(ui, |ui| {
-                                    for (_id, name, display_name) in items.iter() {
-                                        if ui
-                                            .selectable_value(
-                                                &mut value[0],
-                                                name.clone(),
-                                                display_name.clone(),
-                                            )
-                                            .changed()
-                                        {
-                                            is_changed = true;
-                                        }
-                                    }
-                                });
+                    && let Some(v) = props.get_mut(key_name)
+                {
+                    //if let Property::Strings(value) = v {
+                    //    ui.text_edit_singleline(&mut value[0]);
+                    //}
+                    if let Property::Strings(value) = v {
+                        let mut items = resource_selector.get_texture_items();
+                        if let Some(id) = own_id {
+                            items = items
+                                .iter()
+                                .filter(|(item_id, _, _)| *item_id != id)
+                                .cloned()
+                                .collect::<Vec<(Uuid, String, String)>>();
                         }
+                        egui::ComboBox::from_id_salt("texture")
+                            .selected_text(value[0].clone())
+                            .show_ui(ui, |ui| {
+                                for (_id, name, display_name) in items.iter() {
+                                    if ui
+                                        .selectable_value(
+                                            &mut value[0],
+                                            name.clone(),
+                                            display_name.clone(),
+                                        )
+                                        .changed()
+                                    {
+                                        is_changed = true;
+                                    }
+                                }
+                            });
                     }
+                }
             });
         });
     });
@@ -622,10 +621,9 @@ fn is_color_like(key_type: &str, key_name: &str) -> bool {
     if key_type == "color" || key_type == "rgb" || key_type == "xyz" || key_type == "spectrum" {
         return true;
     }
-    if key_type == "texture"
-        && key_name != "bumpmap" {
-            return true;
-        }
+    if key_type == "texture" && key_name != "bumpmap" {
+        return true;
+    }
     //if key_name.starts_with("tex") {
     //    return true;
     //}
@@ -693,9 +691,10 @@ pub fn show_properties(
                                     is_changed = true;
                                 }
                             } else if let Property::Bools(value) = v
-                                && show_bools(ui, key_type, key_name, value) {
-                                    is_changed = true;
-                                }
+                                && show_bools(ui, key_type, key_name, value)
+                            {
+                                is_changed = true;
+                            }
                         } else {
                             ui.label("No property found");
                         }
@@ -712,20 +711,21 @@ pub fn show_properties(
 pub fn show_type(ui: &mut egui::Ui, props: &mut PropertyMap, types: &[String]) -> bool {
     let mut is_changed = false;
     if let Some(v) = props.get_mut("type")
-        && let Property::Strings(s) = v {
-            egui::ComboBox::from_id_salt("type")
-                .selected_text(s[0].clone())
-                .show_ui(ui, |ui| {
-                    for name in types.iter() {
-                        if ui
-                            .selectable_value(&mut s[0], name.clone(), name.clone())
-                            .changed()
-                        {
-                            is_changed = true;
-                        }
+        && let Property::Strings(s) = v
+    {
+        egui::ComboBox::from_id_salt("type")
+            .selected_text(s[0].clone())
+            .show_ui(ui, |ui| {
+                for name in types.iter() {
+                    if ui
+                        .selectable_value(&mut s[0], name.clone(), name.clone())
+                        .changed()
+                    {
+                        is_changed = true;
                     }
-                });
-        }
+                }
+            });
+    }
     if is_changed {
         props.add_string("string edition", &Uuid::new_v4().to_string());
     }

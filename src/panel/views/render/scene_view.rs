@@ -21,38 +21,39 @@ use egui::Vec2;
 
 pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) {
     if response.dragged_by(egui::PointerButton::Primary)
-        && let Some(camera_node) = Node::find_node_by_component::<CameraComponent>(root_node) {
-            let mut camera_node = camera_node.write().unwrap();
-            if let Some(component) = camera_node.get_component_mut::<TransformComponent>() {
-                let rotation_y = response.drag_motion().x * 0.01;
-                let rotation_x = response.drag_motion().y * 0.01;
+        && let Some(camera_node) = Node::find_node_by_component::<CameraComponent>(root_node)
+    {
+        let mut camera_node = camera_node.write().unwrap();
+        if let Some(component) = camera_node.get_component_mut::<TransformComponent>() {
+            let rotation_y = response.drag_motion().x * 0.01;
+            let rotation_x = response.drag_motion().y * 0.01;
+            {
+                let (t, r, s) = component.get_local_trs();
+                let m = r.to_matrix();
+                let mut upper = m.transform_vector(&Vector3::new(0.0, 1.0, 0.0)).normalize();
+                let mut right = m.transform_vector(&Vector3::new(1.0, 0.0, 0.0)).normalize();
+
                 {
-                    let (t, r, s) = component.get_local_trs();
-                    let m = r.to_matrix();
-                    let mut upper = m.transform_vector(&Vector3::new(0.0, 1.0, 0.0)).normalize();
-                    let mut right = m.transform_vector(&Vector3::new(1.0, 0.0, 0.0)).normalize();
-
-                    {
-                        let root_node = root_node.read().unwrap();
-                        if let Some(cs) = root_node.get_component::<CoordinateSystemComponent>() {
-                            upper = cs.get_up_vector();
-                            let forward = Vector3::cross(&right, &upper).normalize(); //xy->z
-                            right = Vector3::cross(&upper, &forward).normalize(); //yz->x
-                        }
+                    let root_node = root_node.read().unwrap();
+                    if let Some(cs) = root_node.get_component::<CoordinateSystemComponent>() {
+                        upper = cs.get_up_vector();
+                        let forward = Vector3::cross(&right, &upper).normalize(); //xy->z
+                        right = Vector3::cross(&upper, &forward).normalize(); //yz->x
                     }
-                    //let upper = Vector3::new(0.0, 1.0, 0.0);
-                    //let right = Vector3::new(1.0, 0.0, 0.0);
-
-                    let rotation_y = if s.x < 0.0 { -rotation_y } else { rotation_y };
-                    let rotation_x = if s.y < 0.0 { -rotation_x } else { rotation_x };
-
-                    let rot_y = Quaternion::from_angle_axis(rotation_y, &upper);
-                    let rot_x = Quaternion::from_angle_axis(rotation_x, &right);
-                    let new_rotation = rot_x * rot_y * r;
-                    component.set_local_trs(t, new_rotation, s);
                 }
+                //let upper = Vector3::new(0.0, 1.0, 0.0);
+                //let right = Vector3::new(1.0, 0.0, 0.0);
+
+                let rotation_y = if s.x < 0.0 { -rotation_y } else { rotation_y };
+                let rotation_x = if s.y < 0.0 { -rotation_x } else { rotation_x };
+
+                let rot_y = Quaternion::from_angle_axis(rotation_y, &upper);
+                let rot_x = Quaternion::from_angle_axis(rotation_x, &right);
+                let new_rotation = rot_x * rot_y * r;
+                component.set_local_trs(t, new_rotation, s);
             }
         }
+    }
 }
 
 pub struct SceneView {
@@ -102,19 +103,24 @@ impl SceneView {
                 if let Some(camera) = camera_node.get_component::<CameraComponent>() {
                     if let Some(prop) = camera.props.get("fov")
                         && let Property::Floats(f) = prop
-                            && !f.is_empty() {
-                                fov = f[0].to_radians();
-                            }
+                        && !f.is_empty()
+                    {
+                        fov = f[0].to_radians();
+                    }
                     if let Some(prop) = camera.props.get("znear")
                         && let Property::Floats(f) = prop
-                            && !f.is_empty() && f[0] > 0.0 {
-                                znear = f[0];
-                            }
+                        && !f.is_empty()
+                        && f[0] > 0.0
+                    {
+                        znear = f[0];
+                    }
                     if let Some(prop) = camera.props.get("zfar")
                         && let Property::Floats(f) = prop
-                            && !f.is_empty() && f[0] > znear {
-                                zfar = f[0];
-                            }
+                        && !f.is_empty()
+                        && f[0] > znear
+                    {
+                        zfar = f[0];
+                    }
                 }
                 if let Some(film) = camera_node.get_component::<FilmComponent>() {
                     let width = film

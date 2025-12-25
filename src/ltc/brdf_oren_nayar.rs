@@ -75,7 +75,7 @@ impl Brdf for BrdfOrenNayar {
         // Cosine-weighted hemisphere sampling (Lambertian)
         let r = U1.sqrt();
         let phi = 2.0 * std::f32::consts::PI * U2;
-        
+
         glam::Vec3::new(r * phi.cos(), r * phi.sin(), (1.0 - r * r).max(0.0).sqrt())
     }
 }

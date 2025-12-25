@@ -4,8 +4,8 @@ use crate::model::scene::Light;
 
 fn create_circle_points(axis: usize, div: usize) -> Vec<Vector3> {
     let mut points = Vec::new();
-    let xx = (axis + 1) % 3 ;
-    let yy = (axis + 2) % 3 ;
+    let xx = (axis + 1) % 3;
+    let yy = (axis + 2) % 3;
     let zz = axis;
     for i in 0..=div {
         let angle = (i as f32 / div as f32) * std::f32::consts::PI * 2.0;

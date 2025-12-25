@@ -116,7 +116,9 @@ impl AppController {
     }
 
     pub fn get_current_node_id(&self) -> Option<Uuid> {
-        self.current_node.as_ref().map(|node| node.read().unwrap().get_id())
+        self.current_node
+            .as_ref()
+            .map(|node| node.read().unwrap().get_id())
     }
 
     pub fn get_node_by_id(&self, id: Uuid) -> Option<Arc<RwLock<Node>>> {
@@ -134,7 +136,9 @@ impl AppController {
     }
 
     pub fn get_current_resource_id(&self) -> Option<Uuid> {
-        self.current_resource.as_ref().map(|resource| resource.read().unwrap().get_id())
+        self.current_resource
+            .as_ref()
+            .map(|resource| resource.read().unwrap().get_id())
     }
 
     pub fn set_current_resource(&mut self, resource: &Arc<RwLock<dyn ResourceObject>>) {

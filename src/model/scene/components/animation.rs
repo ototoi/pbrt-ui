@@ -14,10 +14,7 @@ impl AnimationComponent {
         end_time: f32,
     ) -> Self {
         AnimationComponent {
-            transforms: [
-                (*start_transform, start_time),
-                (*end_transform, end_time),
-            ],
+            transforms: [(*start_transform, start_time), (*end_transform, end_time)],
         }
     }
     pub fn get_keys(&self) -> Vec<(String, String)> {

@@ -75,29 +75,30 @@ fn create_lines_from_outline(plane: &PlaneMesh) -> Option<Vec<Vector3>> {
 
 fn create_lines_from_rect(plane: &PlaneMesh) -> Option<Vec<Vec<Vector3>>> {
     if let Some(outline) = create_plane_outline_from_plane_mesh(plane)
-        && let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99) {
-            let mut total_lines = Vec::new();
-            let center = Vector3::new(rect.position[0], rect.position[1], rect.position[2]);
-            let u_axis = Vector3::new(rect.u_axis[0], rect.u_axis[1], rect.u_axis[2]);
-            let v_axis = Vector3::new(rect.v_axis[0], rect.v_axis[1], rect.v_axis[2]);
-            let corners = [
-                center + u_axis + v_axis,
-                center - u_axis + v_axis,
-                center - u_axis - v_axis,
-                center + u_axis - v_axis,
-            ];
-            let mut lines = Vec::new();
-            for i in 0..5 {
-                lines.push(corners[i % 4]);
-            }
-            total_lines.push(lines);
-            let normal = Vector3::new(rect.normal[0], rect.normal[1], rect.normal[2]);
-            let v1 = center;
-            let v2 = center + 4.0 * normal;
-            let lines = vec![v1, v2];
-            total_lines.push(lines);
-            return Some(total_lines);
+        && let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99)
+    {
+        let mut total_lines = Vec::new();
+        let center = Vector3::new(rect.position[0], rect.position[1], rect.position[2]);
+        let u_axis = Vector3::new(rect.u_axis[0], rect.u_axis[1], rect.u_axis[2]);
+        let v_axis = Vector3::new(rect.v_axis[0], rect.v_axis[1], rect.v_axis[2]);
+        let corners = [
+            center + u_axis + v_axis,
+            center - u_axis + v_axis,
+            center - u_axis - v_axis,
+            center + u_axis - v_axis,
+        ];
+        let mut lines = Vec::new();
+        for i in 0..5 {
+            lines.push(corners[i % 4]);
         }
+        total_lines.push(lines);
+        let normal = Vector3::new(rect.normal[0], rect.normal[1], rect.normal[2]);
+        let v1 = center;
+        let v2 = center + 4.0 * normal;
+        let lines = vec![v1, v2];
+        total_lines.push(lines);
+        return Some(total_lines);
+    }
     return None;
 }
 
