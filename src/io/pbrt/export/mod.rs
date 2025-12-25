@@ -1,6 +1,4 @@
 pub mod copy_utility;
 mod save;
-mod save_target;
 
-pub use save::*;
-pub use save_target::SaveTarget;
+pub use save::{save_pbrt, SavePbrtOptions, SaveTarget};
