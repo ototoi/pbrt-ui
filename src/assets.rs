@@ -16,9 +16,9 @@ pub fn copy_assets_to_cache() -> std::io::Result<PathBuf> {
     for file in Assets::iter() {
         if let Some(embedded_file) = Assets::get(&file) {
             let output_path = assets_cache_path.join(file.to_string());
-            let dirname = output_path.parent().ok_or_else(|| {
-                std::io::Error::other("Failed to get parent directory")
-            })?;
+            let dirname = output_path
+                .parent()
+                .ok_or_else(|| std::io::Error::other("Failed to get parent directory"))?;
             std::fs::create_dir_all(dirname)?;
             std::fs::write(&output_path, embedded_file.data.as_ref())?;
         }

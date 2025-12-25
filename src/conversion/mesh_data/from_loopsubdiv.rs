@@ -191,36 +191,40 @@ impl SDFace {
     pub fn next_face(&self, v: &SDVertex) -> Option<Arc<RefCell<SDFace>>> {
         let i = self.vnum(v);
         if i >= 0
-            && let Some(f) = self.f[i as usize].as_ref() {
-                return f.upgrade();
-            }
+            && let Some(f) = self.f[i as usize].as_ref()
+        {
+            return f.upgrade();
+        }
         return None;
     }
 
     pub fn prev_face(&self, v: &SDVertex) -> Option<Arc<RefCell<SDFace>>> {
         let i = self.vnum(v);
         if i >= 0
-            && let Some(f) = self.f[PREV[i as usize]].as_ref() {
-                return f.upgrade();
-            }
+            && let Some(f) = self.f[PREV[i as usize]].as_ref()
+        {
+            return f.upgrade();
+        }
         return None;
     }
 
     pub fn next_vert(&self, v: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
         let i = self.vnum(v);
         if i >= 0
-            && let Some(f) = self.v[NEXT[i as usize]].as_ref() {
-                return f.upgrade();
-            }
+            && let Some(f) = self.v[NEXT[i as usize]].as_ref()
+        {
+            return f.upgrade();
+        }
         return None;
     }
 
     pub fn prev_vert(&self, v: &SDVertex) -> Option<Arc<RefCell<SDVertex>>> {
         let i = self.vnum(v);
         if i >= 0
-            && let Some(f) = self.v[PREV[i as usize]].as_ref() {
-                return f.upgrade();
-            }
+            && let Some(f) = self.v[PREV[i as usize]].as_ref()
+        {
+            return f.upgrade();
+        }
         return None;
     }
 
@@ -414,7 +418,9 @@ fn loop_subdiv(levels: i32, indices: Vec<i32>, p: Vec<Vector3>) -> Option<MeshDa
         }
         if !v.boundary && v.valence() == 6 {
             v.regular = true;
-        } else { v.regular = v.boundary && v.valence() == 4; }
+        } else {
+            v.regular = v.boundary && v.valence() == 4;
+        }
     }
 
     // Refine _LoopSubdiv_ into triangles

@@ -94,27 +94,30 @@ impl RenderItem {
 pub fn get_bool(props: &PropertyMap, key: &str) -> Option<bool> {
     if let Some((_key_type, _key_name, value)) = props.entry(key)
         && let Property::Bools(v) = value
-            && !v.is_empty() {
-                return Some(v[0]);
-            }
+        && !v.is_empty()
+    {
+        return Some(v[0]);
+    }
     return None;
 }
 
 pub fn get_float(props: &PropertyMap, key: &str) -> Option<f32> {
     if let Some((_key_type, _key_name, value)) = props.entry(key)
         && let Property::Floats(v) = value
-            && !v.is_empty() {
-                return Some(v[0]);
-            }
+        && !v.is_empty()
+    {
+        return Some(v[0]);
+    }
     return None;
 }
 
 pub fn get_string(props: &PropertyMap, key: &str) -> Option<String> {
     if let Some((_key_type, _key_name, value)) = props.entry(key)
         && let Property::Strings(v) = value
-            && !v.is_empty() {
-                return Some(v[0].clone());
-            }
+        && !v.is_empty()
+    {
+        return Some(v[0].clone());
+    }
     return None;
 }
 
@@ -126,37 +129,42 @@ pub fn get_color(
     if let Some((key_type, _key_name, value)) = props.entry(key) {
         if key_type == "blackbody" {
             if let Property::Floats(v) = value
-                && v.len() >= 2 {
-                    let s = Spectrum::from_blackbody(v);
-                    let rgb = s.to_rgb();
-                    return Some([rgb[0], rgb[1], rgb[2], 1.0]);
-                }
+                && v.len() >= 2
+            {
+                let s = Spectrum::from_blackbody(v);
+                let rgb = s.to_rgb();
+                return Some([rgb[0], rgb[1], rgb[2], 1.0]);
+            }
         } else if key_type == "spectrum" {
             if let Property::Strings(v) = value
-                && !v.is_empty() {
-                    let name = v[0].clone();
-                    if let Some(resource) = resource_manager.find_spectrum_by_filename(&name) {
-                        let resource = resource.read().unwrap();
-                        if let Some(fullpath) = resource.get_fullpath()
-                            && let Ok(spectrum) = Spectrum::load_from_file(&fullpath) {
-                                let rgb = spectrum.to_rgb();
-                                return Some([rgb[0], rgb[1], rgb[2], 1.0]);
-                            }
+                && !v.is_empty()
+            {
+                let name = v[0].clone();
+                if let Some(resource) = resource_manager.find_spectrum_by_filename(&name) {
+                    let resource = resource.read().unwrap();
+                    if let Some(fullpath) = resource.get_fullpath()
+                        && let Ok(spectrum) = Spectrum::load_from_file(&fullpath)
+                    {
+                        let rgb = spectrum.to_rgb();
+                        return Some([rgb[0], rgb[1], rgb[2], 1.0]);
                     }
-                    log::warn!(
-                        "Spectrum resource not found for key: {} with value: {}",
-                        key,
-                        name
-                    );
                 }
+                log::warn!(
+                    "Spectrum resource not found for key: {} with value: {}",
+                    key,
+                    name
+                );
+            }
         } else if key_type == "float" {
             if let Property::Floats(v) = value
-                && !v.is_empty() {
-                    // Assuming the first three values are RGB
-                    return Some([v[0], v[0], v[0], 1.0]);
-                }
+                && !v.is_empty()
+            {
+                // Assuming the first three values are RGB
+                return Some([v[0], v[0], v[0], 1.0]);
+            }
         } else if let Property::Floats(v) = value
-        && v.len() >= 3 {
+            && v.len() >= 3
+        {
             return Some([v[0], v[1], v[2], 1.0]);
         }
     }
@@ -171,23 +179,22 @@ pub fn get_texture(
 ) -> Option<Arc<RenderTexture>> {
     if let Some((key_type, _key_name, value)) = props.entry(key)
         && key_type == "texture"
-            && let Property::Strings(v) = value
-                && !v.is_empty() {
-                    let name = v[0].clone();
-                    if let Some(texture) = resource_manager.find_texture_by_name(&name) {
-                        let texture = texture.read().unwrap();
-                        let texture_id = texture.get_id();
-                        //let texture_edition = texture.get_edition();
-                        if let Some(render_texture) =
-                            render_resource_manager.get_texture(texture_id)
-                        {
-                            // println!("Get Render Texture from Cache: key={}, name={}", key, name);
-                            //if render_texture.edition == texture_edition {
-                            return Some(render_texture.clone());
-                            //}
-                        }
-                    }
-                }
+        && let Property::Strings(v) = value
+        && !v.is_empty()
+    {
+        let name = v[0].clone();
+        if let Some(texture) = resource_manager.find_texture_by_name(&name) {
+            let texture = texture.read().unwrap();
+            let texture_id = texture.get_id();
+            //let texture_edition = texture.get_edition();
+            if let Some(render_texture) = render_resource_manager.get_texture(texture_id) {
+                // println!("Get Render Texture from Cache: key={}, name={}", key, name);
+                //if render_texture.edition == texture_edition {
+                return Some(render_texture.clone());
+                //}
+            }
+        }
+    }
     return None;
 }
 
@@ -378,9 +385,10 @@ fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniform
     let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
     let shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
     if shader_path.exists()
-        && let Ok(code) = std::fs::read_to_string(shader_path) {
-            return code;
-        }
+        && let Ok(code) = std::fs::read_to_string(shader_path)
+    {
+        return code;
+    }
 
     if let Some(generated_source) = generate_shader_source(shader_type, uniform_values) {
         return generated_source;
@@ -748,11 +756,12 @@ fn create_render_textures(
         for (_id, material) in resource_manager.materials.iter() {
             let material = material.read().unwrap();
             if let Some(bump) = get_string(material.as_property_map(), "bumpmap")
-                && let Some(texture) = resource_manager.find_texture_by_name(&bump) {
-                    let texture = texture.read().unwrap();
-                    let texture_id = texture.get_id();
-                    is_bump_map.insert(texture_id);
-                }
+                && let Some(texture) = resource_manager.find_texture_by_name(&bump)
+            {
+                let texture = texture.read().unwrap();
+                let texture_id = texture.get_id();
+                is_bump_map.insert(texture_id);
+            }
         }
     }
 
@@ -761,10 +770,11 @@ fn create_render_textures(
         let texture_id = texture.get_id();
         let texture_edition = texture.get_edition();
         if let Some(render_texture) = render_resource_manager.get_texture(texture_id)
-            && texture_edition == render_texture.edition {
-                //println!("Skip Create Render Texture from Cache: id={}", id);
-                continue;
-            }
+            && texture_edition == render_texture.edition
+        {
+            //println!("Skip Create Render Texture from Cache: id={}", id);
+            continue;
+        }
         let wrap = get_string(texture.as_property_map(), "wrap").unwrap_or("repeat".to_string());
         let swrap = get_string(texture.as_property_map(), "swrap").unwrap_or(wrap.clone());
         let twrap = get_string(texture.as_property_map(), "twrap").unwrap_or(wrap.clone());

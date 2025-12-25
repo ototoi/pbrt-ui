@@ -275,7 +275,6 @@ impl Brdf for BrdfMicrofacetReflection {
 
         // Reflect V about wh to get wi (L)
         // Standard reflection formula: wi = -V + 2(wh·V)wh
-        
 
         -(*V) + 2.0 * wh * wh.dot(*V)
     }

@@ -48,9 +48,10 @@ impl Light {
 
     pub fn get_floats(&self, key: &str) -> Option<&[f32]> {
         if let Some(prop) = self.props.get(key)
-            && let Property::Floats(arr) = prop {
-                return Some(arr);
-            }
+            && let Property::Floats(arr) = prop
+        {
+            return Some(arr);
+        }
         None
     }
 

@@ -100,15 +100,16 @@ pub fn create_plane_meshes_from_mesh(mesh: &MeshData, threthould: f32) -> Vec<Pl
             let mut group_i = group_i.borrow_mut();
             let mut group_j = group_j.borrow_mut();
             if (!group_i.indices.is_empty() || !group_j.indices.is_empty())
-                && Vector3::dot(&group_i.normal, &group_j.normal) > threthould {
-                    let i_weitght = group_i.indices.len() as f32;
-                    let j_weitght = group_j.indices.len() as f32;
-                    let new_normal =
-                        (group_i.normal * i_weitght + group_j.normal * j_weitght).normalize();
-                    group_i.normal = new_normal;
-                    group_i.indices.extend(&group_j.indices);
-                    group_j.indices.clear();
-                }
+                && Vector3::dot(&group_i.normal, &group_j.normal) > threthould
+            {
+                let i_weitght = group_i.indices.len() as f32;
+                let j_weitght = group_j.indices.len() as f32;
+                let new_normal =
+                    (group_i.normal * i_weitght + group_j.normal * j_weitght).normalize();
+                group_i.normal = new_normal;
+                group_i.indices.extend(&group_j.indices);
+                group_j.indices.clear();
+            }
         }
     }
 

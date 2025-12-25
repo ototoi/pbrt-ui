@@ -18,9 +18,10 @@ fn remove_empty_node(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<Node>>> {
         }
         if node.children.is_empty()
             && node.components.len() == 1
-                && node.get_component::<TransformComponent>().is_some() {
-                    return None;
-                }
+            && node.get_component::<TransformComponent>().is_some()
+        {
+            return None;
+        }
     }
     return Some(node.clone());
 }
@@ -52,12 +53,14 @@ fn remove_identity_node(node: &Arc<RwLock<Node>>) -> Option<Arc<RwLock<Node>>> {
             }
             node.children = new_children;
         }
-        if node.components.len() == 1 && node.children.len() == 1
+        if node.components.len() == 1
+            && node.children.len() == 1
             && let Some(transform) = node.get_component::<TransformComponent>()
-                && transform.is_identity() {
-                    // Skip this node and promote its children
-                    return Some(node.children[0].clone());
-                }
+            && transform.is_identity()
+        {
+            // Skip this node and promote its children
+            return Some(node.children[0].clone());
+        }
     }
     return Some(node.clone());
 }

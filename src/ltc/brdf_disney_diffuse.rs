@@ -35,7 +35,7 @@ impl Brdf for BrdfDisneyDiffuse {
     fn sample(&self, _V: &glam::Vec3, _alpha: f32, U1: f32, U2: f32) -> glam::Vec3 {
         let r = U1.sqrt();
         let phi = 2.0 * std::f32::consts::PI * U2;
-        
+
         glam::Vec3::new(r * phi.cos(), r * phi.sin(), (1.0 - r * r).sqrt())
     }
 }

@@ -90,13 +90,14 @@ fn get_directional_light_item(
         let light_type = light.get_type();
         let edition = light.get_edition();
         if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition {
-                let render_item = RenderLightItem {
-                    light: render_light.clone(),
-                    matrix: glam::Mat4::from(item.matrix),
-                };
-                return Some(RenderItem::Light(render_item));
-            }
+            && render_light.get_edition() == edition
+        {
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(item.matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
         assert!(
             light_type == "distant",
             "Expected light type to be 'distant', found: {}",
@@ -161,20 +162,21 @@ fn get_point_light_item(
         let edition = light.get_edition();
         let props = light.as_property_map();
         if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition {
-                let mut from = props.get_floats("from");
-                if from.len() != 3 {
-                    from = vec![0.0, 0.0, 0.0];
-                }
-                let translation = Matrix4x4::translate(from[0], from[1], from[2]);
-                let mat = translation * item.matrix;
-
-                let render_item = RenderLightItem {
-                    light: render_light.clone(),
-                    matrix: glam::Mat4::from(mat),
-                };
-                return Some(RenderItem::Light(render_item));
+            && render_light.get_edition() == edition
+        {
+            let mut from = props.get_floats("from");
+            if from.len() != 3 {
+                from = vec![0.0, 0.0, 0.0];
             }
+            let translation = Matrix4x4::translate(from[0], from[1], from[2]);
+            let mat = translation * item.matrix;
+
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(mat),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
         assert!(
             light_type == "point",
             "Expected light type to be 'point', found: {}",
@@ -233,13 +235,14 @@ fn get_spot_light_item(
         let light_type = light.get_type();
         let edition = light.get_edition();
         if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition {
-                let render_item = RenderLightItem {
-                    light: render_light.clone(),
-                    matrix: glam::Mat4::from(item.matrix),
-                };
-                return Some(RenderItem::Light(render_item));
-            }
+            && render_light.get_edition() == edition
+        {
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(item.matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
         assert!(
             light_type == "spot",
             "Expected light type to be 'point', found: {}",
@@ -331,13 +334,14 @@ fn get_sphere_light_item(
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
     if let Some(render_light) = render_resource_manager.get_light(id)
-        && render_light.get_edition() == edition {
-            let render_item = RenderLightItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(matrix),
-            };
-            return Some(RenderItem::Light(render_item));
-        }
+        && render_light.get_edition() == edition
+    {
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(matrix),
+        };
+        return Some(RenderItem::Light(render_item));
+    }
 
     let radius = shape
         .as_property_map()
@@ -411,13 +415,14 @@ fn get_disk_light_item(
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
     if let Some(render_light) = render_resource_manager.get_light(id)
-        && render_light.get_edition() == edition {
-            let render_item = RenderLightItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(matrix),
-            };
-            return Some(RenderItem::Light(render_item));
-        }
+        && render_light.get_edition() == edition
+    {
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(matrix),
+        };
+        return Some(RenderItem::Light(render_item));
+    }
 
     let radius = shape
         .as_property_map()
@@ -497,28 +502,29 @@ fn get_rects_light_item(
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
     if let Some(render_light) = render_resource_manager.get_light(id)
-        && render_light.get_edition() == edition {
-            let render_item = RenderLightItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(matrix),
-            };
-            return Some(RenderItem::Light(render_item));
-        }
+        && render_light.get_edition() == edition
+    {
+        let render_item = RenderLightItem {
+            light: render_light.clone(),
+            matrix: glam::Mat4::from(matrix),
+        };
+        return Some(RenderItem::Light(render_item));
+    }
 
     if let Some(mesh_data) = create_mesh_data(shape) {
         let mut rects = Vec::new();
         let planes = create_plane_meshes_from_mesh(&mesh_data, 0.99);
         for plane in planes {
             if let Some(outline) = create_plane_outline_from_plane_mesh(&plane)
-                && let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99) {
-                    rects.push(rect);
-                }
+                && let Some(rect) = create_plane_rect_from_plane_outline(&outline, 0.99)
+            {
+                rects.push(rect);
+            }
         }
         if !rects.is_empty() {
             let props = light.as_property_map();
             let l = get_color(props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-            let scale =
-                get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+            let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
 
             let twosided = props.find_one_bool("twosided").unwrap_or(false);
 
@@ -707,9 +713,10 @@ fn get_render_texture(
         let texture_edition = texture.get_edition();
         // println!("Found texture: {} (ID: {})", mapname, texture.get_id());
         if let Some(render_texture) = render_resource_manager.get_texture(texture_id)
-            && render_texture.edition == texture_edition {
-                return Some(render_texture.clone());
-            }
+            && render_texture.edition == texture_edition
+        {
+            return Some(render_texture.clone());
+        }
         if let Some(texture_node) = resource_cache_manager.textures.get(&texture_id) {
             // println!("Loading texture: {} (ID: {})", mapname, texture_id);
             if let Some(image) =
@@ -774,13 +781,14 @@ fn get_infinite_light_item(
         let edition = light.get_edition();
 
         if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition {
-                let render_item = RenderLightItem {
-                    light: render_light.clone(),
-                    matrix: glam::Mat4::from(item.matrix),
-                };
-                return Some(RenderItem::Light(render_item));
-            }
+            && render_light.get_edition() == edition
+        {
+            let render_item = RenderLightItem {
+                light: render_light.clone(),
+                matrix: glam::Mat4::from(item.matrix),
+            };
+            return Some(RenderItem::Light(render_item));
+        }
 
         assert!(
             light_type == "infinite",
@@ -843,9 +851,10 @@ fn get_lines_material(
     base_color: &[f32; 4],
 ) -> Option<Arc<RenderMaterial>> {
     if let Some(mat) = render_resource_manager.get_material(id)
-        && mat.edition == edition {
-            return Some(mat.clone());
-        }
+        && mat.edition == edition
+    {
+        return Some(mat.clone());
+    }
     // Create a default material for the light gizmo
     let mut uniform_values = Vec::new();
     uniform_values.push((
@@ -907,9 +916,10 @@ fn get_light_gizmo(
 ) -> Option<Arc<RenderLines>> {
     if let Some((id, edition)) = get_light_id_edition(node) {
         if let Some(lines) = render_resource_manager.get_lines(id)
-            && lines.edition == edition {
-                return Some(lines.clone());
-            }
+            && lines.edition == edition
+        {
+            return Some(lines.clone());
+        }
         if let Some(light_shape) = create_light_shape(node) {
             let lines = &light_shape.lines;
             let lines = lines
@@ -991,22 +1001,22 @@ pub fn get_render_light_items(
         resource_manager,
         resource_cache_manager,
         render_resource_manager,
-    )
-        && let RenderItem::Light(light_item) = render_item {
-            if let RenderLight::_Rects(rects) = light_item.light.as_ref() {
-                //println!("Area light with {} rects", rects.rects.len());
-                for light in rects.rects.iter() {
-                    //
-                    let render_item = RenderLightItem {
-                        light: light.clone(),
-                        matrix: light_item.matrix,
-                    };
-                    render_items.push(Arc::new(RenderItem::Light(render_item)));
-                }
-            } else {
-                render_items.push(Arc::new(RenderItem::Light(light_item)));
+    ) && let RenderItem::Light(light_item) = render_item
+    {
+        if let RenderLight::_Rects(rects) = light_item.light.as_ref() {
+            //println!("Area light with {} rects", rects.rects.len());
+            for light in rects.rects.iter() {
+                //
+                let render_item = RenderLightItem {
+                    light: light.clone(),
+                    matrix: light_item.matrix,
+                };
+                render_items.push(Arc::new(RenderItem::Light(render_item)));
             }
+        } else {
+            render_items.push(Arc::new(RenderItem::Light(light_item)));
         }
+    }
     return render_items;
 }
 

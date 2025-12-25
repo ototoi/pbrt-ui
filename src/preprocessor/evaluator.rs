@@ -395,18 +395,14 @@ mod tests {
     fn test_evaluate_integer_true() {
         let expr = Expr::Integer(1);
         let defines = HashMap::new();
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_integer_false() {
         let expr = Expr::Integer(0);
         let defines = HashMap::new();
-        assert!(
-            !evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(!evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -414,54 +410,42 @@ mod tests {
         let expr = Expr::Identifier("DEBUG".to_string());
         let mut defines = HashMap::new();
         defines.insert("DEBUG".to_string(), "1".to_string());
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_identifier_undefined() {
         let expr = Expr::Identifier("DEBUG".to_string());
         let defines = HashMap::new();
-        assert!(
-            !evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(!evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_not() {
         let expr = Expr::Not(Box::new(Expr::Integer(0)));
         let defines = HashMap::new();
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_and() {
         let expr = Expr::And(Box::new(Expr::Integer(1)), Box::new(Expr::Integer(1)));
         let defines = HashMap::new();
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_or() {
         let expr = Expr::Or(Box::new(Expr::Integer(0)), Box::new(Expr::Integer(1)));
         let defines = HashMap::new();
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_comparison() {
         let expr = Expr::Equal(Box::new(Expr::Integer(5)), Box::new(Expr::Integer(5)));
         let defines = HashMap::new();
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -476,9 +460,7 @@ mod tests {
         defines.insert("B".to_string(), "1".to_string());
         defines.insert("C".to_string(), "0".to_string());
 
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -510,18 +492,14 @@ mod tests {
         let expr = Expr::Defined("DEBUG".to_string());
         let mut defines = HashMap::new();
         defines.insert("DEBUG".to_string(), "1".to_string());
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
     fn test_evaluate_defined_false() {
         let expr = Expr::Defined("DEBUG".to_string());
         let defines = HashMap::new();
-        assert!(
-            !evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(!evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -529,9 +507,7 @@ mod tests {
         let expr = Expr::Defined("EMPTY".to_string());
         let mut defines = HashMap::new();
         defines.insert("EMPTY".to_string(), "".to_string());
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -580,9 +556,7 @@ mod tests {
         defines.insert("FOO".to_string(), "1".to_string());
         defines.insert("BAR".to_string(), "1".to_string());
 
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -594,9 +568,7 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
 
-        assert!(
-            !evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(!evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -608,9 +580,7 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("FOO".to_string(), "1".to_string());
 
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -621,9 +591,7 @@ mod tests {
 
         let defines = HashMap::new();
 
-        assert!(
-            !evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(!evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -642,9 +610,7 @@ mod tests {
         defines.insert("FOO".to_string(), "1".to_string());
         defines.insert("BAR".to_string(), "5".to_string());
 
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -656,9 +622,7 @@ mod tests {
         let mut defines = HashMap::new();
         defines.insert("VERSION".to_string(), "2".to_string());
 
-        assert!(
-            evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap()
-        );
+        assert!(evaluate(&expr, &defines, &make_all_defined(&defines)).unwrap());
     }
 
     #[test]
@@ -696,8 +660,6 @@ mod tests {
         let defines = HashMap::new();
         let all_defined_names = HashSet::new();
 
-        assert!(
-            !evaluate(&expr, &defines, &all_defined_names).unwrap()
-        );
+        assert!(!evaluate(&expr, &defines, &all_defined_names).unwrap());
     }
 }

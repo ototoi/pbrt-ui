@@ -130,7 +130,7 @@ fn decompose_matrix(
 
 #[cfg(test)]
 mod tests {
-    
+
     use crate::model::base::*;
 
     fn near_equal(a: f32, b: f32, epsilon: f32) -> bool {

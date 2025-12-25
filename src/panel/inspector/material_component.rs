@@ -67,9 +67,10 @@ impl InspectorPanel {
                 if let Some(params) = material_properties.get_entries(&mat_type) {
                     for entry in params.iter() {
                         if hide_sigma
-                            && (entry.key_name == "sigma_a" || entry.key_name == "sigma_s") {
-                                continue;
-                            }
+                            && (entry.key_name == "sigma_a" || entry.key_name == "sigma_s")
+                        {
+                            continue;
+                        }
                         if props.get(&entry.key_name).is_none() {
                             let key = PropertyMap::get_key(&entry.key_type, &entry.key_name);
                             props.insert(&key, entry.default_value.clone());

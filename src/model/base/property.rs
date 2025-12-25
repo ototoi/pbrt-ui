@@ -242,30 +242,34 @@ impl ParamSet {
     //--------------------------------------------------//
     pub fn find_one_float(&self, key: &str) -> Option<f32> {
         if let Some(Property::Floats(v)) = self.get(key)
-            && !v.is_empty() {
-                return Some(v[0]);
-            }
+            && !v.is_empty()
+        {
+            return Some(v[0]);
+        }
         return None;
     }
     pub fn find_one_int(&self, key: &str) -> Option<i32> {
         if let Some(Property::Ints(v)) = self.get(key)
-            && !v.is_empty() {
-                return Some(v[0]);
-            }
+            && !v.is_empty()
+        {
+            return Some(v[0]);
+        }
         return None;
     }
     pub fn find_one_bool(&self, key: &str) -> Option<bool> {
         if let Some(Property::Bools(v)) = self.get(key)
-            && !v.is_empty() {
-                return Some(v[0]);
-            }
+            && !v.is_empty()
+        {
+            return Some(v[0]);
+        }
         return None;
     }
     pub fn find_one_string(&self, key: &str) -> Option<String> {
         if let Some(Property::Strings(v)) = self.get(key)
-            && !v.is_empty() {
-                return Some(v[0].clone());
-            }
+            && !v.is_empty()
+        {
+            return Some(v[0].clone());
+        }
         return None;
     }
     //--------------------------------------------------//

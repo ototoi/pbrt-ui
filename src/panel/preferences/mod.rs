@@ -78,9 +78,10 @@ impl PreferencesWindow {
                                 .set_directory(path.parent().unwrap_or(std::path::Path::new(".")));
                         }
                         if let Some(new_path) = dialog.pick_file()
-                            && new_path.exists() {
-                                self.config.pbrt_executable_path = new_path.clone();
-                            }
+                            && new_path.exists()
+                        {
+                            self.config.pbrt_executable_path = new_path.clone();
+                        }
                     }
                 });
                 ui.horizontal(|ui| {

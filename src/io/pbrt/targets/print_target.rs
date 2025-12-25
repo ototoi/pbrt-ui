@@ -1,4 +1,4 @@
-use super::super::parse::ParseTarget;
+use crate::io::pbrt::PbrtTarget;
 use crate::model::base::ParamSet;
 
 use std::cell::Cell;
@@ -62,6 +62,7 @@ impl Default for PrintTarget {
 }
 
 impl PrintTarget {
+    /// Create a new PrintTarget with the given writer
     pub fn new(w: Arc<RefCell<dyn Write>>) -> Self {
         PrintTarget {
             writer: w,
@@ -70,6 +71,7 @@ impl PrintTarget {
         }
     }
 
+    /// Create a new PrintTarget with custom parameters
     pub fn new_with_params(w: Arc<RefCell<dyn Write>>, omit_long_values: bool) -> Self {
         PrintTarget {
             writer: w,
@@ -78,6 +80,7 @@ impl PrintTarget {
         }
     }
 
+    /// Create a new PrintTarget that writes to stdout
     pub fn new_stdout(omit_long_values: bool) -> Self {
         PrintTarget {
             writer: Arc::new(RefCell::new(std::io::stdout())),
@@ -86,17 +89,22 @@ impl PrintTarget {
         }
     }
 
+    /// Increment the indentation level
     pub fn inc_indent(&mut self) {
         self.indent.set(self.indent.get() + 1);
     }
+
+    /// Decrement the indentation level
     pub fn dec_indent(&mut self) {
         self.indent.set(self.indent.get() - 1);
     }
 
+    /// Get the current indentation string
     pub fn get_indent(&self) -> String {
         return self.get_indent_i(self.indent.get());
     }
 
+    /// Get an indentation string for a specific level
     pub fn get_indent_i(&self, count: i32) -> String {
         let mut s = String::new();
         for _ in 0..count {
@@ -105,10 +113,27 @@ impl PrintTarget {
         return s;
     }
 
+    /// Print a string to the output (internal helper method)
     fn print(&self, s: &str) {
-        _ = self.writer.borrow_mut().write_all(s.as_bytes());
+        _ = self.write_str(s);
     }
 
+    /// Write a string to the output without formatting
+    pub fn write_str(&self, s: &str) -> std::io::Result<()> {
+        self.writer.borrow_mut().write_all(s.as_bytes())
+    }
+
+    /// Write bytes directly to the output
+    pub fn write_bytes(&self, bytes: &[u8]) -> std::io::Result<()> {
+        self.writer.borrow_mut().write_all(bytes)
+    }
+
+    /// Flush the writer
+    pub fn flush(&self) -> std::io::Result<()> {
+        self.writer.borrow_mut().flush()
+    }
+
+    /// Convert a transform matrix to string format
     fn convert_transform(&self, values: &[Float]) -> String {
         let mut s = String::from("[");
         let len = values.len();
@@ -123,6 +148,7 @@ impl PrintTarget {
         return s;
     }
 
+    /// Convert parameter values to PBRT string format
     fn convert_values(&self, params: &ParamSet, key: &str) -> String {
         let mut s = String::from("");
         let t = get_type(key);
@@ -204,6 +230,7 @@ impl PrintTarget {
         return s;
     }
 
+    /// Convert parameter set to formatted string with indentation
     fn convert_params(&self, params: &ParamSet) -> String {
         let mut s = String::from("");
         let keys = params.get_keys();
@@ -219,6 +246,7 @@ impl PrintTarget {
         return s;
     }
 
+    /// Format parameters for inline output
     fn with_params(&self, params: &ParamSet) -> String {
         let keys = params.get_keys();
         let keys = keys
@@ -237,7 +265,7 @@ impl PrintTarget {
     }
 }
 
-impl ParseTarget for PrintTarget {
+impl PbrtTarget for PrintTarget {
     fn cleanup(&mut self) {
         self.print(&format!("{}Cleanup\n", self.get_indent()));
     }

@@ -1,8 +1,8 @@
 use super::common::*;
-use super::parse_target::ParseTarget;
 use super::read_file::{read_file_with_include, read_file_without_include};
 use super::remove_comments::remove_comments;
 use crate::error::*;
+use crate::io::pbrt::PbrtTarget;
 use crate::model::base::ParamSet;
 
 use nom::IResult;
@@ -31,7 +31,7 @@ fn search_pbrt_file(dir: &std::path::Path) -> Option<std::path::PathBuf> {
     return None;
 }
 
-fn pbrt_parse_targz(filename: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
+fn pbrt_parse_targz(filename: &str, context: &mut dyn PbrtTarget) -> Result<(), PbrtError> {
     let tmp_dir = tempfile::tempdir()?;
     let tmp_dir_path = tmp_dir.path();
     //println!("Extracting {} to {:?}", filename, tmp_dir_path);
@@ -58,7 +58,7 @@ fn pbrt_parse_targz(filename: &str, context: &mut dyn ParseTarget) -> Result<(),
     )));
 }
 
-pub fn pbrt_parse_file(filename: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
+pub fn pbrt_parse_file(filename: &str, context: &mut dyn PbrtTarget) -> Result<(), PbrtError> {
     if filename.ends_with(".tar.gz") {
         return pbrt_parse_targz(filename, context);
     } else {
@@ -67,21 +67,21 @@ pub fn pbrt_parse_file(filename: &str, context: &mut dyn ParseTarget) -> Result<
     }
 }
 
-pub fn pbrt_parse_string(s: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
+pub fn pbrt_parse_string(s: &str, context: &mut dyn PbrtTarget) -> Result<(), PbrtError> {
     let ops = parse_opnodes(s)?;
     return evaluate_opnodes(&ops, context);
 }
 
 pub fn pbrt_parse_file_without_include(
     filename: &str,
-    context: &mut dyn ParseTarget,
+    context: &mut dyn PbrtTarget,
 ) -> Result<(), PbrtError> {
     let s = read_file_without_include(filename)?;
     return pbrt_parse_string_core(&s, context);
 }
 //-----------------------------------
 
-pub fn pbrt_parse_string_core(s: &str, context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
+pub fn pbrt_parse_string_core(s: &str, context: &mut dyn PbrtTarget) -> Result<(), PbrtError> {
     let ops = parse_opnodes_core(s)?;
     return evaluate_opnodes(&ops, context);
 }
@@ -130,7 +130,7 @@ impl OPNode {
     }
 }
 
-fn evaluate_opnodes(ops: &[OPNode], context: &mut dyn ParseTarget) -> Result<(), PbrtError> {
+fn evaluate_opnodes(ops: &[OPNode], context: &mut dyn PbrtTarget) -> Result<(), PbrtError> {
     for op in ops {
         //println!("{}", op.name);
         let opname: &str = &op.name;

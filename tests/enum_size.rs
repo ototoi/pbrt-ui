@@ -4,8 +4,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 struct Small {
     e: u8,
 }
@@ -15,7 +14,6 @@ impl Small {
         std::mem::size_of::<Small>()
     }
 }
-
 
 #[derive(Debug, Clone)]
 struct Big {
@@ -49,20 +47,17 @@ impl C {
 
 trait IObject: Debug {}
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 struct AObject {
     pub c: u8,
 }
 
 impl IObject for AObject {}
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 struct BObject {
     pub c: u8,
 }
-
 
 impl IObject for BObject {}
 

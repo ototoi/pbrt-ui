@@ -30,9 +30,7 @@ fn initialize_texture_node(
                 image_variants: HashMap::new(),
             };
             let texture_node = Arc::new(RwLock::new(texture_node));
-            resource_cache_manager
-                .textures
-                .insert(id, texture_node);
+            resource_cache_manager.textures.insert(id, texture_node);
         }
     }
 }
@@ -100,10 +98,11 @@ fn connect_texture_dependencies(
             }
             for (_key, input) in texture_node.inputs.iter() {
                 if let Some(input) = input
-                    && let Some(input) = input.upgrade() {
-                        let mut input = input.write().unwrap();
-                        input.outputs.remove(&id); // remove this node from outputs of input nodes
-                    }
+                    && let Some(input) = input.upgrade()
+                {
+                    let mut input = input.write().unwrap();
+                    input.outputs.remove(&id); // remove this node from outputs of input nodes
+                }
             }
             texture_node.inputs.clear(); // clear existing dependencies
             //texture_node.outputs.clear(); // clear existing dependencies
@@ -119,21 +118,22 @@ fn connect_texture_dependencies(
             let props = texture.as_property_map();
             for key in keys.iter() {
                 if let Some(value) = props.get(key)
-                    && let Property::Strings(names) = value {
-                        for dep_texture_name in names {
-                            if let Some(dep_texture) =
-                                resource_manager.find_texture_by_name(dep_texture_name)
+                    && let Property::Strings(names) = value
+                {
+                    for dep_texture_name in names {
+                        if let Some(dep_texture) =
+                            resource_manager.find_texture_by_name(dep_texture_name)
+                        {
+                            let dep_texture = dep_texture.read().unwrap();
+                            let dep_id = dep_texture.get_id();
+                            if let Some(dep_texture_node) =
+                                resource_cache_manager.textures.get(&dep_id)
                             {
-                                let dep_texture = dep_texture.read().unwrap();
-                                let dep_id = dep_texture.get_id();
-                                if let Some(dep_texture_node) =
-                                    resource_cache_manager.textures.get(&dep_id)
-                                {
-                                    dependency_nodes.push((key.clone(), dep_texture_node.clone()));
-                                }
+                                dependency_nodes.push((key.clone(), dep_texture_node.clone()));
                             }
                         }
                     }
+                }
             }
             texture_node.edition = edition; // update edition
         }

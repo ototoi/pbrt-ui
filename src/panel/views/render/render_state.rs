@@ -1,5 +1,5 @@
 use crate::error::PbrtError;
-use crate::io::export::pbrt::*;
+use crate::io::pbrt::export::*;
 use crate::model::scene::Node;
 
 use std::sync::Arc;

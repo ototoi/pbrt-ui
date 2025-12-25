@@ -67,7 +67,7 @@ impl Spectrum {
         let n_values = n_values / 2;
         let mut s = Self::zero();
         for i in 0..n_values {
-            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i ]);
+            let v = blackbody_normalized(&CIE_LAMBDA, values[2 * i]);
             s += Self::from_sampled(&CIE_LAMBDA, &v) * values[2 * i + 1];
         }
         return s;

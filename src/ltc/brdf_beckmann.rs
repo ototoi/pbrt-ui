@@ -62,7 +62,7 @@ impl Brdf for BrdfBeckmann {
         let phi = 2.0 * std::f32::consts::PI * U1;
         let r = alpha * (-U2.ln()).sqrt();
         let N = glam::Vec3::new(r * phi.cos(), r * phi.sin(), 1.0).normalize();
-        
+
         -(*V) + 2.0 * N * N.dot(*V)
     }
 }

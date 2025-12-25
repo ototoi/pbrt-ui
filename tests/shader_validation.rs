@@ -31,9 +31,10 @@ fn find_wgsl_files(dir: &Path) -> Vec<PathBuf> {
             let path = entry.path();
             if path.is_file()
                 && let Some(ext) = path.extension()
-                    && ext == "wgsl" {
-                        wgsl_files.push(path);
-                    }
+                && ext == "wgsl"
+            {
+                wgsl_files.push(path);
+            }
         }
     }
 
