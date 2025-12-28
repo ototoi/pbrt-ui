@@ -603,7 +603,14 @@ impl PbrtTarget for SceneTarget {
     }
 
     fn transform_begin(&mut self) {
-        {
+        if let Some(name) = &self.render_options.current_instance_name {
+            let node = self
+                .render_options
+                .instances
+                .entry(name.to_string())
+                .or_insert_with(|| Node::root_node(name));
+            self.nodes.push(node.clone());
+        } else {
             let new_node = self.create_child_node("Transform");
             self.nodes.push(new_node);
         }
@@ -833,9 +840,19 @@ impl PbrtTarget for SceneTarget {
         }
     }
     fn reverse_orientation(&mut self) {}
-    fn object_begin(&mut self, _name: &str) {}
-    fn object_end(&mut self) {}
+
+    fn object_begin(&mut self, name: &str) {
+        self.render_options.current_instance_name = Some(name.to_string());
+        self.attribute_begin();
+    }
+
+    fn object_end(&mut self) {
+        self.attribute_end();
+        self.render_options.current_instance_name = None;
+    }
+
     fn object_instance(&mut self, _name: &str) {}
+
     fn world_end(&mut self) {}
 
     fn parse_file(&mut self, _filename: &str) {
