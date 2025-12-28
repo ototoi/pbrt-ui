@@ -1,4 +1,10 @@
 use crate::model::base::PropertyMap;
+use crate::model::scene::Node;
+
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
+type PrimitivesMap = HashMap<String, Arc<RwLock<Node>>>;
 
 #[derive(Debug, Clone)]
 pub struct RenderOptions {
@@ -16,6 +22,9 @@ pub struct RenderOptions {
     pub integrator_params: PropertyMap,
     pub camera_name: String,
     pub camera_params: PropertyMap,
+
+    pub instances: PrimitivesMap,
+    pub current_instance_name: Option<String>,
 }
 
 impl Default for RenderOptions {
@@ -35,6 +44,9 @@ impl Default for RenderOptions {
             integrator_params: PropertyMap::new(),
             camera_name: "perspective".to_string(),
             camera_params: PropertyMap::new(),
+
+            instances: HashMap::new(),
+            current_instance_name: None,
         }
     }
 }

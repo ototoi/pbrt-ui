@@ -390,6 +390,20 @@ impl SceneTarget {
         }
         return None;
     }
+
+    fn instantiate_node(&self, node: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
+        let instanced_node = self.create_child_node(&node.read().unwrap().get_name());
+        /* 
+        {
+            let mut instanced_node = instanced_node.write().unwrap();
+            let original_node = node.read().unwrap();
+            for component in original_node.get_components().iter() {
+                instanced_node.add_component(component.clone_box());
+            }
+        }
+        */
+        return instanced_node;
+    }
 }
 
 impl PbrtTarget for SceneTarget {
@@ -603,7 +617,14 @@ impl PbrtTarget for SceneTarget {
     }
 
     fn transform_begin(&mut self) {
-        {
+        if let Some(name) = &self.render_options.current_instance_name {
+            let node = self
+                .render_options
+                .instances
+                .entry(name.to_string())
+                .or_insert_with(|| Node::root_node(name));
+            self.nodes.push(node.clone());
+        } else {
             let new_node = self.create_child_node("Transform");
             self.nodes.push(new_node);
         }
@@ -833,9 +854,49 @@ impl PbrtTarget for SceneTarget {
         }
     }
     fn reverse_orientation(&mut self) {}
-    fn object_begin(&mut self, _name: &str) {}
-    fn object_end(&mut self) {}
-    fn object_instance(&mut self, _name: &str) {}
+
+    fn object_begin(&mut self, name: &str) {
+        self.render_options.current_instance_name = Some(name.to_string());
+        self.attribute_begin();
+    }
+
+    fn object_end(&mut self) {
+        if let Some(name) = &self.render_options.current_instance_name {
+            if let Some(node) = self.render_options.instances.get(name) {
+                // register instance as ResourceObject to ResourceManager
+                //let resource = Arc::new(RwLock::new(InstanceResource::new(
+                //    name,
+                //    node.clone(),
+                //)));
+                //self.resources
+                //    .insert(name.to_string(), resource.clone());
+            }
+        }
+        self.attribute_end();
+        self.render_options.current_instance_name = None;
+    }
+
+    fn object_instance(&mut self, name: &str) {
+        if let Some(current_instance_name) = &self.render_options.current_instance_name {
+            if name == current_instance_name {
+                log::warn!("Cannot instance object {} within its own definition", name);
+                return;
+            }
+        }
+        if let Some(node) = self.render_options.instances.get(name) {
+            //let instanced_node = node.clone();
+            // set as node
+            //println!("Instance node: {} {}", name, node.read().unwrap().get_name());
+            let instance_node = self.instantiate_node(node);
+            //println!(
+            //    "Instance node created: {}",
+            //    instance_node.read().unwrap().get_name()
+            //);
+        } else {
+            log::warn!("Instance {} not found", name);
+        }
+    }
+
     fn world_end(&mut self) {}
 
     fn parse_file(&mut self, _filename: &str) {
