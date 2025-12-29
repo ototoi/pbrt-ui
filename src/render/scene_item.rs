@@ -4,6 +4,7 @@ use crate::model::scene::Component;
 use crate::model::scene::LightComponent;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::Node;
+use crate::model::scene::ObjectInstanceComponent;
 use crate::model::scene::ShapeComponent;
 use crate::model::scene::TransformComponent;
 
@@ -15,6 +16,7 @@ pub enum SceneItemType {
     Mesh,
     Light,
     Camera,
+    ObjectInstance,
 }
 
 pub struct SceneItem {
@@ -72,6 +74,11 @@ fn get_scene_item(parent_matrix: &Matrix4x4, node: &Arc<RwLock<Node>>, items: &m
 
     if has_component::<CameraComponent>(node) {
         let item = SceneItem::new(node.clone(), SceneItemType::Camera, world_matrix);
+        items.push(item);
+    }
+
+    if has_component::<ObjectInstanceComponent>(node) {
+        let item = SceneItem::new(node.clone(), SceneItemType::ObjectInstance, world_matrix);
         items.push(item);
     }
 

@@ -16,6 +16,7 @@ use crate::model::scene::MappingProperties;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::MaterialProperties;
 use crate::model::scene::Node;
+use crate::model::scene::ObjectInstanceComponent;
 use crate::model::scene::OptionProperties;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::SamplerComponent;
@@ -162,6 +163,13 @@ impl InspectorPanel {
             } else if let Some(_component) = component.downcast_mut::<AnimationComponent>() {
                 let mut props = PropertyMap::new(); //todo
                 show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
+            } else if let Some(component) = component.downcast_mut::<ObjectInstanceComponent>() {
+                let object_node = component.get_node();
+                let object_node = object_node.read().unwrap();
+                let object_name = object_node.get_name();
+                let mut props = PropertyMap::new();
+                props.add_string("string name", &object_name);
+                self.show_other_component(i, ui, "ObjectInstance", &mut props, resource_selector);
             } else {
                 //log::warn!("Unknown component type");
             }

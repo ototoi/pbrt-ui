@@ -20,6 +20,7 @@ use crate::model::scene::IntegratorComponent;
 use crate::model::scene::LightComponent;
 use crate::model::scene::MaterialComponent;
 use crate::model::scene::Node;
+use crate::model::scene::ObjectInstanceComponent;
 use crate::model::scene::OtherResource;
 use crate::model::scene::ResourceComponent;
 use crate::model::scene::ResourceObject;
@@ -391,9 +392,10 @@ impl SceneTarget {
         return None;
     }
 
-    fn instantiate_node(&self, node: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
-        let instanced_node = self.create_child_node(&node.read().unwrap().get_name());
-        /* 
+    fn instantiate_node(&self, prefab_node: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
+        let instanced_node = self.create_child_node(&prefab_node.read().unwrap().get_name());
+
+        /*
         {
             let mut instanced_node = instanced_node.write().unwrap();
             let original_node = node.read().unwrap();
@@ -617,13 +619,15 @@ impl PbrtTarget for SceneTarget {
     }
 
     fn transform_begin(&mut self) {
-        if let Some(name) = &self.render_options.current_instance_name {
-            let node = self
-                .render_options
+        if let Some(name) = &self.render_options.current_instance_name
+            && !self.render_options.instances.contains_key(name)
+        {
+            let new_node = Node::root_node(name);
+            //mark as template
+            self.render_options
                 .instances
-                .entry(name.to_string())
-                .or_insert_with(|| Node::root_node(name));
-            self.nodes.push(node.clone());
+                .insert(name.to_string(), new_node.clone());
+            self.nodes.push(new_node.clone());
         } else {
             let new_node = self.create_child_node("Transform");
             self.nodes.push(new_node);
@@ -884,14 +888,11 @@ impl PbrtTarget for SceneTarget {
             }
         }
         if let Some(node) = self.render_options.instances.get(name) {
-            //let instanced_node = node.clone();
-            // set as node
-            //println!("Instance node: {} {}", name, node.read().unwrap().get_name());
-            let instance_node = self.instantiate_node(node);
-            //println!(
-            //    "Instance node created: {}",
-            //    instance_node.read().unwrap().get_name()
-            //);
+            let instanced_node = self.instantiate_node(node);
+            {
+                let mut instanced_node = instanced_node.write().unwrap();
+                instanced_node.add_component(ObjectInstanceComponent::new(node));
+            }
         } else {
             log::warn!("Instance {} not found", name);
         }

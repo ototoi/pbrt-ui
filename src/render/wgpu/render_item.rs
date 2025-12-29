@@ -11,6 +11,7 @@ use super::render_gizmo_item::get_render_grid_gizmo_items;
 use super::render_light_item::get_render_light_gizmo_item;
 use super::render_light_item::get_render_light_items;
 use super::render_mesh_item::get_render_mesh_item;
+use super::render_object_instance_item::get_render_object_instance_items;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
@@ -60,16 +61,24 @@ pub struct LinesRenderItem {
 }
 
 #[derive(Debug, Clone)]
-pub struct RenderLightItem {
+pub struct LightRenderItem {
     pub light: Arc<RenderLight>,
     pub matrix: glam::Mat4,
 }
 
 #[derive(Debug, Clone)]
+pub struct InstancedMeshRenderItem {
+    pub mesh: Arc<RenderMesh>,
+    pub material: Option<Arc<RenderMaterial>>,
+    pub matrices: Vec<glam::Mat4>,
+}
+
+#[derive(Debug, Clone)]
 pub enum RenderItem {
     Mesh(MeshRenderItem),
-    Light(RenderLightItem),
+    Light(LightRenderItem),
     Lines(LinesRenderItem),
+    InstancedMesh(InstancedMeshRenderItem),
     // Add other render item types here as needed
 }
 
@@ -79,13 +88,30 @@ impl RenderItem {
             RenderItem::Mesh(item) => item.matrix,
             RenderItem::Light(item) => item.matrix,
             RenderItem::Lines(item) => item.matrix,
-            // Handle other render item types here
+            RenderItem::InstancedMesh(_item) => glam::Mat4::IDENTITY, // Instanced meshes have multiple matrices
+                                                                      // Handle other render item types here
         }
     }
+    pub fn set_matrix(&mut self, matrix: glam::Mat4) {
+        match self {
+            RenderItem::Mesh(item) => {
+                item.matrix = matrix;
+            }
+            RenderItem::Light(item) => {
+                item.matrix = matrix;
+            }
+            RenderItem::Lines(item) => {
+                item.matrix = matrix;
+            } // Handle other render item types here
+            _ => { /* Do nothing for InstancedMesh or other types */ }
+        }
+    }
+
     pub fn get_material(&self) -> Option<Arc<RenderMaterial>> {
         match self {
             RenderItem::Mesh(item) => item.material.clone(),
             RenderItem::Lines(item) => item.material.clone(),
+            RenderItem::InstancedMesh(item) => item.material.clone(),
             _ => None,
         }
     }
@@ -822,6 +848,77 @@ fn create_render_textures(
     }
 }
 
+pub fn get_render_items_from_scene_items(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    scene_items: &Vec<SceneItem>,
+    mode: RenderMode,
+    resource_manager: &ResourceManager,
+    resource_cache_manager: &mut ResourceCacheManager,
+    render_resource_manager: &mut RenderResourceManager,
+) -> Vec<Arc<RenderItem>> {
+    let mut render_items = Vec::new();
+    for item in scene_items.iter() {
+        match item.category {
+            SceneItemType::Mesh => {
+                if let Some(render_item) = get_render_mesh_item(
+                    device,
+                    queue,
+                    item,
+                    mode,
+                    &resource_manager,
+                    render_resource_manager,
+                ) {
+                    render_items.push(Arc::new(render_item));
+                }
+            }
+            SceneItemType::Light => {
+                if mode == RenderMode::Lighting {
+                    let items = get_render_light_items(
+                        device,
+                        queue,
+                        item,
+                        mode,
+                        &resource_manager,
+                        resource_cache_manager,
+                        render_resource_manager,
+                    );
+                    if !items.is_empty() {
+                        render_items.extend(items);
+                    }
+                }
+                if let Some(render_item) = get_render_light_gizmo_item(
+                    device,
+                    queue,
+                    item,
+                    mode,
+                    &resource_manager,
+                    render_resource_manager,
+                ) {
+                    render_items.push(Arc::new(render_item));
+                }
+            }
+            SceneItemType::ObjectInstance => {
+                let items = get_render_object_instance_items(
+                    device,
+                    queue,
+                    item,
+                    mode,
+                    &resource_manager,
+                    resource_cache_manager,
+                    render_resource_manager,
+                );
+                if !items.is_empty() {
+                    render_items.extend(items);
+                }
+            }
+            // Handle other categories like Light, Camera, etc.
+            _ => {}
+        }
+    }
+    return render_items;
+}
+
 pub fn get_render_items(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -854,50 +951,15 @@ pub fn get_render_items(
         );
     }
 
-    for item in scene_items.iter() {
-        match item.category {
-            SceneItemType::Mesh => {
-                if let Some(render_item) = get_render_mesh_item(
-                    device,
-                    queue,
-                    item,
-                    mode,
-                    &resource_manager,
-                    &mut render_resource_manager,
-                ) {
-                    render_items.push(Arc::new(render_item));
-                }
-            }
-            SceneItemType::Light => {
-                if mode == RenderMode::Lighting {
-                    let items = get_render_light_items(
-                        device,
-                        queue,
-                        item,
-                        mode,
-                        &resource_manager,
-                        &mut resource_cache_manager,
-                        &mut render_resource_manager,
-                    );
-                    if !items.is_empty() {
-                        render_items.extend(items);
-                    }
-                }
-                if let Some(render_item) = get_render_light_gizmo_item(
-                    device,
-                    queue,
-                    item,
-                    mode,
-                    &resource_manager,
-                    &mut render_resource_manager,
-                ) {
-                    render_items.push(Arc::new(render_item));
-                }
-            }
-            // Handle other categories like Light, Camera, etc.
-            _ => {}
-        }
-    }
+    render_items.extend(get_render_items_from_scene_items(
+        device,
+        queue,
+        &scene_items,
+        mode,
+        &resource_manager,
+        &mut resource_cache_manager,
+        &mut render_resource_manager,
+    ));
     //additional render items based on the mode
     {
         let display_world_axes = true; // This should be a setting or parameter
