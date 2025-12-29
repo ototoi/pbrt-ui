@@ -8,9 +8,9 @@ use super::light::SphereRenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
+use super::render_item::LightRenderItem;
 use super::render_item::LinesRenderItem;
 use super::render_item::RenderItem;
-use super::render_item::RenderLightItem;
 use super::render_item::create_render_pass;
 use super::render_item::get_color;
 use super::render_resource::RenderResourceManager;
@@ -92,7 +92,7 @@ fn get_directional_light_item(
         if let Some(render_light) = render_resource_manager.get_light(id)
             && render_light.get_edition() == edition
         {
-            let render_item = RenderLightItem {
+            let render_item = LightRenderItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(item.matrix),
             };
@@ -137,7 +137,7 @@ fn get_directional_light_item(
         };
         let render_light = Arc::new(RenderLight::Directional(render_light));
         render_resource_manager.add_light(&render_light);
-        let render_item = RenderLightItem {
+        let render_item = LightRenderItem {
             light: render_light.clone(),
             matrix: glam::Mat4::from(item.matrix),
         };
@@ -171,7 +171,7 @@ fn get_point_light_item(
             let translation = Matrix4x4::translate(from[0], from[1], from[2]);
             let mat = translation * item.matrix;
 
-            let render_item = RenderLightItem {
+            let render_item = LightRenderItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(mat),
             };
@@ -211,7 +211,7 @@ fn get_point_light_item(
         let render_light = Arc::new(RenderLight::Sphere(render_light));
         render_resource_manager.add_light(&render_light);
 
-        let render_item = RenderLightItem {
+        let render_item = LightRenderItem {
             light: render_light.clone(),
             matrix: glam::Mat4::from(mat),
         };
@@ -237,7 +237,7 @@ fn get_spot_light_item(
         if let Some(render_light) = render_resource_manager.get_light(id)
             && render_light.get_edition() == edition
         {
-            let render_item = RenderLightItem {
+            let render_item = LightRenderItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(item.matrix),
             };
@@ -305,7 +305,7 @@ fn get_spot_light_item(
         let render_light = Arc::new(RenderLight::Disk(render_light));
         render_resource_manager.add_light(&render_light);
 
-        let render_item = RenderLightItem {
+        let render_item = LightRenderItem {
             light: render_light.clone(),
             matrix: glam::Mat4::from(item.matrix),
         };
@@ -336,7 +336,7 @@ fn get_sphere_light_item(
     if let Some(render_light) = render_resource_manager.get_light(id)
         && render_light.get_edition() == edition
     {
-        let render_item = RenderLightItem {
+        let render_item = LightRenderItem {
             light: render_light.clone(),
             matrix: glam::Mat4::from(matrix),
         };
@@ -388,7 +388,7 @@ fn get_sphere_light_item(
     let render_light = Arc::new(RenderLight::Sphere(render_light));
     render_resource_manager.add_light(&render_light);
 
-    let render_item = RenderLightItem {
+    let render_item = LightRenderItem {
         light: render_light.clone(),
         matrix: glam::Mat4::from(matrix),
     };
@@ -417,7 +417,7 @@ fn get_disk_light_item(
     if let Some(render_light) = render_resource_manager.get_light(id)
         && render_light.get_edition() == edition
     {
-        let render_item = RenderLightItem {
+        let render_item = LightRenderItem {
             light: render_light.clone(),
             matrix: glam::Mat4::from(matrix),
         };
@@ -475,7 +475,7 @@ fn get_disk_light_item(
     let render_light = Arc::new(RenderLight::Disk(render_light));
     render_resource_manager.add_light(&render_light);
 
-    let render_item = RenderLightItem {
+    let render_item = LightRenderItem {
         light: render_light.clone(),
         matrix: glam::Mat4::from(matrix),
     };
@@ -504,7 +504,7 @@ fn get_rects_light_item(
     if let Some(render_light) = render_resource_manager.get_light(id)
         && render_light.get_edition() == edition
     {
-        let render_item = RenderLightItem {
+        let render_item = LightRenderItem {
             light: render_light.clone(),
             matrix: glam::Mat4::from(matrix),
         };
@@ -572,7 +572,7 @@ fn get_rects_light_item(
             let render_light = Arc::new(RenderLight::_Rects(render_light));
             render_resource_manager.add_light(&render_light);
 
-            let render_item = RenderLightItem {
+            let render_item = LightRenderItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(matrix),
             };
@@ -783,7 +783,7 @@ fn get_infinite_light_item(
         if let Some(render_light) = render_resource_manager.get_light(id)
             && render_light.get_edition() == edition
         {
-            let render_item = RenderLightItem {
+            let render_item = LightRenderItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(item.matrix),
             };
@@ -832,7 +832,7 @@ fn get_infinite_light_item(
             };
             let render_light = Arc::new(RenderLight::Infinite(render_light));
             render_resource_manager.add_light(&render_light);
-            let render_item = RenderLightItem {
+            let render_item = LightRenderItem {
                 light: render_light.clone(),
                 matrix: glam::Mat4::from(light_matrix),
             };
@@ -1007,7 +1007,7 @@ pub fn get_render_light_items(
             //println!("Area light with {} rects", rects.rects.len());
             for light in rects.rects.iter() {
                 //
-                let render_item = RenderLightItem {
+                let render_item = LightRenderItem {
                     light: light.clone(),
                     matrix: light_item.matrix,
                 };

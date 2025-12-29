@@ -12,6 +12,7 @@ pub mod render_gizmo_item;
 pub mod render_item;
 pub mod render_light_item;
 pub mod render_mesh_item;
+pub mod render_object_instance_item;
 pub mod render_resource;
 pub mod shader;
 pub mod solid_mesh_renderer;
