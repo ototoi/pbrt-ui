@@ -27,7 +27,6 @@ use crate::model::scene::TextureProperties;
 use crate::model::scene::TransformComponent;
 use crate::panel::Panel;
 
-use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -95,84 +94,104 @@ impl InspectorPanel {
                 node.set_name(&name);
             }
         }
-        self.show_components(ui, &mut node.components, &resource_selector);
+        self.show_components(ui, &mut node, &resource_selector);
     }
 
     pub fn show_components(
         &self,
         ui: &mut egui::Ui,
-        components: &mut [Box<dyn Any>],
+        node: &mut Node,
         resource_selector: &ResourceSelector,
     ) {
-        for (i, component) in components.iter_mut().enumerate() {
-            if let Some(component) = component.downcast_mut::<TransformComponent>() {
-                self.show_transform_component(i, ui, component, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<ShapeComponent>() {
-                self.show_shape_component(i, ui, component, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<LightComponent>() {
-                self.show_light_component(i, ui, component, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<MaterialComponent>() {
-                self.show_material_component(i, ui, component, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<CameraComponent>() {
-                let camera_properties = CameraProperties::get_instance();
-                self.show_typed_component(
-                    i,
-                    ui,
-                    "Camera",
-                    &mut component.props,
-                    &camera_properties,
-                    resource_selector,
-                );
-            } else if let Some(component) = component.downcast_mut::<FilmComponent>() {
-                self.show_option_component(i, ui, "film", &mut component.props, resource_selector);
-            } else if let Some(component) = component.downcast_mut::<SamplerComponent>() {
-                let sampler_properties = SamplerProperties::get_instance();
-                self.show_typed_component(
-                    i,
-                    ui,
-                    "Sampler",
-                    &mut component.props,
-                    &sampler_properties,
-                    resource_selector,
-                );
-            } else if let Some(component) = component.downcast_mut::<IntegratorComponent>() {
-                let integrator_properties = IntegratorProperties::get_instance();
-                self.show_typed_component(
-                    i,
-                    ui,
-                    "Integrator",
-                    &mut component.props,
-                    &integrator_properties,
-                    resource_selector,
-                );
-            } else if let Some(component) = component.downcast_mut::<AcceleratorComponent>() {
-                let accelerator_properties = AcceleratorProperties::get_instance();
-                self.show_typed_component(
-                    i,
-                    ui,
-                    "Accelerator",
-                    &mut component.props,
-                    &accelerator_properties,
-                    resource_selector,
-                );
-            } else if let Some(component) = component.downcast_mut::<CoordinateSystemComponent>() {
-                let mut props = PropertyMap::new();
-                let up = component.get_up_vector();
-                props.add_floats("float up", &[up.x, up.y, up.z]);
-                self.show_other_component(i, ui, "CoordinateSystem", &mut props, resource_selector);
-            } else if let Some(_component) = component.downcast_mut::<AnimationComponent>() {
-                let mut props = PropertyMap::new(); //todo
-                show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
-            } else if let Some(component) = component.downcast_mut::<ObjectInstanceComponent>() {
-                let object_node = component.get_node();
-                let object_node = object_node.read().unwrap();
-                let object_name = object_node.get_name();
-                let mut props = PropertyMap::new();
-                props.add_string("string name", &object_name);
-                self.show_other_component(i, ui, "ObjectInstance", &mut props, resource_selector);
-            } else {
-                //log::warn!("Unknown component type");
-            }
+        let mut i = 0;
+
+        if let Some(component) = node.get_component_mut::<TransformComponent>() {
+            self.show_transform_component(i, ui, component, resource_selector);
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<ShapeComponent>() {
+            self.show_shape_component(i, ui, component, resource_selector);
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<LightComponent>() {
+            self.show_light_component(i, ui, component, resource_selector);
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<MaterialComponent>() {
+            self.show_material_component(i, ui, component, resource_selector);
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<CameraComponent>() {
+            let camera_properties = CameraProperties::get_instance();
+            self.show_typed_component(
+                i,
+                ui,
+                "Camera",
+                &mut component.props,
+                &camera_properties,
+                resource_selector,
+            );
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<FilmComponent>() {
+            self.show_option_component(i, ui, "film", &mut component.props, resource_selector);
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<SamplerComponent>() {
+            let sampler_properties = SamplerProperties::get_instance();
+            self.show_typed_component(
+                i,
+                ui,
+                "Sampler",
+                &mut component.props,
+                &sampler_properties,
+                resource_selector,
+            );
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<IntegratorComponent>() {
+            let integrator_properties = IntegratorProperties::get_instance();
+            self.show_typed_component(
+                i,
+                ui,
+                "Integrator",
+                &mut component.props,
+                &integrator_properties,
+                resource_selector,
+            );
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<AcceleratorComponent>() {
+            let accelerator_properties = AcceleratorProperties::get_instance();
+            self.show_typed_component(
+                i,
+                ui,
+                "Accelerator",
+                &mut component.props,
+                &accelerator_properties,
+                resource_selector,
+            );
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<CoordinateSystemComponent>() {
+            let mut props = PropertyMap::new();
+            let up = component.get_up_vector();
+            props.add_floats("float up", &[up.x, up.y, up.z]);
+            self.show_other_component(i, ui, "CoordinateSystem", &mut props, resource_selector);
+            i += 1;
+        }
+        if let Some(_component) = node.get_component_mut::<AnimationComponent>() {
+            let mut props = PropertyMap::new(); //todo
+            show_component_props(i, "Animation", ui, &mut props, &[], resource_selector);
+            i += 1;
+        }
+        if let Some(component) = node.get_component_mut::<ObjectInstanceComponent>() {
+            let object_node = component.get_node();
+            let object_node = object_node.read().unwrap();
+            let object_name = object_node.get_name();
+            let mut props = PropertyMap::new();
+            props.add_string("string name", &object_name);
+            self.show_other_component(i, ui, "ObjectInstance", &mut props, resource_selector);
         }
     }
 
