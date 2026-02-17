@@ -209,6 +209,7 @@ impl InspectorPanel {
         let props = shape.as_property_map_mut();
         let shape_type = props.find_one_string("string type").unwrap();
         let name = props.find_one_string("string name").unwrap();
+        let title = name.clone();
         let mut keys = Vec::new();
         let shape_properties = ShapeProperties::get_instance();
         if let Some(params) = shape_properties.get_entries(&shape_type) {
@@ -227,7 +228,7 @@ impl InspectorPanel {
                 ));
             }
         }
-        if show_component_props(index, &name, ui, props, &keys, resource_selector)
+        if show_component_props(index, &title, ui, props, &keys, resource_selector)
             && ShapeComponent::is_ediable(&shape_type)
         {
             is_changed = true;

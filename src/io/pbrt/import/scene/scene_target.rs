@@ -336,10 +336,38 @@ impl SceneTarget {
         }
     }
 
+    fn emit_curve_batch_node(&mut self) {
+        if let Some(mut merged) = self.curves_state.merged_params() {
+            let curve_count = self.curves_state.curves.len() as i32;
+            merged.add_ints("integer curve_count", &[curve_count]);
+            let node = self.create_child_node("Curves");
+            {
+                let mut node = node.write().unwrap();
+                if let Some(local_matrix) = self.curves_state.transform
+                    && let Some(transform) = node.get_component_mut::<TransformComponent>()
+                {
+                    transform.set_local_matrix(local_matrix);
+                }
+                node.add_component(ShapeComponent::new("curves", "Curves", &merged));
+                if let Some(material) = self.curves_state.material.as_ref() {
+                    node.add_component(MaterialComponent::from_material(material));
+                }
+            }
+        }
+    }
+
+    fn finalize_curve_batch(&mut self) {
+        self.emit_curve_batch_node();
+        self.curves_state.clear();
+    }
+
     fn make_shape(&mut self, name: &str, params: &ParamSet) -> Option<Arc<RwLock<Node>>> {
         let shape_type = name.to_string();
+        if shape_type != "curve" {
+            self.finalize_curve_batch();
+        }
         match shape_type.as_str() {
-            "plymesh" => {
+            "plymesh" => { 
                 let title = ShapeComponent::get_name_from_type(name);
                 if let Some(filename) = params.find_one_string("filename")
                     && let Some(fullpath) = self.find_file_path(filename.as_str())
@@ -389,18 +417,28 @@ impl SceneTarget {
                 return Some(node);
             }
             "curve" => {
-                let curve_edition = CurvesState::create_curve_edition(params);
-                if curve_edition != self.curves_state.curve_edition {
-                    //todo:
-                    let node = self.create_child_node("Curves");
-                    {
-                        let mut node = node.write().unwrap();
-                        let component = ShapeComponent::new(&shape_type, "Curves", params);
-                        node.add_component(component);
-                    }
-                    self.curve_state.curve_edition = curve_edition;
-                    self.curve_state.curves.clear();
+                let current_material = self
+                    .graphics_states
+                    .last()
+                    .and_then(|state| state.current_material.as_ref().map(|m| m.clone()))
+                    .map(|material| material.clone());
+                let material_id = current_material
+                    .as_ref()
+                    .map(|material| material.read().unwrap().get_id().to_string());
+                let local_matrix = self.get_current_local_matrix();
+                let curve_edition =
+                    CurvesState::create_curve_edition(material_id.as_deref(), &local_matrix);
+                if !self.curves_state.curve_edition.is_empty()
+                    && curve_edition != self.curves_state.curve_edition
+                {
+                    self.finalize_curve_batch();
                 }
+                if self.curves_state.curve_edition.is_empty() {
+                    self.curves_state.curve_edition = curve_edition;
+                    self.curves_state.transform = Some(local_matrix);
+                    self.curves_state.material = current_material;
+                }
+                self.curves_state.push(params);
             }
             _ => {
                 log::warn!("Shape {} not supported", name);
@@ -594,6 +632,7 @@ impl PbrtTarget for SceneTarget {
                 .insert("camera".to_string(), t);
         }
         self.api_state = APIState::WorldBlock;
+        self.finalize_curve_batch();
         self.nodes.clear();
         self.nodes.push(Node::root_node("Scene"));
         self.transforms.clear();
@@ -621,12 +660,14 @@ impl PbrtTarget for SceneTarget {
     }
 
     fn attribute_begin(&mut self) {
+        self.finalize_curve_batch();
         self.transform_begin();
         let new_graphics_state = self.graphics_states.last().unwrap().clone();
         self.graphics_states.push(new_graphics_state);
     }
 
     fn attribute_end(&mut self) {
+        self.finalize_curve_batch();
         if self.graphics_states.len() > 1 {
             self.graphics_states.pop();
         } else {
@@ -915,7 +956,9 @@ impl PbrtTarget for SceneTarget {
         }
     }
 
-    fn world_end(&mut self) {}
+    fn world_end(&mut self) {
+        self.finalize_curve_batch();
+    }
 
     fn parse_file(&mut self, _filename: &str) {
         //
