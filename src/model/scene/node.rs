@@ -1,11 +1,14 @@
 use super::components::*;
 
-use std::any::Any;
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::Weak;
 
 use uuid::Uuid;
+
+type Components = HashMap<TypeId, Box<dyn Component>>;
 
 #[derive(Debug)]
 pub struct Node {
@@ -14,12 +17,16 @@ pub struct Node {
     pub name: String,
     pub parent: Option<Weak<RwLock<Node>>>,
     pub children: Vec<Arc<RwLock<Node>>>,
-    pub components: Vec<Box<dyn Any>>,
+    pub components: Components,
 }
 
 impl Node {
     pub fn root_node(name: &str) -> Arc<RwLock<Node>> {
-        let components = vec![Box::new(TransformComponent::default()) as Box<dyn Any>];
+        let mut components = Components::new();
+        components.insert(
+            TypeId::of::<TransformComponent>(),
+            Box::new(TransformComponent::default()),
+        );
         let node = Node {
             enable: true,
             name: name.to_string(),
@@ -32,7 +39,11 @@ impl Node {
     }
 
     pub fn child_node(name: &str, parent: &Arc<RwLock<Node>>) -> Arc<RwLock<Node>> {
-        let components = vec![Box::new(TransformComponent::default()) as Box<dyn Any>];
+        let mut components = Components::new();
+        components.insert(
+            TypeId::of::<TransformComponent>(),
+            Box::new(TransformComponent::default()),
+        );
         let node = Node {
             enable: true,
             name: name.to_string(),
@@ -70,26 +81,21 @@ impl Node {
         self.id
     }
 
-    pub fn add_component<T: Component>(&mut self, component: T) {
-        self.components.push(Box::new(component));
+    pub fn add_component<T: Component + 'static>(&mut self, component: T) {
+        self.components
+            .insert(TypeId::of::<T>(), Box::new(component));
     }
 
-    pub fn get_component<T: Component>(&self) -> Option<&T> {
-        for component in self.components.iter() {
-            if let Some(c) = component.downcast_ref::<T>() {
-                return Some(c);
-            }
-        }
-        None
+    pub fn get_component<T: Component + 'static>(&self) -> Option<&T> {
+        self.components
+            .get(&TypeId::of::<T>())
+            .and_then(|component| (component.as_ref() as &dyn Any).downcast_ref::<T>())
     }
 
-    pub fn get_component_mut<T: Component>(&mut self) -> Option<&mut T> {
-        for component in self.components.iter_mut() {
-            if let Some(c) = component.downcast_mut::<T>() {
-                return Some(c);
-            }
-        }
-        None
+    pub fn get_component_mut<T: Component + 'static>(&mut self) -> Option<&mut T> {
+        self.components
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|component| (component.as_mut() as &mut dyn Any).downcast_mut::<T>())
     }
 
     // --------------------------------------------------------------------------------------------- //
@@ -126,10 +132,8 @@ impl Node {
     }
 
     pub fn update(&mut self) {
-        for component in self.components.iter_mut() {
-            if let Some(c) = component.downcast_mut::<&mut dyn Component>() {
-                c.update();
-            }
+        for component in self.components.values_mut() {
+            component.update();
         }
     }
 }
