@@ -1,3 +1,4 @@
+use super::curves::CurvesState;
 use super::graphics_state::GraphicsState;
 use super::render_options::RenderOptions;
 use super::transform::Transform;
@@ -60,6 +61,7 @@ pub struct SceneTarget {
     materials: HashMap<Uuid, Arc<RwLock<Material>>>,
     resources: HashMap<String, Arc<RwLock<dyn ResourceObject>>>,
     work_dirs: Vec<String>,
+    curves_state: CurvesState,
 }
 
 fn create_default_material() -> Arc<RwLock<Material>> {
@@ -103,6 +105,7 @@ impl Default for SceneTarget {
             materials,
             resources: HashMap::new(),
             work_dirs: Vec::new(),
+            curves_state: CurvesState::default(),
         }
     }
 }
@@ -384,6 +387,20 @@ impl SceneTarget {
                     node.add_component(component);
                 }
                 return Some(node);
+            }
+            "curve" => {
+                let curve_edition = CurvesState::create_curve_edition(params);
+                if curve_edition != self.curves_state.curve_edition {
+                    //todo:
+                    let node = self.create_child_node("Curves");
+                    {
+                        let mut node = node.write().unwrap();
+                        let component = ShapeComponent::new(&shape_type, "Curves", params);
+                        node.add_component(component);
+                    }
+                    self.curve_state.curve_edition = curve_edition;
+                    self.curve_state.curves.clear();
+                }
             }
             _ => {
                 log::warn!("Shape {} not supported", name);
