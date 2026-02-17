@@ -2,7 +2,7 @@ use super::common::*;
 use std::cell::LazyCell;
 use std::collections::HashMap;
 
-const PARAMETERS: [(&str, &str, &str, &str, &str); 38] = [
+const PARAMETERS: [(&str, &str, &str, &str, &str); 40] = [
     ("trianglemesh", "integer", "indices", "", ""),
     ("trianglemesh", "point", "P", "", ""),
     ("trianglemesh", "normal", "N", "", ""),
@@ -41,6 +41,11 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 38] = [
     ("loopsubdiv", "integer", "indices", "", ""),
     ("loopsubdiv", "point", "P", "", ""),
     ("loopsubdiv", "string", "scheme", "loop", ""),
+    ("curves", "integer", "curve_count", "", ""),
+    ("curves", "integer", "vertex_count", "", ""),
+    //("curves", "point", "P", "", ""),
+    //("curves", "normal", "N", "", ""),
+    //("curves", "float", "width", "", ""),
 ];
 
 #[derive(Debug, Clone)]

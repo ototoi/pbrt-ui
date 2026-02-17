@@ -54,6 +54,11 @@ fn create_mesh_data_core(shape: &Shape) -> Option<MeshData> {
         "loopsubdiv" => {
             return create_mesh_data_from_loopsubdiv(shape);
         }
+        "curves" => {
+            // Handle curves shape
+            // You can implement the logic for curves shape here
+            return None;
+        }
         _ => {
             println!("Unknown shape type: {}", mesh_type);
         }
