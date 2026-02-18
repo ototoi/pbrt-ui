@@ -1,3 +1,4 @@
+pub mod camera_controller;
 pub mod fps_counter;
 pub mod image_data;
 pub mod image_receiver;

@@ -1,3 +1,4 @@
+use super::camera_controller::OrbitCameraController;
 use super::render_history::RenderHistory;
 use super::render_state::RenderState;
 //
@@ -51,7 +52,8 @@ impl RenderPanel {
         let config = controller.read().unwrap().get_config();
         let history = create_history("1", &config);
         let render_view = RenderView::new(cc);
-        let scene_view = SceneView::new(cc);
+        let mut scene_view = SceneView::new(cc);
+        scene_view.set_camera_controller(Box::new(OrbitCameraController));
         Self {
             app_controller: controller.clone(),
             histories: vec![history],

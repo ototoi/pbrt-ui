@@ -1,10 +1,9 @@
+use super::camera_controller::CameraController;
+use super::camera_controller::OrbitCameraController;
 use super::fps_counter::FpsCounter;
 use crate::model::base::Matrix4x4;
 use crate::model::base::Property;
-use crate::model::base::Quaternion;
-use crate::model::base::Vector3;
 use crate::model::scene::CameraComponent;
-use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::FilmComponent;
 use crate::model::scene::Node;
 use crate::model::scene::TransformComponent;
@@ -19,48 +18,12 @@ use std::sync::RwLock;
 use eframe::egui;
 use egui::Vec2;
 
-pub fn react_response(response: &egui::Response, root_node: &Arc<RwLock<Node>>) {
-    if response.dragged_by(egui::PointerButton::Primary)
-        && let Some(camera_node) = Node::find_node_by_component::<CameraComponent>(root_node)
-    {
-        let mut camera_node = camera_node.write().unwrap();
-        if let Some(component) = camera_node.get_component_mut::<TransformComponent>() {
-            let rotation_y = response.drag_motion().x * 0.01;
-            let rotation_x = response.drag_motion().y * 0.01;
-            {
-                let (t, r, s) = component.get_local_trs();
-                let m = r.to_matrix();
-                let mut upper = m.transform_vector(&Vector3::new(0.0, 1.0, 0.0)).normalize();
-                let mut right = m.transform_vector(&Vector3::new(1.0, 0.0, 0.0)).normalize();
-
-                {
-                    let root_node = root_node.read().unwrap();
-                    if let Some(cs) = root_node.get_component::<CoordinateSystemComponent>() {
-                        upper = cs.get_up_vector();
-                        let forward = Vector3::cross(&right, &upper).normalize(); //xy->z
-                        right = Vector3::cross(&upper, &forward).normalize(); //yz->x
-                    }
-                }
-                //let upper = Vector3::new(0.0, 1.0, 0.0);
-                //let right = Vector3::new(1.0, 0.0, 0.0);
-
-                let rotation_y = if s.x < 0.0 { -rotation_y } else { rotation_y };
-                let rotation_x = if s.y < 0.0 { -rotation_x } else { rotation_x };
-
-                let rot_y = Quaternion::from_angle_axis(rotation_y, &upper);
-                let rot_x = Quaternion::from_angle_axis(rotation_x, &right);
-                let new_rotation = rot_x * rot_y * r;
-                component.set_local_trs(t, new_rotation, s);
-            }
-        }
-    }
-}
-
 pub struct SceneView {
     wireframe: Option<WireRenderer>,
     solid: Option<SolidRenderer>,
     shaded: Option<LightingRenderer>,
     fps_counter: FpsCounter,
+    camera_controller: Box<dyn CameraController>,
 }
 
 impl SceneView {
@@ -73,7 +36,12 @@ impl SceneView {
             solid,
             shaded,
             fps_counter: FpsCounter::new(),
+            camera_controller: Box::new(OrbitCameraController),
         }
+    }
+
+    pub fn set_camera_controller(&mut self, controller: Box<dyn CameraController>) {
+        self.camera_controller = controller;
     }
 
     pub fn show(
@@ -158,7 +126,7 @@ impl SceneView {
 
         let (rect, response) = ui.allocate_exact_size(available_size, egui::Sense::drag());
         if is_playing {
-            react_response(&response, node);
+            self.camera_controller.react_response(&response, node);
         }
 
         let aspect = rect.width() / rect.height();
@@ -206,5 +174,13 @@ impl SceneView {
                 egui::Color32::GREEN,
             );
         }
+
+        ui.painter().text(
+            rect.left_bottom() + egui::vec2(8.0, -8.0),
+            egui::Align2::LEFT_BOTTOM,
+            "LMB Orbit | RMB Pan | MMB/Wheel Dolly",
+            egui::FontId::monospace(12.0),
+            egui::Color32::LIGHT_GRAY,
+        );
     }
 }
