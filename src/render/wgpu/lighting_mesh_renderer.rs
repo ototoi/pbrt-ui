@@ -163,6 +163,7 @@ struct MaterialBindGroupEntry {
 #[derive(Debug, Clone)]
 struct PipelineEntry {
     pub pipeline: wgpu::RenderPipeline,
+    pub z_prepass_pipeline: Option<wgpu::RenderPipeline>,
     pub material_bind_group_layout: wgpu::BindGroupLayout,
     pub material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
     pub mesh_indices: Vec<usize>,
@@ -229,6 +230,10 @@ fn get_shader_has_lighting(category: RenderCategory) -> bool {
         return false;
     }
     return true;
+}
+
+fn get_shader_uses_z_prepass(category: RenderCategory) -> bool {
+    category == RenderCategory::Opaque || category == RenderCategory::Emissive
 }
 
 impl LightingMeshRenderer {
@@ -299,8 +304,44 @@ impl LightingMeshRenderer {
         //TODO: sort pipelines to minimize pipeline switching
         pipelines.sort_by(|a, b| a.0.cmp(&b.0));
 
-        for (_sort_order, pipeline_entry) in pipelines.iter() {
+        let mut z_prepass_pipelines = Vec::new();
+        let mut shading_pipelines = Vec::new();
+        for (_, pipeline_entry) in pipelines.iter() {
             let pipeline_entry = pipeline_entry.read().unwrap();
+            if pipeline_entry.z_prepass_pipeline.is_some() {
+                z_prepass_pipelines.push(pipeline_entry.clone());
+            }
+            shading_pipelines.push(pipeline_entry.clone());
+        }
+
+        // Depth-only prepass for opaque-like geometry.
+        for pipeline_entry in z_prepass_pipelines.iter() {
+            if let Some(z_prepass_pipeline) = &pipeline_entry.z_prepass_pipeline {
+                render_pass.set_pipeline(z_prepass_pipeline);
+                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+                let length = pipeline_entry.mesh_indices.len();
+                for i in 0..length {
+                    let item_index = pipeline_entry.mesh_indices[i];
+                    if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
+                        let local_uniform_offset = item_index as wgpu::DynamicOffset
+                            * local_uniform_alignment as wgpu::DynamicOffset;
+                        render_pass.set_bind_group(
+                            1,
+                            &self.local_bind_group,
+                            &[local_uniform_offset],
+                        );
+                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                        render_pass.set_index_buffer(
+                            mesh_item.mesh.index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
+                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+                    }
+                }
+            }
+        }
+
+        for pipeline_entry in shading_pipelines.iter() {
             debug_assert!(!pipeline_entry.mesh_indices.is_empty());
 
             render_pass.set_pipeline(&pipeline_entry.pipeline); //
@@ -904,6 +945,7 @@ impl LightingMeshRenderer {
         let render_category = pass.render_category;
         let material_uniform_size = pass.uniform_values.len();
         let has_lighting = get_shader_has_lighting(render_category);
+        let uses_z_prepass = get_shader_uses_z_prepass(render_category);
         let sort_order = render_category as u32;
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -1022,6 +1064,9 @@ impl LightingMeshRenderer {
         {
             depth_write_enabled = false;
         }
+        if uses_z_prepass {
+            depth_write_enabled = false;
+        }
 
         let name = pass.shader.name.clone();
         let label = format!("Lighting Pipeline {}", name);
@@ -1059,9 +1104,63 @@ impl LightingMeshRenderer {
             cache: None,
         });
 
+        let z_prepass_pipeline = if uses_z_prepass {
+            let z_prepass_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Lighting Z Prepass Shader"),
+                source: wgpu::ShaderSource::Wgsl(
+                    include_str!("shaders/lighting_z_prepass.wgsl").into(),
+                ),
+            });
+            let z_prepass_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Lighting Z Prepass Pipeline Layout"),
+                    bind_group_layouts: &[
+                        &self.global_bind_group_layout,
+                        &self.local_bind_group_layout,
+                    ],
+                    push_constant_ranges: &[],
+                });
+            Some(
+                device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("Lighting Z Prepass Pipeline"),
+                    layout: Some(&z_prepass_pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &z_prepass_shader,
+                        entry_point: Some("vs_main"),
+                        buffers: &vertex_buffer_layout,
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &z_prepass_shader,
+                        entry_point: Some("fs_main"),
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: color_texture_format,
+                            blend: None,
+                            write_mask: wgpu::ColorWrites::empty(),
+                        })],
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    }),
+                    primitive,
+                    depth_stencil: Some(wgpu::DepthStencilState {
+                        format: depth_texture_format,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::LessEqual,
+                        stencil: wgpu::StencilState::default(),
+                        bias: wgpu::DepthBiasState::default(),
+                    }),
+                    multisample: wgpu::MultisampleState::default(),
+                    multiview: None,
+                    cache: None,
+                }),
+            )
+        } else {
+            None
+        };
+
         // Create a uniform buffer for material properties
         let entry = PipelineEntry {
             pipeline,
+            z_prepass_pipeline,
             material_bind_group_layout,
             material_bind_groups: Vec::new(),
             mesh_indices: Vec::new(),
