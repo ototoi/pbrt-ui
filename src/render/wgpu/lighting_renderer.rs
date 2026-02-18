@@ -3,6 +3,8 @@ use super::lighting_mesh_renderer::LightingMeshRenderer;
 use super::linear_to_srgb_renderer::LinearToSrgbRenderer;
 use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
+use super::render_resource::RenderResourceComponent;
+use super::render_resource::RenderResourceManager;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
@@ -45,6 +47,17 @@ struct PerFrameCallback {
 
 unsafe impl Send for PerFrameCallback {}
 unsafe impl Sync for PerFrameCallback {}
+
+fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderResourceManager>> {
+    let mut node = node.write().unwrap();
+    if node.get_component::<RenderResourceComponent>().is_none() {
+        node.add_component::<RenderResourceComponent>(RenderResourceComponent::new());
+    }
+    let component = node
+        .get_component::<RenderResourceComponent>()
+        .expect("RenderResourceComponent should exist on root node");
+    component.get_resource_manager()
+}
 
 impl PerFrameCallback {
     pub fn prepare_frame_buffers(
@@ -126,9 +139,12 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 {
                     // Prepare the mesh renderer with the render items
                     let mut renderer = self.mesh_renderer.write().unwrap();
+                    let render_resource_manager = get_render_resource_manager(&self.node);
+                    let mut render_resource_manager = render_resource_manager.write().unwrap();
                     renderer.prepare(
                         device,
                         queue,
+                        &mut render_resource_manager,
                         &render_items,
                         &self.render_camera,
                     );

@@ -205,8 +205,6 @@ pub struct LightingMeshRenderer {
     #[allow(dead_code)]
     ltc_bind_group_layout: wgpu::BindGroupLayout,
 
-    shadow_resource_manager: RenderResourceManager,
-
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
     // Textures used in the materials
@@ -249,6 +247,7 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        render_resource_manager: &mut RenderResourceManager,
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
     ) {
@@ -257,7 +256,14 @@ impl LightingMeshRenderer {
             let (mesh_items, light_items) = Self::split_items(render_items);
             self.prepare_locals(device, queue, &mesh_items); //group(1)
             self.prepare_materials(device, queue, &mesh_items); //group(2)
-            self.prepare_lights(device, queue, camera, render_items, &light_items); //group(3)
+            self.prepare_lights(
+                device,
+                queue,
+                render_resource_manager,
+                camera,
+                render_items,
+                &light_items,
+            ); //group(3)
         }
     }
 
@@ -685,6 +691,7 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        render_resource_manager: &mut RenderResourceManager,
         camera: &RenderCamera,
         all_render_items: &[Arc<RenderItem>],
         light_render_items: &[Arc<RenderItem>],
@@ -697,7 +704,7 @@ impl LightingMeshRenderer {
             queue,
             camera,
             all_render_items,
-            &mut self.shadow_resource_manager,
+            render_resource_manager,
         );
         self.update_directional_shadow_pipeline_entry(device, !directional_light_shadows.is_empty());
         let mut directional_shadow_index_map = HashMap::new();
@@ -1646,7 +1653,6 @@ impl LightingMeshRenderer {
             mesh_items,
             textures,
             pipelines: materials,
-            shadow_resource_manager: RenderResourceManager::new(),
         };
         pass.init(device, queue);
         return pass;
