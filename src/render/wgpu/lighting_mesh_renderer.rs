@@ -9,6 +9,7 @@ use super::shadow::create_directional_light_shadows;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -32,6 +33,7 @@ const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0xb7814152_c24b_4af1_89a8_40a5fa168488);
 const DIRECTIONAL_SHADOW_PIPELINE_ID: Uuid =
     Uuid::from_u128(0x77dd5bcc_89c5_4eff_8adf_9b5f8667d9f1);
+const Z_PREPASS_PIPELINE_ID: Uuid = Uuid::from_u128(0x9979b259_39f8_4ce5_8ea5_d8078618620f);
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
@@ -167,9 +169,16 @@ struct MaterialBindGroupEntry {
 }
 
 #[derive(Debug, Clone)]
+enum PipelinePassType {
+    Shading,
+    ZPrepass,
+    ShadowDirectional,
+}
+
+#[derive(Debug, Clone)]
 struct PipelineEntry {
+    pub pass_type: PipelinePassType,
     pub pipeline: wgpu::RenderPipeline,
-    pub z_prepass_pipeline: Option<wgpu::RenderPipeline>,
     pub material_bind_group_layout: wgpu::BindGroupLayout,
     pub material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
     pub mesh_indices: Vec<usize>,
@@ -242,6 +251,11 @@ fn get_shader_uses_z_prepass(category: RenderCategory) -> bool {
     category == RenderCategory::Opaque || category == RenderCategory::Emissive
 }
 
+fn get_shader_uses_shadow(category: RenderCategory) -> bool {
+    // Keep shadow-caster selection independent from z-prepass policy.
+    category == RenderCategory::Opaque || category == RenderCategory::Emissive
+}
+
 impl LightingMeshRenderer {
     pub fn prepare(
         &mut self,
@@ -261,7 +275,7 @@ impl LightingMeshRenderer {
                 queue,
                 render_resource_manager,
                 camera,
-                render_items,
+                &mesh_items,
                 &light_items,
             ); //group(3)
         }
@@ -301,55 +315,39 @@ impl LightingMeshRenderer {
             )
         };
 
-        let mut pipelines = vec![];
-        for pipeline_entry in self.pipelines.values() {
-            let mut sort_order = 0;
-            {
-                let pipeline_entry = pipeline_entry.read().unwrap();
-                if pipeline_entry.mesh_indices.is_empty() {
-                    continue;
-                }
-                sort_order = pipeline_entry.sort_order;
-            }
-            pipelines.push((sort_order, pipeline_entry.clone()));
-        }
-
-        //TODO: sort pipelines to minimize pipeline switching
-        pipelines.sort_by(|a, b| a.0.cmp(&b.0));
-
         let mut z_prepass_pipelines = Vec::new();
         let mut shading_pipelines = Vec::new();
-        for (_, pipeline_entry) in pipelines.iter() {
+        for pipeline_entry in self.pipelines.values() {
             let pipeline_entry = pipeline_entry.read().unwrap();
-            if pipeline_entry.z_prepass_pipeline.is_some() {
-                z_prepass_pipelines.push(pipeline_entry.clone());
+            if pipeline_entry.mesh_indices.is_empty() {
+                continue;
             }
-            shading_pipelines.push(pipeline_entry.clone());
+            match pipeline_entry.pass_type {
+                PipelinePassType::ZPrepass => z_prepass_pipelines.push(pipeline_entry.clone()),
+                PipelinePassType::Shading => shading_pipelines.push(pipeline_entry.clone()),
+                PipelinePassType::ShadowDirectional => {}
+            }
         }
+        //TODO: sort pipelines to minimize pipeline switching
+        shading_pipelines.sort_by(|a, b| a.sort_order.cmp(&b.sort_order));
 
         // Depth-only prepass for opaque-like geometry.
         for pipeline_entry in z_prepass_pipelines.iter() {
-            if let Some(z_prepass_pipeline) = &pipeline_entry.z_prepass_pipeline {
-                render_pass.set_pipeline(z_prepass_pipeline);
-                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                let length = pipeline_entry.mesh_indices.len();
-                for i in 0..length {
-                    let item_index = pipeline_entry.mesh_indices[i];
-                    if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
-                        let local_uniform_offset = item_index as wgpu::DynamicOffset
-                            * local_uniform_alignment as wgpu::DynamicOffset;
-                        render_pass.set_bind_group(
-                            1,
-                            &self.local_bind_group,
-                            &[local_uniform_offset],
-                        );
-                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                        render_pass.set_index_buffer(
-                            mesh_item.mesh.index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint32,
-                        );
-                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
-                    }
+            render_pass.set_pipeline(&pipeline_entry.pipeline);
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+            let length = pipeline_entry.mesh_indices.len();
+            for i in 0..length {
+                let item_index = pipeline_entry.mesh_indices[i];
+                if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
+                    let local_uniform_offset = item_index as wgpu::DynamicOffset
+                        * local_uniform_alignment as wgpu::DynamicOffset;
+                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_item.mesh.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
                 }
             }
         }
@@ -557,12 +555,15 @@ impl LightingMeshRenderer {
                 let mut entry = entry.write().unwrap();
                 entry.mesh_indices.clear();
                 entry.material_indices.clear();
-                for bind_group in entry.material_bind_groups.iter() {
-                    prev_bind_groups.insert(bind_group.id, bind_group.clone());
+                if matches!(entry.pass_type, PipelinePassType::Shading) {
+                    for bind_group in entry.material_bind_groups.iter() {
+                        prev_bind_groups.insert(bind_group.id, bind_group.clone());
+                    }
                 }
                 entry.material_bind_groups.clear();
             }
             let mut tmp_pipelines: HashMap<Uuid, TmpPipelineEntry> = HashMap::new();
+            let mut z_prepass_mesh_indices: HashSet<usize> = HashSet::new();
             for (mesh_index, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
                     for pass in material.passes.iter() {
@@ -582,6 +583,9 @@ impl LightingMeshRenderer {
                             entry
                                 .material_indices_map
                                 .insert(pass_id, (new_material_index, pass.clone()));
+                        }
+                        if get_shader_uses_z_prepass(pass.render_category) {
+                            z_prepass_mesh_indices.insert(mesh_index);
                         }
                     }
                 }
@@ -632,6 +636,23 @@ impl LightingMeshRenderer {
                         entry.material_bind_groups.push(Arc::new(bind_group_entry));
                     }
                 }
+            }
+
+            if !z_prepass_mesh_indices.is_empty() {
+                if !self.pipelines.contains_key(&Z_PREPASS_PIPELINE_ID) {
+                    let entry = self.create_z_prepass_pipeline(device);
+                    self.pipelines
+                        .insert(Z_PREPASS_PIPELINE_ID, Arc::new(RwLock::new(entry)));
+                }
+                if let Some(entry) = self.pipelines.get_mut(&Z_PREPASS_PIPELINE_ID) {
+                    let mut entry = entry.write().unwrap();
+                    let mut indices: Vec<usize> = z_prepass_mesh_indices.into_iter().collect();
+                    indices.sort_unstable();
+                    entry.mesh_indices = indices;
+                    entry.material_indices.clear();
+                }
+            } else {
+                self.pipelines.remove(&Z_PREPASS_PIPELINE_ID);
             }
         }
         self.mesh_items = mesh_items.to_vec();
@@ -693,20 +714,42 @@ impl LightingMeshRenderer {
         queue: &wgpu::Queue,
         render_resource_manager: &mut RenderResourceManager,
         camera: &RenderCamera,
-        all_render_items: &[Arc<RenderItem>],
-        light_render_items: &[Arc<RenderItem>],
+        mesh_items: &[Arc<RenderItem>],
+        light_items: &[Arc<RenderItem>],
     ) {
         let mut light_uniforms = LightUniforms::default();
         let mut light_textures = Vec::new();
+        let shadow_mesh_indices = mesh_items
+            .iter()
+            .enumerate()
+            .filter_map(|(i, item)| {
+                item.get_material().and_then(|material| {
+                    if material
+                        .passes
+                        .iter()
+                        .any(|pass| get_shader_uses_shadow(pass.render_category))
+                    {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
 
         let directional_light_shadows = create_directional_light_shadows(
             device,
             queue,
             camera,
-            all_render_items,
+            mesh_items,
+            light_items,
             render_resource_manager,
         );
-        self.update_directional_shadow_pipeline_entry(device, !directional_light_shadows.is_empty());
+        self.update_directional_shadow_pipeline_entry(
+            device,
+            !directional_light_shadows.is_empty(),
+            &shadow_mesh_indices,
+        );
         let mut directional_shadow_index_map = HashMap::new();
         for (i, shadow) in directional_light_shadows.iter().enumerate() {
             directional_shadow_index_map.insert(shadow.id, i as i32);
@@ -715,7 +758,7 @@ impl LightingMeshRenderer {
         // Point lights
         {
             let mut light_buffer = Vec::new();
-            for item in light_render_items.iter() {
+            for item in light_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderItem::Light(item) = item.as_ref()
                     && let RenderLight::Sphere(light) = item.light.as_ref()
@@ -753,7 +796,7 @@ impl LightingMeshRenderer {
         // Spot lights
         {
             let mut light_buffer = Vec::new();
-            for item in light_render_items.iter() {
+            for item in light_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Disk(light) = light_item.light.as_ref()
                 {
@@ -804,7 +847,7 @@ impl LightingMeshRenderer {
         // Rect lights
         {
             let mut light_buffer = Vec::new();
-            for item in light_render_items.iter() {
+            for item in light_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Rect(rect) = light_item.light.as_ref()
                 {
@@ -854,7 +897,7 @@ impl LightingMeshRenderer {
         // Infinite lights
         {
             let mut light_buffer = Vec::new();
-            for item in light_render_items.iter() {
+            for item in light_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Infinite(light) = light_item.light.as_ref()
                 {
@@ -894,7 +937,7 @@ impl LightingMeshRenderer {
         // Directional lights
         {
             let mut light_buffer = Vec::new();
-            for item in light_render_items.iter() {
+            for item in light_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Directional(light) = light_item.light.as_ref()
                 {
@@ -973,112 +1016,119 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         has_directional_shadows: bool,
+        shadow_mesh_indices: &[usize],
     ) {
         if !has_directional_shadows {
             self.pipelines.remove(&DIRECTIONAL_SHADOW_PIPELINE_ID);
             return;
         }
-        if self.pipelines.contains_key(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
-            return;
-        }
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Directional Shadow Pipeline Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/lighting_z_prepass.wgsl").into()),
-        });
-
-        let vertex_buffer_layout = [wgpu::VertexBufferLayout {
-            array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: std::mem::size_of::<f32>() as u64 * 3,
-                    shader_location: 1,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: std::mem::size_of::<f32>() as u64 * 6,
-                    shader_location: 2,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x3,
-                    offset: std::mem::size_of::<f32>() as u64 * 9,
-                    shader_location: 3,
-                },
-            ],
-        }];
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Directional Shadow Pipeline Layout"),
-            bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let primitive = wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            polygon_mode: wgpu::PolygonMode::Fill,
-            ..Default::default()
-        };
-
-        let depth_texture_format = wgpu::TextureFormat::Depth32Float;
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Directional Shadow Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &vertex_buffer_layout,
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: self.target_format,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::empty(),
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: depth_texture_format,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
-
-        let material_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Directional Shadow Material Bind Group Layout"),
-                entries: &[],
+        if !self.pipelines.contains_key(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
+            let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Directional Shadow Pipeline Shader"),
+                source: wgpu::ShaderSource::Wgsl(
+                    include_str!("shaders/lighting_z_prepass.wgsl").into(),
+                ),
             });
 
-        let entry = PipelineEntry {
-            pipeline,
-            z_prepass_pipeline: None,
-            material_bind_group_layout,
-            material_bind_groups: Vec::new(),
-            mesh_indices: Vec::new(),
-            material_indices: Vec::new(),
-            sort_order: 0,
-            enable_lighting: false,
-        };
-        self.pipelines.insert(
-            DIRECTIONAL_SHADOW_PIPELINE_ID,
-            Arc::new(RwLock::new(entry)),
-        );
+            let vertex_buffer_layout = [wgpu::VertexBufferLayout {
+                array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: std::mem::size_of::<f32>() as u64 * 3,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: std::mem::size_of::<f32>() as u64 * 6,
+                        shader_location: 2,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: std::mem::size_of::<f32>() as u64 * 9,
+                        shader_location: 3,
+                    },
+                ],
+            }];
+
+            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Directional Shadow Pipeline Layout"),
+                bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+            let primitive = wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                ..Default::default()
+            };
+
+            let depth_texture_format = wgpu::TextureFormat::Depth32Float;
+            let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Directional Shadow Pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &vertex_buffer_layout,
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.target_format,
+                        blend: None,
+                        write_mask: wgpu::ColorWrites::empty(),
+                    })],
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                }),
+                primitive,
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: depth_texture_format,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
+
+            let material_bind_group_layout =
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Directional Shadow Material Bind Group Layout"),
+                    entries: &[],
+                });
+
+            let entry = PipelineEntry {
+                pass_type: PipelinePassType::ShadowDirectional,
+                pipeline,
+                material_bind_group_layout,
+                material_bind_groups: Vec::new(),
+                mesh_indices: shadow_mesh_indices.to_vec(),
+                material_indices: Vec::new(),
+                sort_order: 0,
+                enable_lighting: false,
+            };
+            self.pipelines.insert(
+                DIRECTIONAL_SHADOW_PIPELINE_ID,
+                Arc::new(RwLock::new(entry)),
+            );
+        }
+
+        if let Some(entry) = self.pipelines.get_mut(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
+            let mut entry = entry.write().unwrap();
+            entry.mesh_indices = shadow_mesh_indices.to_vec();
+            entry.material_indices.clear();
+        }
     }
 
     fn create_pipeline(
@@ -1091,7 +1141,6 @@ impl LightingMeshRenderer {
         let render_category = pass.render_category;
         let material_uniform_size = pass.uniform_values.len();
         let has_lighting = get_shader_has_lighting(render_category);
-        let uses_z_prepass = get_shader_uses_z_prepass(render_category);
         let sort_order = render_category as u32;
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -1210,7 +1259,7 @@ impl LightingMeshRenderer {
         {
             depth_write_enabled = false;
         }
-        if uses_z_prepass {
+        if get_shader_uses_z_prepass(render_category) {
             depth_write_enabled = false;
         }
 
@@ -1250,63 +1299,10 @@ impl LightingMeshRenderer {
             cache: None,
         });
 
-        let z_prepass_pipeline = if uses_z_prepass {
-            let z_prepass_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("Lighting Z Prepass Shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/lighting_z_prepass.wgsl").into(),
-                ),
-            });
-            let z_prepass_pipeline_layout =
-                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Lighting Z Prepass Pipeline Layout"),
-                    bind_group_layouts: &[
-                        &self.global_bind_group_layout,
-                        &self.local_bind_group_layout,
-                    ],
-                    push_constant_ranges: &[],
-                });
-            Some(
-                device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: Some("Lighting Z Prepass Pipeline"),
-                    layout: Some(&z_prepass_pipeline_layout),
-                    vertex: wgpu::VertexState {
-                        module: &z_prepass_shader,
-                        entry_point: Some("vs_main"),
-                        buffers: &vertex_buffer_layout,
-                        compilation_options: wgpu::PipelineCompilationOptions::default(),
-                    },
-                    fragment: Some(wgpu::FragmentState {
-                        module: &z_prepass_shader,
-                        entry_point: Some("fs_main"),
-                        targets: &[Some(wgpu::ColorTargetState {
-                            format: color_texture_format,
-                            blend: None,
-                            write_mask: wgpu::ColorWrites::empty(),
-                        })],
-                        compilation_options: wgpu::PipelineCompilationOptions::default(),
-                    }),
-                    primitive,
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: depth_texture_format,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::LessEqual,
-                        stencil: wgpu::StencilState::default(),
-                        bias: wgpu::DepthBiasState::default(),
-                    }),
-                    multisample: wgpu::MultisampleState::default(),
-                    multiview: None,
-                    cache: None,
-                }),
-            )
-        } else {
-            None
-        };
-
         // Create a uniform buffer for material properties
         let entry = PipelineEntry {
+            pass_type: PipelinePassType::Shading,
             pipeline,
-            z_prepass_pipeline,
             material_bind_group_layout,
             material_bind_groups: Vec::new(),
             mesh_indices: Vec::new(),
@@ -1315,6 +1311,101 @@ impl LightingMeshRenderer {
             enable_lighting: has_lighting,
         };
         return entry;
+    }
+
+    fn create_z_prepass_pipeline(&self, device: &wgpu::Device) -> PipelineEntry {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Lighting Z Prepass Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/lighting_z_prepass.wgsl").into()),
+        });
+
+        let vertex_buffer_layout = [wgpu::VertexBufferLayout {
+            array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 3,
+                    shader_location: 1,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 6,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 9,
+                    shader_location: 3,
+                },
+            ],
+        }];
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Lighting Z Prepass Pipeline Layout"),
+            bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let primitive = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            ..Default::default()
+        };
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Lighting Z Prepass Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &vertex_buffer_layout,
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: self.target_format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::empty(),
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        let material_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Lighting Z Prepass Material Bind Group Layout"),
+                entries: &[],
+            });
+
+        PipelineEntry {
+            pass_type: PipelinePassType::ZPrepass,
+            pipeline,
+            material_bind_group_layout,
+            material_bind_groups: Vec::new(),
+            mesh_indices: Vec::new(),
+            material_indices: Vec::new(),
+            sort_order: 0,
+            enable_lighting: false,
+        }
     }
 }
 

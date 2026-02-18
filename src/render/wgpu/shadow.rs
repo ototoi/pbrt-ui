@@ -43,7 +43,8 @@ pub fn create_directional_light_shadows(
     device: &wgpu::Device,
     _queue: &wgpu::Queue,
     render_camera: &RenderCamera,
-    render_items: &[Arc<RenderItem>],
+    mesh_items: &[Arc<RenderItem>],
+    light_items: &[Arc<RenderItem>],
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderDirectionalLightShadow>> {
     let mut shadows = Vec::new();
@@ -51,7 +52,7 @@ pub fn create_directional_light_shadows(
 
     //
     let mut need_compute_shadows = false;
-    for item in render_items {
+    for item in light_items {
         if let RenderItem::Light(light_item) = item.as_ref() {
             if let RenderLight::Directional(light) = light_item.light.as_ref() {
                 if light.cast_shadow {
@@ -70,7 +71,7 @@ pub fn create_directional_light_shadows(
     let mut world_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
     let mut has_mesh = false;
 
-    for item in render_items {
+    for item in mesh_items {
         if let RenderItem::Mesh(mesh_item) = item.as_ref() {
             has_mesh = true;
             let aabb_min = glam::vec3(
@@ -100,7 +101,7 @@ pub fn create_directional_light_shadows(
     let world_radius = world_extent.length() * 0.5;
     let light_distance = world_radius.max(1.0) * 2.0;
 
-    for item in render_items {
+    for item in light_items {
         let (light_item, directional_light) = match item.as_ref() {
             RenderItem::Light(light_item) => match light_item.light.as_ref() {
                 RenderLight::Directional(light) => (light_item, light),
