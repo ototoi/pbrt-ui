@@ -63,7 +63,8 @@ struct DirectionalLight {
     direction: [f32; 4], // Direction of the light // 4 * 4 = 16
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
     radius: f32,         // Radius of the light // 1 * 4 = 4
-    _pad1: [f32; 3],     // Padding // 3 * 4 = 12
+    shadow_index: i32,   // Index for the shadow map -1 if no shadow // 1 * 4 = 4
+    _pad1: [f32; 2],     // Padding // 2 * 4 = 8
 }
 
 #[repr(C)]
@@ -885,11 +886,14 @@ impl LightingMeshRenderer {
 
                     let radius = (0.5 * light.source_angle).tan();
 
+                    let shadow_index = -1; //TODO: support shadows for directional lights
+
                     let light = DirectionalLight {
                         direction: [direction[0], direction[1], direction[2], 0.0],
                         intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                         radius,
-                        _pad1: [0.0; 3],
+                        shadow_index,
+                        _pad1: [0.0; 2],
                     };
                     light_buffer.push(light);
                 }

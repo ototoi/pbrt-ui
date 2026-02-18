@@ -1,3 +1,4 @@
+pub mod aabb_renderer;
 pub mod light;
 pub mod lighting_mesh_renderer;
 pub mod lighting_renderer;
@@ -15,6 +16,7 @@ pub mod render_mesh_item;
 pub mod render_object_instance_item;
 pub mod render_resource;
 pub mod shader;
+pub mod shadow;
 pub mod solid_mesh_renderer;
 pub mod solid_renderer;
 pub mod texture;

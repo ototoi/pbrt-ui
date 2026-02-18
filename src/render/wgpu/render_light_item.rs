@@ -126,6 +126,9 @@ fn get_directional_light_item(
         let source_angle = source_angle.max(0.2); // Prevent too small angles
         let source_angle = source_angle.to_radians();
 
+        let cast_shadow = props.find_one_bool("castshadow").unwrap_or(false);
+        //
+
         let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
         let render_light = DirectionalRenderLight {
             id,
@@ -133,6 +136,7 @@ fn get_directional_light_item(
             direction,
             intensity,
             source_angle,
+            cast_shadow,
             ..Default::default()
         };
         let render_light = Arc::new(RenderLight::Directional(render_light));
