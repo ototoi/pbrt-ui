@@ -1,3 +1,4 @@
+use super::camera::RenderCamera;
 use super::lighting_mesh_renderer::LightingMeshRenderer;
 use super::linear_to_srgb_renderer::LinearToSrgbRenderer;
 use super::lines_renderer::LinesRenderer;
@@ -39,8 +40,7 @@ struct PerFrameCallback {
     copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
     frame_buffers: Arc<RwLock<FrameBufferMap>>,
     node: Arc<RwLock<Node>>,
-    world_to_camera: glam::Mat4,
-    camera_to_clip: glam::Mat4,
+    render_camera: RenderCamera,
 }
 
 unsafe impl Send for PerFrameCallback {}
@@ -130,8 +130,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                         device,
                         queue,
                         &render_items,
-                        &self.world_to_camera,
-                        &self.camera_to_clip,
+                        &self.render_camera,
                     );
                 }
                 {
@@ -140,8 +139,8 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                         device,
                         queue,
                         &render_items,
-                        &self.world_to_camera,
-                        &self.camera_to_clip,
+                        &self.render_camera.world_to_camera,
+                        &self.render_camera.camera_to_clip,
                     );
                 }
                 {
@@ -230,6 +229,7 @@ impl LightingRenderer {
     ) {
         let c2c = *c2c;
         let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * c2c; // Convert to WGPU clip space
+        let render_camera = RenderCamera::from_matrices(glam::Mat4::from(w2c), glam::Mat4::from(c2c));
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             PerFrameCallback {
@@ -239,8 +239,7 @@ impl LightingRenderer {
                 copy_texture_renderer: self.copy_texture_renderer.clone(),
                 frame_buffers: self.frame_buffers.clone(),
                 node: node.clone(),
-                world_to_camera: glam::Mat4::from(w2c),
-                camera_to_clip: glam::Mat4::from(c2c),
+                render_camera,
             },
         ));
     }

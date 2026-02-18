@@ -1,8 +1,11 @@
+use super::camera::RenderCamera;
 use super::material::RenderCategory;
 use super::material::RenderPass;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
+use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
+use super::shadow::create_directional_light_shadows;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
@@ -27,6 +30,8 @@ const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
 const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0xb7814152_c24b_4af1_89a8_40a5fa168488);
+const DIRECTIONAL_SHADOW_PIPELINE_ID: Uuid =
+    Uuid::from_u128(0x77dd5bcc_89c5_4eff_8adf_9b5f8667d9f1);
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
@@ -200,6 +205,8 @@ pub struct LightingMeshRenderer {
     #[allow(dead_code)]
     ltc_bind_group_layout: wgpu::BindGroupLayout,
 
+    shadow_resource_manager: RenderResourceManager,
+
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
     // Textures used in the materials
@@ -243,15 +250,14 @@ impl LightingMeshRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         render_items: &[Arc<RenderItem>],
-        world_to_camera: &glam::Mat4,
-        camera_to_clip: &glam::Mat4,
+        camera: &RenderCamera,
     ) {
-        self.prepare_global(device, queue, world_to_camera, camera_to_clip); //group(0)
+        self.prepare_global(device, queue, camera); //group(0)
         {
             let (mesh_items, light_items) = Self::split_items(render_items);
             self.prepare_locals(device, queue, &mesh_items); //group(1)
             self.prepare_materials(device, queue, &mesh_items); //group(2)
-            self.prepare_lights(device, queue, &light_items); //group(3)
+            self.prepare_lights(device, queue, camera, render_items, &light_items); //group(3)
         }
     }
 
@@ -389,16 +395,13 @@ impl LightingMeshRenderer {
         &self,
         _device: &wgpu::Device,
         queue: &wgpu::Queue,
-        world_to_camera: &glam::Mat4,
-        camera_to_clip: &glam::Mat4,
+        camera: &RenderCamera,
     ) {
-        let camera_to_world = world_to_camera.inverse();
-        let camera_position = camera_to_world.transform_point3(glam::vec3(0.0, 0.0, 0.0));
         let global_uniforms = GlobalUniforms {
-            world_to_camera: world_to_camera.to_cols_array_2d(), // Identity matrix for now
-            camera_to_clip: camera_to_clip.to_cols_array_2d(),   // Identity matrix for now
-            camera_to_world: camera_to_world.to_cols_array_2d(), // Identity matrix for now
-            camera_position: [camera_position.x, camera_position.y, camera_position.z, 1.0],
+            world_to_camera: camera.world_to_camera.to_cols_array_2d(),
+            camera_to_clip: camera.camera_to_clip.to_cols_array_2d(),
+            camera_to_world: camera.camera_to_world.to_cols_array_2d(),
+            camera_position: [camera.position.x, camera.position.y, camera.position.z, 1.0],
         };
         let global_unifrom_buffer = &self.global_uniform_buffer;
         queue.write_buffer(
@@ -682,14 +685,30 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        render_items: &[Arc<RenderItem>],
+        camera: &RenderCamera,
+        all_render_items: &[Arc<RenderItem>],
+        light_render_items: &[Arc<RenderItem>],
     ) {
         let mut light_uniforms = LightUniforms::default();
         let mut light_textures = Vec::new();
+
+        let directional_light_shadows = create_directional_light_shadows(
+            device,
+            queue,
+            camera,
+            all_render_items,
+            &mut self.shadow_resource_manager,
+        );
+        self.update_directional_shadow_pipeline_entry(device, !directional_light_shadows.is_empty());
+        let mut directional_shadow_index_map = HashMap::new();
+        for (i, shadow) in directional_light_shadows.iter().enumerate() {
+            directional_shadow_index_map.insert(shadow.id, i as i32);
+        }
+
         // Point lights
         {
             let mut light_buffer = Vec::new();
-            for item in render_items.iter() {
+            for item in light_render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderItem::Light(item) = item.as_ref()
                     && let RenderLight::Sphere(light) = item.light.as_ref()
@@ -727,7 +746,7 @@ impl LightingMeshRenderer {
         // Spot lights
         {
             let mut light_buffer = Vec::new();
-            for item in render_items.iter() {
+            for item in light_render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Disk(light) = light_item.light.as_ref()
                 {
@@ -778,7 +797,7 @@ impl LightingMeshRenderer {
         // Rect lights
         {
             let mut light_buffer = Vec::new();
-            for item in render_items.iter() {
+            for item in light_render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Rect(rect) = light_item.light.as_ref()
                 {
@@ -828,7 +847,7 @@ impl LightingMeshRenderer {
         // Infinite lights
         {
             let mut light_buffer = Vec::new();
-            for item in render_items.iter() {
+            for item in light_render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Infinite(light) = light_item.light.as_ref()
                 {
@@ -868,7 +887,7 @@ impl LightingMeshRenderer {
         // Directional lights
         {
             let mut light_buffer = Vec::new();
-            for item in render_items.iter() {
+            for item in light_render_items.iter() {
                 if let RenderItem::Light(light_item) = item.as_ref()
                     && let RenderLight::Directional(light) = light_item.light.as_ref()
                 {
@@ -886,7 +905,11 @@ impl LightingMeshRenderer {
 
                     let radius = (0.5 * light.source_angle).tan();
 
-                    let shadow_index = -1; //TODO: support shadows for directional lights
+                    let shadow_index = if light.cast_shadow {
+                        *directional_shadow_index_map.get(&light.id).unwrap_or(&-1)
+                    } else {
+                        -1
+                    };
 
                     let light = DirectionalLight {
                         direction: [direction[0], direction[1], direction[2], 0.0],
@@ -936,6 +959,118 @@ impl LightingMeshRenderer {
             &self.light_uniform_buffer,
             0,
             bytemuck::bytes_of(&light_uniforms),
+        );
+    }
+
+    fn update_directional_shadow_pipeline_entry(
+        &mut self,
+        device: &wgpu::Device,
+        has_directional_shadows: bool,
+    ) {
+        if !has_directional_shadows {
+            self.pipelines.remove(&DIRECTIONAL_SHADOW_PIPELINE_ID);
+            return;
+        }
+        if self.pipelines.contains_key(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
+            return;
+        }
+
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Directional Shadow Pipeline Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/lighting_z_prepass.wgsl").into()),
+        });
+
+        let vertex_buffer_layout = [wgpu::VertexBufferLayout {
+            array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 3,
+                    shader_location: 1,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 6,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: std::mem::size_of::<f32>() as u64 * 9,
+                    shader_location: 3,
+                },
+            ],
+        }];
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Directional Shadow Pipeline Layout"),
+            bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let primitive = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            ..Default::default()
+        };
+
+        let depth_texture_format = wgpu::TextureFormat::Depth32Float;
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Directional Shadow Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &vertex_buffer_layout,
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: self.target_format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::empty(),
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: depth_texture_format,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        let material_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Directional Shadow Material Bind Group Layout"),
+                entries: &[],
+            });
+
+        let entry = PipelineEntry {
+            pipeline,
+            z_prepass_pipeline: None,
+            material_bind_group_layout,
+            material_bind_groups: Vec::new(),
+            mesh_indices: Vec::new(),
+            material_indices: Vec::new(),
+            sort_order: 0,
+            enable_lighting: false,
+        };
+        self.pipelines.insert(
+            DIRECTIONAL_SHADOW_PIPELINE_ID,
+            Arc::new(RwLock::new(entry)),
         );
     }
 
@@ -1511,6 +1646,7 @@ impl LightingMeshRenderer {
             mesh_items,
             textures,
             pipelines: materials,
+            shadow_resource_manager: RenderResourceManager::new(),
         };
         pass.init(device, queue);
         return pass;

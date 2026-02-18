@@ -1,3 +1,4 @@
+use super::camera::RenderCamera;
 use super::light::RenderLight;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
@@ -41,10 +42,12 @@ fn expand_bounds(min: &mut glam::Vec3, max: &mut glam::Vec3, p: glam::Vec3) {
 pub fn create_directional_light_shadows(
     device: &wgpu::Device,
     _queue: &wgpu::Queue,
+    render_camera: &RenderCamera,
     render_items: &[Arc<RenderItem>],
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderDirectionalLightShadow>> {
     let mut shadows = Vec::new();
+    render_resource_manager.clear_directional_light_shadows();
 
     //
     let mut need_compute_shadows = false;
@@ -116,7 +119,10 @@ pub fn create_directional_light_shadows(
             continue;
         }
 
-        let up = if light_dir.abs().dot(glam::vec3(0.0, 1.0, 0.0)) < 0.99 {
+        let camera_up = render_camera.up.normalize_or_zero();
+        let up = if camera_up.length_squared() > 1e-8 && light_dir.abs().dot(camera_up) < 0.99 {
+            camera_up
+        } else if light_dir.abs().dot(glam::vec3(0.0, 1.0, 0.0)) < 0.99 {
             glam::vec3(0.0, 1.0, 0.0)
         } else {
             glam::vec3(1.0, 0.0, 0.0)
@@ -148,52 +154,100 @@ pub fn create_directional_light_shadows(
         let light_proj = glam::Mat4::orthographic_rh(left, right, bottom, top, near, far);
         let light_view_proj = light_proj * light_view;
 
-        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Directional Shadow Map"),
-            size: wgpu::Extent3d {
-                width: SHADOW_MAP_SIZE,
-                height: SHADOW_MAP_SIZE,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[wgpu::TextureFormat::Depth32Float],
-        });
-        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            ..Default::default()
-        });
-
-        let tex_id = Uuid::new_v4();
-        let render_texture = Arc::new(RenderTexture {
-            id: tex_id,
-            edition: directional_light.edition.clone(),
-            texture: shadow_texture,
-            view: shadow_view,
-            sampler: shadow_sampler,
-            scale: [1.0, 1.0],
-            delta: [0.0, 0.0],
-        });
-        render_resource_manager.add_texture(&render_texture);
-
-        shadows.push(Arc::new(RenderDirectionalLightShadow {
+        let tex_id = Uuid::new_v3(
+            &Uuid::NAMESPACE_OID,
+            format!("directional-shadow:{}", directional_light.id).as_bytes(),
+        );
+        let render_texture = if let Some(tex) = render_resource_manager.get_texture(tex_id) {
+            if tex.edition == directional_light.edition {
+                tex.clone()
+            } else {
+                let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Directional Shadow Map"),
+                    size: wgpu::Extent3d {
+                        width: SHADOW_MAP_SIZE,
+                        height: SHADOW_MAP_SIZE,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[wgpu::TextureFormat::Depth32Float],
+                });
+                let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Nearest,
+                    compare: Some(wgpu::CompareFunction::LessEqual),
+                    ..Default::default()
+                });
+                let tex = Arc::new(RenderTexture {
+                    id: tex_id,
+                    edition: directional_light.edition.clone(),
+                    texture: shadow_texture,
+                    view: shadow_view,
+                    sampler: shadow_sampler,
+                    scale: [1.0, 1.0],
+                    delta: [0.0, 0.0],
+                });
+                render_resource_manager.add_texture(&tex);
+                tex
+            }
+        } else {
+            let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Directional Shadow Map"),
+                size: wgpu::Extent3d {
+                    width: SHADOW_MAP_SIZE,
+                    height: SHADOW_MAP_SIZE,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[wgpu::TextureFormat::Depth32Float],
+            });
+            let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                compare: Some(wgpu::CompareFunction::LessEqual),
+                ..Default::default()
+            });
+            let tex = Arc::new(RenderTexture {
+                id: tex_id,
+                edition: directional_light.edition.clone(),
+                texture: shadow_texture,
+                view: shadow_view,
+                sampler: shadow_sampler,
+                scale: [1.0, 1.0],
+                delta: [0.0, 0.0],
+            });
+            render_resource_manager.add_texture(&tex);
+            tex
+        };
+        let shadow = Arc::new(RenderDirectionalLightShadow {
             id: directional_light.id,
             edition: directional_light.edition.clone(),
             light_view,
             light_proj,
             light_view_proj,
             textures: vec![render_texture],
-        }));
+        });
+        render_resource_manager.add_directional_light_shadow(&shadow);
+        shadows.push(shadow);
     }
 
     shadows
