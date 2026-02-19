@@ -515,6 +515,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
     let V = -camera_to_surface;//point to camera
     let P = in.w_position;
+    let view_position = global_uniforms.world_to_camera * vec4<f32>(in.w_position, 1.0);
+    let view_depth = -view_position.z;
     let N = normal; // Use perturbed normal for lighting
     let NdotV = saturate(dot(N, V));
 
@@ -587,13 +589,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
 #ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
-        let projected = project_directional_shadow_uv_depth(light.shadow_index, in.w_position);
-        if (!debug_has_shadow_proj && projected.w > 0.0) {
+        let projected =
+            project_directional_shadow_uv_depth(light.shadow_index, view_depth, in.w_position);
+        if (!debug_has_shadow_proj && projected.w >= 0.0) {
             debug_has_shadow_proj = true;
             debug_shadow_uvz = vec3<f32>(projected.x, projected.y, projected.z);
-            debug_shadow_depth = sample_directional_shadow_depth(light.shadow_index, projected.xy);
+            debug_shadow_depth =
+                sample_directional_shadow_depth(light.shadow_index, view_depth, projected.xy);
         }
-        let shadow_factor = sample_directional_shadow_factor(light.shadow_index, in.w_position);
+        let shadow_factor =
+            sample_directional_shadow_factor(light.shadow_index, view_depth, in.w_position);
         intensity *= shadow_factor;
         debug_shadow_factor = min(debug_shadow_factor, shadow_factor);
 #endif
