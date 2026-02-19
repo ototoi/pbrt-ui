@@ -2,6 +2,7 @@
 #define LIGHTING_SHADOW_FUNCTIONS_WGSL
 
 const DIRECTIONAL_SHADOW_CASCADE_COUNT: u32 = 4u;
+const DIRECTIONAL_SHADOW_PCF_RADIUS: i32 = 1;
 
 fn get_directional_shadow_cascade_index(
     base_shadow_index: i32,
@@ -98,13 +99,29 @@ fn sample_directional_shadow_factor(
     let slope_term = (1.0 - ndotl);
     let final_bias = max(shadow.bias, 0.0) + max(shadow.slope_bias, 0.0) * slope_term;
     let compare = projected.z - final_bias;
-    return textureSampleCompare(
-        directional_shadow_maps,
-        directional_shadow_sampler,
-        uv,
-        shadow.map_layer,
-        compare,
-    );
+    let tex_dims = vec2<f32>(textureDimensions(directional_shadow_maps));
+    let texel = vec2<f32>(1.0 / tex_dims.x, 1.0 / tex_dims.y);
+
+    var sum = 0.0;
+    var taps = 0.0;
+    for (var y: i32 = -DIRECTIONAL_SHADOW_PCF_RADIUS; y <= DIRECTIONAL_SHADOW_PCF_RADIUS; y++) {
+        for (
+            var x: i32 = -DIRECTIONAL_SHADOW_PCF_RADIUS;
+            x <= DIRECTIONAL_SHADOW_PCF_RADIUS;
+            x++
+        ) {
+            let offset = vec2<f32>(f32(x), f32(y)) * texel;
+            sum += textureSampleCompare(
+                directional_shadow_maps,
+                directional_shadow_sampler,
+                uv + offset,
+                shadow.map_layer,
+                compare,
+            );
+            taps += 1.0;
+        }
+    }
+    return sum / max(taps, 1.0);
 }
 
 #endif
