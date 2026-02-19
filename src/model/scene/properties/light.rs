@@ -2,7 +2,7 @@ use super::common::*;
 use std::cell::LazyCell;
 use std::collections::HashMap;
 
-const PARAMETERS: [(&str, &str, &str, &str, &str); 31] = [
+const PARAMETERS: [(&str, &str, &str, &str, &str); 32] = [
     ("point", "color", "I", "1.0 1.0 1.0", ""),
     ("point", "color", "scale", "1.0 1.0 1.0", ""),
     ("point", "point", "from", "0.0 0.0 0.0", ""),
@@ -29,6 +29,7 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 31] = [
     ("distant", "bool", "castshadow", "true", ""),
     ("distant", "integer", "cascadecount", "4", "1 4"),
     ("distant", "float", "shadowbias", "0.001", "0.0 0.1"),
+    ("distant", "float", "shadowslopebias", "0.01", "0.0 0.1"),
     //
     ("infinite", "color", "L", "1.0 1.0 1.0", ""),
     ("infinite", "color", "scale", "1.0 1.0 1.0", ""),

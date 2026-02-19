@@ -7,11 +7,12 @@ pub struct DirectionalRenderLight {
     pub id: Uuid,
     pub edition: String,
     pub direction: [f32; 3],
-    pub intensity: [f32; 3], // RGB intensity
-    pub source_angle: f32,   // Angular diameter of the light source in radians
-    pub cast_shadow: bool,   // Whether the light casts shadow
-    pub shadow_bias: f32,    // Shadow depth bias
-    pub cascade_count: u32,  // Number of CSM cascades (1..4)
+    pub intensity: [f32; 3],    // RGB intensity
+    pub source_angle: f32,      // Angular diameter of the light source in radians
+    pub cast_shadow: bool,      // Whether the light casts shadow
+    pub shadow_bias: f32,       // Shadow depth bias
+    pub shadow_slope_bias: f32, // Shadow slope-scale bias
+    pub cascade_count: u32,     // Number of CSM cascades (1..4)
 }
 
 #[derive(Debug, Clone, Default)]

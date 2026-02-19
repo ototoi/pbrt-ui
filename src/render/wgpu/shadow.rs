@@ -8,11 +8,14 @@ use std::sync::Arc;
 use eframe::wgpu;
 use uuid::Uuid;
 
-const SHADOW_MAP_SIZE: u32 = 2048;
 const SHADOW_BOUNDS_MARGIN: f32 = 0.1;
+const DIRECTIONAL_SHADOW_MAP_SIZE: u32 = 2048;
 pub const DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT: usize = 4;
-// Higher value biases cascade resolution toward near camera range.
-const CASCADE_SPLIT_LAMBDA: f32 = 0.8;
+// Blend factor between uniform and logarithmic CSM split distributions.
+// split = lerp(uniform_split, log_split, CASCADE_SPLIT_LAMBDA)
+// 0.0 -> fully uniform, 1.0 -> fully logarithmic.
+// Higher values allocate more resolution to near-camera cascades.
+const CASCADE_SPLIT_LAMBDA: f32 = 0.9;
 
 #[derive(Debug, Clone)]
 pub struct RenderDirectionalLightShadowCascade {
@@ -28,6 +31,7 @@ pub struct RenderDirectionalLightShadow {
     pub id: Uuid,
     pub edition: String,
     pub shadow_bias: f32,
+    pub shadow_slope_bias: f32,
     pub cascades: Vec<RenderDirectionalLightShadowCascade>,
 }
 
@@ -257,8 +261,7 @@ pub fn create_directional_light_shadows(
 
             let corners = get_aabb_corners(world_min_c, world_max_c);
             let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
-            let mut light_max =
-                glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+            let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
             for corner in corners {
                 let p = light_view.transform_point3(corner);
                 expand_bounds(&mut light_min, &mut light_max, p);
@@ -282,8 +285,8 @@ pub fn create_directional_light_shadows(
             let height = (light_max.y - light_min.y).abs() + 2.0 * my;
             let mut center_x = 0.5 * (light_min.x + light_max.x);
             let mut center_y = 0.5 * (light_min.y + light_max.y);
-            let units_per_texel_x = (width / SHADOW_MAP_SIZE as f32).max(1e-6);
-            let units_per_texel_y = (height / SHADOW_MAP_SIZE as f32).max(1e-6);
+            let units_per_texel_x = (width / DIRECTIONAL_SHADOW_MAP_SIZE as f32).max(1e-6);
+            let units_per_texel_y = (height / DIRECTIONAL_SHADOW_MAP_SIZE as f32).max(1e-6);
             center_x = (center_x / units_per_texel_x).floor() * units_per_texel_x;
             center_y = (center_y / units_per_texel_y).floor() * units_per_texel_y;
 
@@ -299,8 +302,11 @@ pub fn create_directional_light_shadows(
 
             let tex_id = Uuid::new_v3(
                 &Uuid::NAMESPACE_OID,
-                format!("directional-shadow:{}:cascade:{}", directional_light.id, cascade_index)
-                    .as_bytes(),
+                format!(
+                    "directional-shadow:{}:cascade:{}",
+                    directional_light.id, cascade_index
+                )
+                .as_bytes(),
             );
             let render_texture = if let Some(tex) = render_resource_manager.get_texture(tex_id) {
                 if tex.edition == directional_light.edition {
@@ -309,8 +315,8 @@ pub fn create_directional_light_shadows(
                     let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
                         label: Some("Directional Shadow Map"),
                         size: wgpu::Extent3d {
-                            width: SHADOW_MAP_SIZE,
-                            height: SHADOW_MAP_SIZE,
+                            width: DIRECTIONAL_SHADOW_MAP_SIZE,
+                            height: DIRECTIONAL_SHADOW_MAP_SIZE,
                             depth_or_array_layers: 1,
                         },
                         mip_level_count: 1,
@@ -350,8 +356,8 @@ pub fn create_directional_light_shadows(
                 let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("Directional Shadow Map"),
                     size: wgpu::Extent3d {
-                        width: SHADOW_MAP_SIZE,
-                        height: SHADOW_MAP_SIZE,
+                        width: DIRECTIONAL_SHADOW_MAP_SIZE,
+                        height: DIRECTIONAL_SHADOW_MAP_SIZE,
                         depth_or_array_layers: 1,
                     },
                     mip_level_count: 1,
@@ -363,7 +369,8 @@ pub fn create_directional_light_shadows(
                         | wgpu::TextureUsages::COPY_SRC,
                     view_formats: &[wgpu::TextureFormat::Depth32Float],
                 });
-                let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let shadow_view =
+                    shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::ClampToEdge,
                     address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -399,6 +406,7 @@ pub fn create_directional_light_shadows(
             id: directional_light.id,
             edition: directional_light.edition.clone(),
             shadow_bias: directional_light.shadow_bias,
+            shadow_slope_bias: directional_light.shadow_slope_bias,
             cascades,
         });
         render_resource_manager.add_directional_light_shadow(&shadow);
