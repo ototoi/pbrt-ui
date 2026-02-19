@@ -156,6 +156,7 @@ pub fn create_directional_light_shadows(
 
     let mut world_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
     let mut world_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    let mut caster_points_world = Vec::new();
     let mut has_mesh = false;
 
     for item in mesh_items {
@@ -175,6 +176,7 @@ pub fn create_directional_light_shadows(
             for corner in corners {
                 let world = mesh_item.matrix.transform_point3(corner);
                 expand_bounds(&mut world_min, &mut world_max, world);
+                caster_points_world.push(world);
             }
         }
     }
@@ -194,6 +196,9 @@ pub fn create_directional_light_shadows(
         let _ = world_center;
         (near, far)
     };
+    // Keep split range aligned with camera projection for stable cascade coverage.
+    let split_near = camera_near;
+    let split_far = camera_far;
     let full_scene_corners = get_aabb_corners(world_min, world_max);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
     let camera_pos = render_camera.position;
@@ -213,7 +218,7 @@ pub fn create_directional_light_shadows(
             .cascade_count
             .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32)
             as usize;
-        let cascade_splits = build_cascade_splits(camera_near, camera_far, cascade_count);
+        let cascade_splits = build_cascade_splits(split_near, split_far, cascade_count);
 
         let mut light_dir = glam::vec3(
             directional_light.direction[0],
@@ -237,7 +242,7 @@ pub fn create_directional_light_shadows(
             glam::vec3(1.0, 0.0, 0.0)
         };
         let mut cascades = Vec::with_capacity(cascade_count);
-        let mut cascade_near = camera_near;
+        let mut cascade_near = split_near;
         for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
             let corners = get_frustum_slice_corners_world(
                 &full_frustum_corners,
@@ -266,18 +271,40 @@ pub fn create_directional_light_shadows(
                 let p = light_view.transform_point3(corner);
                 expand_bounds(&mut light_min, &mut light_max, p);
             }
-            // Extend depth range by full-scene casters so grazing-angle shadows don't vanish.
-            for corner in full_scene_corners {
-                let p = light_view.transform_point3(corner);
-                light_min.z = light_min.z.min(p.z);
-                light_max.z = light_max.z.max(p.z);
-            }
 
             let margin = SHADOW_BOUNDS_MARGIN;
             let span = light_max - light_min;
             let mx = span.x.abs().max(1e-3) * margin;
             let my = span.y.abs().max(1e-3) * margin;
             let mz = span.z.abs().max(1e-3) * margin;
+
+            // Extend depth only with casters that overlap this cascade footprint in light space.
+            // This uses both camera slice (receiver bounds XY) and light-space caster positions.
+            let caster_x_min = light_min.x - mx;
+            let caster_x_max = light_max.x + mx;
+            let caster_y_min = light_min.y - my;
+            let caster_y_max = light_max.y + my;
+            let mut has_overlap_caster = false;
+            for p_world in &caster_points_world {
+                let p = light_view.transform_point3(*p_world);
+                if p.x >= caster_x_min
+                    && p.x <= caster_x_max
+                    && p.y >= caster_y_min
+                    && p.y <= caster_y_max
+                {
+                    light_min.z = light_min.z.min(p.z);
+                    light_max.z = light_max.z.max(p.z);
+                    has_overlap_caster = true;
+                }
+            }
+            // Fallback to full-scene casters when no overlap is found to avoid missing shadows.
+            if !has_overlap_caster {
+                for corner in full_scene_corners {
+                    let p = light_view.transform_point3(corner);
+                    light_min.z = light_min.z.min(p.z);
+                    light_max.z = light_max.z.max(p.z);
+                }
+            }
 
             // Snap projection center to shadow texel grid to reduce shimmering and
             // improve effective resolution usage per cascade.
