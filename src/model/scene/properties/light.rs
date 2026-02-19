@@ -2,7 +2,7 @@ use super::common::*;
 use std::cell::LazyCell;
 use std::collections::HashMap;
 
-const PARAMETERS: [(&str, &str, &str, &str, &str); 32] = [
+const PARAMETERS: [(&str, &str, &str, &str, &str); 33] = [
     ("point", "color", "I", "1.0 1.0 1.0", ""),
     ("point", "color", "scale", "1.0 1.0 1.0", ""),
     ("point", "point", "from", "0.0 0.0 0.0", ""),
@@ -28,6 +28,7 @@ const PARAMETERS: [(&str, &str, &str, &str, &str); 32] = [
     ("distant", "float", "sourceangle", "0.5357", "0.0 30.0"), //angular diameter of the light source
     ("distant", "bool", "castshadow", "true", ""),
     ("distant", "integer", "cascadecount", "4", "1 4"),
+    ("distant", "string", "shadowprojection", "csm", ""), // csm | lspsm
     ("distant", "float", "shadowbias", "0.001", "0.0 0.1"),
     ("distant", "float", "shadowslopebias", "0.01", "0.0 0.1"),
     //
