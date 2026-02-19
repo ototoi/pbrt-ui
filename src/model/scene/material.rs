@@ -25,6 +25,8 @@ impl Material {
         props.insert("string id", Property::from(id.to_string()));
         props.insert("string name_", Property::from(name));
         props.insert("string type", Property::from(t));
+        let edition = Uuid::new_v4();
+        props.insert("string edition", Property::from(edition.to_string()));
         replace_properties(&mut props);
         Material { id, props }
     }

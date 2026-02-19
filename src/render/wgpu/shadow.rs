@@ -18,6 +18,7 @@ pub struct RenderDirectionalLightShadow {
     pub light_view: glam::Mat4,
     pub light_proj: glam::Mat4,
     pub light_view_proj: glam::Mat4,
+    pub shadow_bias: f32,
     pub textures: Vec<Arc<RenderTexture>>,
 }
 
@@ -109,6 +110,9 @@ pub fn create_directional_light_shadows(
             },
             _ => continue,
         };
+        if !directional_light.cast_shadow {
+            continue;
+        }
 
         let mut light_dir = glam::vec3(
             directional_light.direction[0],
@@ -178,7 +182,8 @@ pub fn create_directional_light_shadows(
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::Depth32Float,
                     usage: wgpu::TextureUsages::TEXTURE_BINDING
-                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::COPY_SRC,
                     view_formats: &[wgpu::TextureFormat::Depth32Float],
                 });
                 let shadow_view =
@@ -218,7 +223,8 @@ pub fn create_directional_light_shadows(
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::COPY_SRC,
                 view_formats: &[wgpu::TextureFormat::Depth32Float],
             });
             let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -250,6 +256,7 @@ pub fn create_directional_light_shadows(
             light_view,
             light_proj,
             light_view_proj,
+            shadow_bias: directional_light.shadow_bias,
             textures: vec![render_texture],
         });
         render_resource_manager.add_directional_light_shadow(&shadow);

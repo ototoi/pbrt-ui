@@ -53,6 +53,8 @@ var ltc_sampler: sampler;
 const MAX_FLOAT: f32 = 1e+10;
 const PI: f32 = 3.14159265359;
 const INV_PI: f32 = 1.0 / 3.14159265359;
+// 0: off, 1: shadow factor, 2: sampled shadow map depth, 3: projected uv/depth
+const DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE: u32 = 0u;
 //-------------------------------------------------------
 // LTC functions and definitions
 const LUT_SIZE: f32 = 64.0; // ltc_texture size
@@ -544,6 +546,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     // Accumulate lighting
     
     var color = vec3<f32>(0.0);
+    var debug_shadow_factor = 1.0;
+    var debug_shadow_depth = 1.0;
+    var debug_shadow_uvz = vec3<f32>(0.0);
+    var debug_has_shadow_proj = false;
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
         var intensity = light.intensity.rgb;
@@ -581,13 +587,34 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
 #ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+        let projected = project_directional_shadow_uv_depth(light.shadow_index, in.w_position);
+        if (!debug_has_shadow_proj && projected.w > 0.0) {
+            debug_has_shadow_proj = true;
+            debug_shadow_uvz = vec3<f32>(projected.x, projected.y, projected.z);
+            debug_shadow_depth = sample_directional_shadow_depth(light.shadow_index, projected.xy);
+        }
         let shadow_factor = sample_directional_shadow_factor(light.shadow_index, in.w_position);
         intensity *= shadow_factor;
+        debug_shadow_factor = min(debug_shadow_factor, shadow_factor);
 #endif
 
         var k = 1.0;//1.0 / (2.0 * PI * PI);
         color += k * intensity * shade(shade_input);
+
+#ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 1u && light.shadow_index >= 0) {
+            return vec4<f32>(vec3<f32>(debug_shadow_factor), 1.0);
+        }
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 2u && debug_has_shadow_proj) {
+            return vec4<f32>(vec3<f32>(debug_shadow_depth), 1.0);
+        }
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 3u && debug_has_shadow_proj) {
+            return vec4<f32>(debug_shadow_uvz, 1.0);
+        }
+#endif
     }
+
+
 
     for (var i: u32 = 0; i < light_uniforms.num_sphere_lights; i++) {
         let light = sphere_lights[i];

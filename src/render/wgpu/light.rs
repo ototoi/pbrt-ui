@@ -10,6 +10,7 @@ pub struct DirectionalRenderLight {
     pub intensity: [f32; 3], // RGB intensity
     pub source_angle: f32,   // Angular diameter of the light source in radians
     pub cast_shadow: bool,   // Whether the light casts shadow
+    pub shadow_bias: f32,    // Shadow depth bias
 }
 
 #[derive(Debug, Clone, Default)]

@@ -150,6 +150,16 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     );
                 }
                 {
+                    // Render shadow pipelines before the main lighting pass.
+                    let renderer = self.mesh_renderer.read().unwrap();
+                    renderer.render_directional_shadow_maps(
+                        device,
+                        queue,
+                        encoder,
+                        &self.render_camera,
+                    );
+                }
+                {
                     let mut renderer = self.lines_renderer.write().unwrap();
                     renderer.prepare(
                         device,
