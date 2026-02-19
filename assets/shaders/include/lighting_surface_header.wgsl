@@ -35,8 +35,10 @@ struct DirectionalLight {
     radius: f32,
     // Radius for shadow calculation
     shadow_index: i32,
-    // Index for the shadow map -1 if no shadow
-    _pad1: vec2<f32>,
+    // Base index of CSM shadow infos -1 if no shadow
+    cascade_count: u32,
+    // Number of CSM cascades used by this light
+    _pad1: u32,
     // Padding for alignment
 }
 

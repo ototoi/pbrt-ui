@@ -3,25 +3,32 @@
 
 const DIRECTIONAL_SHADOW_CASCADE_COUNT: u32 = 4u;
 
-fn get_directional_shadow_cascade_index(base_shadow_index: i32, view_depth: f32) -> i32 {
-    if (base_shadow_index < 0) {
+fn get_directional_shadow_cascade_index(
+    base_shadow_index: i32,
+    cascade_count: u32,
+    view_depth: f32,
+) -> i32 {
+    if (base_shadow_index < 0 || cascade_count == 0u) {
         return -1;
     }
-    for (var i: u32 = 0u; i < DIRECTIONAL_SHADOW_CASCADE_COUNT; i++) {
+    let max_count = min(cascade_count, DIRECTIONAL_SHADOW_CASCADE_COUNT);
+    for (var i: u32 = 0u; i < max_count; i++) {
         let idx = base_shadow_index + i32(i);
         if (view_depth <= directional_shadow_infos[u32(idx)].split_end) {
             return idx;
         }
     }
-    return base_shadow_index + i32(DIRECTIONAL_SHADOW_CASCADE_COUNT - 1u);
+    return base_shadow_index + i32(max_count - 1u);
 }
 
 fn project_directional_shadow_uv_depth(
     base_shadow_index: i32,
+    cascade_count: u32,
     view_depth: f32,
     world_position: vec3<f32>,
 ) -> vec4<f32> {
-    let shadow_index = get_directional_shadow_cascade_index(base_shadow_index, view_depth);
+    let shadow_index =
+        get_directional_shadow_cascade_index(base_shadow_index, cascade_count, view_depth);
     if (shadow_index < 0) {
         return vec4<f32>(0.0, 0.0, 0.0, -1.0);
     }
@@ -45,10 +52,12 @@ fn project_directional_shadow_uv_depth(
 
 fn sample_directional_shadow_depth(
     base_shadow_index: i32,
+    cascade_count: u32,
     view_depth: f32,
     uv: vec2<f32>,
 ) -> f32 {
-    let shadow_index = get_directional_shadow_cascade_index(base_shadow_index, view_depth);
+    let shadow_index =
+        get_directional_shadow_cascade_index(base_shadow_index, cascade_count, view_depth);
     if (shadow_index < 0) {
         return 1.0;
     }
@@ -64,10 +73,16 @@ fn sample_directional_shadow_depth(
 
 fn sample_directional_shadow_factor(
     base_shadow_index: i32,
+    cascade_count: u32,
     view_depth: f32,
     world_position: vec3<f32>,
 ) -> f32 {
-    let projected = project_directional_shadow_uv_depth(base_shadow_index, view_depth, world_position);
+    let projected = project_directional_shadow_uv_depth(
+        base_shadow_index,
+        cascade_count,
+        view_depth,
+        world_position,
+    );
     if (projected.w < 0.0) {
         return 1.0;
     }

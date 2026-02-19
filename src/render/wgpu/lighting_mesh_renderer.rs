@@ -6,7 +6,7 @@ use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
 use super::shadow::create_directional_light_shadows;
-use super::shadow::DIRECTIONAL_SHADOW_CASCADE_COUNT;
+use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
 use super::shadow::RenderDirectionalLightShadow;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
@@ -27,7 +27,7 @@ use bytemuck::{Pod, Zeroable};
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lights
 const MAX_DIRECTIONAL_SHADOW_NUM: usize =
-    MAX_DIRECTIONAL_LIGHT_NUM * DIRECTIONAL_SHADOW_CASCADE_COUNT;
+    MAX_DIRECTIONAL_LIGHT_NUM * DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
 const MAX_SPHERE_LIGHT_NUM: usize = 256; // Maximum number of point lights
 const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
@@ -76,7 +76,8 @@ struct DirectionalLight {
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
     radius: f32,         // Radius of the light // 1 * 4 = 4
     shadow_index: i32,   // Index for the shadow map -1 if no shadow // 1 * 4 = 4
-    _pad1: [f32; 2],     // Padding // 2 * 4 = 8
+    cascade_count: u32,  // CSM cascade count (1..4)
+    _pad1: u32,          // Padding
 }
 
 #[repr(C)]
@@ -1251,13 +1252,19 @@ impl LightingMeshRenderer {
                     } else {
                         -1
                     };
+                    let cascade_count = if light.cast_shadow {
+                        light.cascade_count.clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32)
+                    } else {
+                        0
+                    };
 
                     let light = DirectionalLight {
                         direction: [direction[0], direction[1], direction[2], 0.0],
                         intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                         radius,
                         shadow_index,
-                        _pad1: [0.0; 2],
+                        cascade_count,
+                        _pad1: 0,
                     };
                     light_buffer.push(light);
                 }

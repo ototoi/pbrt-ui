@@ -11,6 +11,7 @@ pub struct DirectionalRenderLight {
     pub source_angle: f32,   // Angular diameter of the light source in radians
     pub cast_shadow: bool,   // Whether the light casts shadow
     pub shadow_bias: f32,    // Shadow depth bias
+    pub cascade_count: u32,  // Number of CSM cascades (1..4)
 }
 
 #[derive(Debug, Clone, Default)]

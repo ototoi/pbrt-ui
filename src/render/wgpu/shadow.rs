@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 const SHADOW_MAP_SIZE: u32 = 2048;
 const SHADOW_BOUNDS_MARGIN: f32 = 0.1;
-pub const DIRECTIONAL_SHADOW_CASCADE_COUNT: usize = 4;
+pub const DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT: usize = 4;
 // Higher value biases cascade resolution toward near camera range.
 const CASCADE_SPLIT_LAMBDA: f32 = 0.8;
 
@@ -66,10 +66,10 @@ fn get_camera_near_far(render_camera: &RenderCamera) -> Option<(f32, f32)> {
     Some((near, far))
 }
 
-fn build_cascade_splits(near: f32, far: f32) -> [f32; DIRECTIONAL_SHADOW_CASCADE_COUNT] {
-    let mut splits = [far; DIRECTIONAL_SHADOW_CASCADE_COUNT];
-    for i in 1..=DIRECTIONAL_SHADOW_CASCADE_COUNT {
-        let t = i as f32 / DIRECTIONAL_SHADOW_CASCADE_COUNT as f32;
+fn build_cascade_splits(near: f32, far: f32, cascade_count: usize) -> Vec<f32> {
+    let mut splits = vec![far; cascade_count];
+    for i in 1..=cascade_count {
+        let t = i as f32 / cascade_count as f32;
         let log = near * (far / near).powf(t);
         let uni = near + (far - near) * t;
         splits[i - 1] = uni * (1.0 - CASCADE_SPLIT_LAMBDA) + log * CASCADE_SPLIT_LAMBDA;
@@ -190,7 +190,6 @@ pub fn create_directional_light_shadows(
         let _ = world_center;
         (near, far)
     };
-    let cascade_splits = build_cascade_splits(camera_near, camera_far);
     let full_scene_corners = get_aabb_corners(world_min, world_max);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
     let camera_pos = render_camera.position;
@@ -206,6 +205,11 @@ pub fn create_directional_light_shadows(
         if !directional_light.cast_shadow {
             continue;
         }
+        let cascade_count = directional_light
+            .cascade_count
+            .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32)
+            as usize;
+        let cascade_splits = build_cascade_splits(camera_near, camera_far, cascade_count);
 
         let mut light_dir = glam::vec3(
             directional_light.direction[0],
@@ -228,7 +232,7 @@ pub fn create_directional_light_shadows(
         } else {
             glam::vec3(1.0, 0.0, 0.0)
         };
-        let mut cascades = Vec::with_capacity(DIRECTIONAL_SHADOW_CASCADE_COUNT);
+        let mut cascades = Vec::with_capacity(cascade_count);
         let mut cascade_near = camera_near;
         for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
             let corners = get_frustum_slice_corners_world(
