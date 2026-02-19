@@ -266,6 +266,7 @@ pub fn create_directional_light_shadows(
                 cascade_near,
                 cascade_far,
             );
+            let mut virtual_frustum_points = corners.to_vec();
             let mut world_min_c = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
             let mut world_max_c =
                 glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
@@ -278,6 +279,7 @@ pub fn create_directional_light_shadows(
                 // plane perpendicular to light_dir.
                 let extrude = scene_diagonal;
                 for p in corners {
+                    virtual_frustum_points.push(p + lspsm_depth_dir * extrude);
                     expand_bounds(
                         &mut world_min_c,
                         &mut world_max_c,
@@ -292,11 +294,11 @@ pub fn create_directional_light_shadows(
             let eye = world_center - light_dir * light_distance;
             let light_view = glam::Mat4::look_at_rh(eye, world_center, up);
 
-            let corners = get_aabb_corners(world_min_c, world_max_c);
             let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
             let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
-            for corner in corners {
-                let p = light_view.transform_point3(corner);
+            // Build light-space bounds directly from the virtual frustum points.
+            for p_world in virtual_frustum_points.iter().copied() {
+                let p = light_view.transform_point3(p_world);
                 expand_bounds(&mut light_min, &mut light_max, p);
             }
 
