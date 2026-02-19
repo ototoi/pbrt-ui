@@ -296,26 +296,11 @@ pub fn create_directional_light_shadows(
 
             let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
             let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
-            // Build light-space bounds.
-            // CSM: receiver (virtual frustum) based fit.
-            // LSPSM: caster based fit.
-            if directional_light.shadow_projection == DirectionalShadowProjection::Lspsm {
-                for p_world in &caster_points_world {
-                    let p = light_view.transform_point3(*p_world);
-                    expand_bounds(&mut light_min, &mut light_max, p);
-                }
-                // Fallback for robustness.
-                if !light_min.is_finite() || !light_max.is_finite() {
-                    for p_world in virtual_frustum_points.iter().copied() {
-                        let p = light_view.transform_point3(p_world);
-                        expand_bounds(&mut light_min, &mut light_max, p);
-                    }
-                }
-            } else {
-                for p_world in virtual_frustum_points.iter().copied() {
-                    let p = light_view.transform_point3(p_world);
-                    expand_bounds(&mut light_min, &mut light_max, p);
-                }
+            // Build XY bounds from receiver footprint (virtual frustum slice).
+            // Depth (Z) is extended below with caster points.
+            for p_world in virtual_frustum_points.iter().copied() {
+                let p = light_view.transform_point3(p_world);
+                expand_bounds(&mut light_min, &mut light_max, p);
             }
 
             let margin = SHADOW_BOUNDS_MARGIN;
