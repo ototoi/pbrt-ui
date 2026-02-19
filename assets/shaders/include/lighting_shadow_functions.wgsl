@@ -76,6 +76,8 @@ fn sample_directional_shadow_factor(
     cascade_count: u32,
     view_depth: f32,
     world_position: vec3<f32>,
+    surface_normal: vec3<f32>,
+    light_direction: vec3<f32>,
 ) -> f32 {
     let projected = project_directional_shadow_uv_depth(
         base_shadow_index,
@@ -90,7 +92,12 @@ fn sample_directional_shadow_factor(
     let shadow_index = i32(projected.w);
     let shadow = directional_shadow_infos[u32(shadow_index)];
     let uv = projected.xy;
-    let compare = projected.z - max(shadow.bias, 0.0);
+    let n = normalize(surface_normal);
+    let l = normalize(-light_direction);
+    let ndotl = max(dot(n, l), 0.0);
+    let slope_term = (1.0 - ndotl);
+    let final_bias = max(shadow.bias, 0.0) + max(shadow.slope_bias, 0.0) * slope_term;
+    let compare = projected.z - final_bias;
     return textureSampleCompare(
         directional_shadow_maps,
         directional_shadow_sampler,

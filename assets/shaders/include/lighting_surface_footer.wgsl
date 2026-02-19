@@ -613,6 +613,8 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
                 light.cascade_count,
                 view_depth,
                 in.w_position,
+                N,
+                direction,
             );
         intensity *= shadow_factor;
         debug_shadow_factor = min(debug_shadow_factor, shadow_factor);

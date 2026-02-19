@@ -127,6 +127,10 @@ fn get_directional_light_item(
         let source_angle = source_angle.to_radians();
         let cascade_count = props.find_one_int("cascadecount").unwrap_or(4).clamp(1, 4) as u32;
         let shadow_bias = props.find_one_float("shadowbias").unwrap_or(0.001).max(0.0);
+        let shadow_slope_bias = props
+            .find_one_float("shadowslopebias")
+            .unwrap_or(0.01)
+            .max(0.0);
 
         // Accept both spellings to be robust against source scene variants.
         let cast_shadow = props
@@ -143,6 +147,7 @@ fn get_directional_light_item(
             source_angle,
             cast_shadow,
             shadow_bias,
+            shadow_slope_bias,
             cascade_count,
             ..Default::default()
         };
