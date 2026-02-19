@@ -227,6 +227,7 @@ pub fn get_texture(
 pub fn get_shader_type(
     shader_type: &str,
     uniform_values: &[(String, RenderUniformValue)],
+    render_category: RenderCategory,
 ) -> String {
     let mut s = "".to_string();
     for (key, val) in uniform_values.iter() {
@@ -251,7 +252,14 @@ pub fn get_shader_type(
             }
         }
     }
+    if uses_directional_light_shadow(render_category) {
+        s.push_str("_ENABLE_DIRECTIONAL_LIGHT_SHADOW@D");
+    }
     return format!("{}{}", shader_type, s);
+}
+
+fn uses_directional_light_shadow(render_category: RenderCategory) -> bool {
+    render_category != RenderCategory::Emissive
 }
 
 fn create_uniform_value_bytes(
@@ -349,7 +357,10 @@ fn get_fallback_shader_source() -> String {
     return code;
 }
 
-fn create_defines(uniform_values: &[(String, RenderUniformValue)]) -> Vec<(String, String)> {
+fn create_defines(
+    uniform_values: &[(String, RenderUniformValue)],
+    render_category: RenderCategory,
+) -> Vec<(String, String)> {
     let mut defines = Vec::new();
     for (name, value) in uniform_values.iter() {
         if let RenderUniformValue::Texture(_) = value {
@@ -360,14 +371,21 @@ fn create_defines(uniform_values: &[(String, RenderUniformValue)]) -> Vec<(Strin
             ));
         }
     }
+    if uses_directional_light_shadow(render_category) {
+        defines.push((
+            "ENABLE_DIRECTIONAL_LIGHT_SHADOW".to_string(),
+            "1".to_string(),
+        ));
+    }
     return defines;
 }
 
 fn generate_shader_source(
     shader_type: &str,
     uniform_values: &[(String, RenderUniformValue)],
+    render_category: RenderCategory,
 ) -> Option<String> {
-    let modified_shader_type = get_shader_type(shader_type, uniform_values);
+    let modified_shader_type = get_shader_type(shader_type, uniform_values, render_category);
     let cache_dir = dirs::cache_dir()
         .unwrap()
         .join("pbrt_ui")
@@ -375,7 +393,7 @@ fn generate_shader_source(
         .join("shaders");
     let prebuilt_shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
 
-    let defines = create_defines(uniform_values);
+    let defines = create_defines(uniform_values, render_category);
     if prebuilt_shader_path.exists() {
         let base_path = dirs::cache_dir()
             .unwrap()
@@ -407,7 +425,11 @@ fn generate_shader_source(
     return None;
 }
 
-fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniformValue)]) -> String {
+fn get_shader_source(
+    shader_type: &str,
+    uniform_values: &[(String, RenderUniformValue)],
+    render_category: RenderCategory,
+) -> String {
     let cache_dir = dirs::cache_dir().unwrap().join("pbrt_ui").join("shaders");
     let shader_path = cache_dir.join(format!("{}.wgsl", shader_type));
     if shader_path.exists()
@@ -416,7 +438,9 @@ fn get_shader_source(shader_type: &str, uniform_values: &[(String, RenderUniform
         return code;
     }
 
-    if let Some(generated_source) = generate_shader_source(shader_type, uniform_values) {
+    if let Some(generated_source) =
+        generate_shader_source(shader_type, uniform_values, render_category)
+    {
         return generated_source;
     }
 
@@ -428,8 +452,9 @@ fn get_shader_module(
     device: &wgpu::Device,
     shader_type: &str,
     uniform_values: &[(String, RenderUniformValue)],
+    render_category: RenderCategory,
 ) -> wgpu::ShaderModule {
-    let source = get_shader_source(shader_type, uniform_values);
+    let source = get_shader_source(shader_type, uniform_values, render_category);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(format!("Shader : {}", shader_type).as_str()),
         source: wgpu::ShaderSource::Wgsl(source.into()),
@@ -442,15 +467,16 @@ pub fn create_render_shader(
     _queue: &wgpu::Queue,
     shader_type: &str,
     uniform_values: &[(String, RenderUniformValue)],
+    render_category: RenderCategory,
     render_resource_manager: &mut RenderResourceManager,
 ) -> Arc<RenderShader> {
     //let org_shader_type = shader_type.to_string();
-    let modified_shader_type = get_shader_type(shader_type, uniform_values);
+    let modified_shader_type = get_shader_type(shader_type, uniform_values, render_category);
     let shader_id = get_shader_id_from_type(&modified_shader_type);
     if let Some(shader) = render_resource_manager.get_shader(shader_id) {
         return shader.clone();
     }
-    let shader_module = get_shader_module(device, shader_type, uniform_values);
+    let shader_module = get_shader_module(device, shader_type, uniform_values, render_category);
     let render_shader = RenderShader {
         id: shader_id,
         name: modified_shader_type.clone(),
@@ -475,6 +501,7 @@ pub fn create_render_pass(
         queue,
         shader_type,
         uniform_values,
+        render_category,
         render_resource_manager,
     );
     let (_uniform_values_types, uniform_values_bytes) = create_uniform_value_bytes(uniform_values);

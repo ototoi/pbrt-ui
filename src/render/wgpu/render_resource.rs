@@ -3,6 +3,7 @@ use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::mesh::RenderMesh;
 use super::shader::RenderShader;
+use super::shadow::RenderDirectionalLightShadow;
 use super::texture::RenderTexture;
 use crate::model::scene::Component;
 
@@ -20,6 +21,7 @@ pub struct RenderResourceManager {
     pub shaders: HashMap<Uuid, Arc<RenderShader>>,
     pub materials: HashMap<Uuid, Arc<RenderMaterial>>,
     pub textures: HashMap<Uuid, Arc<RenderTexture>>,
+    pub directional_light_shadows: HashMap<Uuid, Arc<RenderDirectionalLightShadow>>,
 }
 
 impl RenderResourceManager {
@@ -31,6 +33,7 @@ impl RenderResourceManager {
             shaders: HashMap::new(),
             materials: HashMap::new(),
             textures: HashMap::new(),
+            directional_light_shadows: HashMap::new(),
         }
     }
     pub fn add_mesh(&mut self, mesh: &Arc<RenderMesh>) {
@@ -109,6 +112,22 @@ impl RenderResourceManager {
 
     pub fn remove_texture(&mut self, id: Uuid) {
         self.textures.remove(&id);
+    }
+
+    pub fn add_directional_light_shadow(&mut self, shadow: &Arc<RenderDirectionalLightShadow>) {
+        self.directional_light_shadows
+            .insert(shadow.id, shadow.clone());
+    }
+
+    pub fn get_directional_light_shadow(
+        &self,
+        id: Uuid,
+    ) -> Option<&Arc<RenderDirectionalLightShadow>> {
+        self.directional_light_shadows.get(&id)
+    }
+
+    pub fn clear_directional_light_shadows(&mut self) {
+        self.directional_light_shadows.clear();
     }
 }
 

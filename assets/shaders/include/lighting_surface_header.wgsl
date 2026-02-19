@@ -29,11 +29,14 @@ struct LightUniforms {
 
 struct DirectionalLight {
     direction: vec4<f32>,
-    // Example light direction
+    // Light direction
     intensity: vec4<f32>,
-    // Example light intensity
+    // Light intensity
     radius: f32,
-    _pad1: vec3<f32>,
+    // Radius for shadow calculation
+    shadow_index: i32,
+    // Index for the shadow map -1 if no shadow
+    _pad1: vec2<f32>,
     // Padding for alignment
 }
 
@@ -131,5 +134,9 @@ var<uniform> global_uniforms: GlobalUniforms;
 // local uniforms
 @group(1) @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
+
+#ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+#include "lighting_shadow_header.wgsl"
+#endif
 
 #endif

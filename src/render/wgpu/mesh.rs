@@ -14,6 +14,40 @@ pub struct RenderMesh {
     pub index_buffer: wgpu::Buffer,
     pub vertex_count: u32,
     pub index_count: u32,
+    pub aabb: Aabb,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Aabb {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+impl Aabb {
+    pub fn from_positions(positions: &[f32]) -> Self {
+        let mut chunks = positions.chunks_exact(3);
+        let Some(first) = chunks.next() else {
+            return Self::default();
+        };
+
+        let mut min = [first[0], first[1], first[2]];
+        let mut max = min;
+
+        for chunk in chunks {
+            let x = chunk[0];
+            let y = chunk[1];
+            let z = chunk[2];
+
+            min[0] = min[0].min(x);
+            min[1] = min[1].min(y);
+            min[2] = min[2].min(z);
+            max[0] = max[0].max(x);
+            max[1] = max[1].max(y);
+            max[2] = max[2].max(z);
+        }
+
+        Self { min, max }
+    }
 }
 
 #[repr(C)]
@@ -68,6 +102,7 @@ impl RenderMesh {
         let mesh_id = shape.get_id();
         let edition = shape.get_edition();
         if let Some(mut mesh_data) = create_mesh_data(shape) {
+            let aabb = Aabb::from_positions(&mesh_data.positions);
             let num_vertices = mesh_data.positions.len() / 3;
             if mesh_data.normals.len() < num_vertices * 3 {
                 // If positions are not provided, create a default position
@@ -99,6 +134,7 @@ impl RenderMesh {
                 index_buffer,
                 vertex_count: vertex_count as u32,
                 index_count: index_count as u32,
+                aabb,
             };
             return Some(mesh);
         }

@@ -17,6 +17,8 @@ impl Light {
         if props.get("string id").is_none() {
             props.insert("string id", Property::from(id.to_string()));
         }
+        let edition = Uuid::new_v4();
+        props.insert("string edition", Property::from(edition.to_string()));
         Light { id, props }
     }
 

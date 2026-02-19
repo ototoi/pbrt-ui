@@ -1,3 +1,4 @@
+use super::aabb_renderer::AabbRenderer;
 use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
 use super::solid_mesh_renderer::SolidMeshRenderer;
@@ -14,12 +15,14 @@ use eframe::wgpu;
 
 pub struct SolidRenderer {
     mesh_renderer: Arc<RwLock<SolidMeshRenderer>>,
+    aabb_renderer: Arc<RwLock<AabbRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
 }
 
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
     mesh_renderer: Arc<RwLock<SolidMeshRenderer>>,
+    aabb_renderer: Arc<RwLock<AabbRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     node: Arc<RwLock<Node>>,
     world_to_camera: glam::Mat4,
@@ -70,6 +73,21 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
             );
             command_buffers.extend(cmds);
         }
+        {
+            let render_items = render_items
+                .iter()
+                .filter(|item| matches!(item.as_ref(), RenderItem::Mesh(_)))
+                .cloned()
+                .collect::<Vec<_>>();
+            let mut renderer = self.aabb_renderer.write().unwrap();
+            renderer.prepare(
+                device,
+                queue,
+                &render_items,
+                &self.world_to_camera,
+                &self.camera_to_clip,
+            );
+        }
         if true {
             let render_items = render_items
                 .iter()
@@ -106,6 +124,10 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
             let renderer = self.mesh_renderer.read().unwrap();
             renderer.paint(&info, render_pass, resources);
         }
+        {
+            let renderer = self.aabb_renderer.read().unwrap();
+            renderer.paint(render_pass);
+        }
         if true {
             let renderer = self.lines_renderer.read().unwrap();
             renderer.paint(render_pass);
@@ -119,9 +141,11 @@ impl SolidRenderer {
         let device = &render_state.device;
         let queue = &render_state.queue;
         let mesh_renderer = SolidMeshRenderer::new(device, queue, render_state.target_format);
+        let aabb_renderer = AabbRenderer::new(device, queue, render_state.target_format);
         let lines_renderer = LinesRenderer::new(device, queue, render_state.target_format);
         return Some(SolidRenderer {
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
+            aabb_renderer: Arc::new(RwLock::new(aabb_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),
         });
     }
@@ -140,6 +164,7 @@ impl SolidRenderer {
             rect,
             PerFrameCallback {
                 mesh_renderer: self.mesh_renderer.clone(),
+                aabb_renderer: self.aabb_renderer.clone(),
                 lines_renderer: self.lines_renderer.clone(),
                 node: node.clone(),
                 world_to_camera: glam::Mat4::from(w2c),
