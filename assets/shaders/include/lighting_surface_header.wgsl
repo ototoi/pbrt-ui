@@ -135,4 +135,8 @@ var<uniform> global_uniforms: GlobalUniforms;
 @group(1) @binding(0)
 var<uniform> local_uniforms: LocalUniforms;
 
+#ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+#include "lighting_shadow_header.wgsl"
+#endif
+
 #endif

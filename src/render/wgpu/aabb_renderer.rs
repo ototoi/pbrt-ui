@@ -122,7 +122,8 @@ impl AabbRenderer {
         self.local_matrices.reserve(num_items);
 
         let local_uniform_alignment = self.local_uniform_alignment;
-        if self.local_uniform_buffer.size() < (num_items as wgpu::BufferAddress * local_uniform_alignment)
+        if self.local_uniform_buffer.size()
+            < (num_items as wgpu::BufferAddress * local_uniform_alignment)
         {
             let new_buffer = create_local_uniform_buffer(device, num_items);
             let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -142,7 +143,8 @@ impl AabbRenderer {
         }
 
         for (i, mesh_item) in mesh_items.iter().enumerate() {
-            let local = create_aabb_local_transform(mesh_item.mesh.aabb.min, mesh_item.mesh.aabb.max);
+            let local =
+                create_aabb_local_transform(mesh_item.mesh.aabb.min, mesh_item.mesh.aabb.max);
             let local_to_world = mesh_item.matrix * local;
             self.local_matrices.push(local_to_world);
 
@@ -150,7 +152,11 @@ impl AabbRenderer {
                 local_to_world: local_to_world.to_cols_array_2d(),
             };
             let offset = i as wgpu::BufferAddress * local_uniform_alignment;
-            queue.write_buffer(&self.local_uniform_buffer, offset, bytemuck::bytes_of(&uniform));
+            queue.write_buffer(
+                &self.local_uniform_buffer,
+                offset,
+                bytemuck::bytes_of(&uniform),
+            );
         }
 
         let global_uniforms = GlobalUniforms {
@@ -173,13 +179,18 @@ impl AabbRenderer {
         render_pass.set_bind_group(0, &self.global_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         for i in 0..self.local_matrices.len() {
-            let local_uniform_offset = i as wgpu::DynamicOffset * local_uniform_alignment as wgpu::DynamicOffset;
+            let local_uniform_offset =
+                i as wgpu::DynamicOffset * local_uniform_alignment as wgpu::DynamicOffset;
             render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
             render_pass.draw(0..self.vertex_count, 0..1);
         }
     }
 
-    pub fn new(device: &wgpu::Device, _queue: &wgpu::Queue, target_format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        target_format: wgpu::TextureFormat,
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("AABB Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/render_aabb.wgsl").into()),
@@ -287,7 +298,8 @@ impl AabbRenderer {
 
         let local_uniform_size = size_of::<LocalUniforms>() as wgpu::BufferAddress;
         let local_uniform_alignment = {
-            let alignment = device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+            let alignment =
+                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
             align_to(local_uniform_size, alignment)
         };
 

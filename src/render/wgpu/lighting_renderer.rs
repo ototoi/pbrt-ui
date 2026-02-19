@@ -245,7 +245,8 @@ impl LightingRenderer {
     ) {
         let c2c = *c2c;
         let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * c2c; // Convert to WGPU clip space
-        let render_camera = RenderCamera::from_matrices(glam::Mat4::from(w2c), glam::Mat4::from(c2c));
+        let render_camera =
+            RenderCamera::from_matrices(glam::Mat4::from(w2c), glam::Mat4::from(c2c));
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             PerFrameCallback {

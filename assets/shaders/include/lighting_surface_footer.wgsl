@@ -45,6 +45,10 @@ var ltc_texture_array: texture_2d_array<f32>;// LTC lookup texture
 @binding(1)
 var ltc_sampler: sampler;
 
+#ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+#include "lighting_shadow_functions.wgsl"
+#endif
+
 //-------------------------------------------------------
 const MAX_FLOAT: f32 = 1e+10;
 const PI: f32 = 3.14159265359;
@@ -542,7 +546,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var color = vec3<f32>(0.0);
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
-        let intensity = light.intensity.rgb;
+        var intensity = light.intensity.rgb;
         let radius = max(light.radius, 1e-4);
 
         let direction = normalize(light.direction.xyz);
@@ -575,6 +579,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 #endif
         let wi = tbn * -direction;// object to light vector
         let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
+
+#ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+        let shadow_factor = sample_directional_shadow_factor(light.shadow_index, in.w_position);
+        intensity *= shadow_factor;
+#endif
 
         var k = 1.0;//1.0 / (2.0 * PI * PI);
         color += k * intensity * shade(shade_input);

@@ -172,7 +172,7 @@ struct MaterialBindGroupEntry {
 enum PipelinePassType {
     Shading,
     ZPrepass,
-    ShadowDirectional,
+    Shadow,
 }
 
 #[derive(Debug, Clone)]
@@ -315,6 +315,7 @@ impl LightingMeshRenderer {
             )
         };
 
+        let mut shadow_pipelies = Vec::new();
         let mut z_prepass_pipelines = Vec::new();
         let mut shading_pipelines = Vec::new();
         for pipeline_entry in self.pipelines.values() {
@@ -325,7 +326,7 @@ impl LightingMeshRenderer {
             match pipeline_entry.pass_type {
                 PipelinePassType::ZPrepass => z_prepass_pipelines.push(pipeline_entry.clone()),
                 PipelinePassType::Shading => shading_pipelines.push(pipeline_entry.clone()),
-                PipelinePassType::ShadowDirectional => {}
+                PipelinePassType::Shadow => shadow_pipelies.push(pipeline_entry.clone()),
             }
         }
         //TODO: sort pipelines to minimize pipeline switching
@@ -395,12 +396,7 @@ impl LightingMeshRenderer {
         }
     }
 
-    fn prepare_global(
-        &self,
-        _device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        camera: &RenderCamera,
-    ) {
+    fn prepare_global(&self, _device: &wgpu::Device, queue: &wgpu::Queue, camera: &RenderCamera) {
         let global_uniforms = GlobalUniforms {
             world_to_camera: camera.world_to_camera.to_cols_array_2d(),
             camera_to_clip: camera.camera_to_clip.to_cols_array_2d(),
@@ -1059,7 +1055,10 @@ impl LightingMeshRenderer {
 
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Directional Shadow Pipeline Layout"),
-                bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
+                bind_group_layouts: &[
+                    &self.global_bind_group_layout,
+                    &self.local_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -1109,7 +1108,7 @@ impl LightingMeshRenderer {
                 });
 
             let entry = PipelineEntry {
-                pass_type: PipelinePassType::ShadowDirectional,
+                pass_type: PipelinePassType::Shadow,
                 pipeline,
                 material_bind_group_layout,
                 material_bind_groups: Vec::new(),
@@ -1118,10 +1117,8 @@ impl LightingMeshRenderer {
                 sort_order: 0,
                 enable_lighting: false,
             };
-            self.pipelines.insert(
-                DIRECTIONAL_SHADOW_PIPELINE_ID,
-                Arc::new(RwLock::new(entry)),
-            );
+            self.pipelines
+                .insert(DIRECTIONAL_SHADOW_PIPELINE_ID, Arc::new(RwLock::new(entry)));
         }
 
         if let Some(entry) = self.pipelines.get_mut(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
@@ -1316,7 +1313,9 @@ impl LightingMeshRenderer {
     fn create_z_prepass_pipeline(&self, device: &wgpu::Device) -> PipelineEntry {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Lighting Z Prepass Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/lighting_z_prepass.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("shaders/lighting_z_prepass.wgsl").into(),
+            ),
         });
 
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
@@ -1348,7 +1347,10 @@ impl LightingMeshRenderer {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Lighting Z Prepass Pipeline Layout"),
-            bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
+            bind_group_layouts: &[
+                &self.global_bind_group_layout,
+                &self.local_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 

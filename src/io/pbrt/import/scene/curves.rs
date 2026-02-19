@@ -1,5 +1,5 @@
-use crate::model::base::ParamSet;
 use crate::model::base::Matrix4x4;
+use crate::model::base::ParamSet;
 use crate::model::base::Property;
 use crate::model::base::PropertyMap;
 use crate::model::scene::Material;
@@ -7,7 +7,9 @@ use crate::model::scene::Material;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-const APPENDABLE_KEYS: [&str; 9] = ["P", "N", "width", "width0", "width1", "normal", "u", "v", "uv"];
+const APPENDABLE_KEYS: [&str; 9] = [
+    "P", "N", "width", "width0", "width1", "normal", "u", "v", "uv",
+];
 
 #[derive(Default)]
 pub struct CurvesState {

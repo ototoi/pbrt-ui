@@ -115,7 +115,8 @@ impl RenderResourceManager {
     }
 
     pub fn add_directional_light_shadow(&mut self, shadow: &Arc<RenderDirectionalLightShadow>) {
-        self.directional_light_shadows.insert(shadow.id, shadow.clone());
+        self.directional_light_shadows
+            .insert(shadow.id, shadow.clone());
     }
 
     pub fn get_directional_light_shadow(

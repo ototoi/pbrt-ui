@@ -115,7 +115,10 @@ pub fn create_directional_light_shadows(
             directional_light.direction[1],
             directional_light.direction[2],
         );
-        light_dir = light_item.matrix.transform_vector3(light_dir).normalize_or_zero();
+        light_dir = light_item
+            .matrix
+            .transform_vector3(light_dir)
+            .normalize_or_zero();
         if light_dir.length_squared() < 1e-8 {
             continue;
         }
@@ -178,7 +181,8 @@ pub fn create_directional_light_shadows(
                         | wgpu::TextureUsages::RENDER_ATTACHMENT,
                     view_formats: &[wgpu::TextureFormat::Depth32Float],
                 });
-                let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let shadow_view =
+                    shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::ClampToEdge,
                     address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -213,7 +217,8 @@ pub fn create_directional_light_shadows(
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[wgpu::TextureFormat::Depth32Float],
             });
             let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());

@@ -367,7 +367,7 @@ impl SceneTarget {
             self.finalize_curve_batch();
         }
         match shape_type.as_str() {
-            "plymesh" => { 
+            "plymesh" => {
                 let title = ShapeComponent::get_name_from_type(name);
                 if let Some(filename) = params.find_one_string("filename")
                     && let Some(fullpath) = self.find_file_path(filename.as_str())
