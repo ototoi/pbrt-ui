@@ -1,4 +1,5 @@
 use super::camera::RenderCamera;
+use super::light::DirectionalShadowProjection;
 use super::light::RenderLight;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
@@ -200,6 +201,7 @@ pub fn create_directional_light_shadows(
     let split_near = camera_near;
     let split_far = camera_far;
     let full_scene_corners = get_aabb_corners(world_min, world_max);
+    let scene_diagonal = (world_max - world_min).length().max(1.0);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
     let camera_pos = render_camera.position;
 
@@ -234,6 +236,7 @@ pub fn create_directional_light_shadows(
         }
 
         let camera_up = render_camera.up.normalize_or_zero();
+        let camera_forward = render_camera.forward.normalize_or_zero();
         let up = if camera_up.length_squared() > 1e-8 && light_dir.abs().dot(camera_up) < 0.99 {
             camera_up
         } else if light_dir.abs().dot(glam::vec3(0.0, 1.0, 0.0)) < 0.99 {
@@ -241,6 +244,18 @@ pub fn create_directional_light_shadows(
         } else {
             glam::vec3(1.0, 0.0, 0.0)
         };
+        // LSPSM-only depth direction: perpendicular to light and aligned to camera depth.
+        let mut lspsm_depth_dir =
+            (camera_forward - light_dir * camera_forward.dot(light_dir)).normalize_or_zero();
+        if lspsm_depth_dir.length_squared() < 1e-8 {
+            lspsm_depth_dir = (camera_up - light_dir * camera_up.dot(light_dir)).normalize_or_zero();
+        }
+        if lspsm_depth_dir.length_squared() < 1e-8 {
+            lspsm_depth_dir = light_dir.cross(up).normalize_or_zero();
+        }
+        if lspsm_depth_dir.length_squared() < 1e-8 {
+            lspsm_depth_dir = -light_dir;
+        }
         let mut cascades = Vec::with_capacity(cascade_count);
         let mut cascade_near = split_near;
         for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
@@ -256,6 +271,19 @@ pub fn create_directional_light_shadows(
                 glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
             for p in corners {
                 expand_bounds(&mut world_min_c, &mut world_max_c, p);
+            }
+            if directional_light.shadow_projection == DirectionalShadowProjection::Lspsm {
+                // For LSPSM mode, extend frustum along a direction orthogonal to light_dir.
+                // The direction is chosen from camera-depth axis projected onto the
+                // plane perpendicular to light_dir.
+                let extrude = scene_diagonal;
+                for p in corners {
+                    expand_bounds(
+                        &mut world_min_c,
+                        &mut world_max_c,
+                        p + lspsm_depth_dir * extrude,
+                    );
+                }
             }
             let world_center = 0.5 * (world_min_c + world_max_c);
             let world_extent = world_max_c - world_min_c;

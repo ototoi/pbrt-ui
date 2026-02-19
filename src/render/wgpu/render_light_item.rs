@@ -1,4 +1,5 @@
 use super::light::DirectionalRenderLight;
+use super::light::DirectionalShadowProjection;
 use super::light::DiskRenderLight;
 use super::light::InfiniteRenderLight;
 use super::light::RectRenderLight;
@@ -126,6 +127,15 @@ fn get_directional_light_item(
         let source_angle = source_angle.max(0.2); // Prevent too small angles
         let source_angle = source_angle.to_radians();
         let cascade_count = props.find_one_int("cascadecount").unwrap_or(4).clamp(1, 4) as u32;
+        let shadow_projection = props
+            .find_one_string("shadowprojection")
+            .unwrap_or_else(|| "csm".to_string())
+            .to_lowercase();
+        let shadow_projection = if shadow_projection == "lspsm" {
+            DirectionalShadowProjection::Lspsm
+        } else {
+            DirectionalShadowProjection::Csm
+        };
         let shadow_bias = props.find_one_float("shadowbias").unwrap_or(0.001).max(0.0);
         let shadow_slope_bias = props
             .find_one_float("shadowslopebias")
@@ -149,6 +159,7 @@ fn get_directional_light_item(
             shadow_bias,
             shadow_slope_bias,
             cascade_count,
+            shadow_projection,
             ..Default::default()
         };
         let render_light = Arc::new(RenderLight::Directional(render_light));
