@@ -10,16 +10,25 @@ use uuid::Uuid;
 
 const SHADOW_MAP_SIZE: u32 = 2048;
 const SHADOW_BOUNDS_MARGIN: f32 = 0.1;
+pub const DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT: usize = 4;
+// Higher value biases cascade resolution toward near camera range.
+const CASCADE_SPLIT_LAMBDA: f32 = 0.8;
+
+#[derive(Debug, Clone)]
+pub struct RenderDirectionalLightShadowCascade {
+    pub light_view: glam::Mat4,
+    pub light_proj: glam::Mat4,
+    pub light_view_proj: glam::Mat4,
+    pub split_end: f32,
+    pub texture: Arc<RenderTexture>,
+}
 
 #[derive(Debug, Clone)]
 pub struct RenderDirectionalLightShadow {
     pub id: Uuid,
     pub edition: String,
-    pub light_view: glam::Mat4,
-    pub light_proj: glam::Mat4,
-    pub light_view_proj: glam::Mat4,
     pub shadow_bias: f32,
-    pub textures: Vec<Arc<RenderTexture>>,
+    pub cascades: Vec<RenderDirectionalLightShadowCascade>,
 }
 
 fn get_aabb_corners(min: glam::Vec3, max: glam::Vec3) -> [glam::Vec3; 8] {
@@ -38,6 +47,79 @@ fn get_aabb_corners(min: glam::Vec3, max: glam::Vec3) -> [glam::Vec3; 8] {
 fn expand_bounds(min: &mut glam::Vec3, max: &mut glam::Vec3, p: glam::Vec3) {
     *min = min.min(p);
     *max = max.max(p);
+}
+
+fn get_camera_near_far(render_camera: &RenderCamera) -> Option<(f32, f32)> {
+    let clip_to_camera = render_camera.camera_to_clip.inverse();
+    let p_near = clip_to_camera * glam::vec4(0.0, 0.0, 0.0, 1.0);
+    let p_far = clip_to_camera * glam::vec4(0.0, 0.0, 1.0, 1.0);
+    if p_near.w.abs() < 1e-8 || p_far.w.abs() < 1e-8 {
+        return None;
+    }
+    let p_near = p_near / p_near.w;
+    let p_far = p_far / p_far.w;
+    let near = -p_near.z;
+    let far = -p_far.z;
+    if near <= 1e-5 || far <= near {
+        return None;
+    }
+    Some((near, far))
+}
+
+fn build_cascade_splits(near: f32, far: f32, cascade_count: usize) -> Vec<f32> {
+    let mut splits = vec![far; cascade_count];
+    for i in 1..=cascade_count {
+        let t = i as f32 / cascade_count as f32;
+        let log = near * (far / near).powf(t);
+        let uni = near + (far - near) * t;
+        splits[i - 1] = uni * (1.0 - CASCADE_SPLIT_LAMBDA) + log * CASCADE_SPLIT_LAMBDA;
+    }
+    splits
+}
+
+fn get_full_frustum_corners_world(render_camera: &RenderCamera) -> [glam::Vec3; 8] {
+    let clip_to_world = render_camera.camera_to_world * render_camera.camera_to_clip.inverse();
+    let clip_corners = [
+        glam::vec4(-1.0, -1.0, 0.0, 1.0),
+        glam::vec4(1.0, -1.0, 0.0, 1.0),
+        glam::vec4(-1.0, 1.0, 0.0, 1.0),
+        glam::vec4(1.0, 1.0, 0.0, 1.0),
+        glam::vec4(-1.0, -1.0, 1.0, 1.0),
+        glam::vec4(1.0, -1.0, 1.0, 1.0),
+        glam::vec4(-1.0, 1.0, 1.0, 1.0),
+        glam::vec4(1.0, 1.0, 1.0, 1.0),
+    ];
+    let mut out = [glam::Vec3::ZERO; 8];
+    for (i, c) in clip_corners.iter().enumerate() {
+        let w = clip_to_world * *c;
+        if w.w.abs() < 1e-8 {
+            out[i] = w.truncate();
+        } else {
+            out[i] = w.truncate() / w.w;
+        }
+    }
+    out
+}
+
+fn get_frustum_slice_corners_world(
+    full_corners: &[glam::Vec3; 8],
+    camera_pos: glam::Vec3,
+    camera_near: f32,
+    near_depth: f32,
+    far_depth: f32,
+) -> [glam::Vec3; 8] {
+    let near_ratio = (near_depth / camera_near).max(0.0);
+    let far_ratio = (far_depth / camera_near).max(near_ratio);
+    let mut out = [glam::Vec3::ZERO; 8];
+    for i in 0..4 {
+        let n = full_corners[i];
+        out[i] = camera_pos + (n - camera_pos) * near_ratio;
+    }
+    for i in 0..4 {
+        let n = full_corners[i];
+        out[4 + i] = camera_pos + (n - camera_pos) * far_ratio;
+    }
+    out
 }
 
 pub fn create_directional_light_shadows(
@@ -97,10 +179,20 @@ pub fn create_directional_light_shadows(
         return shadows;
     }
 
-    let world_center = 0.5 * (world_min + world_max);
-    let world_extent = world_max - world_min;
-    let world_radius = world_extent.length() * 0.5;
-    let light_distance = world_radius.max(1.0) * 2.0;
+    let (camera_near, camera_far) = if let Some(v) = get_camera_near_far(render_camera) {
+        v
+    } else {
+        let world_center = 0.5 * (world_min + world_max);
+        let world_extent = world_max - world_min;
+        let world_radius = world_extent.length() * 0.5;
+        let near = 0.1_f32.max(world_radius * 0.01);
+        let far = (world_radius * 4.0).max(near + 1.0);
+        let _ = world_center;
+        (near, far)
+    };
+    let full_scene_corners = get_aabb_corners(world_min, world_max);
+    let full_frustum_corners = get_full_frustum_corners_world(render_camera);
+    let camera_pos = render_camera.position;
 
     for item in light_items {
         let (light_item, directional_light) = match item.as_ref() {
@@ -113,6 +205,11 @@ pub fn create_directional_light_shadows(
         if !directional_light.cast_shadow {
             continue;
         }
+        let cascade_count = directional_light
+            .cascade_count
+            .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32)
+            as usize;
+        let cascade_splits = build_cascade_splits(camera_near, camera_far, cascade_count);
 
         let mut light_dir = glam::vec3(
             directional_light.direction[0],
@@ -135,40 +232,120 @@ pub fn create_directional_light_shadows(
         } else {
             glam::vec3(1.0, 0.0, 0.0)
         };
-        let eye = world_center - light_dir * light_distance;
-        let light_view = glam::Mat4::look_at_rh(eye, world_center, up);
+        let mut cascades = Vec::with_capacity(cascade_count);
+        let mut cascade_near = camera_near;
+        for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
+            let corners = get_frustum_slice_corners_world(
+                &full_frustum_corners,
+                camera_pos,
+                camera_near,
+                cascade_near,
+                cascade_far,
+            );
+            let mut world_min_c = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+            let mut world_max_c =
+                glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+            for p in corners {
+                expand_bounds(&mut world_min_c, &mut world_max_c, p);
+            }
+            let world_center = 0.5 * (world_min_c + world_max_c);
+            let world_extent = world_max_c - world_min_c;
+            let world_radius = world_extent.length() * 0.5;
+            let light_distance = world_radius.max(1.0) * 2.0;
+            let eye = world_center - light_dir * light_distance;
+            let light_view = glam::Mat4::look_at_rh(eye, world_center, up);
 
-        let corners = get_aabb_corners(world_min, world_max);
-        let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
-        let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
-        for corner in corners {
-            let p = light_view.transform_point3(corner);
-            expand_bounds(&mut light_min, &mut light_max, p);
-        }
+            let corners = get_aabb_corners(world_min_c, world_max_c);
+            let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+            let mut light_max =
+                glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+            for corner in corners {
+                let p = light_view.transform_point3(corner);
+                expand_bounds(&mut light_min, &mut light_max, p);
+            }
+            // Extend depth range by full-scene casters so grazing-angle shadows don't vanish.
+            for corner in full_scene_corners {
+                let p = light_view.transform_point3(corner);
+                light_min.z = light_min.z.min(p.z);
+                light_max.z = light_max.z.max(p.z);
+            }
 
-        let margin = SHADOW_BOUNDS_MARGIN;
-        let span = light_max - light_min;
-        let mx = span.x.abs().max(1e-3) * margin;
-        let my = span.y.abs().max(1e-3) * margin;
-        let mz = span.z.abs().max(1e-3) * margin;
+            let margin = SHADOW_BOUNDS_MARGIN;
+            let span = light_max - light_min;
+            let mx = span.x.abs().max(1e-3) * margin;
+            let my = span.y.abs().max(1e-3) * margin;
+            let mz = span.z.abs().max(1e-3) * margin;
 
-        let left = light_min.x - mx;
-        let right = light_max.x + mx;
-        let bottom = light_min.y - my;
-        let top = light_max.y + my;
+            // Snap projection center to shadow texel grid to reduce shimmering and
+            // improve effective resolution usage per cascade.
+            let width = (light_max.x - light_min.x).abs() + 2.0 * mx;
+            let height = (light_max.y - light_min.y).abs() + 2.0 * my;
+            let mut center_x = 0.5 * (light_min.x + light_max.x);
+            let mut center_y = 0.5 * (light_min.y + light_max.y);
+            let units_per_texel_x = (width / SHADOW_MAP_SIZE as f32).max(1e-6);
+            let units_per_texel_y = (height / SHADOW_MAP_SIZE as f32).max(1e-6);
+            center_x = (center_x / units_per_texel_x).floor() * units_per_texel_x;
+            center_y = (center_y / units_per_texel_y).floor() * units_per_texel_y;
 
-        let near = (-light_max.z - mz).max(0.01);
-        let far = (-light_min.z + mz).max(near + 0.01);
-        let light_proj = glam::Mat4::orthographic_rh(left, right, bottom, top, near, far);
-        let light_view_proj = light_proj * light_view;
+            let left = center_x - 0.5 * width;
+            let right = center_x + 0.5 * width;
+            let bottom = center_y - 0.5 * height;
+            let top = center_y + 0.5 * height;
 
-        let tex_id = Uuid::new_v3(
-            &Uuid::NAMESPACE_OID,
-            format!("directional-shadow:{}", directional_light.id).as_bytes(),
-        );
-        let render_texture = if let Some(tex) = render_resource_manager.get_texture(tex_id) {
-            if tex.edition == directional_light.edition {
-                tex.clone()
+            let near = (-light_max.z - mz).max(0.01);
+            let far = (-light_min.z + mz).max(near + 0.01);
+            let light_proj = glam::Mat4::orthographic_rh(left, right, bottom, top, near, far);
+            let light_view_proj = light_proj * light_view;
+
+            let tex_id = Uuid::new_v3(
+                &Uuid::NAMESPACE_OID,
+                format!("directional-shadow:{}:cascade:{}", directional_light.id, cascade_index)
+                    .as_bytes(),
+            );
+            let render_texture = if let Some(tex) = render_resource_manager.get_texture(tex_id) {
+                if tex.edition == directional_light.edition {
+                    tex.clone()
+                } else {
+                    let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Directional Shadow Map"),
+                        size: wgpu::Extent3d {
+                            width: SHADOW_MAP_SIZE,
+                            height: SHADOW_MAP_SIZE,
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING
+                            | wgpu::TextureUsages::RENDER_ATTACHMENT
+                            | wgpu::TextureUsages::COPY_SRC,
+                        view_formats: &[wgpu::TextureFormat::Depth32Float],
+                    });
+                    let shadow_view =
+                        shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+                    let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                        address_mode_u: wgpu::AddressMode::ClampToEdge,
+                        address_mode_v: wgpu::AddressMode::ClampToEdge,
+                        address_mode_w: wgpu::AddressMode::ClampToEdge,
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::FilterMode::Nearest,
+                        compare: Some(wgpu::CompareFunction::LessEqual),
+                        ..Default::default()
+                    });
+                    let tex = Arc::new(RenderTexture {
+                        id: tex_id,
+                        edition: directional_light.edition.clone(),
+                        texture: shadow_texture,
+                        view: shadow_view,
+                        sampler: shadow_sampler,
+                        scale: [1.0, 1.0],
+                        delta: [0.0, 0.0],
+                    });
+                    render_resource_manager.add_texture(&tex);
+                    tex
+                }
             } else {
                 let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("Directional Shadow Map"),
@@ -186,8 +363,7 @@ pub fn create_directional_light_shadows(
                         | wgpu::TextureUsages::COPY_SRC,
                     view_formats: &[wgpu::TextureFormat::Depth32Float],
                 });
-                let shadow_view =
-                    shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+                let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
                 let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::ClampToEdge,
                     address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -209,55 +385,21 @@ pub fn create_directional_light_shadows(
                 });
                 render_resource_manager.add_texture(&tex);
                 tex
-            }
-        } else {
-            let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("Directional Shadow Map"),
-                size: wgpu::Extent3d {
-                    width: SHADOW_MAP_SIZE,
-                    height: SHADOW_MAP_SIZE,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::COPY_SRC,
-                view_formats: &[wgpu::TextureFormat::Depth32Float],
+            };
+            cascades.push(RenderDirectionalLightShadowCascade {
+                light_view,
+                light_proj,
+                light_view_proj,
+                split_end: cascade_far,
+                texture: render_texture,
             });
-            let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
-            let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Nearest,
-                compare: Some(wgpu::CompareFunction::LessEqual),
-                ..Default::default()
-            });
-            let tex = Arc::new(RenderTexture {
-                id: tex_id,
-                edition: directional_light.edition.clone(),
-                texture: shadow_texture,
-                view: shadow_view,
-                sampler: shadow_sampler,
-                scale: [1.0, 1.0],
-                delta: [0.0, 0.0],
-            });
-            render_resource_manager.add_texture(&tex);
-            tex
-        };
+            cascade_near = cascade_far;
+        }
         let shadow = Arc::new(RenderDirectionalLightShadow {
             id: directional_light.id,
             edition: directional_light.edition.clone(),
-            light_view,
-            light_proj,
-            light_view_proj,
             shadow_bias: directional_light.shadow_bias,
-            textures: vec![render_texture],
+            cascades,
         });
         render_resource_manager.add_directional_light_shadow(&shadow);
         shadows.push(shadow);

@@ -6,6 +6,7 @@ use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
 use super::shadow::create_directional_light_shadows;
+use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
 use super::shadow::RenderDirectionalLightShadow;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
@@ -25,7 +26,8 @@ use bytemuck::{Pod, Zeroable};
 
 const MIN_LOCAL_BUFFER_NUM: usize = 64;
 const MAX_DIRECTIONAL_LIGHT_NUM: usize = 4; // Maximum number of directional lights
-const MAX_DIRECTIONAL_SHADOW_NUM: usize = MAX_DIRECTIONAL_LIGHT_NUM;
+const MAX_DIRECTIONAL_SHADOW_NUM: usize =
+    MAX_DIRECTIONAL_LIGHT_NUM * DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
 const MAX_SPHERE_LIGHT_NUM: usize = 256; // Maximum number of point lights
 const MAX_DISK_LIGHT_NUM: usize = 32; // Maximum number of spot lights
 const MAX_RECT_LIGHT_NUM: usize = 32; // Maximum number of rectangle lights
@@ -74,7 +76,8 @@ struct DirectionalLight {
     intensity: [f32; 4], // Intensity of the light // 4 * 4 = 16
     radius: f32,         // Radius of the light // 1 * 4 = 4
     shadow_index: i32,   // Index for the shadow map -1 if no shadow // 1 * 4 = 4
-    _pad1: [f32; 2],     // Padding // 2 * 4 = 8
+    cascade_count: u32,  // CSM cascade count (1..4)
+    _pad1: u32,          // Padding
 }
 
 #[repr(C)]
@@ -131,8 +134,10 @@ struct InfiniteLight {
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct DirectionalShadowInfo {
     light_view_proj: [[f32; 4]; 4], // 4 * 4 * 4 = 64
-    bias: f32,                      // 1 * 4 = 4
-    _pad0: [f32; 3],               // 3 * 4 = 12
+    split_end: f32,                // 1 * 4 = 4
+    bias: f32,                     // 1 * 4 = 4
+    map_layer: i32,                // 1 * 4 = 4
+    _pad0: i32,                    // 1 * 4 = 4
 }
 
 #[derive(Debug, Clone)]
@@ -347,35 +352,38 @@ impl LightingMeshRenderer {
             return;
         }
 
-        for (layer, shadow) in self.directional_light_shadows.iter().enumerate() {
-            let shadow_camera = RenderCamera::from_matrices(shadow.light_view, shadow.light_proj);
-            let global_uniforms = GlobalUniforms {
-                world_to_camera: shadow_camera.world_to_camera.to_cols_array_2d(),
-                camera_to_clip: shadow_camera.camera_to_clip.to_cols_array_2d(),
-                camera_to_world: shadow_camera.camera_to_world.to_cols_array_2d(),
-                camera_position: [
-                    shadow_camera.position.x,
-                    shadow_camera.position.y,
-                    shadow_camera.position.z,
-                    1.0,
-                ],
-            };
-            let shadow_global_uniform_buffer =
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Shadow Global Uniform Buffer"),
-                    contents: bytemuck::bytes_of(&global_uniforms),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        let mut layer: u32 = 0;
+        for shadow in self.directional_light_shadows.iter() {
+            for cascade in shadow.cascades.iter() {
+                let shadow_camera =
+                    RenderCamera::from_matrices(cascade.light_view, cascade.light_proj);
+                let global_uniforms = GlobalUniforms {
+                    world_to_camera: shadow_camera.world_to_camera.to_cols_array_2d(),
+                    camera_to_clip: shadow_camera.camera_to_clip.to_cols_array_2d(),
+                    camera_to_world: shadow_camera.camera_to_world.to_cols_array_2d(),
+                    camera_position: [
+                        shadow_camera.position.x,
+                        shadow_camera.position.y,
+                        shadow_camera.position.z,
+                        1.0,
+                    ],
+                };
+                let shadow_global_uniform_buffer =
+                    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Shadow Global Uniform Buffer"),
+                        contents: bytemuck::bytes_of(&global_uniforms),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    });
+                let shadow_global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Shadow Global Bind Group"),
+                    layout: &self.global_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: shadow_global_uniform_buffer.as_entire_binding(),
+                    }],
                 });
-            let shadow_global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Shadow Global Bind Group"),
-                layout: &self.global_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: shadow_global_uniform_buffer.as_entire_binding(),
-                }],
-            });
 
-            if let Some(shadow_texture) = shadow.textures.first() {
+                let shadow_texture = &cascade.texture;
                 {
                     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Directional Shadow Render Pass"),
@@ -440,6 +448,7 @@ impl LightingMeshRenderer {
                         depth_or_array_layers: 1,
                     },
                 );
+                layer += 1;
             }
         }
     }
@@ -988,7 +997,11 @@ impl LightingMeshRenderer {
             &shadow_mesh_indices,
         );
         {
-            let layer_count = directional_light_shadows.len().max(1) as u32;
+            let total_cascade_count = directional_light_shadows
+                .iter()
+                .map(|s| s.cascades.len())
+                .sum::<usize>();
+            let layer_count = total_cascade_count.max(1) as u32;
             self.ensure_directional_shadow_map_array(
                 device,
                 layer_count,
@@ -997,16 +1010,21 @@ impl LightingMeshRenderer {
             );
 
             let mut infos = vec![DirectionalShadowInfo::default(); MAX_DIRECTIONAL_SHADOW_NUM];
-            for (i, shadow) in directional_light_shadows
-                .iter()
-                .take(MAX_DIRECTIONAL_SHADOW_NUM)
-                .enumerate()
-            {
-                infos[i] = DirectionalShadowInfo {
-                    light_view_proj: shadow.light_view_proj.to_cols_array_2d(),
-                    bias: shadow.shadow_bias,
-                    _pad0: [0.0; 3],
-                };
+            let mut info_index = 0usize;
+            for shadow in directional_light_shadows.iter() {
+                for cascade in shadow.cascades.iter() {
+                    if info_index >= MAX_DIRECTIONAL_SHADOW_NUM {
+                        break;
+                    }
+                    infos[info_index] = DirectionalShadowInfo {
+                        light_view_proj: cascade.light_view_proj.to_cols_array_2d(),
+                        split_end: cascade.split_end,
+                        bias: shadow.shadow_bias,
+                        map_layer: info_index as i32,
+                        _pad0: 0,
+                    };
+                    info_index += 1;
+                }
             }
             queue.write_buffer(
                 &self.directional_shadow_info_buffer,
@@ -1022,8 +1040,10 @@ impl LightingMeshRenderer {
         }
         self.directional_light_shadows = directional_light_shadows.clone();
         let mut directional_shadow_index_map = HashMap::new();
-        for (i, shadow) in directional_light_shadows.iter().enumerate() {
-            directional_shadow_index_map.insert(shadow.id, i as i32);
+        let mut base_shadow_index = 0i32;
+        for shadow in directional_light_shadows.iter() {
+            directional_shadow_index_map.insert(shadow.id, base_shadow_index);
+            base_shadow_index += shadow.cascades.len() as i32;
         }
 
         // Point lights
@@ -1232,13 +1252,19 @@ impl LightingMeshRenderer {
                     } else {
                         -1
                     };
+                    let cascade_count = if light.cast_shadow {
+                        light.cascade_count.clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32)
+                    } else {
+                        0
+                    };
 
                     let light = DirectionalLight {
                         direction: [direction[0], direction[1], direction[2], 0.0],
                         intensity: [intensity[0], intensity[1], intensity[2], 1.0],
                         radius,
                         shadow_index,
-                        _pad1: [0.0; 2],
+                        cascade_count,
+                        _pad1: 0,
                     };
                     light_buffer.push(light);
                 }
