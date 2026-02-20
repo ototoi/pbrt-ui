@@ -35,6 +35,8 @@ const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
 const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0xb7814152_c24b_4af1_89a8_40a5fa168488);
+const DIRECTIONAL_SHADOW_PIPELINE_ID: Uuid =
+    Uuid::from_u128(0x77dd5bcc_89c5_4eff_8adf_9b5f8667d9f1);
 const Z_PREPASS_PIPELINE_ID: Uuid = Uuid::from_u128(0x9979b259_39f8_4ce5_8ea5_d8078618620f);
 
 #[repr(C)]
@@ -138,16 +140,6 @@ struct DirectionalShadowInfo {
 }
 
 #[derive(Debug, Clone)]
-struct DirectionalShadowMapArray {
-    texture: wgpu::Texture,
-    view: wgpu::TextureView,
-    sampler: wgpu::Sampler,
-    layer_count: u32,
-    width: u32,
-    height: u32,
-}
-
-#[derive(Debug, Clone)]
 struct TmpPipelineEntry {
     pub shader: Arc<RenderShader>,
     pub mesh_indices: Vec<usize>,
@@ -210,12 +202,14 @@ enum PipelineEntry {
     DirectionalShadow {
         pipeline: wgpu::RenderPipeline,
         mesh_indices: Vec<usize>,
+        directional_shadow_info_buffer: wgpu::Buffer,
+        shadow_map_array: RenderTexture,
     },
 }
 
 struct PreparedShadowPass {
     directional_light_shadows: Vec<Arc<RenderDirectionalLightShadow>>,
-    shadow_pipelines: Vec<Arc<PipelineEntry>>,
+    shadow_pipelines: Vec<Arc<RwLock<PipelineEntry>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -247,9 +241,6 @@ pub struct LightingMeshRenderer {
     #[allow(dead_code)]
     directional_shadow_bind_group_layout: wgpu::BindGroupLayout,
     directional_shadow_bind_group: wgpu::BindGroup,
-    directional_shadow_info_buffer: wgpu::Buffer,
-    directional_shadow_map_array: DirectionalShadowMapArray,
-    directional_shadow_pipeline: Option<PipelineEntry>,
 
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
@@ -803,6 +794,7 @@ impl LightingMeshRenderer {
     fn create_directional_shadow_bind_group(
         &self,
         device: &wgpu::Device,
+        directional_shadow_info_buffer: &wgpu::Buffer,
         directional_shadow_map_view: &wgpu::TextureView,
         directional_shadow_sampler: &wgpu::Sampler,
     ) -> wgpu::BindGroup {
@@ -812,7 +804,7 @@ impl LightingMeshRenderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: self.directional_shadow_info_buffer.as_entire_binding(),
+                    resource: directional_shadow_info_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -826,18 +818,12 @@ impl LightingMeshRenderer {
         })
     }
 
-    fn ensure_directional_shadow_map_array(
-        &mut self,
+    fn create_directional_shadow_map_array(
         device: &wgpu::Device,
         layer_count: u32,
         width: u32,
         height: u32,
-    ) {
-        let array = &self.directional_shadow_map_array;
-        if array.layer_count == layer_count && array.width == width && array.height == height {
-            return;
-        }
-
+    ) -> RenderTexture {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Directional Shadow Map Array"),
             size: wgpu::Extent3d {
@@ -873,14 +859,151 @@ impl LightingMeshRenderer {
             compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
-        self.directional_shadow_map_array = DirectionalShadowMapArray {
+        RenderTexture {
+            id: Uuid::new_v4(),
+            edition: Uuid::new_v4().to_string(),
             texture,
             view,
             sampler,
-            layer_count,
-            width,
-            height,
+            scale: [1.0, 1.0],
+            delta: [0.0, 0.0],
+        }
+    }
+
+    fn create_directional_shadow_info_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+        let directional_shadow_info_buffer_size = (MAX_DIRECTIONAL_SHADOW_NUM
+            * std::mem::size_of::<DirectionalShadowInfo>()) as wgpu::BufferAddress;
+        device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Buffer for Directional Shadow Infos"),
+            size: directional_shadow_info_buffer_size,
+            mapped_at_creation: false,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+        })
+    }
+
+    fn compute_directional_shadow_map_extent(
+        pipeline: &PipelineEntry,
+        directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
+    ) -> (u32, u32, u32) {
+        let current_size = if let PipelineEntry::DirectionalShadow {
+            shadow_map_array, ..
+        } = pipeline
+        {
+            let size = shadow_map_array.texture.size();
+            (size.width, size.height)
+        } else {
+            (1, 1)
         };
+        let total_cascade_count = directional_light_shadows
+            .iter()
+            .map(|s| s.cascades.len())
+            .sum::<usize>();
+        let layer_count = total_cascade_count.max(1) as u32;
+        let (width, height) = directional_light_shadows
+            .iter()
+            .find_map(|s| s.cascades.first())
+            .map(|c| (c.texture.texture.width(), c.texture.texture.height()))
+            .unwrap_or(current_size);
+        (layer_count, width, height)
+    }
+
+    fn get_directional_shadow_pipeline_entry(&self) -> Option<Arc<RwLock<PipelineEntry>>> {
+        self.pipelines.get(&DIRECTIONAL_SHADOW_PIPELINE_ID).cloned()
+    }
+
+    fn ensure_directional_shadow_map_array(
+        device: &wgpu::Device,
+        pipeline: &mut PipelineEntry,
+        layer_count: u32,
+        width: u32,
+        height: u32,
+    ) -> Option<RenderTexture> {
+        if let PipelineEntry::DirectionalShadow {
+            shadow_map_array, ..
+        } = pipeline
+        {
+            let size = shadow_map_array.texture.size();
+            if size.depth_or_array_layers != layer_count
+                || size.width != width
+                || size.height != height
+            {
+                *shadow_map_array =
+                    Self::create_directional_shadow_map_array(device, layer_count, width, height);
+            }
+            return Some(shadow_map_array.clone());
+        }
+        None
+    }
+
+    fn update_directional_shadow_pipeline_entry(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
+        shadow_mesh_indices: &[usize],
+        shadow_pipelines: &mut Vec<Arc<RwLock<PipelineEntry>>>,
+    ) {
+        if !directional_light_shadows.is_empty() && !shadow_mesh_indices.is_empty() {
+            let _ = self.build_directional_shadow_pipeline_entry(device, shadow_mesh_indices);
+        }
+
+        let mut infos = vec![DirectionalShadowInfo::default(); MAX_DIRECTIONAL_SHADOW_NUM];
+        let mut info_index = 0usize;
+        for shadow in directional_light_shadows.iter() {
+            for cascade in shadow.cascades.iter() {
+                if info_index >= MAX_DIRECTIONAL_SHADOW_NUM {
+                    break;
+                }
+                infos[info_index] = DirectionalShadowInfo {
+                    light_view_proj: cascade.light_view_proj.to_cols_array_2d(),
+                    split_end: cascade.split_end,
+                    bias: shadow.shadow_bias,
+                    slope_bias: shadow.shadow_slope_bias,
+                    map_layer: info_index as i32,
+                };
+                info_index += 1;
+            }
+        }
+        if let Some(pipeline_arc) = self.get_directional_shadow_pipeline_entry() {
+            {
+                let mut pipeline = pipeline_arc.write().unwrap();
+                let (layer_count, shadow_map_width, shadow_map_height) =
+                    Self::compute_directional_shadow_map_extent(
+                        &pipeline,
+                        directional_light_shadows,
+                    );
+                let _ = Self::ensure_directional_shadow_map_array(
+                    device,
+                    &mut pipeline,
+                    layer_count,
+                    shadow_map_width,
+                    shadow_map_height,
+                );
+
+                if let PipelineEntry::DirectionalShadow {
+                    directional_shadow_info_buffer,
+                    shadow_map_array,
+                    ..
+                } = &*pipeline
+                {
+                    queue.write_buffer(
+                        directional_shadow_info_buffer,
+                        0,
+                        bytemuck::cast_slice(&infos),
+                    );
+                    self.directional_shadow_bind_group = self.create_directional_shadow_bind_group(
+                        device,
+                        directional_shadow_info_buffer,
+                        &shadow_map_array.view,
+                        &shadow_map_array.sampler,
+                    );
+                }
+            }
+
+            if !directional_light_shadows.is_empty() && !shadow_mesh_indices.is_empty() {
+                shadow_pipelines.push(pipeline_arc);
+            }
+        }
     }
 
     fn prepare_lights(
@@ -921,63 +1044,13 @@ impl LightingMeshRenderer {
             light_items,
             render_resource_manager,
         );
-        if !directional_light_shadows.is_empty()
-            && !shadow_mesh_indices.is_empty()
-            && let Some(pipeline) =
-                self.build_directional_shadow_pipeline_entry(device, &shadow_mesh_indices)
-        {
-            shadow_pipelines.push(Arc::new(pipeline));
-        }
-        {
-            let total_cascade_count = directional_light_shadows
-                .iter()
-                .map(|s| s.cascades.len())
-                .sum::<usize>();
-            let layer_count = total_cascade_count.max(1) as u32;
-            let (shadow_map_width, shadow_map_height) = directional_light_shadows
-                .iter()
-                .find_map(|s| s.cascades.first())
-                .map(|c| (c.texture.texture.width(), c.texture.texture.height()))
-                .unwrap_or((
-                    self.directional_shadow_map_array.width.max(1),
-                    self.directional_shadow_map_array.height.max(1),
-                ));
-            self.ensure_directional_shadow_map_array(
-                device,
-                layer_count,
-                shadow_map_width,
-                shadow_map_height,
-            );
-
-            let mut infos = vec![DirectionalShadowInfo::default(); MAX_DIRECTIONAL_SHADOW_NUM];
-            let mut info_index = 0usize;
-            for shadow in directional_light_shadows.iter() {
-                for cascade in shadow.cascades.iter() {
-                    if info_index >= MAX_DIRECTIONAL_SHADOW_NUM {
-                        break;
-                    }
-                    infos[info_index] = DirectionalShadowInfo {
-                        light_view_proj: cascade.light_view_proj.to_cols_array_2d(),
-                        split_end: cascade.split_end,
-                        bias: shadow.shadow_bias,
-                        slope_bias: shadow.shadow_slope_bias,
-                        map_layer: info_index as i32,
-                    };
-                    info_index += 1;
-                }
-            }
-            queue.write_buffer(
-                &self.directional_shadow_info_buffer,
-                0,
-                bytemuck::cast_slice(&infos),
-            );
-
-            self.directional_shadow_bind_group = self.create_directional_shadow_bind_group(
-                device,
-                &self.directional_shadow_map_array.view,
-                &self.directional_shadow_map_array.sampler,
-            );
-        }
+        self.update_directional_shadow_pipeline_entry(
+            device,
+            queue,
+            &directional_light_shadows,
+            &shadow_mesh_indices,
+            &mut shadow_pipelines,
+        );
         let mut directional_shadow_index_map = HashMap::new();
         let mut base_shadow_index = 0i32;
         for shadow in directional_light_shadows.iter() {
@@ -1296,6 +1369,20 @@ impl LightingMeshRenderer {
 
         let directional_light_shadows = &shadow_pass.directional_light_shadows;
         let shadow_pipelines = &shadow_pass.shadow_pipelines;
+        let shadow_map_array = shadow_pipelines.iter().find_map(|entry| {
+            let entry = entry.read().unwrap();
+            if let PipelineEntry::DirectionalShadow {
+                shadow_map_array, ..
+            } = &*entry
+            {
+                Some(shadow_map_array.clone())
+            } else {
+                None
+            }
+        });
+        let Some(shadow_map_array) = shadow_map_array else {
+            return;
+        };
 
         let mut layer: u32 = 0;
         for shadow in directional_light_shadows {
@@ -1347,10 +1434,12 @@ impl LightingMeshRenderer {
                     });
 
                     for pipeline_entry in shadow_pipelines {
+                        let pipeline_entry = pipeline_entry.read().unwrap();
                         if let PipelineEntry::DirectionalShadow {
                             pipeline,
                             mesh_indices,
-                        } = pipeline_entry.as_ref()
+                            ..
+                        } = &*pipeline_entry
                         {
                             render_pass.set_pipeline(pipeline);
                             render_pass.set_bind_group(0, &shadow_global_bind_group, &[]);
@@ -1373,8 +1462,11 @@ impl LightingMeshRenderer {
                                         mesh_item.mesh.index_buffer.slice(..),
                                         wgpu::IndexFormat::Uint32,
                                     );
-                                    render_pass
-                                        .draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+                                    render_pass.draw_indexed(
+                                        0..mesh_item.mesh.index_count,
+                                        0,
+                                        0..1,
+                                    );
                                 }
                             }
                         }
@@ -1389,7 +1481,7 @@ impl LightingMeshRenderer {
                         aspect: wgpu::TextureAspect::DepthOnly,
                     },
                     wgpu::TexelCopyTextureInfo {
-                        texture: &self.directional_shadow_map_array.texture,
+                        texture: &shadow_map_array.texture,
                         mip_level: 0,
                         origin: wgpu::Origin3d {
                             x: 0,
@@ -1402,11 +1494,11 @@ impl LightingMeshRenderer {
                         width: shadow_texture
                             .texture
                             .width()
-                            .min(self.directional_shadow_map_array.texture.width()),
+                            .min(shadow_map_array.texture.width()),
                         height: shadow_texture
                             .texture
                             .height()
-                            .min(self.directional_shadow_map_array.texture.height()),
+                            .min(shadow_map_array.texture.height()),
                         depth_or_array_layers: 1,
                     },
                 );
@@ -1419,11 +1511,11 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         shadow_mesh_indices: &[usize],
-    ) -> Option<PipelineEntry> {
+    ) -> Option<Arc<RwLock<PipelineEntry>>> {
         if shadow_mesh_indices.is_empty() {
             return None;
         }
-        if self.directional_shadow_pipeline.is_none() {
+        if self.get_directional_shadow_pipeline_entry().is_none() {
             let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Directional Shadow Pipeline Shader"),
                 source: wgpu::ShaderSource::Wgsl(
@@ -1503,16 +1595,27 @@ impl LightingMeshRenderer {
                     entries: &[],
                 });
             let _ = material_bind_group_layout;
-            self.directional_shadow_pipeline = Some(PipelineEntry::DirectionalShadow {
-                pipeline,
-                mesh_indices: Vec::new(),
-            });
+            self.pipelines.insert(
+                DIRECTIONAL_SHADOW_PIPELINE_ID,
+                Arc::new(RwLock::new(PipelineEntry::DirectionalShadow {
+                    pipeline,
+                    mesh_indices: Vec::new(),
+                    directional_shadow_info_buffer: Self::create_directional_shadow_info_buffer(
+                        device,
+                    ),
+                    shadow_map_array: Self::create_directional_shadow_map_array(device, 1, 1, 1),
+                })),
+            );
         }
-        let mut entry = self.directional_shadow_pipeline.clone()?;
-        if let PipelineEntry::DirectionalShadow { mesh_indices, .. } = &mut entry {
-            *mesh_indices = shadow_mesh_indices.to_vec();
+        let entry = self.get_directional_shadow_pipeline_entry()?;
+        {
+            let mut entry_mut = entry.write().unwrap();
+            if let PipelineEntry::DirectionalShadow { mesh_indices, .. } = &mut *entry_mut {
+                *mesh_indices = shadow_mesh_indices.to_vec();
+            }
+            //
         }
-        Some(entry)
+        Some(entry.clone())
     }
 
     fn create_pipeline(
@@ -2062,57 +2165,11 @@ impl LightingMeshRenderer {
             mapped_at_creation: false,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
         });
-        let directional_shadow_info_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Buffer for Directional Shadow Infos"),
-            size: directional_shadow_info_buffer_size,
-            mapped_at_creation: false,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
-        });
+        let directional_shadow_info_buffer =
+            Self::create_directional_shadow_info_buffer(device);
 
-        let directional_shadow_array_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Directional Shadow Map Array"),
-            size: wgpu::Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[wgpu::TextureFormat::Depth32Float],
-        });
-        let directional_shadow_array_view =
-            directional_shadow_array_texture.create_view(&wgpu::TextureViewDescriptor {
-                label: Some("Directional Shadow Map Array View"),
-                format: Some(wgpu::TextureFormat::Depth32Float),
-                dimension: Some(wgpu::TextureViewDimension::D2Array),
-                usage: Some(wgpu::TextureUsages::TEXTURE_BINDING),
-                aspect: wgpu::TextureAspect::All,
-                base_mip_level: 0,
-                mip_level_count: Some(1),
-                base_array_layer: 0,
-                array_layer_count: Some(1),
-            });
-        let directional_shadow_array_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            ..Default::default()
-        });
-        let directional_shadow_map_array = DirectionalShadowMapArray {
-            texture: directional_shadow_array_texture,
-            view: directional_shadow_array_view,
-            sampler: directional_shadow_array_sampler,
-            layer_count: 1,
-            width: 1,
-            height: 1,
-        };
+        let directional_shadow_map_array =
+            Self::create_directional_shadow_map_array(device, 1, 1, 1);
 
         let directional_shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Lighting Directional Shadow Bind Group"),
@@ -2230,9 +2287,6 @@ impl LightingMeshRenderer {
             ltc_bind_group_layout,
             directional_shadow_bind_group_layout,
             directional_shadow_bind_group,
-            directional_shadow_info_buffer,
-            directional_shadow_map_array,
-            directional_shadow_pipeline: None,
             mesh_items,
             textures,
             pipelines: materials,
