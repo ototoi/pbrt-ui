@@ -127,6 +127,100 @@ fn get_frustum_slice_corners_world(
     out
 }
 
+fn get_camera_tan_half_fov(render_camera: &RenderCamera) -> Option<(f32, f32)> {
+    let m00 = render_camera.camera_to_clip.x_axis.x;
+    let m11 = render_camera.camera_to_clip.y_axis.y;
+    if m00.abs() < 1e-8 || m11.abs() < 1e-8 {
+        return None;
+    }
+    Some((1.0 / m00.abs(), 1.0 / m11.abs()))
+}
+
+fn build_virtual_frustum_points_lspsm(
+    receiver_points: &[glam::Vec3; 8],
+    render_camera: &RenderCamera,
+    light_dir: glam::Vec3,
+    tan_half_fov_x: f32,
+) -> Option<[glam::Vec3; 8]> {
+    let camera_forward = render_camera.forward.normalize_or_zero();
+    let camera_up = render_camera.up.normalize_or_zero();
+    let mut forward = (camera_forward - light_dir * camera_forward.dot(light_dir)).normalize_or_zero();
+    if forward.length_squared() < 1e-8 {
+        forward = (camera_up - light_dir * camera_up.dot(light_dir)).normalize_or_zero();
+    }
+    if forward.length_squared() < 1e-8 {
+        return None;
+    }
+    let mut up = light_dir.cross(forward).normalize_or_zero();
+    if up.length_squared() < 1e-8 {
+        up = render_camera.right.cross(forward).normalize_or_zero();
+    }
+    if up.length_squared() < 1e-8 {
+        return None;
+    }
+    let right = forward.cross(up).normalize_or_zero();
+    if right.length_squared() < 1e-8 {
+        return None;
+    }
+
+    let mut center = glam::Vec3::ZERO;
+    for p in receiver_points {
+        center += *p;
+    }
+    center /= receiver_points.len() as f32;
+
+    let eps = 1e-3_f32;
+    let mut d_required = eps;
+    let mut min_z = f32::INFINITY;
+    let mut max_z = f32::NEG_INFINITY;
+    for p in receiver_points {
+        let rel = *p - center;
+        let x = rel.dot(right);
+        let z = rel.dot(forward);
+        min_z = min_z.min(z);
+        max_z = max_z.max(z);
+        d_required = d_required.max(x.abs() / tan_half_fov_x - z);
+        d_required = d_required.max(eps - z);
+    }
+    if !d_required.is_finite() || !min_z.is_finite() || !max_z.is_finite() {
+        return None;
+    }
+
+    let near = (min_z + d_required).max(eps);
+    let far = (max_z + d_required).max(near + eps);
+    let origin = center - forward * d_required;
+
+    // Vertical FOV is not constrained to camera FOV.
+    // Derive the minimum needed to include all receivers.
+    let mut tan_half_fov_y = 1e-3_f32;
+    for p in receiver_points {
+        let rel = *p - center;
+        let y = rel.dot(up);
+        let z = rel.dot(forward);
+        let denom = (z + d_required).max(eps);
+        tan_half_fov_y = tan_half_fov_y.max(y.abs() / denom);
+    }
+
+    let near_c = origin + forward * near;
+    let far_c = origin + forward * far;
+    let near_h = near * tan_half_fov_y;
+    let near_w = near * tan_half_fov_x;
+    let far_h = far * tan_half_fov_y;
+    let far_w = far * tan_half_fov_x;
+
+    let out = [
+        near_c - right * near_w - up * near_h,
+        near_c + right * near_w - up * near_h,
+        near_c - right * near_w + up * near_h,
+        near_c + right * near_w + up * near_h,
+        far_c - right * far_w - up * far_h,
+        far_c + right * far_w - up * far_h,
+        far_c - right * far_w + up * far_h,
+        far_c + right * far_w + up * far_h,
+    ];
+    Some(out)
+}
+
 pub fn create_directional_light_shadows(
     device: &wgpu::Device,
     _queue: &wgpu::Queue,
@@ -201,9 +295,10 @@ pub fn create_directional_light_shadows(
     let split_near = camera_near;
     let split_far = camera_far;
     let full_scene_corners = get_aabb_corners(world_min, world_max);
-    let scene_diagonal = (world_max - world_min).length().max(1.0);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
     let camera_pos = render_camera.position;
+    let (camera_tan_half_fov_x, _camera_tan_half_fov_y) =
+        get_camera_tan_half_fov(render_camera).unwrap_or((1.0, 1.0));
 
     for item in light_items {
         let (light_item, directional_light) = match item.as_ref() {
@@ -236,7 +331,6 @@ pub fn create_directional_light_shadows(
         }
 
         let camera_up = render_camera.up.normalize_or_zero();
-        let camera_forward = render_camera.forward.normalize_or_zero();
         let up = if camera_up.length_squared() > 1e-8 && light_dir.abs().dot(camera_up) < 0.99 {
             camera_up
         } else if light_dir.abs().dot(glam::vec3(0.0, 1.0, 0.0)) < 0.99 {
@@ -244,18 +338,6 @@ pub fn create_directional_light_shadows(
         } else {
             glam::vec3(1.0, 0.0, 0.0)
         };
-        // LSPSM-only depth direction: perpendicular to light and aligned to camera depth.
-        let mut lspsm_depth_dir =
-            (camera_forward - light_dir * camera_forward.dot(light_dir)).normalize_or_zero();
-        if lspsm_depth_dir.length_squared() < 1e-8 {
-            lspsm_depth_dir = (camera_up - light_dir * camera_up.dot(light_dir)).normalize_or_zero();
-        }
-        if lspsm_depth_dir.length_squared() < 1e-8 {
-            lspsm_depth_dir = light_dir.cross(up).normalize_or_zero();
-        }
-        if lspsm_depth_dir.length_squared() < 1e-8 {
-            lspsm_depth_dir = -light_dir;
-        }
         let mut cascades = Vec::with_capacity(cascade_count);
         let mut cascade_near = split_near;
         for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
@@ -266,26 +348,25 @@ pub fn create_directional_light_shadows(
                 cascade_near,
                 cascade_far,
             );
-            let mut virtual_frustum_points = corners.to_vec();
+            let virtual_points = if directional_light.shadow_projection
+                == DirectionalShadowProjection::Lspsm
+            {
+                build_virtual_frustum_points_lspsm(
+                    &corners,
+                    render_camera,
+                    light_dir,
+                    camera_tan_half_fov_x,
+                )
+                .unwrap_or(corners)
+            } else {
+                corners
+            };
+            let virtual_frustum_points = virtual_points.to_vec();
             let mut world_min_c = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
             let mut world_max_c =
                 glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
-            for p in corners {
+            for p in virtual_points {
                 expand_bounds(&mut world_min_c, &mut world_max_c, p);
-            }
-            if directional_light.shadow_projection == DirectionalShadowProjection::Lspsm {
-                // For LSPSM mode, extend frustum along a direction orthogonal to light_dir.
-                // The direction is chosen from camera-depth axis projected onto the
-                // plane perpendicular to light_dir.
-                let extrude = scene_diagonal;
-                for p in corners {
-                    virtual_frustum_points.push(p + lspsm_depth_dir * extrude);
-                    expand_bounds(
-                        &mut world_min_c,
-                        &mut world_max_c,
-                        p + lspsm_depth_dir * extrude,
-                    );
-                }
             }
             let world_center = 0.5 * (world_min_c + world_max_c);
             let world_extent = world_max_c - world_min_c;
