@@ -209,7 +209,7 @@ enum PipelineEntry {
 
 struct PreparedShadowPass {
     directional_light_shadows: Vec<Arc<RenderDirectionalLightShadow>>,
-    shadow_pipelines: Vec<Arc<RwLock<PipelineEntry>>>,
+    shadow_pipeline: Arc<RwLock<PipelineEntry>>,
 }
 
 #[derive(Debug, Clone)]
@@ -872,7 +872,8 @@ impl LightingMeshRenderer {
 
     fn create_directional_shadow_info_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         let directional_shadow_info_buffer_size = (MAX_DIRECTIONAL_SHADOW_NUM
-            * std::mem::size_of::<DirectionalShadowInfo>()) as wgpu::BufferAddress;
+            * std::mem::size_of::<DirectionalShadowInfo>())
+            as wgpu::BufferAddress;
         device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Buffer for Directional Shadow Infos"),
             size: directional_shadow_info_buffer_size,
@@ -941,8 +942,7 @@ impl LightingMeshRenderer {
         queue: &wgpu::Queue,
         directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
         shadow_mesh_indices: &[usize],
-        shadow_pipelines: &mut Vec<Arc<RwLock<PipelineEntry>>>,
-    ) {
+    ) -> Option<Arc<RwLock<PipelineEntry>>> {
         if !directional_light_shadows.is_empty() && !shadow_mesh_indices.is_empty() {
             let _ = self.build_directional_shadow_pipeline_entry(device, shadow_mesh_indices);
         }
@@ -999,11 +999,9 @@ impl LightingMeshRenderer {
                     );
                 }
             }
-
-            if !directional_light_shadows.is_empty() && !shadow_mesh_indices.is_empty() {
-                shadow_pipelines.push(pipeline_arc);
-            }
+            return Some(pipeline_arc.clone());
         }
+        return None;
     }
 
     fn prepare_lights(
@@ -1015,7 +1013,6 @@ impl LightingMeshRenderer {
         mesh_items: &[Arc<RenderItem>],
         light_items: &[Arc<RenderItem>],
     ) -> Vec<PreparedShadowPass> {
-        let mut shadow_pipelines = Vec::new();
         let mut light_uniforms = LightUniforms::default();
         let mut light_textures = Vec::new();
         let shadow_mesh_indices = mesh_items
@@ -1035,7 +1032,7 @@ impl LightingMeshRenderer {
                 })
             })
             .collect::<Vec<_>>();
-
+        let mut shadow_passes = Vec::new();
         let directional_light_shadows = create_directional_light_shadows(
             device,
             queue,
@@ -1044,12 +1041,11 @@ impl LightingMeshRenderer {
             light_items,
             render_resource_manager,
         );
-        self.update_directional_shadow_pipeline_entry(
+        let shadow_pipeline = self.update_directional_shadow_pipeline_entry(
             device,
             queue,
             &directional_light_shadows,
             &shadow_mesh_indices,
-            &mut shadow_pipelines,
         );
         let mut directional_shadow_index_map = HashMap::new();
         let mut base_shadow_index = 0i32;
@@ -1057,7 +1053,12 @@ impl LightingMeshRenderer {
             directional_shadow_index_map.insert(shadow.id, base_shadow_index);
             base_shadow_index += shadow.cascades.len() as i32;
         }
-
+        if let Some(shadow_pipeline_ref) = &shadow_pipeline {
+            shadow_passes.push(PreparedShadowPass {
+                shadow_pipeline: shadow_pipeline_ref.clone(),
+                directional_light_shadows,
+            });
+        }
         // Point lights
         {
             let mut light_buffer = Vec::new();
@@ -1322,14 +1323,8 @@ impl LightingMeshRenderer {
             0,
             bytemuck::bytes_of(&light_uniforms),
         );
-        let mut shadow_passes = Vec::new();
-        if !directional_light_shadows.is_empty() {
-            shadow_passes.push(PreparedShadowPass {
-                directional_light_shadows,
-                shadow_pipelines,
-            });
-        }
-        shadow_passes
+
+        return shadow_passes;
     }
 
     fn render_shadow_maps(
@@ -1353,9 +1348,7 @@ impl LightingMeshRenderer {
         _main_camera: &RenderCamera,
         shadow_pass: &PreparedShadowPass,
     ) {
-        if shadow_pass.directional_light_shadows.is_empty()
-            || shadow_pass.shadow_pipelines.is_empty()
-        {
+        if shadow_pass.directional_light_shadows.is_empty() {
             return;
         }
 
@@ -1368,21 +1361,7 @@ impl LightingMeshRenderer {
         };
 
         let directional_light_shadows = &shadow_pass.directional_light_shadows;
-        let shadow_pipelines = &shadow_pass.shadow_pipelines;
-        let shadow_map_array = shadow_pipelines.iter().find_map(|entry| {
-            let entry = entry.read().unwrap();
-            if let PipelineEntry::DirectionalShadow {
-                shadow_map_array, ..
-            } = &*entry
-            {
-                Some(shadow_map_array.clone())
-            } else {
-                None
-            }
-        });
-        let Some(shadow_map_array) = shadow_map_array else {
-            return;
-        };
+        let shadow_pipeline = &shadow_pass.shadow_pipeline;
 
         let mut layer: u32 = 0;
         for shadow in directional_light_shadows {
@@ -1433,8 +1412,8 @@ impl LightingMeshRenderer {
                         occlusion_query_set: None,
                     });
 
-                    for pipeline_entry in shadow_pipelines {
-                        let pipeline_entry = pipeline_entry.read().unwrap();
+                    {
+                        let pipeline_entry = shadow_pipeline.read().unwrap();
                         if let PipelineEntry::DirectionalShadow {
                             pipeline,
                             mesh_indices,
@@ -1473,35 +1452,44 @@ impl LightingMeshRenderer {
                     }
                 }
 
-                encoder.copy_texture_to_texture(
-                    wgpu::TexelCopyTextureInfo {
-                        texture: &shadow_texture.texture,
-                        mip_level: 0,
-                        origin: wgpu::Origin3d::ZERO,
-                        aspect: wgpu::TextureAspect::DepthOnly,
-                    },
-                    wgpu::TexelCopyTextureInfo {
-                        texture: &shadow_map_array.texture,
-                        mip_level: 0,
-                        origin: wgpu::Origin3d {
-                            x: 0,
-                            y: 0,
-                            z: layer as u32,
-                        },
-                        aspect: wgpu::TextureAspect::DepthOnly,
-                    },
-                    wgpu::Extent3d {
-                        width: shadow_texture
-                            .texture
-                            .width()
-                            .min(shadow_map_array.texture.width()),
-                        height: shadow_texture
-                            .texture
-                            .height()
-                            .min(shadow_map_array.texture.height()),
-                        depth_or_array_layers: 1,
-                    },
-                );
+                {
+                    let pipeline_entry = shadow_pipeline.read().unwrap();
+                    if let PipelineEntry::DirectionalShadow {
+                        shadow_map_array,
+                        ..
+                    } = &*pipeline_entry
+                    {
+                        encoder.copy_texture_to_texture(
+                            wgpu::TexelCopyTextureInfo {
+                                texture: &shadow_texture.texture,
+                                mip_level: 0,
+                                origin: wgpu::Origin3d::ZERO,
+                                aspect: wgpu::TextureAspect::DepthOnly,
+                            },
+                            wgpu::TexelCopyTextureInfo {
+                                texture: &shadow_map_array.texture,
+                                mip_level: 0,
+                                origin: wgpu::Origin3d {
+                                    x: 0,
+                                    y: 0,
+                                    z: layer as u32,
+                                },
+                                aspect: wgpu::TextureAspect::DepthOnly,
+                            },
+                            wgpu::Extent3d {
+                                width: shadow_texture
+                                    .texture
+                                    .width()
+                                    .min(shadow_map_array.texture.width()),
+                                height: shadow_texture
+                                    .texture
+                                    .height()
+                                    .min(shadow_map_array.texture.height()),
+                                depth_or_array_layers: 1,
+                            },
+                        );
+                    }
+                }
                 layer += 1;
             }
         }
@@ -2165,8 +2153,7 @@ impl LightingMeshRenderer {
             mapped_at_creation: false,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
         });
-        let directional_shadow_info_buffer =
-            Self::create_directional_shadow_info_buffer(device);
+        let directional_shadow_info_buffer = Self::create_directional_shadow_info_buffer(device);
 
         let directional_shadow_map_array =
             Self::create_directional_shadow_map_array(device, 1, 1, 1);
