@@ -292,6 +292,7 @@ impl LightingMeshRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
         render_resource_manager: &mut RenderResourceManager,
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
@@ -310,6 +311,8 @@ impl LightingMeshRenderer {
                 &light_items,
             ); //group(3)
         }
+        // Render shadow maps immediately after light preparation.
+        self.render_directional_shadow_maps(device, queue, encoder, camera);
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
@@ -318,7 +321,7 @@ impl LightingMeshRenderer {
         }
     }
 
-    pub fn render_directional_shadow_maps(
+    fn render_directional_shadow_maps(
         &self,
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
