@@ -184,28 +184,36 @@ struct MaterialBindGroupEntry {
 }
 
 #[derive(Debug, Clone)]
+struct ShadingPipelineEntry {
+    pub pipeline: wgpu::RenderPipeline,
+    pub material_bind_group_layout: wgpu::BindGroupLayout,
+    pub material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
+    pub mesh_indices: Vec<usize>,
+    pub material_indices: Vec<usize>,
+    pub sort_order: u32,
+    pub enable_lighting: bool,
+}
+
+#[derive(Debug, Clone)]
+struct ZPrepassPipelineEntry {
+    pub pipeline: wgpu::RenderPipeline,
+    pub mesh_indices: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+struct DirectionalShadowPipelineEntry {
+    pub pipeline: wgpu::RenderPipeline,
+    pub mesh_indices: Vec<usize>,
+    pub directional_light_shadows: Vec<Arc<RenderDirectionalLightShadow>>,
+    pub directional_shadow_info_buffer: wgpu::Buffer,
+    pub shadow_map_array: RenderTexture,
+}
+
+#[derive(Debug, Clone)]
 enum PipelineEntry {
-    Shading {
-        pipeline: wgpu::RenderPipeline,
-        material_bind_group_layout: wgpu::BindGroupLayout,
-        material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
-        mesh_indices: Vec<usize>,
-        material_indices: Vec<usize>,
-        sort_order: u32,
-        enable_lighting: bool,
-    },
-    ZPrepass {
-        pipeline: wgpu::RenderPipeline,
-        mesh_indices: Vec<usize>,
-        material_indices: Vec<usize>,
-    },
-    DirectionalShadow {
-        pipeline: wgpu::RenderPipeline,
-        mesh_indices: Vec<usize>,
-        directional_light_shadows: Vec<Arc<RenderDirectionalLightShadow>>,
-        directional_shadow_info_buffer: wgpu::Buffer,
-        shadow_map_array: RenderTexture,
-    },
+    Shading(ShadingPipelineEntry),
+    ZPrepass(ZPrepassPipelineEntry),
+    DirectionalShadow(DirectionalShadowPipelineEntry),
 }
 
 #[derive(Debug, Clone)]
@@ -294,6 +302,7 @@ impl LightingMeshRenderer {
         {
             let (mesh_items, light_items) = Self::split_items(render_items);
             self.prepare_locals(device, queue, &mesh_items); //group(1)
+            self.prepare_z_prepass(device, &mesh_items); //group(2)
             self.prepare_materials(device, queue, &mesh_items); //group(2)
             {
                 let shadow_passes = self.prepare_lights(
@@ -349,15 +358,11 @@ impl LightingMeshRenderer {
         for pipeline_entry in self.pipelines.values() {
             let pipeline_entry = pipeline_entry.read().unwrap();
             match &*pipeline_entry {
-                PipelineEntry::ZPrepass { mesh_indices, .. } if !mesh_indices.is_empty() => {
+                PipelineEntry::ZPrepass(p) if !p.mesh_indices.is_empty() => {
                     z_prepass_pipelines.push(pipeline_entry.clone())
                 }
-                PipelineEntry::Shading {
-                    mesh_indices,
-                    sort_order,
-                    ..
-                } if !mesh_indices.is_empty() => {
-                    shading_pipelines.push((*sort_order, pipeline_entry.clone()))
+                PipelineEntry::Shading(p) if !p.mesh_indices.is_empty() => {
+                    shading_pipelines.push((p.sort_order, pipeline_entry.clone()))
                 }
                 _ => {}
             }
@@ -368,15 +373,10 @@ impl LightingMeshRenderer {
 
         // Depth-only prepass for opaque-like geometry.
         for pipeline_entry in z_prepass_pipelines.iter() {
-            if let PipelineEntry::ZPrepass {
-                pipeline,
-                mesh_indices,
-                ..
-            } = pipeline_entry
-            {
-                render_pass.set_pipeline(pipeline);
+            if let PipelineEntry::ZPrepass(p) = pipeline_entry {
+                render_pass.set_pipeline(&p.pipeline);
                 render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                for item_index in mesh_indices.iter().copied() {
+                for item_index in p.mesh_indices.iter().copied() {
                     if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
                         let local_uniform_offset = item_index as wgpu::DynamicOffset
                             * local_uniform_alignment as wgpu::DynamicOffset;
@@ -397,27 +397,19 @@ impl LightingMeshRenderer {
         }
 
         for (_, pipeline_entry) in shading_pipelines.iter() {
-            if let PipelineEntry::Shading {
-                pipeline,
-                material_bind_groups,
-                mesh_indices,
-                material_indices,
-                enable_lighting,
-                ..
-            } = pipeline_entry
-            {
-                debug_assert!(!mesh_indices.is_empty());
-                render_pass.set_pipeline(pipeline);
+            if let PipelineEntry::Shading(p) = pipeline_entry {
+                debug_assert!(!p.mesh_indices.is_empty());
+                render_pass.set_pipeline(&p.pipeline);
                 render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                if *enable_lighting {
+                if p.enable_lighting {
                     render_pass.set_bind_group(3, &self.light_bind_group, &[]);
                     render_pass.set_bind_group(5, &self.directional_shadow_bind_group, &[]);
                 }
-                debug_assert!(mesh_indices.len() == material_indices.len());
-                let length = mesh_indices.len();
+                debug_assert!(p.mesh_indices.len() == p.material_indices.len());
+                let length = p.mesh_indices.len();
                 for i in 0..length {
-                    let item_index = mesh_indices[i];
-                    let material_index = material_indices[i];
+                    let item_index = p.mesh_indices[i];
+                    let material_index = p.material_indices[i];
                     if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
                         let local_uniform_offset = item_index as wgpu::DynamicOffset
                             * local_uniform_alignment as wgpu::DynamicOffset;
@@ -428,11 +420,11 @@ impl LightingMeshRenderer {
                         );
                         render_pass.set_bind_group(
                             2,
-                            &material_bind_groups[material_index].material_bind_group,
+                            &p.material_bind_groups[material_index].material_bind_group,
                             &[],
                         );
                         if let Some(ltc_bind_group) =
-                            &material_bind_groups[material_index].ltc_bind_group
+                            &p.material_bind_groups[material_index].ltc_bind_group
                         {
                             render_pass.set_bind_group(4, ltc_bind_group, &[]);
                         }
@@ -602,32 +594,18 @@ impl LightingMeshRenderer {
             for entry in self.pipelines.values_mut() {
                 let mut entry = entry.write().unwrap();
                 match &mut *entry {
-                    PipelineEntry::Shading {
-                        mesh_indices,
-                        material_indices,
-                        material_bind_groups,
-                        ..
-                    } => {
-                        mesh_indices.clear();
-                        material_indices.clear();
-                        for bind_group in material_bind_groups.iter() {
+                    PipelineEntry::Shading(p) => {
+                        p.mesh_indices.clear();
+                        p.material_indices.clear();
+                        for bind_group in p.material_bind_groups.iter() {
                             prev_bind_groups.insert(bind_group.id, bind_group.clone());
                         }
-                        material_bind_groups.clear();
+                        p.material_bind_groups.clear();
                     }
-                    PipelineEntry::ZPrepass {
-                        mesh_indices,
-                        material_indices,
-                        ..
-                    } => {
-                        mesh_indices.clear();
-                        material_indices.clear();
-                    }
-                    PipelineEntry::DirectionalShadow { .. } => {}
+                    _ => {}
                 }
             }
             let mut tmp_pipelines: HashMap<Uuid, TmpPipelineEntry> = HashMap::new();
-            let mut z_prepass_mesh_indices: HashSet<usize> = HashSet::new();
             for (mesh_index, item) in mesh_items.iter().enumerate() {
                 if let Some(material) = item.get_material() {
                     for pass in material.passes.iter() {
@@ -647,9 +625,6 @@ impl LightingMeshRenderer {
                             entry
                                 .material_indices_map
                                 .insert(pass_id, (new_material_index, pass.clone()));
-                        }
-                        if get_shader_uses_z_prepass(pass.render_category) {
-                            z_prepass_mesh_indices.insert(mesh_index);
                         }
                     }
                 }
@@ -676,17 +651,10 @@ impl LightingMeshRenderer {
                     .get_mut(shader_id)
                     .expect("Pipeline for basic material not found");
                 let mut entry = entry.write().unwrap();
-                if let PipelineEntry::Shading {
-                    material_bind_group_layout,
-                    material_bind_groups,
-                    mesh_indices: entry_mesh_indices,
-                    material_indices: entry_material_indices,
-                    ..
-                } = &mut *entry
-                {
-                    *entry_mesh_indices = mesh_indices.clone();
-                    *entry_material_indices = material_indices.clone();
-                    assert!(entry_mesh_indices.len() == entry_material_indices.len());
+                if let PipelineEntry::Shading(p) = &mut *entry {
+                    p.mesh_indices = mesh_indices.clone();
+                    p.material_indices = material_indices.clone();
+                    assert!(p.mesh_indices.len() == p.material_indices.len());
                     let mut passes = Vec::with_capacity(num_materials);
                     for (_, (index, pass)) in tmp_entry.material_indices_map.iter() {
                         passes.push((index, pass));
@@ -695,46 +663,62 @@ impl LightingMeshRenderer {
                     for (_, pass) in passes.iter() {
                         let id = pass.id;
                         if let Some(bind_group_entry) = prev_bind_groups.get(&id) {
-                            material_bind_groups.push(bind_group_entry.clone());
+                            p.material_bind_groups.push(bind_group_entry.clone());
                         } else {
                             let bind_group_entry = Self::create_material_bind_group(
                                 device,
                                 queue,
-                                &*material_bind_group_layout,
+                                &p.material_bind_group_layout,
                                 &self.ltc_bind_group_layout,
                                 pass,
                             );
-                            material_bind_groups.push(Arc::new(bind_group_entry));
+                            p.material_bind_groups.push(Arc::new(bind_group_entry));
                         }
                     }
                 }
             }
-
-            if !z_prepass_mesh_indices.is_empty() {
-                if !self.pipelines.contains_key(&Z_PREPASS_PIPELINE_ID) {
-                    let entry = self.create_z_prepass_pipeline(device);
-                    self.pipelines
-                        .insert(Z_PREPASS_PIPELINE_ID, Arc::new(RwLock::new(entry)));
-                }
-                if let Some(entry) = self.pipelines.get_mut(&Z_PREPASS_PIPELINE_ID) {
-                    let mut entry = entry.write().unwrap();
-                    let mut indices: Vec<usize> = z_prepass_mesh_indices.into_iter().collect();
-                    indices.sort_unstable();
-                    if let PipelineEntry::ZPrepass {
-                        mesh_indices,
-                        material_indices,
-                        ..
-                    } = &mut *entry
-                    {
-                        *mesh_indices = indices;
-                        material_indices.clear();
-                    }
-                }
-            } else {
-                self.pipelines.remove(&Z_PREPASS_PIPELINE_ID);
-            }
         }
         self.mesh_items = mesh_items.to_vec();
+    }
+
+    fn prepare_z_prepass(&mut self, device: &wgpu::Device, mesh_items: &[Arc<RenderItem>]) {
+        let mut z_prepass_mesh_indices: HashSet<usize> = HashSet::new();
+        for entry in self.pipelines.values_mut() {
+            let mut entry = entry.write().unwrap();
+            match &mut *entry {
+                PipelineEntry::ZPrepass(p) => {
+                    p.mesh_indices.clear();
+                }
+                _ => {}
+            }
+        }
+        for (mesh_index, item) in mesh_items.iter().enumerate() {
+            if let Some(material) = item.get_material()
+                && material
+                    .passes
+                    .iter()
+                    .any(|pass| get_shader_uses_z_prepass(pass.render_category))
+            {
+                z_prepass_mesh_indices.insert(mesh_index);
+            }
+        }
+        if !z_prepass_mesh_indices.is_empty() {
+            if !self.pipelines.contains_key(&Z_PREPASS_PIPELINE_ID) {
+                let entry = self.create_z_prepass_pipeline(device);
+                self.pipelines
+                    .insert(Z_PREPASS_PIPELINE_ID, Arc::new(RwLock::new(entry)));
+            }
+            if let Some(entry) = self.pipelines.get_mut(&Z_PREPASS_PIPELINE_ID) {
+                let mut entry = entry.write().unwrap();
+                let mut indices: Vec<usize> = z_prepass_mesh_indices.into_iter().collect();
+                indices.sort_unstable();
+                if let PipelineEntry::ZPrepass(p) = &mut *entry {
+                    p.mesh_indices = indices;
+                }
+            }
+        } else {
+            self.pipelines.remove(&Z_PREPASS_PIPELINE_ID);
+        }
     }
 
     fn create_light_bind_group(
@@ -879,17 +863,13 @@ impl LightingMeshRenderer {
     }
 
     fn compute_directional_shadow_map_extent(pipeline: &PipelineEntry) -> (u32, u32, u32) {
-        let (directional_light_shadows, current_size) = if let PipelineEntry::DirectionalShadow {
-            directional_light_shadows,
-            shadow_map_array,
-            ..
-        } = pipeline
-        {
-            let size = shadow_map_array.texture.size();
-            (directional_light_shadows, (size.width, size.height))
-        } else {
-            return (1, 1, 1);
-        };
+        let (directional_light_shadows, current_size) =
+            if let PipelineEntry::DirectionalShadow(p) = pipeline {
+                let size = p.shadow_map_array.texture.size();
+                (&p.directional_light_shadows, (size.width, size.height))
+            } else {
+                return (1, 1, 1);
+            };
         let total_cascade_count = directional_light_shadows
             .iter()
             .map(|s| s.cascades.len())
@@ -914,19 +894,16 @@ impl LightingMeshRenderer {
         width: u32,
         height: u32,
     ) -> Option<RenderTexture> {
-        if let PipelineEntry::DirectionalShadow {
-            shadow_map_array, ..
-        } = pipeline
-        {
-            let size = shadow_map_array.texture.size();
+        if let PipelineEntry::DirectionalShadow(p) = pipeline {
+            let size = p.shadow_map_array.texture.size();
             if size.depth_or_array_layers != layer_count
                 || size.width != width
                 || size.height != height
             {
-                *shadow_map_array =
+                p.shadow_map_array =
                     Self::create_directional_shadow_map_array(device, layer_count, width, height);
             }
-            return Some(shadow_map_array.clone());
+            return Some(p.shadow_map_array.clone());
         }
         None
     }
@@ -962,12 +939,8 @@ impl LightingMeshRenderer {
         if let Some(pipeline_arc) = self.get_directional_shadow_pipeline_entry() {
             {
                 let mut pipeline = pipeline_arc.write().unwrap();
-                if let PipelineEntry::DirectionalShadow {
-                    directional_light_shadows: pipeline_shadows,
-                    ..
-                } = &mut *pipeline
-                {
-                    *pipeline_shadows = directional_light_shadows.to_vec();
+                if let PipelineEntry::DirectionalShadow(p) = &mut *pipeline {
+                    p.directional_light_shadows = directional_light_shadows.to_vec();
                 }
                 let (layer_count, shadow_map_width, shadow_map_height) =
                     Self::compute_directional_shadow_map_extent(&pipeline);
@@ -979,22 +952,17 @@ impl LightingMeshRenderer {
                     shadow_map_height,
                 );
 
-                if let PipelineEntry::DirectionalShadow {
-                    directional_shadow_info_buffer,
-                    shadow_map_array,
-                    ..
-                } = &*pipeline
-                {
+                if let PipelineEntry::DirectionalShadow(p) = &*pipeline {
                     queue.write_buffer(
-                        directional_shadow_info_buffer,
+                        &p.directional_shadow_info_buffer,
                         0,
                         bytemuck::cast_slice(&infos),
                     );
                     self.directional_shadow_bind_group = self.create_directional_shadow_bind_group(
                         device,
-                        directional_shadow_info_buffer,
-                        &shadow_map_array.view,
-                        &shadow_map_array.sampler,
+                        &p.directional_shadow_info_buffer,
+                        &p.shadow_map_array.view,
+                        &p.shadow_map_array.sampler,
                     );
                 }
             }
@@ -1360,12 +1328,8 @@ impl LightingMeshRenderer {
 
         let directional_light_shadows = {
             let pipeline_entry = shadow_pipeline.read().unwrap();
-            if let PipelineEntry::DirectionalShadow {
-                directional_light_shadows,
-                ..
-            } = &*pipeline_entry
-            {
-                directional_light_shadows.clone()
+            if let PipelineEntry::DirectionalShadow(p) = &*pipeline_entry {
+                p.directional_light_shadows.clone()
             } else {
                 return;
             }
@@ -1425,15 +1389,10 @@ impl LightingMeshRenderer {
 
                     {
                         let pipeline_entry = shadow_pipeline.read().unwrap();
-                        if let PipelineEntry::DirectionalShadow {
-                            pipeline,
-                            mesh_indices,
-                            ..
-                        } = &*pipeline_entry
-                        {
-                            render_pass.set_pipeline(pipeline);
+                        if let PipelineEntry::DirectionalShadow(p) = &*pipeline_entry {
+                            render_pass.set_pipeline(&p.pipeline);
                             render_pass.set_bind_group(0, &shadow_global_bind_group, &[]);
-                            for item_index in mesh_indices.iter().copied() {
+                            for item_index in p.mesh_indices.iter().copied() {
                                 if let RenderItem::Mesh(mesh_item) =
                                     self.mesh_items[item_index].as_ref()
                                 {
@@ -1465,11 +1424,7 @@ impl LightingMeshRenderer {
 
                 {
                     let pipeline_entry = shadow_pipeline.read().unwrap();
-                    if let PipelineEntry::DirectionalShadow {
-                        shadow_map_array,
-                        ..
-                    } = &*pipeline_entry
-                    {
+                    if let PipelineEntry::DirectionalShadow(p) = &*pipeline_entry {
                         encoder.copy_texture_to_texture(
                             wgpu::TexelCopyTextureInfo {
                                 texture: &shadow_texture.texture,
@@ -1478,7 +1433,7 @@ impl LightingMeshRenderer {
                                 aspect: wgpu::TextureAspect::DepthOnly,
                             },
                             wgpu::TexelCopyTextureInfo {
-                                texture: &shadow_map_array.texture,
+                                texture: &p.shadow_map_array.texture,
                                 mip_level: 0,
                                 origin: wgpu::Origin3d {
                                     x: 0,
@@ -1491,11 +1446,11 @@ impl LightingMeshRenderer {
                                 width: shadow_texture
                                     .texture
                                     .width()
-                                    .min(shadow_map_array.texture.width()),
+                                    .min(p.shadow_map_array.texture.width()),
                                 height: shadow_texture
                                     .texture
                                     .height()
-                                    .min(shadow_map_array.texture.height()),
+                                    .min(p.shadow_map_array.texture.height()),
                                 depth_or_array_layers: 1,
                             },
                         );
@@ -1596,24 +1551,27 @@ impl LightingMeshRenderer {
             let _ = material_bind_group_layout;
             self.pipelines.insert(
                 DIRECTIONAL_SHADOW_PIPELINE_ID,
-                Arc::new(RwLock::new(PipelineEntry::DirectionalShadow {
-                    pipeline,
-                    mesh_indices: Vec::new(),
-                    directional_light_shadows: Vec::new(),
-                    directional_shadow_info_buffer: Self::create_directional_shadow_info_buffer(
-                        device,
-                    ),
-                    shadow_map_array: Self::create_directional_shadow_map_array(device, 1, 1, 1),
-                })),
+                Arc::new(RwLock::new(PipelineEntry::DirectionalShadow(
+                    DirectionalShadowPipelineEntry {
+                        pipeline,
+                        mesh_indices: Vec::new(),
+                        directional_light_shadows: Vec::new(),
+                        directional_shadow_info_buffer: Self::create_directional_shadow_info_buffer(
+                            device,
+                        ),
+                        shadow_map_array: Self::create_directional_shadow_map_array(
+                            device, 1, 1, 1,
+                        ),
+                    },
+                ))),
             );
         }
         let entry = self.get_directional_shadow_pipeline_entry()?;
         {
             let mut entry_mut = entry.write().unwrap();
-            if let PipelineEntry::DirectionalShadow { mesh_indices, .. } = &mut *entry_mut {
-                *mesh_indices = shadow_mesh_indices.to_vec();
+            if let PipelineEntry::DirectionalShadow(p) = &mut *entry_mut {
+                p.mesh_indices = shadow_mesh_indices.to_vec();
             }
-            //
         }
         Some(entry.clone())
     }
@@ -1788,7 +1746,7 @@ impl LightingMeshRenderer {
         });
 
         // Create a uniform buffer for material properties
-        PipelineEntry::Shading {
+        PipelineEntry::Shading(ShadingPipelineEntry {
             pipeline,
             material_bind_group_layout,
             material_bind_groups: Vec::new(),
@@ -1796,7 +1754,7 @@ impl LightingMeshRenderer {
             material_indices: Vec::new(),
             sort_order,
             enable_lighting: has_lighting,
-        }
+        })
     }
 
     fn create_z_prepass_pipeline(&self, device: &wgpu::Device) -> PipelineEntry {
@@ -1881,11 +1839,10 @@ impl LightingMeshRenderer {
             cache: None,
         });
 
-        PipelineEntry::ZPrepass {
+        PipelineEntry::ZPrepass(ZPrepassPipelineEntry {
             pipeline,
             mesh_indices: Vec::new(),
-            material_indices: Vec::new(),
-        }
+        })
     }
 }
 
