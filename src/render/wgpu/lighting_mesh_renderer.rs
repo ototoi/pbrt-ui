@@ -35,8 +35,6 @@ const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
 const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0xb7814152_c24b_4af1_89a8_40a5fa168488);
-const DIRECTIONAL_SHADOW_PIPELINE_ID: Uuid =
-    Uuid::from_u128(0x77dd5bcc_89c5_4eff_8adf_9b5f8667d9f1);
 const Z_PREPASS_PIPELINE_ID: Uuid = Uuid::from_u128(0x9979b259_39f8_4ce5_8ea5_d8078618620f);
 
 #[repr(C)]
@@ -244,6 +242,7 @@ pub struct LightingMeshRenderer {
     directional_shadow_info_buffer: wgpu::Buffer,
     directional_shadow_map_array: DirectionalShadowMapArray,
     directional_light_shadows: Vec<Arc<RenderDirectionalLightShadow>>,
+    directional_shadow_pipeline: Option<PipelineEntry>,
 
     // Mesh items to render
     mesh_items: Vec<Arc<RenderItem>>,
@@ -302,17 +301,25 @@ impl LightingMeshRenderer {
             let (mesh_items, light_items) = Self::split_items(render_items);
             self.prepare_locals(device, queue, &mesh_items); //group(1)
             self.prepare_materials(device, queue, &mesh_items); //group(2)
-            self.prepare_lights(
-                device,
-                queue,
-                render_resource_manager,
-                camera,
-                &mesh_items,
-                &light_items,
-            ); //group(3)
+            {
+                let shadow_pipelines = self.prepare_lights(
+                    device,
+                    queue,
+                    render_resource_manager,
+                    camera,
+                    &mesh_items,
+                    &light_items,
+                );
+                // Render shadow maps immediately after light preparation.
+                self.render_directional_shadow_maps(
+                    device,
+                    queue,
+                    encoder,
+                    camera,
+                    &shadow_pipelines,
+                );
+            } //group(3)
         }
-        // Render shadow maps immediately after light preparation.
-        self.render_directional_shadow_maps(device, queue, encoder, camera);
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
@@ -327,6 +334,7 @@ impl LightingMeshRenderer {
         _queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         _main_camera: &RenderCamera,
+        shadow_pipelines: &[Arc<PipelineEntry>],
     ) {
         if self.directional_light_shadows.is_empty() {
             return;
@@ -340,16 +348,6 @@ impl LightingMeshRenderer {
             )
         };
 
-        let mut shadow_pipelines = Vec::new();
-        for pipeline_entry in self.pipelines.values() {
-            let pipeline_entry = pipeline_entry.read().unwrap();
-            if pipeline_entry.mesh_indices.is_empty() {
-                continue;
-            }
-            if matches!(pipeline_entry.pass_type, PipelinePassType::Shadow) {
-                shadow_pipelines.push(pipeline_entry.clone());
-            }
-        }
         if shadow_pipelines.is_empty() {
             return;
         }
@@ -403,7 +401,7 @@ impl LightingMeshRenderer {
                         occlusion_query_set: None,
                     });
 
-                    for pipeline_entry in shadow_pipelines.iter() {
+                    for pipeline_entry in shadow_pipelines {
                         render_pass.set_pipeline(&pipeline_entry.pipeline);
                         render_pass.set_bind_group(0, &shadow_global_bind_group, &[]);
                         for item_index in pipeline_entry.mesh_indices.iter().copied() {
@@ -972,7 +970,8 @@ impl LightingMeshRenderer {
         camera: &RenderCamera,
         mesh_items: &[Arc<RenderItem>],
         light_items: &[Arc<RenderItem>],
-    ) {
+    ) -> Vec<Arc<PipelineEntry>> {
+        let mut shadow_pipelines = Vec::new();
         let mut light_uniforms = LightUniforms::default();
         let mut light_textures = Vec::new();
         let shadow_mesh_indices = mesh_items
@@ -1001,11 +1000,13 @@ impl LightingMeshRenderer {
             light_items,
             render_resource_manager,
         );
-        self.update_directional_shadow_pipeline_entry(
-            device,
-            !directional_light_shadows.is_empty(),
-            &shadow_mesh_indices,
-        );
+        if !directional_light_shadows.is_empty()
+            && !shadow_mesh_indices.is_empty()
+            && let Some(pipeline) =
+                self.build_directional_shadow_pipeline_entry(device, &shadow_mesh_indices)
+        {
+            shadow_pipelines.push(Arc::new(pipeline));
+        }
         {
             let total_cascade_count = directional_light_shadows
                 .iter()
@@ -1328,19 +1329,18 @@ impl LightingMeshRenderer {
             0,
             bytemuck::bytes_of(&light_uniforms),
         );
+        shadow_pipelines
     }
 
-    fn update_directional_shadow_pipeline_entry(
+    fn build_directional_shadow_pipeline_entry(
         &mut self,
         device: &wgpu::Device,
-        has_directional_shadows: bool,
         shadow_mesh_indices: &[usize],
-    ) {
-        if !has_directional_shadows {
-            self.pipelines.remove(&DIRECTIONAL_SHADOW_PIPELINE_ID);
-            return;
+    ) -> Option<PipelineEntry> {
+        if shadow_mesh_indices.is_empty() {
+            return None;
         }
-        if !self.pipelines.contains_key(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
+        if self.directional_shadow_pipeline.is_none() {
             let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Directional Shadow Pipeline Shader"),
                 source: wgpu::ShaderSource::Wgsl(
@@ -1420,25 +1420,21 @@ impl LightingMeshRenderer {
                     entries: &[],
                 });
 
-            let entry = PipelineEntry {
+            self.directional_shadow_pipeline = Some(PipelineEntry {
                 pass_type: PipelinePassType::Shadow,
                 pipeline,
                 material_bind_group_layout,
                 material_bind_groups: Vec::new(),
-                mesh_indices: shadow_mesh_indices.to_vec(),
+                mesh_indices: Vec::new(),
                 material_indices: Vec::new(),
                 sort_order: 0,
                 enable_lighting: false,
-            };
-            self.pipelines
-                .insert(DIRECTIONAL_SHADOW_PIPELINE_ID, Arc::new(RwLock::new(entry)));
+            });
         }
-
-        if let Some(entry) = self.pipelines.get_mut(&DIRECTIONAL_SHADOW_PIPELINE_ID) {
-            let mut entry = entry.write().unwrap();
-            entry.mesh_indices = shadow_mesh_indices.to_vec();
-            entry.material_indices.clear();
-        }
+        let mut entry = self.directional_shadow_pipeline.clone()?;
+        entry.mesh_indices = shadow_mesh_indices.to_vec();
+        entry.material_indices.clear();
+        Some(entry)
     }
 
     fn create_pipeline(
@@ -2172,6 +2168,7 @@ impl LightingMeshRenderer {
             directional_shadow_info_buffer,
             directional_shadow_map_array,
             directional_light_shadows: Vec::new(),
+            directional_shadow_pipeline: None,
             mesh_items,
             textures,
             pipelines: materials,
