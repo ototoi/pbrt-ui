@@ -230,7 +230,6 @@ pub fn create_directional_light_shadows(
     render_resource_manager: &mut RenderResourceManager,
 ) -> Vec<Arc<RenderDirectionalLightShadow>> {
     let mut shadows = Vec::new();
-    render_resource_manager.clear_directional_light_shadows();
 
     //
     let mut need_compute_shadows = false;
@@ -548,7 +547,6 @@ pub fn create_directional_light_shadows(
             shadow_slope_bias: directional_light.shadow_slope_bias,
             cascades,
         });
-        render_resource_manager.add_directional_light_shadow(&shadow);
         shadows.push(shadow);
     }
 
