@@ -682,42 +682,29 @@ impl LightingMeshRenderer {
     }
 
     fn prepare_z_prepass(&mut self, device: &wgpu::Device, mesh_items: &[Arc<RenderItem>]) {
-        let mut z_prepass_mesh_indices: HashSet<usize> = HashSet::new();
-        for entry in self.pipelines.values_mut() {
+        if !self.pipelines.contains_key(&Z_PREPASS_PIPELINE_ID) {
+            let entry = self.create_z_prepass_pipeline(device);
+            self.pipelines
+                .insert(Z_PREPASS_PIPELINE_ID, Arc::new(RwLock::new(entry)));
+        }
+        //todo: check z-prepass should be one pipeline for all meshes or multiple pipelines for different shaders.
+        
+        if let Some(entry) = self.pipelines.get_mut(&Z_PREPASS_PIPELINE_ID) {
             let mut entry = entry.write().unwrap();
-            match &mut *entry {
-                PipelineEntry::ZPrepass(p) => {
-                    p.mesh_indices.clear();
+            if let PipelineEntry::ZPrepass(p) = &mut *entry {
+                let mut indices: Vec<usize> = Vec::with_capacity(mesh_items.len());
+                for (mesh_index, item) in mesh_items.iter().enumerate() {
+                    if let Some(material) = item.get_material()
+                        && material
+                            .passes
+                            .iter()
+                            .any(|pass| get_shader_uses_z_prepass(pass.render_category))
+                    {
+                        indices.push(mesh_index);
+                    }
                 }
-                _ => {}
+                p.mesh_indices = indices;
             }
-        }
-        for (mesh_index, item) in mesh_items.iter().enumerate() {
-            if let Some(material) = item.get_material()
-                && material
-                    .passes
-                    .iter()
-                    .any(|pass| get_shader_uses_z_prepass(pass.render_category))
-            {
-                z_prepass_mesh_indices.insert(mesh_index);
-            }
-        }
-        if !z_prepass_mesh_indices.is_empty() {
-            if !self.pipelines.contains_key(&Z_PREPASS_PIPELINE_ID) {
-                let entry = self.create_z_prepass_pipeline(device);
-                self.pipelines
-                    .insert(Z_PREPASS_PIPELINE_ID, Arc::new(RwLock::new(entry)));
-            }
-            if let Some(entry) = self.pipelines.get_mut(&Z_PREPASS_PIPELINE_ID) {
-                let mut entry = entry.write().unwrap();
-                let mut indices: Vec<usize> = z_prepass_mesh_indices.into_iter().collect();
-                indices.sort_unstable();
-                if let PipelineEntry::ZPrepass(p) = &mut *entry {
-                    p.mesh_indices = indices;
-                }
-            }
-        } else {
-            self.pipelines.remove(&Z_PREPASS_PIPELINE_ID);
         }
     }
 

@@ -110,7 +110,6 @@ impl RenderResourceManager {
     pub fn remove_texture(&mut self, id: Uuid) {
         self.textures.remove(&id);
     }
-
 }
 
 #[derive(Debug, Clone)]

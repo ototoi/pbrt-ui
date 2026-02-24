@@ -144,7 +144,8 @@ fn build_virtual_frustum_points_lspsm(
 ) -> Option<[glam::Vec3; 8]> {
     let camera_forward = render_camera.forward.normalize_or_zero();
     let camera_up = render_camera.up.normalize_or_zero();
-    let mut forward = (camera_forward - light_dir * camera_forward.dot(light_dir)).normalize_or_zero();
+    let mut forward =
+        (camera_forward - light_dir * camera_forward.dot(light_dir)).normalize_or_zero();
     if forward.length_squared() < 1e-8 {
         forward = (camera_up - light_dir * camera_up.dot(light_dir)).normalize_or_zero();
     }
@@ -347,19 +348,18 @@ pub fn create_directional_light_shadows(
                 cascade_near,
                 cascade_far,
             );
-            let virtual_points = if directional_light.shadow_projection
-                == DirectionalShadowProjection::Lspsm
-            {
-                build_virtual_frustum_points_lspsm(
-                    &corners,
-                    render_camera,
-                    light_dir,
-                    camera_tan_half_fov_x,
-                )
-                .unwrap_or(corners)
-            } else {
-                corners
-            };
+            let virtual_points =
+                if directional_light.shadow_projection == DirectionalShadowProjection::Lspsm {
+                    build_virtual_frustum_points_lspsm(
+                        &corners,
+                        render_camera,
+                        light_dir,
+                        camera_tan_half_fov_x,
+                    )
+                    .unwrap_or(corners)
+                } else {
+                    corners
+                };
             let virtual_frustum_points = virtual_points.to_vec();
             let mut world_min_c = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
             let mut world_max_c =
