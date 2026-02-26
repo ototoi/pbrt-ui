@@ -1,11 +1,11 @@
 use super::camera::RenderCamera;
 use super::mesh::RenderVertex;
-use super::material::RenderCategory;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
 use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
 use super::shadow::RenderDirectionalLightShadow;
 use super::shadow::create_directional_light_shadows;
+use super::shadow::get_shader_uses_shadow;
 use super::texture::RenderTexture;
 use bytemuck::{Pod, Zeroable};
 use eframe::wgpu;
@@ -78,18 +78,6 @@ fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu:
         size: required_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
         mapped_at_creation: false,
-    })
-}
-
-fn get_shader_uses_shadow(item: &RenderItem) -> bool {
-    item.get_material().is_some_and(|material| {
-        material
-            .passes
-            .iter()
-            .any(|pass| {
-                pass.render_category == RenderCategory::Opaque
-                    || pass.render_category == RenderCategory::Emissive
-            })
     })
 }
 
@@ -178,7 +166,19 @@ impl ShadowMapRenderer {
         let shadow_mesh_indices = mesh_items
             .iter()
             .enumerate()
-            .filter_map(|(i, item)| if get_shader_uses_shadow(item) { Some(i) } else { None })
+            .filter_map(|(i, item)| {
+                item.get_material().and_then(|material| {
+                    if material
+                        .passes
+                        .iter()
+                        .any(|pass| get_shader_uses_shadow(pass.render_category))
+                    {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+            })
             .collect::<Vec<_>>();
 
         let directional_light_shadows = create_directional_light_shadows(

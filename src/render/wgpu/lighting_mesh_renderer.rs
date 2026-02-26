@@ -4,8 +4,8 @@ use super::material::RenderPass;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::shader::RenderShader;
+use super::shadow_map_renderer::ShadowPrepareResult;
 use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
-use super::shadow::RenderDirectionalLightShadow;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
@@ -34,8 +34,6 @@ const MAX_INFINITE_LIGHT_NUM: usize = 1; // Maximum number of infinite lights
 const MAX_LIGHT_TEXTURE_NUM: usize = 1; // Maximum number of light textures
 
 const DEFAULT_LIGHT_TEXTURE_ID: Uuid = Uuid::from_u128(0xb7814152_c24b_4af1_89a8_40a5fa168488);
-const DIRECTIONAL_SHADOW_PIPELINE_ID: Uuid =
-    Uuid::from_u128(0x77dd5bcc_89c5_4eff_8adf_9b5f8667d9f1);
 const Z_PREPASS_PIPELINE_ID: Uuid = Uuid::from_u128(0x9979b259_39f8_4ce5_8ea5_d8078618620f);
 
 #[repr(C)]
@@ -200,19 +198,9 @@ struct ZPrepassPipelineEntry {
 }
 
 #[derive(Debug, Clone)]
-struct DirectionalShadowPipelineEntry {
-    pub pipeline: wgpu::RenderPipeline,
-    pub mesh_indices: Vec<usize>,
-    pub directional_light_shadows: Vec<Arc<RenderDirectionalLightShadow>>,
-    pub directional_shadow_info_buffer: wgpu::Buffer,
-    pub shadow_map_array: RenderTexture,
-}
-
-#[derive(Debug, Clone)]
 enum PipelineEntry {
     Shading(ShadingPipelineEntry),
     ZPrepass(ZPrepassPipelineEntry),
-    DirectionalShadow(DirectionalShadowPipelineEntry),
 }
 
 #[derive(Debug, Clone)]
@@ -282,13 +270,31 @@ fn get_shader_uses_z_prepass(category: RenderCategory) -> bool {
     category == RenderCategory::Opaque || category == RenderCategory::Emissive
 }
 
-pub(super) fn get_shader_uses_shadow(category: RenderCategory) -> bool {
-    // Keep shadow-caster selection independent from z-prepass policy.
-    category == RenderCategory::Opaque || category == RenderCategory::Emissive
-}
-
 impl LightingMeshRenderer {
-    pub(crate) fn set_directional_shadow_resources(
+    pub fn prepare(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        render_items: &[Arc<RenderItem>],
+        camera: &RenderCamera,
+        shadow_prepare: &ShadowPrepareResult,
+    ) {
+        let directional_shadow_index_map = Some(&shadow_prepare.directional_shadow_index_map);
+        if let Some((directional_shadow_info_buffer, directional_shadow_map)) =
+            shadow_prepare.directional_shadow_resources.as_ref()
+        {
+            self.set_directional_shadow_resources(
+                device,
+                directional_shadow_info_buffer,
+                directional_shadow_map,
+            );
+        }
+        let (mesh_items, light_items) = Self::split_items(render_items);
+        self.prepare_meshes(device, queue, &mesh_items, camera);
+        self.prepare_lights(device, queue, &light_items, directional_shadow_index_map);
+    }
+
+    fn set_directional_shadow_resources(
         &mut self,
         device: &wgpu::Device,
         directional_shadow_info_buffer: &wgpu::Buffer,
@@ -302,30 +308,17 @@ impl LightingMeshRenderer {
         );
     }
 
-    pub fn prepare(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        render_items: &[Arc<RenderItem>],
-        camera: &RenderCamera,
-    ) {
-        let (mesh_items, light_items) = Self::split_items(render_items);
-        self.prepare_meshes(device, queue, &mesh_items, camera);
-        self.prepare_lights(device, queue, &light_items, None);
-    }
-
     pub(super) fn prepare_meshes(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        render_items: &[Arc<RenderItem>],
+        mesh_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
     ) {
-        let (mesh_items, _) = Self::split_items(render_items);
         self.prepare_global(device, queue, camera); //group(0)
-        self.prepare_locals(device, queue, &mesh_items); //group(1)
-        self.prepare_z_prepass(device, &mesh_items); //group(2)
-        self.prepare_materials(device, queue, &mesh_items); //group(2)
+        self.prepare_locals(device, queue, mesh_items); //group(1)
+        self.prepare_z_prepass(device, mesh_items); //group(2)
+        self.prepare_materials(device, queue, mesh_items); //group(2)
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
@@ -336,7 +329,7 @@ impl LightingMeshRenderer {
 
     // -------------------------------------------------------
 
-    pub(super) fn split_items(
+    fn split_items(
         render_items: &[Arc<RenderItem>],
     ) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
         let mut mesh_items = Vec::new();
