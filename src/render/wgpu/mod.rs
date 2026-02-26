@@ -18,6 +18,7 @@ pub mod render_object_instance_item;
 pub mod render_resource;
 pub mod shader;
 pub mod shadow;
+pub mod shadow_map_renderer;
 pub mod solid_mesh_renderer;
 pub mod solid_renderer;
 pub mod texture;

@@ -299,25 +299,68 @@ impl LightingMeshRenderer {
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
     ) {
+        self.prepare_with_shadow_maps(
+            device,
+            queue,
+            encoder,
+            render_resource_manager,
+            render_items,
+            camera,
+        );
+    }
+
+    pub(super) fn prepare_with_shadow_maps(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        render_resource_manager: &mut RenderResourceManager,
+        render_items: &[Arc<RenderItem>],
+        camera: &RenderCamera,
+    ) {
+        let shadow_passes = self.prepare_without_shadow_render(
+            device,
+            queue,
+            render_resource_manager,
+            render_items,
+            camera,
+        );
+        self.render_prepared_shadow_maps(device, queue, encoder, camera, &shadow_passes);
+    }
+
+    fn prepare_without_shadow_render(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        render_resource_manager: &mut RenderResourceManager,
+        render_items: &[Arc<RenderItem>],
+        camera: &RenderCamera,
+    ) -> Vec<Arc<RwLock<PipelineEntry>>> {
         self.prepare_global(device, queue, camera); //group(0)
-        {
-            let (mesh_items, light_items) = Self::split_items(render_items);
-            self.prepare_locals(device, queue, &mesh_items); //group(1)
-            self.prepare_z_prepass(device, &mesh_items); //group(2)
-            self.prepare_materials(device, queue, &mesh_items); //group(2)
-            {
-                let shadow_passes = self.prepare_lights(
-                    device,
-                    queue,
-                    render_resource_manager,
-                    camera,
-                    &mesh_items,
-                    &light_items,
-                );
-                // Render shadow maps immediately after light preparation.
-                self.render_shadow_maps(device, queue, encoder, camera, &shadow_passes);
-            } //group(3)
-        }
+        let (mesh_items, light_items) = Self::split_items(render_items);
+        self.prepare_locals(device, queue, &mesh_items); //group(1)
+        self.prepare_z_prepass(device, &mesh_items); //group(2)
+        self.prepare_materials(device, queue, &mesh_items); //group(2)
+        let shadow_passes = self.prepare_lights(
+            device,
+            queue,
+            render_resource_manager,
+            camera,
+            &mesh_items,
+            &light_items,
+        ); //group(3)
+        shadow_passes
+    }
+
+    fn render_prepared_shadow_maps(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        camera: &RenderCamera,
+        shadow_pipelines: &[Arc<RwLock<PipelineEntry>>],
+    ) {
+        self.render_shadow_maps(device, queue, encoder, camera, shadow_pipelines);
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
