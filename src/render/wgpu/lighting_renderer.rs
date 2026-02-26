@@ -63,7 +63,7 @@ fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderRes
 }
 
 impl PerFrameCallback {
-    pub fn prepare_frame_buffers(
+    fn prepare_frame_buffers(
         &self,
         device: &wgpu::Device,
         screen_descriptor: &egui_wgpu::ScreenDescriptor,

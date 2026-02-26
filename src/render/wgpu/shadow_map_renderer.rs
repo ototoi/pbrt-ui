@@ -212,7 +212,7 @@ impl ShadowMapRenderer {
         }
     }
 
-    pub fn split_items(
+    fn split_items(
         render_items: &[Arc<RenderItem>],
     ) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
         let mut mesh_items = Vec::new();

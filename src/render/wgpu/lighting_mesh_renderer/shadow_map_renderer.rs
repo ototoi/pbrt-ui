@@ -2,7 +2,7 @@ use super::*;
 use eframe::wgpu;
 
 impl LightingMeshRenderer {
-    pub(super) fn create_directional_shadow_bind_group(
+    pub fn create_directional_shadow_bind_group(
         &self,
         device: &wgpu::Device,
         directional_shadow_info_buffer: &wgpu::Buffer,
@@ -29,7 +29,7 @@ impl LightingMeshRenderer {
         })
     }
 
-    pub(super) fn create_directional_shadow_map_array(
+    pub fn create_directional_shadow_map_array(
         device: &wgpu::Device,
         layer_count: u32,
         width: u32,
@@ -81,7 +81,7 @@ impl LightingMeshRenderer {
         }
     }
 
-    pub(super) fn create_directional_shadow_info_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    pub fn create_directional_shadow_info_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         let directional_shadow_info_buffer_size = (MAX_DIRECTIONAL_SHADOW_NUM
             * std::mem::size_of::<DirectionalShadowInfo>())
             as wgpu::BufferAddress;

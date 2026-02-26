@@ -138,14 +138,14 @@ struct DirectionalShadowInfo {
 
 #[derive(Debug, Clone)]
 struct TmpPipelineEntry {
-    pub shader: Arc<RenderShader>,
-    pub mesh_indices: Vec<usize>,
-    pub material_indices: Vec<usize>,
-    pub material_indices_map: HashMap<Uuid, (usize, Arc<RenderPass>)>,
+    shader: Arc<RenderShader>,
+    mesh_indices: Vec<usize>,
+    material_indices: Vec<usize>,
+    material_indices_map: HashMap<Uuid, (usize, Arc<RenderPass>)>,
 }
 
 impl TmpPipelineEntry {
-    pub fn new(shader: &Arc<RenderShader>) -> Self {
+    fn new(shader: &Arc<RenderShader>) -> Self {
         Self {
             shader: shader.clone(),
             mesh_indices: Vec::new(),
@@ -168,25 +168,25 @@ fn get_uv_axis(direction: &glam::Vec3) -> (glam::Vec3, glam::Vec3) {
 
 #[derive(Debug, Clone)]
 struct MaterialBindGroupEntry {
-    pub id: Uuid,
-    pub material_bind_group: wgpu::BindGroup,
+    id: Uuid,
+    material_bind_group: wgpu::BindGroup,
     #[allow(dead_code)]
-    pub uniform_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
     #[allow(dead_code)]
-    pub textures: Vec<Option<Arc<RenderTexture>>>,
+    textures: Vec<Option<Arc<RenderTexture>>>,
 
-    pub ltc_bind_group: Option<wgpu::BindGroup>,
+    ltc_bind_group: Option<wgpu::BindGroup>,
     #[allow(dead_code)]
-    pub ltc_texture: Option<Arc<RenderTexture>>,
+    ltc_texture: Option<Arc<RenderTexture>>,
 }
 
 #[derive(Debug, Clone)]
 struct ShadingPipelineData {
-    pub material_bind_group_layout: wgpu::BindGroupLayout,
-    pub material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
-    pub material_indices: Vec<usize>,
-    pub sort_order: u32,
-    pub enable_lighting: bool,
+    material_bind_group_layout: wgpu::BindGroupLayout,
+    material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
+    material_indices: Vec<usize>,
+    sort_order: u32,
+    enable_lighting: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,10 +197,10 @@ enum PipelinePassType {
 
 #[derive(Debug, Clone)]
 struct PipelineEntry {
-    pub pipeline: wgpu::RenderPipeline,
-    pub mesh_indices: Vec<usize>,
-    pub pass_type: PipelinePassType,
-    pub shading: Option<ShadingPipelineData>,
+    pipeline: wgpu::RenderPipeline,
+    mesh_indices: Vec<usize>,
+    pass_type: PipelinePassType,
+    shading: Option<ShadingPipelineData>,
 }
 
 #[derive(Debug, Clone)]
@@ -308,7 +308,7 @@ impl LightingMeshRenderer {
         );
     }
 
-    pub(super) fn prepare_meshes(
+    fn prepare_meshes(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -450,7 +450,7 @@ impl LightingMeshRenderer {
         );
     }
 
-    pub fn prepare_locals(
+    fn prepare_locals(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -578,7 +578,7 @@ impl LightingMeshRenderer {
         };
     }
 
-    pub fn prepare_materials(
+    fn prepare_materials(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -758,7 +758,7 @@ impl LightingMeshRenderer {
         return light_bind_group;
     }
 
-    pub(super) fn prepare_lights(
+    fn prepare_lights(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -1715,7 +1715,7 @@ impl LightingMeshRenderer {
         return pass;
     }
 
-    pub fn init(&mut self, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    fn init(&mut self, _device: &wgpu::Device, _queue: &wgpu::Queue) {
         // Initialize pipelines or other resources if needed
     }
 }
