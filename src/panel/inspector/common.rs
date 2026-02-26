@@ -325,6 +325,23 @@ fn show_strings(
                         }
                     }
                 });
+        } else if key_name == "shadowprojection" {
+            let types = ["csm", "lspsm"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
+            egui::ComboBox::from_id_salt("shadowprojection")
+                .selected_text(value[0].clone())
+                .show_ui(ui, |ui| {
+                    for name in types.iter() {
+                        if ui
+                            .selectable_value(&mut value[0], name.clone(), name.clone())
+                            .changed()
+                        {
+                            is_changed = true;
+                        }
+                    }
+                });
         } else if key_name == "bumpmap" {
             let mut items = vec![(Uuid::default(), "".to_string(), "none".to_string())];
             items.extend(resource_selector.get_texture_items());
