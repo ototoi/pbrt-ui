@@ -4,8 +4,8 @@ use super::material::RenderPass;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::shader::RenderShader;
-use super::shadow_map_renderer::ShadowPrepareResult;
 use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
+use super::shadow_map_renderer::ShadowPrepareResult;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
@@ -181,26 +181,26 @@ struct MaterialBindGroupEntry {
 }
 
 #[derive(Debug, Clone)]
-struct ShadingPipelineEntry {
-    pub pipeline: wgpu::RenderPipeline,
+struct ShadingPipelineData {
     pub material_bind_group_layout: wgpu::BindGroupLayout,
     pub material_bind_groups: Vec<Arc<MaterialBindGroupEntry>>,
-    pub mesh_indices: Vec<usize>,
     pub material_indices: Vec<usize>,
     pub sort_order: u32,
     pub enable_lighting: bool,
 }
 
-#[derive(Debug, Clone)]
-struct ZPrepassPipelineEntry {
-    pub pipeline: wgpu::RenderPipeline,
-    pub mesh_indices: Vec<usize>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PipelinePassType {
+    ZPrepass,
+    Shading,
 }
 
 #[derive(Debug, Clone)]
-enum PipelineEntry {
-    Shading(ShadingPipelineEntry),
-    ZPrepass(ZPrepassPipelineEntry),
+struct PipelineEntry {
+    pub pipeline: wgpu::RenderPipeline,
+    pub mesh_indices: Vec<usize>,
+    pub pass_type: PipelinePassType,
+    pub shading: Option<ShadingPipelineData>,
 }
 
 #[derive(Debug, Clone)]
@@ -359,14 +359,16 @@ impl LightingMeshRenderer {
         let mut shading_pipelines = Vec::new();
         for pipeline_entry in self.pipelines.values() {
             let pipeline_entry = pipeline_entry.read().unwrap();
-            match &*pipeline_entry {
-                PipelineEntry::ZPrepass(p) if !p.mesh_indices.is_empty() => {
-                    z_prepass_pipelines.push(pipeline_entry.clone())
+            if pipeline_entry.mesh_indices.is_empty() {
+                continue;
+            }
+            match pipeline_entry.pass_type {
+                PipelinePassType::ZPrepass => z_prepass_pipelines.push(pipeline_entry.clone()),
+                PipelinePassType::Shading => {
+                    if let Some(shading) = pipeline_entry.shading.as_ref() {
+                        shading_pipelines.push((shading.sort_order, pipeline_entry.clone()));
+                    }
                 }
-                PipelineEntry::Shading(p) if !p.mesh_indices.is_empty() => {
-                    shading_pipelines.push((p.sort_order, pipeline_entry.clone()))
-                }
-                _ => {}
             }
         }
 
@@ -375,68 +377,59 @@ impl LightingMeshRenderer {
 
         // Depth-only prepass for opaque-like geometry.
         for pipeline_entry in z_prepass_pipelines.iter() {
-            if let PipelineEntry::ZPrepass(p) = pipeline_entry {
-                render_pass.set_pipeline(&p.pipeline);
-                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                for item_index in p.mesh_indices.iter().copied() {
-                    if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
-                        let local_uniform_offset = item_index as wgpu::DynamicOffset
-                            * local_uniform_alignment as wgpu::DynamicOffset;
-                        render_pass.set_bind_group(
-                            1,
-                            &self.local_bind_group,
-                            &[local_uniform_offset],
-                        );
-                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                        render_pass.set_index_buffer(
-                            mesh_item.mesh.index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint32,
-                        );
-                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
-                    }
+            render_pass.set_pipeline(&pipeline_entry.pipeline);
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+            for item_index in pipeline_entry.mesh_indices.iter().copied() {
+                if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
+                    let local_uniform_offset = item_index as wgpu::DynamicOffset
+                        * local_uniform_alignment as wgpu::DynamicOffset;
+                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_item.mesh.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
                 }
             }
         }
 
         for (_, pipeline_entry) in shading_pipelines.iter() {
-            if let PipelineEntry::Shading(p) = pipeline_entry {
-                debug_assert!(!p.mesh_indices.is_empty());
-                render_pass.set_pipeline(&p.pipeline);
-                render_pass.set_bind_group(0, &self.global_bind_group, &[]);
-                if p.enable_lighting {
-                    render_pass.set_bind_group(3, &self.light_bind_group, &[]);
-                    render_pass.set_bind_group(5, &self.directional_shadow_bind_group, &[]);
-                }
-                debug_assert!(p.mesh_indices.len() == p.material_indices.len());
-                let length = p.mesh_indices.len();
-                for i in 0..length {
-                    let item_index = p.mesh_indices[i];
-                    let material_index = p.material_indices[i];
-                    if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
-                        let local_uniform_offset = item_index as wgpu::DynamicOffset
-                            * local_uniform_alignment as wgpu::DynamicOffset;
-                        render_pass.set_bind_group(
-                            1,
-                            &self.local_bind_group,
-                            &[local_uniform_offset],
-                        );
-                        render_pass.set_bind_group(
-                            2,
-                            &p.material_bind_groups[material_index].material_bind_group,
-                            &[],
-                        );
-                        if let Some(ltc_bind_group) =
-                            &p.material_bind_groups[material_index].ltc_bind_group
-                        {
-                            render_pass.set_bind_group(4, ltc_bind_group, &[]);
-                        }
-                        render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
-                        render_pass.set_index_buffer(
-                            mesh_item.mesh.index_buffer.slice(..),
-                            wgpu::IndexFormat::Uint32,
-                        );
-                        render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
+            let Some(shading) = pipeline_entry.shading.as_ref() else {
+                continue;
+            };
+            debug_assert!(!pipeline_entry.mesh_indices.is_empty());
+            render_pass.set_pipeline(&pipeline_entry.pipeline);
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+            if shading.enable_lighting {
+                render_pass.set_bind_group(3, &self.light_bind_group, &[]);
+                render_pass.set_bind_group(5, &self.directional_shadow_bind_group, &[]);
+            }
+            debug_assert!(pipeline_entry.mesh_indices.len() == shading.material_indices.len());
+            let length = pipeline_entry.mesh_indices.len();
+            for i in 0..length {
+                let item_index = pipeline_entry.mesh_indices[i];
+                let material_index = shading.material_indices[i];
+                if let RenderItem::Mesh(mesh_item) = render_items[item_index].as_ref() {
+                    let local_uniform_offset = item_index as wgpu::DynamicOffset
+                        * local_uniform_alignment as wgpu::DynamicOffset;
+                    render_pass.set_bind_group(1, &self.local_bind_group, &[local_uniform_offset]);
+                    render_pass.set_bind_group(
+                        2,
+                        &shading.material_bind_groups[material_index].material_bind_group,
+                        &[],
+                    );
+                    if let Some(ltc_bind_group) =
+                        &shading.material_bind_groups[material_index].ltc_bind_group
+                    {
+                        render_pass.set_bind_group(4, ltc_bind_group, &[]);
                     }
+                    render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_item.mesh.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(0..mesh_item.mesh.index_count, 0, 0..1);
                 }
             }
         }
@@ -595,16 +588,15 @@ impl LightingMeshRenderer {
             let mut prev_bind_groups = HashMap::new(); //store existing bind groups to reuse
             for entry in self.pipelines.values_mut() {
                 let mut entry = entry.write().unwrap();
-                match &mut *entry {
-                    PipelineEntry::Shading(p) => {
-                        p.mesh_indices.clear();
-                        p.material_indices.clear();
-                        for bind_group in p.material_bind_groups.iter() {
+                if entry.pass_type == PipelinePassType::Shading {
+                    entry.mesh_indices.clear();
+                    if let Some(shading) = entry.shading.as_mut() {
+                        shading.material_indices.clear();
+                        for bind_group in shading.material_bind_groups.iter() {
                             prev_bind_groups.insert(bind_group.id, bind_group.clone());
                         }
-                        p.material_bind_groups.clear();
+                        shading.material_bind_groups.clear();
                     }
-                    _ => {}
                 }
             }
             let mut tmp_pipelines: HashMap<Uuid, TmpPipelineEntry> = HashMap::new();
@@ -653,10 +645,14 @@ impl LightingMeshRenderer {
                     .get_mut(shader_id)
                     .expect("Pipeline for basic material not found");
                 let mut entry = entry.write().unwrap();
-                if let PipelineEntry::Shading(p) = &mut *entry {
-                    p.mesh_indices = mesh_indices.clone();
-                    p.material_indices = material_indices.clone();
-                    assert!(p.mesh_indices.len() == p.material_indices.len());
+                if entry.pass_type == PipelinePassType::Shading {
+                    entry.mesh_indices = mesh_indices.clone();
+                    let mesh_len = entry.mesh_indices.len();
+                    let Some(shading) = entry.shading.as_mut() else {
+                        continue;
+                    };
+                    shading.material_indices = material_indices.clone();
+                    assert!(mesh_len == shading.material_indices.len());
                     let mut passes = Vec::with_capacity(num_materials);
                     for (_, (index, pass)) in tmp_entry.material_indices_map.iter() {
                         passes.push((index, pass));
@@ -665,16 +661,18 @@ impl LightingMeshRenderer {
                     for (_, pass) in passes.iter() {
                         let id = pass.id;
                         if let Some(bind_group_entry) = prev_bind_groups.get(&id) {
-                            p.material_bind_groups.push(bind_group_entry.clone());
+                            shading.material_bind_groups.push(bind_group_entry.clone());
                         } else {
                             let bind_group_entry = Self::create_material_bind_group(
                                 device,
                                 queue,
-                                &p.material_bind_group_layout,
+                                &shading.material_bind_group_layout,
                                 &self.ltc_bind_group_layout,
                                 pass,
                             );
-                            p.material_bind_groups.push(Arc::new(bind_group_entry));
+                            shading
+                                .material_bind_groups
+                                .push(Arc::new(bind_group_entry));
                         }
                     }
                 }
@@ -690,10 +688,10 @@ impl LightingMeshRenderer {
                 .insert(Z_PREPASS_PIPELINE_ID, Arc::new(RwLock::new(entry)));
         }
         //todo: check z-prepass should be one pipeline for all meshes or multiple pipelines for different shaders.
-        
+
         if let Some(entry) = self.pipelines.get_mut(&Z_PREPASS_PIPELINE_ID) {
             let mut entry = entry.write().unwrap();
-            if let PipelineEntry::ZPrepass(p) = &mut *entry {
+            if entry.pass_type == PipelinePassType::ZPrepass {
                 let mut indices: Vec<usize> = Vec::with_capacity(mesh_items.len());
                 for (mesh_index, item) in mesh_items.iter().enumerate() {
                     if let Some(material) = item.get_material()
@@ -705,7 +703,7 @@ impl LightingMeshRenderer {
                         indices.push(mesh_index);
                     }
                 }
-                p.mesh_indices = indices;
+                entry.mesh_indices = indices;
             }
         }
     }
@@ -759,7 +757,6 @@ impl LightingMeshRenderer {
         });
         return light_bind_group;
     }
-
 
     pub(super) fn prepare_lights(
         &mut self,
@@ -1208,15 +1205,18 @@ impl LightingMeshRenderer {
         });
 
         // Create a uniform buffer for material properties
-        PipelineEntry::Shading(ShadingPipelineEntry {
+        PipelineEntry {
             pipeline,
-            material_bind_group_layout,
-            material_bind_groups: Vec::new(),
             mesh_indices: Vec::new(),
-            material_indices: Vec::new(),
-            sort_order,
-            enable_lighting: has_lighting,
-        })
+            pass_type: PipelinePassType::Shading,
+            shading: Some(ShadingPipelineData {
+                material_bind_group_layout,
+                material_bind_groups: Vec::new(),
+                material_indices: Vec::new(),
+                sort_order,
+                enable_lighting: has_lighting,
+            }),
+        }
     }
 
     fn create_z_prepass_pipeline(&self, device: &wgpu::Device) -> PipelineEntry {
@@ -1301,10 +1301,12 @@ impl LightingMeshRenderer {
             cache: None,
         });
 
-        PipelineEntry::ZPrepass(ZPrepassPipelineEntry {
+        PipelineEntry {
             pipeline,
             mesh_indices: Vec::new(),
-        })
+            pass_type: PipelinePassType::ZPrepass,
+            shading: None,
+        }
     }
 }
 

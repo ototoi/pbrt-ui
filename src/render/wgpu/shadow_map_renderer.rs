@@ -267,7 +267,11 @@ impl ShadowMapRenderer {
                 world_to_local: world_to_local.to_cols_array_2d(),
             };
             let offset = i as wgpu::BufferAddress * local_uniform_alignment;
-            queue.write_buffer(&self.local_uniform_buffer, offset, bytemuck::bytes_of(&uniform));
+            queue.write_buffer(
+                &self.local_uniform_buffer,
+                offset,
+                bytemuck::bytes_of(&uniform),
+            );
         }
     }
 
@@ -306,7 +310,9 @@ impl ShadowMapRenderer {
         }
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("ShadowMapRenderer Directional Shadow Pipeline Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/lighting_z_prepass.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("shaders/lighting_z_prepass.wgsl").into(),
+            ),
         });
         let vertex_buffer_layout = [wgpu::VertexBufferLayout {
             array_stride: size_of::<RenderVertex>() as wgpu::BufferAddress,
@@ -336,7 +342,10 @@ impl ShadowMapRenderer {
         }];
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("ShadowMapRenderer Directional Shadow Pipeline Layout"),
-            bind_group_layouts: &[&self.global_bind_group_layout, &self.local_bind_group_layout],
+            bind_group_layouts: &[
+                &self.global_bind_group_layout,
+                &self.local_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -489,7 +498,8 @@ impl ShadowMapRenderer {
                                 &self.local_bind_group,
                                 &[local_uniform_offset],
                             );
-                            render_pass.set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
+                            render_pass
+                                .set_vertex_buffer(0, mesh_item.mesh.vertex_buffer.slice(..));
                             render_pass.set_index_buffer(
                                 mesh_item.mesh.index_buffer.slice(..),
                                 wgpu::IndexFormat::Uint32,
@@ -509,7 +519,11 @@ impl ShadowMapRenderer {
                     wgpu::TexelCopyTextureInfo {
                         texture: &self.shadow_map_array.texture,
                         mip_level: 0,
-                        origin: wgpu::Origin3d { x: 0, y: 0, z: layer },
+                        origin: wgpu::Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: layer,
+                        },
                         aspect: wgpu::TextureAspect::DepthOnly,
                     },
                     wgpu::Extent3d {
