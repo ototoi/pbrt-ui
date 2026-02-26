@@ -3,11 +3,9 @@ use super::material::RenderCategory;
 use super::material::RenderPass;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
-use super::render_resource::RenderResourceManager;
 use super::shader::RenderShader;
 use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
 use super::shadow::RenderDirectionalLightShadow;
-use super::shadow::create_directional_light_shadows;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
@@ -284,83 +282,55 @@ fn get_shader_uses_z_prepass(category: RenderCategory) -> bool {
     category == RenderCategory::Opaque || category == RenderCategory::Emissive
 }
 
-fn get_shader_uses_shadow(category: RenderCategory) -> bool {
+pub(super) fn get_shader_uses_shadow(category: RenderCategory) -> bool {
     // Keep shadow-caster selection independent from z-prepass policy.
     category == RenderCategory::Opaque || category == RenderCategory::Emissive
 }
 
 impl LightingMeshRenderer {
+    pub(crate) fn set_directional_shadow_resources(
+        &mut self,
+        device: &wgpu::Device,
+        directional_shadow_info_buffer: &wgpu::Buffer,
+        directional_shadow_map: &RenderTexture,
+    ) {
+        self.directional_shadow_bind_group = self.create_directional_shadow_bind_group(
+            device,
+            directional_shadow_info_buffer,
+            &directional_shadow_map.view,
+            &directional_shadow_map.sampler,
+        );
+    }
+
     pub fn prepare(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        render_resource_manager: &mut RenderResourceManager,
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
     ) {
-        self.prepare_with_shadow_maps(
+        let (_mesh_items, light_items) = self.prepare_without_shadow_render(
             device,
             queue,
-            encoder,
-            render_resource_manager,
             render_items,
             camera,
         );
+        self.prepare_lights(device, queue, &light_items, None);
     }
 
-    pub(super) fn prepare_with_shadow_maps(
+    pub(super) fn prepare_without_shadow_render(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        render_resource_manager: &mut RenderResourceManager,
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
-    ) {
-        let shadow_passes = self.prepare_without_shadow_render(
-            device,
-            queue,
-            render_resource_manager,
-            render_items,
-            camera,
-        );
-        self.render_prepared_shadow_maps(device, queue, encoder, camera, &shadow_passes);
-    }
-
-    fn prepare_without_shadow_render(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        render_resource_manager: &mut RenderResourceManager,
-        render_items: &[Arc<RenderItem>],
-        camera: &RenderCamera,
-    ) -> Vec<Arc<RwLock<PipelineEntry>>> {
+    ) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
         self.prepare_global(device, queue, camera); //group(0)
         let (mesh_items, light_items) = Self::split_items(render_items);
         self.prepare_locals(device, queue, &mesh_items); //group(1)
         self.prepare_z_prepass(device, &mesh_items); //group(2)
         self.prepare_materials(device, queue, &mesh_items); //group(2)
-        let shadow_passes = self.prepare_lights(
-            device,
-            queue,
-            render_resource_manager,
-            camera,
-            &mesh_items,
-            &light_items,
-        ); //group(3)
-        shadow_passes
-    }
-
-    fn render_prepared_shadow_maps(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        camera: &RenderCamera,
-        shadow_pipelines: &[Arc<RwLock<PipelineEntry>>],
-    ) {
-        self.render_shadow_maps(device, queue, encoder, camera, shadow_pipelines);
+        (mesh_items, light_items)
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {
@@ -371,7 +341,7 @@ impl LightingMeshRenderer {
 
     // -------------------------------------------------------
 
-    fn split_items(
+    pub(super) fn split_items(
         render_items: &[Arc<RenderItem>],
     ) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
         let mut mesh_items = Vec::new();
@@ -803,58 +773,15 @@ impl LightingMeshRenderer {
     }
 
 
-    fn prepare_lights(
+    pub(super) fn prepare_lights(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        render_resource_manager: &mut RenderResourceManager,
-        camera: &RenderCamera,
-        mesh_items: &[Arc<RenderItem>],
         light_items: &[Arc<RenderItem>],
-    ) -> Vec<Arc<RwLock<PipelineEntry>>> {
+        directional_shadow_index_map: Option<&HashMap<Uuid, i32>>,
+    ) {
         let mut light_uniforms = LightUniforms::default();
         let mut light_textures = Vec::new();
-        let shadow_mesh_indices = mesh_items
-            .iter()
-            .enumerate()
-            .filter_map(|(i, item)| {
-                item.get_material().and_then(|material| {
-                    if material
-                        .passes
-                        .iter()
-                        .any(|pass| get_shader_uses_shadow(pass.render_category))
-                    {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
-        let mut shadow_pipelines = Vec::new();
-        let directional_light_shadows = create_directional_light_shadows(
-            device,
-            queue,
-            camera,
-            mesh_items,
-            light_items,
-            render_resource_manager,
-        );
-        let shadow_pipeline = self.update_directional_shadow_pipeline_entry(
-            device,
-            queue,
-            &directional_light_shadows,
-            &shadow_mesh_indices,
-        );
-        let mut directional_shadow_index_map = HashMap::new();
-        let mut base_shadow_index = 0i32;
-        for shadow in directional_light_shadows.iter() {
-            directional_shadow_index_map.insert(shadow.id, base_shadow_index);
-            base_shadow_index += shadow.cascades.len() as i32;
-        }
-        if let Some(shadow_pipeline_ref) = &shadow_pipeline {
-            shadow_pipelines.push(shadow_pipeline_ref.clone());
-        }
         // Point lights
         {
             let mut light_buffer = Vec::new();
@@ -1057,11 +984,13 @@ impl LightingMeshRenderer {
 
                     let shadow_index = if light.cast_shadow {
                         //log::info!("Directional light {:?} casts shadow", light_item.light.get_id());
-                        *directional_shadow_index_map.get(&light.id).unwrap_or(&-1)
+                        directional_shadow_index_map
+                            .and_then(|map| map.get(&light.id).copied())
+                            .unwrap_or(-1)
                     } else {
                         -1
                     };
-                    let cascade_count = if light.cast_shadow {
+                    let cascade_count = if light.cast_shadow && shadow_index >= 0 {
                         light
                             .cascade_count
                             .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32)
@@ -1119,8 +1048,6 @@ impl LightingMeshRenderer {
             0,
             bytemuck::bytes_of(&light_uniforms),
         );
-
-        return shadow_pipelines;
     }
 
     fn create_pipeline(

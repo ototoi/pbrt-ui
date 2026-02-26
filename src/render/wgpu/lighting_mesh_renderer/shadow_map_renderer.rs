@@ -193,12 +193,6 @@ impl LightingMeshRenderer {
                         0,
                         bytemuck::cast_slice(&infos),
                     );
-                    self.directional_shadow_bind_group = self.create_directional_shadow_bind_group(
-                        device,
-                        &p.directional_shadow_info_buffer,
-                        &p.shadow_map_array.view,
-                        &p.shadow_map_array.sampler,
-                    );
                 }
             }
             return Some(pipeline_arc.clone());
@@ -223,6 +217,39 @@ impl LightingMeshRenderer {
                 shadow_pipeline,
             );
         }
+    }
+
+    pub(crate) fn prepare_and_render_directional_shadow_maps(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        camera: &RenderCamera,
+        directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
+        shadow_mesh_indices: &[usize],
+    ) -> Option<(wgpu::Buffer, RenderTexture)> {
+        if let Some(shadow_pipeline) = self.update_directional_shadow_pipeline_entry(
+            device,
+            queue,
+            directional_light_shadows,
+            shadow_mesh_indices,
+        ) {
+            self.render_shadow_maps(device, queue, encoder, camera, &[shadow_pipeline]);
+            return self.get_directional_shadow_resources();
+        }
+        None
+    }
+
+    fn get_directional_shadow_resources(&self) -> Option<(wgpu::Buffer, RenderTexture)> {
+        let pipeline_arc = self.get_directional_shadow_pipeline_entry()?;
+        let pipeline_entry = pipeline_arc.read().ok()?;
+        if let PipelineEntry::DirectionalShadow(p) = &*pipeline_entry {
+            return Some((
+                p.directional_shadow_info_buffer.clone(),
+                p.shadow_map_array.clone(),
+            ));
+        }
+        None
     }
 
     pub(super) fn render_directional_shadow_maps(
