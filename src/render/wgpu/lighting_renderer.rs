@@ -145,14 +145,30 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     let mut shadow_map_renderer = self.shadow_map_renderer.write().unwrap();
                     let render_resource_manager = get_render_resource_manager(&self.node);
                     let mut render_resource_manager = render_resource_manager.write().unwrap();
-                    shadow_map_renderer.prepare(
-                        &mut renderer,
+                    renderer.prepare_meshes(device, queue, &render_items, &self.render_camera);
+                    let shadow_prepare = shadow_map_renderer.prepare(
                         device,
                         queue,
                         encoder,
                         &mut render_resource_manager,
                         &render_items,
                         &self.render_camera,
+                    );
+                    if let Some((directional_shadow_info_buffer, directional_shadow_map)) =
+                        shadow_prepare.directional_shadow_resources
+                    {
+                        renderer.set_directional_shadow_resources(
+                            device,
+                            &directional_shadow_info_buffer,
+                            &directional_shadow_map,
+                        );
+                    }
+                    let (_, light_items) = LightingMeshRenderer::split_items(&render_items);
+                    renderer.prepare_lights(
+                        device,
+                        queue,
+                        &light_items,
+                        Some(&shadow_prepare.directional_shadow_index_map),
                     );
                 }
                 {
@@ -228,7 +244,7 @@ impl LightingRenderer {
         let render_state = cc.wgpu_render_state.as_ref()?;
         let device = &render_state.device;
         let queue = &render_state.queue;
-        let shadow_map_renderer = ShadowMapRenderer::new();
+        let shadow_map_renderer = ShadowMapRenderer::new(device);
         let mesh_renderer = LightingMeshRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
         let lines_renderer = LinesRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
         let copy_texture_renderer =

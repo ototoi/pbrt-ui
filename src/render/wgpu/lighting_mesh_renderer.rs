@@ -309,28 +309,23 @@ impl LightingMeshRenderer {
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
     ) {
-        let (_mesh_items, light_items) = self.prepare_without_shadow_render(
-            device,
-            queue,
-            render_items,
-            camera,
-        );
+        let (mesh_items, light_items) = Self::split_items(render_items);
+        self.prepare_meshes(device, queue, &mesh_items, camera);
         self.prepare_lights(device, queue, &light_items, None);
     }
 
-    pub(super) fn prepare_without_shadow_render(
+    pub(super) fn prepare_meshes(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
-    ) -> (Vec<Arc<RenderItem>>, Vec<Arc<RenderItem>>) {
+    ) {
+        let (mesh_items, _) = Self::split_items(render_items);
         self.prepare_global(device, queue, camera); //group(0)
-        let (mesh_items, light_items) = Self::split_items(render_items);
         self.prepare_locals(device, queue, &mesh_items); //group(1)
         self.prepare_z_prepass(device, &mesh_items); //group(2)
         self.prepare_materials(device, queue, &mesh_items); //group(2)
-        (mesh_items, light_items)
     }
 
     pub fn paint(&self, render_pass: &mut wgpu::RenderPass) {

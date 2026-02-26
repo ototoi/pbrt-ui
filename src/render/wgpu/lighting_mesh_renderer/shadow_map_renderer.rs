@@ -219,28 +219,35 @@ impl LightingMeshRenderer {
         }
     }
 
-    pub(crate) fn prepare_and_render_directional_shadow_maps(
+    pub(crate) fn update_directional_shadow_pipeline_state(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        camera: &RenderCamera,
         directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
         shadow_mesh_indices: &[usize],
-    ) -> Option<(wgpu::Buffer, RenderTexture)> {
-        if let Some(shadow_pipeline) = self.update_directional_shadow_pipeline_entry(
+    ) -> bool {
+        self.update_directional_shadow_pipeline_entry(
             device,
             queue,
             directional_light_shadows,
             shadow_mesh_indices,
-        ) {
-            self.render_shadow_maps(device, queue, encoder, camera, &[shadow_pipeline]);
-            return self.get_directional_shadow_resources();
-        }
-        None
+        )
+        .is_some()
     }
 
-    fn get_directional_shadow_resources(&self) -> Option<(wgpu::Buffer, RenderTexture)> {
+    pub(crate) fn render_directional_shadow_maps_for_active_pipeline(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        camera: &RenderCamera,
+    ) {
+        if let Some(shadow_pipeline) = self.get_directional_shadow_pipeline_entry() {
+            self.render_shadow_maps(device, queue, encoder, camera, &[shadow_pipeline]);
+        }
+    }
+
+    pub(crate) fn get_directional_shadow_resources(&self) -> Option<(wgpu::Buffer, RenderTexture)> {
         let pipeline_arc = self.get_directional_shadow_pipeline_entry()?;
         let pipeline_entry = pipeline_arc.read().ok()?;
         if let PipelineEntry::DirectionalShadow(p) = &*pipeline_entry {
