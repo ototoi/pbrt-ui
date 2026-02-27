@@ -1,7 +1,7 @@
 use super::lines_renderer::LinesRenderer;
+use super::camera::RenderCamera;
 use super::render_item::get_render_items;
 use super::wire_mesh_renderer::WireMeshRenderer;
-use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
 use crate::render::wgpu::render_item::RenderItem;
@@ -22,8 +22,7 @@ struct PerFrameCallback {
     mesh_renderer: Arc<RwLock<WireMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     node: Arc<RwLock<Node>>,
-    world_to_camera: glam::Mat4,
-    camera_to_clip: glam::Mat4,
+    render_camera: RenderCamera,
 }
 
 unsafe impl Send for PerFrameCallback {}
@@ -65,8 +64,8 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     encoder,
                     resources,
                     &render_items,
-                    &self.world_to_camera,
-                    &self.camera_to_clip,
+                    &self.render_camera.world_to_camera,
+                    &self.render_camera.camera_to_clip,
                 );
                 command_buffers.extend(cmds);
             }
@@ -90,8 +89,8 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     device,
                     queue,
                     &render_items,
-                    &self.world_to_camera,
-                    &self.camera_to_clip,
+                    &self.render_camera.world_to_camera,
+                    &self.render_camera.camera_to_clip,
                 );
             }
         }
@@ -133,19 +132,15 @@ impl WireRenderer {
         ui: &mut egui::Ui,
         rect: egui::Rect,
         node: &Arc<RwLock<Node>>,
-        w2c: &Matrix4x4,
-        c2c: &Matrix4x4,
+        render_camera: &RenderCamera,
     ) {
-        let c2c = *c2c;
-        let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * c2c; // Convert to WGPU clip space
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             PerFrameCallback {
                 mesh_renderer: self.mesh_renderer.clone(),
                 lines_renderer: self.lines_renderer.clone(),
                 node: node.clone(),
-                world_to_camera: glam::Mat4::from(w2c),
-                camera_to_clip: glam::Mat4::from(c2c),
+                render_camera: render_camera.clone(),
             },
         ));
     }

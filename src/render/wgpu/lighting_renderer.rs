@@ -6,7 +6,6 @@ use super::render_item::get_render_items;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
 use super::shadow_map_renderer::ShadowMapRenderer;
-use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
 use std::collections::HashMap;
@@ -254,13 +253,8 @@ impl LightingRenderer {
         ui: &mut egui::Ui,
         rect: egui::Rect,
         node: &Arc<RwLock<Node>>,
-        w2c: &Matrix4x4,
-        c2c: &Matrix4x4,
+        render_camera: &RenderCamera,
     ) {
-        let c2c = *c2c;
-        let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * c2c; // Convert to WGPU clip space
-        let render_camera =
-            RenderCamera::from_matrices(glam::Mat4::from(w2c), glam::Mat4::from(c2c));
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             PerFrameCallback {
@@ -271,7 +265,7 @@ impl LightingRenderer {
                 copy_texture_renderer: self.copy_texture_renderer.clone(),
                 frame_buffers: self.frame_buffers.clone(),
                 node: node.clone(),
-                render_camera,
+                render_camera: render_camera.clone(),
             },
         ));
     }
