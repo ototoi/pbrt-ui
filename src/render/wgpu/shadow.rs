@@ -512,9 +512,7 @@ fn build_directional_shadow_build_context(
         return None;
     }
 
-    let (camera_near, camera_far) = if let Some(v) = get_camera_near_far(render_camera) {
-        v
-    } else {
+    let (camera_near, camera_far) = {
         let world_extent = world_max - world_min;
         let world_radius = world_extent.length() * 0.5;
         let near = 0.1_f32.max(world_radius * 0.01);
