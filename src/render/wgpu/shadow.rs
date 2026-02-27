@@ -164,15 +164,6 @@ fn get_frustum_slice_corners_from_full_frustum(
     out
 }
 
-fn get_camera_tan_half_fov(render_camera: &RenderCamera) -> Option<(f32, f32)> {
-    let m00 = render_camera.camera_to_clip.x_axis.x;
-    let m11 = render_camera.camera_to_clip.y_axis.y;
-    if m00.abs() < 1e-8 || m11.abs() < 1e-8 {
-        return None;
-    }
-    Some((1.0 / m00.abs(), 1.0 / m11.abs()))
-}
-
 fn build_virtual_frustum_points_lspsm(
     receiver_points: &[glam::Vec3; 8],
     render_camera: &RenderCamera,
@@ -485,7 +476,6 @@ struct DirectionalShadowBuildContext {
     full_scene_corners: [glam::Vec3; 8],
     full_frustum_corners: [glam::Vec3; 8],
     camera_near: f32,
-    camera_tan_half_fov_x: f32,
     caster_points_world: Vec<glam::Vec3>,
 }
 
@@ -536,8 +526,6 @@ fn build_directional_shadow_build_context(
     let split_far = camera_far;
     let full_scene_corners = get_aabb_corners(world_min, world_max);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
-    let (camera_tan_half_fov_x, _camera_tan_half_fov_y) =
-        get_camera_tan_half_fov(render_camera).unwrap_or((1.0, 1.0));
 
     Some(DirectionalShadowBuildContext {
         split_near,
@@ -545,7 +533,6 @@ fn build_directional_shadow_build_context(
         full_scene_corners,
         full_frustum_corners,
         camera_near,
-        camera_tan_half_fov_x,
         caster_points_world,
     })
 }
