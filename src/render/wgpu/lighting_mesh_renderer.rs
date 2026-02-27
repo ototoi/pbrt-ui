@@ -283,14 +283,11 @@ impl LightingMeshRenderer {
             .directional_shadow_maps
             .as_ref()
             .map(|maps| &maps.directional_shadow_index_map);
-        if let Some(directional_shadow_maps) = shadow_maps.directional_shadow_maps.as_ref()
-            && let Some((directional_shadow_info_buffer, directional_shadow_map)) =
-                directional_shadow_maps.directional_shadow_resources.as_ref()
-        {
+        if let Some(directional_shadow_maps) = shadow_maps.directional_shadow_maps.as_ref() {
             self.set_directional_shadow_resources(
                 device,
-                directional_shadow_info_buffer,
-                directional_shadow_map,
+                &directional_shadow_maps.directional_shadow_info_buffer,
+                &directional_shadow_maps.directional_shadow_map_texture,
             );
         }
         let (mesh_items, light_items) = Self::split_items(render_items);

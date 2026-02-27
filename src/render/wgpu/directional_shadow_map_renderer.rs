@@ -2,8 +2,8 @@ use super::camera::RenderCamera;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
-use super::shadow::DirectionalShadowMaps;
 use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
+use super::shadow::DirectionalShadowMaps;
 use super::shadow::RenderDirectionalLightShadow;
 use super::shadow::create_directional_light_shadows;
 use super::shadow::get_shader_uses_shadow;
@@ -195,19 +195,21 @@ impl DirectionalShadowMapRenderer {
             base_shadow_index += shadow.cascades.len() as i32;
         }
 
-        let directional_shadow_resources = self.prepare_and_render_directional_shadow_maps(
-            device,
-            queue,
-            encoder,
-            &mesh_items,
-            &directional_light_shadows,
-            &shadow_mesh_indices,
-        );
+        let (directional_shadow_info_buffer, directional_shadow_map_texture) = self
+            .prepare_and_render_directional_shadow_maps(
+                device,
+                queue,
+                encoder,
+                &mesh_items,
+                &directional_light_shadows,
+                &shadow_mesh_indices,
+            )?;
 
-        Some(DirectionalShadowMaps {
+        return Some(DirectionalShadowMaps {
             directional_shadow_index_map,
-            directional_shadow_resources,
-        })
+            directional_shadow_info_buffer,
+            directional_shadow_map_texture,
+        });
     }
 
     fn split_items(
