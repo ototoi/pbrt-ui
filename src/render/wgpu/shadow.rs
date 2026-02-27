@@ -5,6 +5,7 @@ use super::material::RenderCategory;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
 use super::texture::RenderTexture;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use eframe::wgpu;
@@ -18,6 +19,17 @@ pub const DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT: usize = 4;
 // 0.0 -> fully uniform, 1.0 -> fully logarithmic.
 // Higher values allocate more resolution to near-camera cascades.
 const CASCADE_SPLIT_LAMBDA: f32 = 0.9;
+
+#[derive(Debug, Clone, Default)]
+pub struct ShadowMaps {
+    pub directional_shadow_maps: Option<DirectionalShadowMaps>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DirectionalShadowMaps {
+    pub directional_shadow_index_map: HashMap<Uuid, i32>,
+    pub directional_shadow_resources: Option<(wgpu::Buffer, RenderTexture)>,
+}
 
 #[derive(Debug, Clone)]
 pub struct RenderDirectionalLightShadowCascade {

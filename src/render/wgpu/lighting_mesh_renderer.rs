@@ -5,7 +5,7 @@ use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::shader::RenderShader;
 use super::shadow::DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT;
-use super::shadow_map_renderer::ShadowPrepareResult;
+use super::shadow::ShadowMaps;
 use super::texture::RenderTexture;
 use crate::render::wgpu::light::RenderLight;
 use std::collections::HashMap;
@@ -277,11 +277,15 @@ impl LightingMeshRenderer {
         queue: &wgpu::Queue,
         render_items: &[Arc<RenderItem>],
         camera: &RenderCamera,
-        shadow_prepare: &ShadowPrepareResult,
+        shadow_maps: &ShadowMaps,
     ) {
-        let directional_shadow_index_map = Some(&shadow_prepare.directional_shadow_index_map);
-        if let Some((directional_shadow_info_buffer, directional_shadow_map)) =
-            shadow_prepare.directional_shadow_resources.as_ref()
+        let directional_shadow_index_map = shadow_maps
+            .directional_shadow_maps
+            .as_ref()
+            .map(|maps| &maps.directional_shadow_index_map);
+        if let Some(directional_shadow_maps) = shadow_maps.directional_shadow_maps.as_ref()
+            && let Some((directional_shadow_info_buffer, directional_shadow_map)) =
+                directional_shadow_maps.directional_shadow_resources.as_ref()
         {
             self.set_directional_shadow_resources(
                 device,

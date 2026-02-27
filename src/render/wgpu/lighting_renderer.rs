@@ -145,7 +145,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                     let mut shadow_map_renderer = self.shadow_map_renderer.write().unwrap();
                     let render_resource_manager = get_render_resource_manager(&self.node);
                     let mut render_resource_manager = render_resource_manager.write().unwrap();
-                    let shadow_prepare = shadow_map_renderer.prepare(
+                    let shadow_maps = shadow_map_renderer.prepare(
                         device,
                         queue,
                         encoder,
@@ -158,7 +158,7 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                         queue,
                         &render_items,
                         &self.render_camera,
-                        &shadow_prepare,
+                        &shadow_maps,
                     );
                 }
                 {
