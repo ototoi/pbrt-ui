@@ -1,6 +1,7 @@
 use super::camera::RenderCamera;
 use super::light::DirectionalShadowProjection;
 use super::light::RenderLight;
+use super::material::RenderCategory;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
 use super::texture::RenderTexture;
@@ -34,6 +35,10 @@ pub struct RenderDirectionalLightShadow {
     pub shadow_bias: f32,
     pub shadow_slope_bias: f32,
     pub cascades: Vec<RenderDirectionalLightShadowCascade>,
+}
+
+pub fn get_shader_uses_shadow(category: RenderCategory) -> bool {
+    category == RenderCategory::Opaque || category == RenderCategory::Emissive
 }
 
 fn get_aabb_corners(min: glam::Vec3, max: glam::Vec3) -> [glam::Vec3; 8] {

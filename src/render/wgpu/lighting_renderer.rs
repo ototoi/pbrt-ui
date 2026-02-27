@@ -5,6 +5,7 @@ use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
+use super::shadow_map_renderer::ShadowMapRenderer;
 use crate::model::base::Matrix4x4;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
@@ -28,6 +29,7 @@ type FrameBufferMap = HashMap<FrameBufferType, (wgpu::Texture, wgpu::Texture)>;
 
 pub struct LightingRenderer {
     // surface textures
+    shadow_map_renderer: Arc<RwLock<ShadowMapRenderer>>,
     mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
@@ -37,6 +39,7 @@ pub struct LightingRenderer {
 #[derive(Debug, Clone)]
 struct PerFrameCallback {
     rect: [f32; 4],
+    shadow_map_renderer: Arc<RwLock<ShadowMapRenderer>>,
     mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
@@ -60,7 +63,7 @@ fn get_render_resource_manager(node: &Arc<RwLock<Node>>) -> Arc<RwLock<RenderRes
 }
 
 impl PerFrameCallback {
-    pub fn prepare_frame_buffers(
+    fn prepare_frame_buffers(
         &self,
         device: &wgpu::Device,
         screen_descriptor: &egui_wgpu::ScreenDescriptor,
@@ -137,17 +140,25 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 frame_buffers.get(&FrameBufferType::FinalRender)
             {
                 {
-                    // Prepare the mesh renderer with the render items
+                    // Prepare mesh/shadow pipelines with the render items
                     let mut renderer = self.mesh_renderer.write().unwrap();
+                    let mut shadow_map_renderer = self.shadow_map_renderer.write().unwrap();
                     let render_resource_manager = get_render_resource_manager(&self.node);
                     let mut render_resource_manager = render_resource_manager.write().unwrap();
-                    renderer.prepare(
+                    let shadow_prepare = shadow_map_renderer.prepare(
                         device,
                         queue,
                         encoder,
                         &mut render_resource_manager,
                         &render_items,
                         &self.render_camera,
+                    );
+                    renderer.prepare(
+                        device,
+                        queue,
+                        &render_items,
+                        &self.render_camera,
+                        &shadow_prepare,
                     );
                 }
                 {
@@ -223,12 +234,14 @@ impl LightingRenderer {
         let render_state = cc.wgpu_render_state.as_ref()?;
         let device = &render_state.device;
         let queue = &render_state.queue;
+        let shadow_map_renderer = ShadowMapRenderer::new(device);
         let mesh_renderer = LightingMeshRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
         let lines_renderer = LinesRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
         let copy_texture_renderer =
             LinearToSrgbRenderer::new(device, queue, render_state.target_format);
         // Create the lighting renderer with the mesh and lines renderers
         return Some(LightingRenderer {
+            shadow_map_renderer: Arc::new(RwLock::new(shadow_map_renderer)),
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),
             copy_texture_renderer: Arc::new(RwLock::new(copy_texture_renderer)),
@@ -252,6 +265,7 @@ impl LightingRenderer {
             rect,
             PerFrameCallback {
                 rect: [rect.min.x, rect.min.y, rect.max.x, rect.max.y],
+                shadow_map_renderer: self.shadow_map_renderer.clone(),
                 mesh_renderer: self.mesh_renderer.clone(),
                 lines_renderer: self.lines_renderer.clone(),
                 copy_texture_renderer: self.copy_texture_renderer.clone(),
