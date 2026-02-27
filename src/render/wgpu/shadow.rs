@@ -475,7 +475,6 @@ struct DirectionalShadowBuildContext {
     split_far: f32,
     full_scene_corners: [glam::Vec3; 8],
     full_frustum_corners: [glam::Vec3; 8],
-    camera_near: f32,
     caster_points_world: Vec<glam::Vec3>,
 }
 
@@ -532,7 +531,6 @@ fn build_directional_shadow_build_context(
         split_far,
         full_scene_corners,
         full_frustum_corners,
-        camera_near,
         caster_points_world,
     })
 }
@@ -679,7 +677,7 @@ fn create_directional_light_shadow_csm(
         let virtual_points = get_frustum_slice_corners_world(
             &ctx.full_frustum_corners,
             render_camera.position,
-            ctx.camera_near,
+            ctx.split_near,
             cascade_near,
             cascade_far,
         );
