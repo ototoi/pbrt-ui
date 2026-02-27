@@ -186,17 +186,16 @@ impl DirectionalShadowMapRenderer {
             })
             .collect::<Vec<_>>();
 
-        let directional_light_shadows = create_directional_light_shadows(
+        let Some(directional_light_shadows) = create_directional_light_shadows(
             device,
             queue,
             camera,
             &mesh_items,
             &light_items,
             render_resource_manager,
-        );
-        if directional_light_shadows.is_empty() {
+        ) else {
             return None;
-        }
+        };
 
         let mut directional_shadow_index_map = HashMap::new();
         let mut base_shadow_index = 0i32;
