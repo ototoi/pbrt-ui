@@ -1,5 +1,6 @@
 pub mod aabb_renderer;
 pub mod camera;
+pub mod directional_shadow_map_renderer;
 pub mod light;
 pub mod lighting_mesh_renderer;
 pub mod lighting_renderer;
