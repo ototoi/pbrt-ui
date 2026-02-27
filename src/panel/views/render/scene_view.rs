@@ -132,7 +132,14 @@ impl SceneView {
 
         let aspect = rect.width() / rect.height();
         let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * Matrix4x4::perspective(fov, aspect, znear, zfar);
-        let render_camera = RenderCamera::from_matrices(glam::Mat4::from(&w2c), glam::Mat4::from(&c2c));
+        let render_camera = RenderCamera::from_perspective(
+            glam::Mat4::from(&w2c),
+            glam::Mat4::from(&c2c),
+            znear,
+            zfar,
+            fov,
+            aspect,
+        );
 
 
         ui.painter().rect_filled(rect, 0.0, egui::Color32::BLACK);

@@ -484,7 +484,6 @@ struct DirectionalShadowBuildContext {
     split_far: f32,
     full_scene_corners: [glam::Vec3; 8],
     full_frustum_corners: [glam::Vec3; 8],
-    camera_pos: glam::Vec3,
     camera_near: f32,
     camera_tan_half_fov_x: f32,
     caster_points_world: Vec<glam::Vec3>,
@@ -537,7 +536,6 @@ fn build_directional_shadow_build_context(
     let split_far = camera_far;
     let full_scene_corners = get_aabb_corners(world_min, world_max);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
-    let camera_pos = render_camera.position;
     let (camera_tan_half_fov_x, _camera_tan_half_fov_y) =
         get_camera_tan_half_fov(render_camera).unwrap_or((1.0, 1.0));
 
@@ -546,7 +544,6 @@ fn build_directional_shadow_build_context(
         split_far,
         full_scene_corners,
         full_frustum_corners,
-        camera_pos,
         camera_near,
         camera_tan_half_fov_x,
         caster_points_world,
@@ -694,7 +691,7 @@ fn create_directional_light_shadow_csm(
     for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
         let virtual_points = get_frustum_slice_corners_world(
             &ctx.full_frustum_corners,
-            ctx.camera_pos,
+            render_camera.position,
             ctx.camera_near,
             cascade_near,
             cascade_far,
@@ -734,105 +731,14 @@ fn create_directional_light_shadow_csm(
 }
 
 fn create_directional_light_shadow_lspsm(
-    device: &wgpu::Device,
-    render_camera: &RenderCamera,
-    render_resource_manager: &mut RenderResourceManager,
-    light_matrix: glam::Mat4,
-    directional_light: &DirectionalRenderLight,
-    ctx: &DirectionalShadowBuildContext,
+    _device: &wgpu::Device,
+    _render_camera: &RenderCamera,
+    _render_resource_manager: &mut RenderResourceManager,
+    _light_matrix: glam::Mat4,
+    _directional_light: &DirectionalRenderLight,
+    _ctx: &DirectionalShadowBuildContext,
 ) -> Option<Arc<RenderDirectionalLightShadow>> {
-    assert!(
-        directional_light.cast_shadow,
-        "create_directional_light_shadow_lspsm called for non-shadow-casting light"
-    );
-
-    let (light_dir, up) =
-        build_directional_light_basis(render_camera, light_matrix, directional_light)?;
-    let camera_dir = render_camera.forward.normalize_or_zero();
-    if camera_dir.length_squared() < 1e-8 {
-        return None;
-    }
-    if light_dir.abs().dot(camera_dir) >= LSPSM_PARALLEL_THRESHOLD_COS {
-        return create_directional_light_shadow_csm(
-            device,
-            render_camera,
-            render_resource_manager,
-            light_matrix,
-            directional_light,
-            ctx,
-        );
-    }
-
-    let cascade_count = directional_light
-        .cascade_count
-        .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32) as usize;
-    let cascade_splits = build_cascade_splits(ctx.split_near, ctx.split_far, cascade_count);
-    let full_virtual_frustum_points = if let Some(points) = build_virtual_frustum_points_lspsm(
-        &ctx.full_frustum_corners,
-        render_camera,
-        light_dir,
-        ctx.camera_tan_half_fov_x,
-    ) {
-        points
-    } else {
-        return create_directional_light_shadow_csm(
-            device,
-            render_camera,
-            render_resource_manager,
-            light_matrix,
-            directional_light,
-            ctx,
-        );
-    };
-
-    let mut cascades = Vec::with_capacity(cascade_count);
-    let mut cascade_near = ctx.split_near;
-    let split_range = (ctx.split_far - ctx.split_near).max(1e-6);
-    for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
-        let t_near = ((cascade_near - ctx.split_near) / split_range).clamp(0.0, 1.0);
-        let t_far = ((cascade_far - ctx.split_near) / split_range).clamp(t_near, 1.0);
-        let virtual_points =
-            get_frustum_slice_corners_from_full_frustum(&full_virtual_frustum_points, t_near, t_far);
-        let virtual_frustum_points = virtual_points.to_vec();
-        let (light_view, light_proj, light_view_proj) = build_light_matrices_from_virtual_points_lspsm(
-            &virtual_frustum_points,
-            &ctx.caster_points_world,
-            light_dir,
-            up,
-        )
-        .unwrap_or_else(|| {
-            build_light_matrices_from_virtual_points_orthographic(
-                &virtual_frustum_points,
-                &ctx.caster_points_world,
-                &ctx.full_scene_corners,
-                light_dir,
-                up,
-            )
-        });
-        let render_texture = get_directional_shadow_texture(
-            device,
-            render_resource_manager,
-            directional_light,
-            cascade_index,
-        );
-
-        cascades.push(RenderDirectionalLightShadowCascade {
-            light_view,
-            light_proj,
-            light_view_proj,
-            split_end: cascade_far,
-            texture: render_texture,
-        });
-        cascade_near = cascade_far;
-    }
-
-    Some(Arc::new(RenderDirectionalLightShadow {
-        id: directional_light.id,
-        edition: directional_light.edition.clone(),
-        shadow_bias: directional_light.shadow_bias,
-        shadow_slope_bias: directional_light.shadow_slope_bias,
-        cascades,
-    }))
+    todo!("create_directional_light_shadow_lspsm");
 }
 
 pub fn create_directional_light_shadows(
