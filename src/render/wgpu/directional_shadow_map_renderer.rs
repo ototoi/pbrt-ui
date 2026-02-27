@@ -55,9 +55,9 @@ pub struct DirectionalShadowMapRenderer {
     local_bind_group_layout: wgpu::BindGroupLayout,
     local_bind_group: wgpu::BindGroup,
     local_uniform_buffer: wgpu::Buffer,
-    directional_shadow_pipeline: Option<wgpu::RenderPipeline>,
+    directional_shadow_pipeline: wgpu::RenderPipeline,
     directional_shadow_info_buffer: wgpu::Buffer,
-    shadow_map_array: RenderTexture,
+    shadow_map_array: Arc<RenderTexture>,
 }
 
 fn create_local_uniform_buffer(device: &wgpu::Device, num_items: usize) -> wgpu::Buffer {
@@ -133,7 +133,12 @@ impl DirectionalShadowMapRenderer {
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
         });
 
-        let shadow_map_array = Self::create_directional_shadow_map_array(device, 1, 1, 1);
+        let shadow_map_array = Arc::new(Self::create_directional_shadow_map_array(device, 1, 1, 1));
+        let directional_shadow_pipeline = Self::create_directional_shadow_pipeline(
+            device,
+            &global_bind_group_layout,
+            &local_bind_group_layout,
+        );
 
         Self {
             min_uniform_buffer_offset_alignment,
@@ -141,7 +146,7 @@ impl DirectionalShadowMapRenderer {
             local_bind_group_layout,
             local_bind_group,
             local_uniform_buffer,
-            directional_shadow_pipeline: None,
+            directional_shadow_pipeline,
             directional_shadow_info_buffer,
             shadow_map_array,
         }
@@ -295,12 +300,11 @@ impl DirectionalShadowMapRenderer {
         mesh_items: &[Arc<RenderItem>],
         directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
         shadow_mesh_indices: &[usize],
-    ) -> Option<(wgpu::Buffer, RenderTexture)> {
+    ) -> Option<(wgpu::Buffer, Arc<RenderTexture>)> {
         if directional_light_shadows.is_empty() || shadow_mesh_indices.is_empty() {
             return None;
         }
 
-        self.ensure_directional_shadow_pipeline(device);
         self.update_shadow_info_and_array(device, queue, directional_light_shadows);
         self.render_directional_shadow_maps(
             device,
@@ -316,10 +320,11 @@ impl DirectionalShadowMapRenderer {
         ))
     }
 
-    fn ensure_directional_shadow_pipeline(&mut self, device: &wgpu::Device) {
-        if self.directional_shadow_pipeline.is_some() {
-            return;
-        }
+    fn create_directional_shadow_pipeline(
+        device: &wgpu::Device,
+        global_bind_group_layout: &wgpu::BindGroupLayout,
+        local_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::RenderPipeline {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("DirectionalShadowMapRenderer Directional Shadow Pipeline Shader"),
             source: wgpu::ShaderSource::Wgsl(
@@ -354,13 +359,10 @@ impl DirectionalShadowMapRenderer {
         }];
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("DirectionalShadowMapRenderer Directional Shadow Pipeline Layout"),
-            bind_group_layouts: &[
-                &self.global_bind_group_layout,
-                &self.local_bind_group_layout,
-            ],
+            bind_group_layouts: &[global_bind_group_layout, local_bind_group_layout],
             push_constant_ranges: &[],
         });
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("DirectionalShadowMapRenderer Directional Shadow Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
@@ -381,8 +383,7 @@ impl DirectionalShadowMapRenderer {
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
-        });
-        self.directional_shadow_pipeline = Some(pipeline);
+        })
     }
 
     fn update_shadow_info_and_array(
@@ -429,8 +430,12 @@ impl DirectionalShadowMapRenderer {
             || current_size.width != width
             || current_size.height != height
         {
-            self.shadow_map_array =
-                Self::create_directional_shadow_map_array(device, layer_count, width, height);
+            self.shadow_map_array = Arc::new(Self::create_directional_shadow_map_array(
+                device,
+                layer_count,
+                width,
+                height,
+            ));
         }
     }
 
@@ -442,9 +447,7 @@ impl DirectionalShadowMapRenderer {
         directional_light_shadows: &[Arc<RenderDirectionalLightShadow>],
         shadow_mesh_indices: &[usize],
     ) {
-        let Some(pipeline) = self.directional_shadow_pipeline.as_ref() else {
-            return;
-        };
+        let pipeline = &self.directional_shadow_pipeline;
         let local_uniform_alignment = {
             let alignment = self.min_uniform_buffer_offset_alignment;
             align_to(
