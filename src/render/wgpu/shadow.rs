@@ -29,7 +29,7 @@ pub struct ShadowMaps {
 pub struct DirectionalShadowMaps {
     pub directional_shadow_index_map: HashMap<Uuid, i32>,
     pub directional_shadow_info_buffer: wgpu::Buffer,
-    pub directional_shadow_map_texture: RenderTexture,
+    pub directional_shadow_map_texture: Arc<RenderTexture>,
 }
 
 #[derive(Debug, Clone)]

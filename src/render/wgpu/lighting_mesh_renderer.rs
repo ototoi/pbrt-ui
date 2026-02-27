@@ -287,7 +287,9 @@ impl LightingMeshRenderer {
             self.set_directional_shadow_resources(
                 device,
                 &directional_shadow_maps.directional_shadow_info_buffer,
-                &directional_shadow_maps.directional_shadow_map_texture,
+                directional_shadow_maps
+                    .directional_shadow_map_texture
+                    .as_ref(),
             );
         }
         let (mesh_items, light_items) = Self::split_items(render_items);
