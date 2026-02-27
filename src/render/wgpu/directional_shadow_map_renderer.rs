@@ -1,4 +1,5 @@
 use super::camera::RenderCamera;
+use super::light::RenderLight;
 use super::mesh::RenderVertex;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
@@ -156,6 +157,10 @@ impl DirectionalShadowMapRenderer {
         camera: &RenderCamera,
     ) -> Option<DirectionalShadowMaps> {
         let (mesh_items, light_items) = Self::split_items(render_items);
+        if light_items.is_empty() {
+            // No directional lights, no need to prepare shadow maps
+            return None;
+        }
         self.prepare_locals(device, queue, &mesh_items);
 
         let shadow_mesh_indices = mesh_items
@@ -204,12 +209,12 @@ impl DirectionalShadowMapRenderer {
                 &directional_light_shadows,
                 &shadow_mesh_indices,
             )?;
-
-        return Some(DirectionalShadowMaps {
+        let directional_shadow_maps = DirectionalShadowMaps {
             directional_shadow_index_map,
             directional_shadow_info_buffer,
             directional_shadow_map_texture,
-        });
+        };
+        return Some(directional_shadow_maps);
     }
 
     fn split_items(
@@ -220,7 +225,14 @@ impl DirectionalShadowMapRenderer {
         for item in render_items {
             match item.as_ref() {
                 RenderItem::Mesh(_) => mesh_items.push(item.clone()),
-                RenderItem::Light(_) => light_items.push(item.clone()),
+                RenderItem::Light(light_item) => {
+                    if let RenderLight::Directional(directional_light) = light_item.light.as_ref() {
+                        if directional_light.cast_shadow {
+                            // Only consider directional lights that cast shadows
+                            light_items.push(item.clone());
+                        }
+                    }
+                }
                 _ => {}
             }
         }
