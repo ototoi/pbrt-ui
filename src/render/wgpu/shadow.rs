@@ -331,16 +331,16 @@ fn compute_split_range_from_casters(
     Some((split_min, split_max))
 }
 
-struct DirectionalShadowBuildContext {
+struct ShadowSceneContext {
     full_scene_corners: [glam::Vec3; 8],
     full_frustum_corners: [glam::Vec3; 8],
     caster_points_world: Vec<glam::Vec3>,
 }
 
-fn build_directional_shadow_build_context(
+fn build_shadow_scene_context(
     render_camera: &RenderCamera,
     mesh_items: &[Arc<RenderItem>],
-) -> Option<DirectionalShadowBuildContext> {
+) -> Option<ShadowSceneContext> {
     let mut world_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
     let mut world_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
     let mut caster_points_world = Vec::new();
@@ -374,7 +374,7 @@ fn build_directional_shadow_build_context(
     let full_scene_corners = get_aabb_corners(world_min, world_max);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
 
-    Some(DirectionalShadowBuildContext {
+    Some(ShadowSceneContext {
         full_scene_corners,
         full_frustum_corners,
         caster_points_world,
@@ -387,7 +387,7 @@ fn create_directional_light_shadow(
     render_resource_manager: &mut RenderResourceManager,
     light_matrix: glam::Mat4,
     directional_light: &DirectionalRenderLight,
-    ctx: &DirectionalShadowBuildContext,
+    ctx: &ShadowSceneContext,
 ) -> Option<Arc<RenderDirectionalLightShadow>> {
     match directional_light.shadow_projection {
         DirectionalShadowProjection::Lspsm => create_directional_light_shadow_lspsm(
@@ -503,7 +503,7 @@ fn create_directional_light_shadow_csm(
     render_resource_manager: &mut RenderResourceManager,
     light_matrix: glam::Mat4,
     directional_light: &DirectionalRenderLight,
-    ctx: &DirectionalShadowBuildContext,
+    ctx: &ShadowSceneContext,
 ) -> Option<Arc<RenderDirectionalLightShadow>> {
     assert!(
         directional_light.cast_shadow,
@@ -578,7 +578,7 @@ fn create_directional_light_shadow_lspsm(
     _render_resource_manager: &mut RenderResourceManager,
     _light_matrix: glam::Mat4,
     _directional_light: &DirectionalRenderLight,
-    _ctx: &DirectionalShadowBuildContext,
+    _ctx: &ShadowSceneContext,
 ) -> Option<Arc<RenderDirectionalLightShadow>> {
     todo!("create_directional_light_shadow_lspsm");
 }
@@ -606,7 +606,7 @@ pub fn create_directional_light_shadows(
         return None;
     }
 
-    let build_ctx = build_directional_shadow_build_context(render_camera, mesh_items)?;
+    let build_ctx = build_shadow_scene_context(render_camera, mesh_items)?;
     let mut shadows = Vec::new();
 
     for item in target_light_items {
