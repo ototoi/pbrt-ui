@@ -162,8 +162,14 @@ impl DirectionalShadowMapRenderer {
         camera: &RenderCamera,
     ) -> Option<DirectionalShadowMaps> {
         let (mesh_items, light_items) = Self::split_items(render_items);
+        log::info!(
+            "ShadowPrepare: mesh_items={}, directional_lights={}",
+            mesh_items.len(),
+            light_items.len()
+        );
         if light_items.is_empty() {
             // No directional lights, no need to prepare shadow maps
+            log::info!("ShadowPrepare: skipped (no directional lights)");
             return None;
         }
         self.prepare_locals(device, queue, &mesh_items);
@@ -185,6 +191,10 @@ impl DirectionalShadowMapRenderer {
                 })
             })
             .collect::<Vec<_>>();
+        log::info!(
+            "ShadowPrepare: shadow_mesh_indices={}",
+            shadow_mesh_indices.len()
+        );
 
         let Some(directional_light_shadows) = create_directional_light_shadows(
             device,
@@ -194,8 +204,13 @@ impl DirectionalShadowMapRenderer {
             &light_items,
             render_resource_manager,
         ) else {
+            log::info!("ShadowPrepare: create_directional_light_shadows returned None");
             return None;
         };
+        log::info!(
+            "ShadowPrepare: directional_light_shadows={}",
+            directional_light_shadows.len()
+        );
 
         let mut directional_shadow_index_map = HashMap::new();
         let mut base_shadow_index = 0i32;
