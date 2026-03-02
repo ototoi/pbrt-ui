@@ -53,7 +53,7 @@ var ltc_sampler: sampler;
 const MAX_FLOAT: f32 = 1e+10;
 const PI: f32 = 3.14159265359;
 const INV_PI: f32 = 1.0 / 3.14159265359;
-// 0: off, 1: shadow factor, 2: sampled shadow map depth, 3: projected uv/depth
+// 0: off, 1: shadow factor, 2: sampled shadow map depth, 3: projected uv/depth, 4: cascade index
 const DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE: u32 = 0u;
 //-------------------------------------------------------
 // LTC functions and definitions
@@ -551,6 +551,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var debug_shadow_factor = 1.0;
     var debug_shadow_depth = 1.0;
     var debug_shadow_uvz = vec3<f32>(0.0);
+    var debug_shadow_cascade = -1;
     var debug_has_shadow_proj = false;
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
@@ -599,6 +600,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         if (!debug_has_shadow_proj && projected.w >= 0.0) {
             debug_has_shadow_proj = true;
             debug_shadow_uvz = vec3<f32>(projected.x, projected.y, projected.z);
+            debug_shadow_cascade = i32(projected.w) - light.shadow_index;
             debug_shadow_depth =
                 sample_directional_shadow_depth(
                     light.shadow_index,
@@ -632,6 +634,21 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         }
         if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 3u && debug_has_shadow_proj) {
             return vec4<f32>(debug_shadow_uvz, 1.0);
+        }
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 4u && debug_shadow_cascade >= 0) {
+            if (debug_shadow_cascade == 0) {
+                return vec4<f32>(1.0, 0.2, 0.2, 1.0);
+            }
+            if (debug_shadow_cascade == 1) {
+                return vec4<f32>(0.2, 1.0, 0.2, 1.0);
+            }
+            if (debug_shadow_cascade == 2) {
+                return vec4<f32>(0.2, 0.4, 1.0, 1.0);
+            }
+            if (debug_shadow_cascade == 3) {
+                return vec4<f32>(1.0, 0.9, 0.2, 1.0);
+            }
+            return vec4<f32>(1.0, 0.0, 1.0, 1.0);
         }
 #endif
     }

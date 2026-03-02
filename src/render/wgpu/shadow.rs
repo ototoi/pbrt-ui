@@ -107,27 +107,34 @@ fn build_cascade_splits(near: f32, far: f32, cascade_count: usize) -> Vec<f32> {
 }
 
 fn get_full_frustum_corners_world(render_camera: &RenderCamera) -> [glam::Vec3; 8] {
-    let clip_to_world = render_camera.camera_to_world * render_camera.camera_to_clip.inverse();
-    let clip_corners = [
-        glam::vec4(-1.0, -1.0, 0.0, 1.0),
-        glam::vec4(1.0, -1.0, 0.0, 1.0),
-        glam::vec4(-1.0, 1.0, 0.0, 1.0),
-        glam::vec4(1.0, 1.0, 0.0, 1.0),
-        glam::vec4(-1.0, -1.0, 1.0, 1.0),
-        glam::vec4(1.0, -1.0, 1.0, 1.0),
-        glam::vec4(-1.0, 1.0, 1.0, 1.0),
-        glam::vec4(1.0, 1.0, 1.0, 1.0),
-    ];
-    let mut out = [glam::Vec3::ZERO; 8];
-    for (i, c) in clip_corners.iter().enumerate() {
-        let w = clip_to_world * *c;
-        if w.w.abs() < 1e-8 {
-            out[i] = w.truncate();
-        } else {
-            out[i] = w.truncate() / w.w;
-        }
-    }
-    out
+    let near = render_camera.near.max(1e-5);
+    let far = render_camera.far.max(near + 1e-5);
+    let tan_half_hfov = (0.5 * render_camera.hfov).tan();
+    let tan_half_vfov = (0.5 * render_camera.vfov).tan();
+
+    let forward = render_camera.forward.normalize_or_zero();
+    let right = render_camera.right.normalize_or_zero();
+    let up = render_camera.up.normalize_or_zero();
+    let position = render_camera.position;
+
+    let near_center = position + forward * near;
+    let far_center = position + forward * far;
+
+    let near_w = near * tan_half_hfov;
+    let near_h = near * tan_half_vfov;
+    let far_w = far * tan_half_hfov;
+    let far_h = far * tan_half_vfov;
+
+    [
+        near_center - right * near_w - up * near_h,
+        near_center + right * near_w - up * near_h,
+        near_center - right * near_w + up * near_h,
+        near_center + right * near_w + up * near_h,
+        far_center - right * far_w - up * far_h,
+        far_center + right * far_w - up * far_h,
+        far_center - right * far_w + up * far_h,
+        far_center + right * far_w + up * far_h,
+    ]
 }
 
 fn get_frustum_slice_corners_world(
@@ -214,23 +221,26 @@ fn build_light_matrices_from_virtual_points_orthographic(
     let eye = world_center - light_dir * light_distance;
     let light_view = glam::Mat4::look_at_rh(eye, world_center, up);
 
-    let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
-    let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, 0.0);
+    let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, 0.0);
     // Build XY bounds from receiver footprint (virtual frustum slice).
-    // Depth (Z) is extended below with caster points.
+    // Z is derived from caster points only.
     for p_world in virtual_frustum_points.iter().copied() {
         let p = light_view.transform_point3(p_world);
-        expand_bounds(&mut light_min, &mut light_max, p);
+        light_min.x = light_min.x.min(p.x);
+        light_min.y = light_min.y.min(p.y);
+        light_max.x = light_max.x.max(p.x);
+        light_max.y = light_max.y.max(p.y);
     }
 
     let margin = SHADOW_BOUNDS_MARGIN;
-    let span = light_max - light_min;
+    let span = glam::vec3(light_max.x - light_min.x, light_max.y - light_min.y, 1.0);
     let mx = span.x.abs().max(1e-3) * margin;
     let my = span.y.abs().max(1e-3) * margin;
-    let mz = span.z.abs().max(1e-3) * margin;
+    let mut caster_z_min = f32::INFINITY;
+    let mut caster_z_max = f32::NEG_INFINITY;
 
-    // Extend depth only with casters that overlap this cascade footprint in light space.
-    // This uses both camera slice (receiver bounds XY) and light-space caster positions.
+    // Z-range is caster-driven. Prefer casters overlapping receiver XY footprint.
     let caster_x_min = light_min.x - mx;
     let caster_x_max = light_max.x + mx;
     let caster_y_min = light_min.y - my;
@@ -240,19 +250,30 @@ fn build_light_matrices_from_virtual_points_orthographic(
         let p = light_view.transform_point3(*p_world);
         if p.x >= caster_x_min && p.x <= caster_x_max && p.y >= caster_y_min && p.y <= caster_y_max
         {
-            light_min.z = light_min.z.min(p.z);
-            light_max.z = light_max.z.max(p.z);
+            caster_z_min = caster_z_min.min(p.z);
+            caster_z_max = caster_z_max.max(p.z);
             has_overlap_caster = true;
         }
     }
-    // Fallback to full-scene casters when no overlap is found to avoid missing shadows.
+    // Fallback to all casters to avoid missing shadows when overlap test misses.
     if !has_overlap_caster {
-        for corner in full_scene_corners.iter().copied() {
-            let p = light_view.transform_point3(corner);
-            light_min.z = light_min.z.min(p.z);
-            light_max.z = light_max.z.max(p.z);
+        for p_world in caster_points_world.iter().copied() {
+            let p = light_view.transform_point3(p_world);
+            caster_z_min = caster_z_min.min(p.z);
+            caster_z_max = caster_z_max.max(p.z);
         }
     }
+    // Last resort: keep projection valid when no caster depth could be produced.
+    if !caster_z_min.is_finite() || !caster_z_max.is_finite() {
+        for corner in full_scene_corners.iter().copied() {
+            let p = light_view.transform_point3(corner);
+            caster_z_min = caster_z_min.min(p.z);
+            caster_z_max = caster_z_max.max(p.z);
+        }
+    }
+    light_min.z = caster_z_min;
+    light_max.z = caster_z_max;
+    let mz = (light_max.z - light_min.z).abs().max(1e-3) * margin;
 
     // Snap projection center to shadow texel grid to reduce shimmering and
     // improve effective resolution usage per cascade.
@@ -277,54 +298,76 @@ fn build_light_matrices_from_virtual_points_orthographic(
     (light_view, light_proj, light_view_proj)
 }
 
-fn build_split_space_basis(camera_forward: glam::Vec3, light_dir: glam::Vec3) -> Option<SplitSpaceBasis> {
+fn build_split_space_basis(camera_forward: glam::Vec3) -> Option<SplitSpaceBasis> {
     let camera_forward = camera_forward.normalize_or_zero();
-    let light_dir = light_dir.normalize_or_zero();
-    if camera_forward.length_squared() < 1e-8 || light_dir.length_squared() < 1e-8 {
-        return None;
-    }
-
-    let mut right = camera_forward.cross(light_dir).normalize_or_zero();
-    if right.length_squared() < 1e-8 {
-        return None;
-    }
-
-    let mut split_forward = light_dir.cross(right).normalize_or_zero();
-    if split_forward.length_squared() < 1e-8 {
-        return None;
-    }
-    if split_forward.dot(camera_forward) < 0.0 {
-        split_forward = -split_forward;
-        right = -right;
-    }
-
-    let up = split_forward.cross(right).normalize_or_zero();
-    if up.length_squared() < 1e-8 {
+    if camera_forward.length_squared() < 1e-8 {
         return None;
     }
 
     Some(SplitSpaceBasis {
-        forward: split_forward,
+        forward: camera_forward,
     })
 }
 
-fn compute_split_range_from_casters(
+fn compute_depth_range_in_split_space(
     camera_position: glam::Vec3,
     split_forward: glam::Vec3,
-    caster_points_world: &[glam::Vec3],
+    points_world: &[glam::Vec3],
 ) -> Option<(f32, f32)> {
-    if caster_points_world.is_empty() {
+    if points_world.is_empty() {
+        return None;
+    }
+    let mut depth_min = f32::INFINITY;
+    let mut depth_max = f32::NEG_INFINITY;
+    for p in points_world.iter().copied() {
+        let depth = (p - camera_position).dot(split_forward);
+        depth_min = depth_min.min(depth);
+        depth_max = depth_max.max(depth);
+    }
+    if !depth_min.is_finite() || !depth_max.is_finite() || depth_max <= depth_min + 1e-5 {
+        return None;
+    }
+    Some((depth_min, depth_max))
+}
+
+fn compute_view_depth_range_from_points(
+    world_to_camera: glam::Mat4,
+    points_world: &[glam::Vec3],
+) -> Option<(f32, f32)> {
+    if points_world.is_empty() {
+        return None;
+    }
+    let mut depth_min = f32::INFINITY;
+    let mut depth_max = f32::NEG_INFINITY;
+    for p in points_world.iter().copied() {
+        let view = world_to_camera.transform_point3(p);
+        let depth = -view.z;
+        depth_min = depth_min.min(depth);
+        depth_max = depth_max.max(depth);
+    }
+    if !depth_min.is_finite() || !depth_max.is_finite() || depth_max <= depth_min + 1e-5 {
+        return None;
+    }
+    Some((depth_min, depth_max))
+}
+
+fn compute_split_range_from_bound_points(
+    bound_near: f32,
+    bound_far: f32,
+    camera_split_near: f32,
+    camera_split_far: f32,
+    bound_points_world: &[glam::Vec3],
+) -> Option<(f32, f32)> {
+    if bound_points_world.is_empty() || bound_far <= bound_near + 1e-5 {
         return None;
     }
 
-    let mut split_min = f32::INFINITY;
-    let mut split_max = f32::NEG_INFINITY;
-    for p in caster_points_world.iter().copied() {
-        let depth = (p - camera_position).dot(split_forward);
-        split_min = split_min.min(depth);
-        split_max = split_max.max(depth);
-    }
-    if !split_min.is_finite() || !split_max.is_finite() || split_max <= split_min + 1e-5 {
+    // Clamp to camera range as described in docs/csm.md:
+    // split_near = max(camera_near, bound_near)
+    // split_far  = min(camera_far,  bound_far)
+    let split_min = bound_near.max(camera_split_near).max(1e-3);
+    let split_max = bound_far.min(camera_split_far.max(split_min + 1e-3));
+    if split_max <= split_min + 1e-5 {
         return None;
     }
 
@@ -332,6 +375,7 @@ fn compute_split_range_from_casters(
 }
 
 struct ShadowSceneContext {
+    bound_points_world: Vec<glam::Vec3>,
     full_scene_corners: [glam::Vec3; 8],
     full_frustum_corners: [glam::Vec3; 8],
     caster_points_world: Vec<glam::Vec3>,
@@ -371,10 +415,12 @@ fn build_shadow_scene_context(
         return None;
     }
 
-    let full_scene_corners = get_aabb_corners(world_min, world_max);
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
+    let full_scene_corners = get_aabb_corners(world_min, world_max);
 
     Some(ShadowSceneContext {
+        // Keep stable baseline: use camera frustum bounds for receiver range.
+        bound_points_world: full_frustum_corners.to_vec(),
         full_scene_corners,
         full_frustum_corners,
         caster_points_world,
@@ -515,28 +561,93 @@ fn create_directional_light_shadow_csm(
         .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32) as usize;
     let (light_dir, up) =
         build_directional_light_basis(render_camera, light_matrix, directional_light)?;
-    let split_basis = build_split_space_basis(render_camera.forward, light_dir)?;
-    let (split_near, split_far) = compute_split_range_from_casters(
+    let split_basis = build_split_space_basis(render_camera.forward).unwrap_or_else(|| {
+        let fallback_forward = if render_camera.forward.length_squared() > 1e-8 {
+            render_camera.forward.normalize()
+        } else {
+            glam::vec3(0.0, 0.0, -1.0)
+        };
+        SplitSpaceBasis {
+            forward: fallback_forward,
+        }
+    });
+    let (camera_split_near, camera_split_far) = compute_depth_range_in_split_space(
         render_camera.position,
         split_basis.forward,
-        &ctx.caster_points_world,
-    )?;
-    let cascade_splits = build_cascade_splits(split_near, split_far, cascade_count);
-    let camera_split_splits = build_cascade_splits(
-        render_camera.near.max(1e-3),
-        render_camera.far.max(render_camera.near + 1e-3),
+        &ctx.full_frustum_corners,
+    )
+    .unwrap_or_else(|| {
+        let near = render_camera.near.max(1e-3);
+        let far = render_camera.far.max(near + 1e-3);
+        (near, far)
+    });
+    let (bound_near, bound_far) = compute_depth_range_in_split_space(
+        render_camera.position,
+        split_basis.forward,
+        &ctx.bound_points_world,
+    )
+    .unwrap_or((camera_split_near, camera_split_far));
+    let (split_near, split_far) = compute_split_range_from_bound_points(
+        bound_near,
+        bound_far,
+        camera_split_near,
+        camera_split_far,
+        &ctx.bound_points_world,
+    )
+    .unwrap_or((camera_split_near, camera_split_far));
+    let (receiver_view_near, receiver_view_far) =
+        compute_view_depth_range_from_points(render_camera.world_to_camera, &ctx.bound_points_world)
+            .unwrap_or_else(|| {
+                let near = render_camera.near.max(1e-3);
+                let far = render_camera.far.max(near + 1e-3);
+                (near, far)
+            });
+    log::info!(
+        "CSM light={} cascades={} split_range=[{:.4}, {:.4}] view_receiver_range=[{:.4}, {:.4}] camera_range=[{:.4}, {:.4}]",
+        directional_light.id,
         cascade_count,
+        split_near,
+        split_far,
+        receiver_view_near,
+        receiver_view_far,
+        render_camera.near,
+        render_camera.far
     );
+    let split_space_splits = build_cascade_splits(split_near, split_far, cascade_count);
+    let view_near = receiver_view_near.max(render_camera.near.max(1e-3));
+    let view_far = receiver_view_far
+        .min(render_camera.far.max(view_near + 1e-3))
+        .max(view_near + 1e-3);
+    let view_split_splits = build_cascade_splits(view_near, view_far, cascade_count);
+    let cam_near = render_camera.near.max(1e-3);
+    let cam_far = render_camera.far.max(cam_near + 1e-3);
+    let cam_range = (cam_far - cam_near).max(1e-3);
 
     let mut cascades = Vec::with_capacity(cascade_count);
-    let mut cascade_near = split_near;
-    for (cascade_index, cascade_far) in cascade_splits.iter().copied().enumerate() {
-        let virtual_points = get_frustum_slice_corners_world_in_split_space(
+    let mut cascade_split_near = split_near;
+    let mut cascade_view_near = view_near;
+    for (cascade_index, (cascade_split_far, cascade_view_far)) in split_space_splits
+        .iter()
+        .copied()
+        .zip(view_split_splits.iter().copied())
+        .enumerate()
+    {
+        log::info!(
+            "CSM light={} cascade={} split_near={:.4} split_far={:.4} view_near={:.4} view_far={:.4} split_end(view)={:.4}",
+            directional_light.id,
+            cascade_index,
+            cascade_split_near,
+            cascade_split_far,
+            cascade_view_near,
+            cascade_view_far,
+            view_split_splits[cascade_index]
+        );
+        let near_t = ((cascade_view_near - cam_near) / cam_range).clamp(0.0, 1.0);
+        let far_t = ((cascade_view_far - cam_near) / cam_range).clamp(near_t, 1.0);
+        let virtual_points = get_frustum_slice_corners_from_full_frustum(
             &ctx.full_frustum_corners,
-            render_camera.position,
-            split_basis.forward,
-            cascade_near,
-            cascade_far,
+            near_t,
+            far_t,
         );
         let virtual_frustum_points = virtual_points.to_vec();
         let (light_view, light_proj, light_view_proj) = build_light_matrices_from_virtual_points_orthographic(
@@ -557,10 +668,11 @@ fn create_directional_light_shadow_csm(
             light_view,
             light_proj,
             light_view_proj,
-            split_end: camera_split_splits[cascade_index],
+            split_end: view_split_splits[cascade_index],
             texture: render_texture,
         });
-        cascade_near = cascade_far;
+        cascade_split_near = cascade_split_far;
+        cascade_view_near = cascade_view_far;
     }
 
     Some(Arc::new(RenderDirectionalLightShadow {
