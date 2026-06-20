@@ -11,6 +11,7 @@ pub mod ltc;
 pub mod material;
 pub mod matrix;
 pub mod mesh;
+pub mod render_pass_cache;
 pub mod render_material_cache;
 pub mod render_gizmo_item;
 pub mod render_item;
