@@ -53,7 +53,9 @@ var ltc_sampler: sampler;
 const MAX_FLOAT: f32 = 1e+10;
 const PI: f32 = 3.14159265359;
 const INV_PI: f32 = 1.0 / 3.14159265359;
-// 0: off, 1: shadow factor, 2: sampled shadow map depth, 3: projected uv/depth
+// 0: off, 1: shadow factor, 2: sampled shadow map depth, 3: projected uv/depth,
+// 4: projected cascade index, 5: view depth (log-scaled gradient),
+// 6: split index from view depth
 const DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE: u32 = 0u;
 //-------------------------------------------------------
 // LTC functions and definitions
@@ -515,8 +517,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
     let V = -camera_to_surface;//point to camera
     let P = in.w_position;
-    let view_position = global_uniforms.world_to_camera * vec4<f32>(in.w_position, 1.0);
-    let view_depth = -view_position.z;
+    let camera_forward =
+        normalize((global_uniforms.camera_to_world * vec4<f32>(0.0, 0.0, -1.0, 0.0)).xyz);
+    let view_depth = dot(in.w_position - global_uniforms.camera_position.xyz, camera_forward);
     let N = normal; // Use perturbed normal for lighting
     let NdotV = saturate(dot(N, V));
 
@@ -551,6 +554,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     var debug_shadow_factor = 1.0;
     var debug_shadow_depth = 1.0;
     var debug_shadow_uvz = vec3<f32>(0.0);
+    var debug_shadow_cascade = -1;
     var debug_has_shadow_proj = false;
     for (var i: u32 = 0; i < light_uniforms.num_directional_lights; i++) {
         let light = directional_lights[i];
@@ -589,21 +593,27 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let shade_input = ShadeInput(diffuse, specular, in.uv, magnitude, fresnel, wo, wi);
 
 #ifdef ENABLE_DIRECTIONAL_LIGHT_SHADOW
+        let split_depth =
+            dot(
+                in.w_position - directional_shadow_infos[u32(light.shadow_index)].split_origin.xyz,
+                directional_shadow_infos[u32(light.shadow_index)].split_forward.xyz,
+            );
         let projected =
             project_directional_shadow_uv_depth(
                 light.shadow_index,
                 light.cascade_count,
-                view_depth,
+                split_depth,
                 in.w_position,
             );
         if (!debug_has_shadow_proj && projected.w >= 0.0) {
             debug_has_shadow_proj = true;
             debug_shadow_uvz = vec3<f32>(projected.x, projected.y, projected.z);
+            debug_shadow_cascade = i32(projected.w) - light.shadow_index;
             debug_shadow_depth =
                 sample_directional_shadow_depth(
                     light.shadow_index,
                     light.cascade_count,
-                    view_depth,
+                    split_depth,
                     projected.xy,
                 );
         }
@@ -611,7 +621,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
             sample_directional_shadow_factor(
                 light.shadow_index,
                 light.cascade_count,
-                view_depth,
+                split_depth,
                 in.w_position,
                 N,
                 direction,
@@ -632,6 +642,50 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         }
         if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 3u && debug_has_shadow_proj) {
             return vec4<f32>(debug_shadow_uvz, 1.0);
+        }
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 4u && debug_shadow_cascade >= 0) {
+            if (debug_shadow_cascade == 0) {
+                return vec4<f32>(1.0, 0.2, 0.2, 1.0);
+            }
+            if (debug_shadow_cascade == 1) {
+                return vec4<f32>(0.2, 1.0, 0.2, 1.0);
+            }
+            if (debug_shadow_cascade == 2) {
+                return vec4<f32>(0.2, 0.4, 1.0, 1.0);
+            }
+            if (debug_shadow_cascade == 3) {
+                return vec4<f32>(1.0, 0.9, 0.2, 1.0);
+            }
+            return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+        }
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 5u && light.shadow_index >= 0) {
+            let cascade_count = min(light.cascade_count, DIRECTIONAL_SHADOW_CASCADE_COUNT);
+            let last_index = light.shadow_index + i32(max(cascade_count, 1u) - 1u);
+            let max_depth = max(directional_shadow_infos[u32(last_index)].split_end, 1e-4);
+            let depth = max(split_depth, 1e-4);
+            let t = clamp(log2(depth + 1.0) / log2(max_depth + 1.0), 0.0, 1.0);
+            let col = vec3<f32>(t, 1.0 - abs(t * 2.0 - 1.0), 1.0 - t);
+            return vec4<f32>(col, 1.0);
+        }
+        if (DEBUG_DIRECTIONAL_SHADOW_VIEW_MODE == 6u && light.shadow_index >= 0) {
+            let split_index = get_directional_shadow_cascade_index(
+                light.shadow_index,
+                light.cascade_count,
+                split_depth,
+            ) - light.shadow_index;
+            if (split_index == 0) {
+                return vec4<f32>(1.0, 0.2, 0.2, 1.0);
+            }
+            if (split_index == 1) {
+                return vec4<f32>(0.2, 1.0, 0.2, 1.0);
+            }
+            if (split_index == 2) {
+                return vec4<f32>(0.2, 0.4, 1.0, 1.0);
+            }
+            if (split_index == 3) {
+                return vec4<f32>(1.0, 0.9, 0.2, 1.0);
+            }
+            return vec4<f32>(1.0, 0.0, 1.0, 1.0);
         }
 #endif
     }

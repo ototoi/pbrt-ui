@@ -11,6 +11,7 @@ use crate::render::LightingRenderer;
 use crate::render::RenderMode;
 use crate::render::SolidRenderer;
 use crate::render::WireRenderer;
+use crate::render::wgpu::camera::RenderCamera;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -130,7 +131,16 @@ impl SceneView {
         }
 
         let aspect = rect.width() / rect.height();
-        let c2c = Matrix4x4::perspective(fov, aspect, znear, zfar);
+        let c2c = Matrix4x4::OPENGL_TO_WGPU_CLIP * Matrix4x4::perspective(fov, aspect, znear, zfar);
+        let render_camera = RenderCamera::from_perspective(
+            glam::Mat4::from(&w2c),
+            glam::Mat4::from(&c2c),
+            znear,
+            zfar,
+            fov,
+            aspect,
+        );
+
 
         ui.painter().rect_filled(rect, 0.0, egui::Color32::BLACK);
 
@@ -138,17 +148,17 @@ impl SceneView {
         match render_mode {
             RenderMode::Wire => {
                 if let Some(renderer) = &mut self.wireframe {
-                    renderer.render(ui, rect, node, &w2c, &c2c);
+                    renderer.render(ui, rect, node, &render_camera);
                 }
             }
             RenderMode::Solid => {
                 if let Some(renderer) = &mut self.solid {
-                    renderer.render(ui, rect, node, &w2c, &c2c);
+                    renderer.render(ui, rect, node, &render_camera);
                 }
             }
             RenderMode::Lighting => {
                 if let Some(renderer) = &mut self.shaded {
-                    renderer.render(ui, rect, node, &w2c, &c2c);
+                    renderer.render(ui, rect, node, &render_camera);
                 }
             }
             _ => {

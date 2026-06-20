@@ -130,6 +130,8 @@ struct InfiniteLight {
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct DirectionalShadowInfo {
     light_view_proj: [[f32; 4]; 4], // 4 * 4 * 4 = 64
+    split_origin: [f32; 4],         // 4 * 4 = 16
+    split_forward: [f32; 4],        // 4 * 4 = 16
     split_end: f32,                 // 1 * 4 = 4
     bias: f32,                      // 1 * 4 = 4
     slope_bias: f32,                // 1 * 4 = 4
