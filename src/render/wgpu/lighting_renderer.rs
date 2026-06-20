@@ -5,6 +5,9 @@ use super::lines_renderer::LinesRenderer;
 use super::render_item::get_render_items;
 use super::render_resource::RenderResourceComponent;
 use super::render_resource::RenderResourceManager;
+use super::shadow_debug_renderer::DirectionalShadowDebugMode;
+use super::shadow_debug_renderer::ShadowDebugRenderer;
+use super::shadow_map_view_renderer::ShadowMapViewRenderer;
 use super::shadow_map_renderer::ShadowMapRenderer;
 use crate::model::scene::Node;
 use crate::render::render_mode::RenderMode;
@@ -30,6 +33,8 @@ pub struct LightingRenderer {
     // surface textures
     shadow_map_renderer: Arc<RwLock<ShadowMapRenderer>>,
     mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
+    debug_renderer: Arc<RwLock<ShadowDebugRenderer>>,
+    shadow_map_view_renderer: Arc<RwLock<ShadowMapViewRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
     frame_buffers: Arc<RwLock<FrameBufferMap>>,
@@ -40,11 +45,14 @@ struct PerFrameCallback {
     rect: [f32; 4],
     shadow_map_renderer: Arc<RwLock<ShadowMapRenderer>>,
     mesh_renderer: Arc<RwLock<LightingMeshRenderer>>,
+    debug_renderer: Arc<RwLock<ShadowDebugRenderer>>,
+    shadow_map_view_renderer: Arc<RwLock<ShadowMapViewRenderer>>,
     lines_renderer: Arc<RwLock<LinesRenderer>>,
     copy_texture_renderer: Arc<RwLock<LinearToSrgbRenderer>>,
     frame_buffers: Arc<RwLock<FrameBufferMap>>,
     node: Arc<RwLock<Node>>,
     render_camera: RenderCamera,
+    debug_shadow_mode: DirectionalShadowDebugMode,
 }
 
 unsafe impl Send for PerFrameCallback {}
@@ -159,6 +167,27 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                         &self.render_camera,
                         &shadow_maps,
                     );
+                    let mut debug_renderer = self.debug_renderer.write().unwrap();
+                    debug_renderer.prepare(
+                        device,
+                        queue,
+                        &render_items,
+                        &self.render_camera,
+                        &shadow_maps,
+                        self.debug_shadow_mode,
+                    );
+                    if self.debug_shadow_mode == DirectionalShadowDebugMode::LightViewDepth
+                        && let Some(maps) = shadow_maps.directional_shadow_maps.as_ref()
+                    {
+                        let mut shadow_map_view_renderer =
+                            self.shadow_map_view_renderer.write().unwrap();
+                        shadow_map_view_renderer.prepare(
+                            device,
+                            queue,
+                            &maps.directional_shadow_map_texture,
+                            0,
+                        );
+                    }
                 }
                 {
                     let mut renderer = self.lines_renderer.write().unwrap();
@@ -203,8 +232,16 @@ impl egui_wgpu::CallbackTrait for PerFrameCallback {
                 });
 
                 {
-                    let renderer = self.mesh_renderer.read().unwrap();
-                    renderer.paint(&mut rpass);
+                    if self.debug_shadow_mode == DirectionalShadowDebugMode::Off {
+                        let renderer = self.mesh_renderer.read().unwrap();
+                        renderer.paint(&mut rpass);
+                    } else if self.debug_shadow_mode == DirectionalShadowDebugMode::LightViewDepth {
+                        let renderer = self.shadow_map_view_renderer.read().unwrap();
+                        renderer.paint(&mut rpass);
+                    } else {
+                        let renderer = self.debug_renderer.read().unwrap();
+                        renderer.paint(&mut rpass);
+                    }
                 }
                 if false {
                     let renderer = self.lines_renderer.read().unwrap();
@@ -235,6 +272,9 @@ impl LightingRenderer {
         let queue = &render_state.queue;
         let shadow_map_renderer = ShadowMapRenderer::new(device);
         let mesh_renderer = LightingMeshRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
+        let debug_renderer = ShadowDebugRenderer::new(device, INTERNAL_TEXTURE_FORMAT);
+        let shadow_map_view_renderer =
+            ShadowMapViewRenderer::new(device, INTERNAL_TEXTURE_FORMAT);
         let lines_renderer = LinesRenderer::new(device, queue, INTERNAL_TEXTURE_FORMAT);
         let copy_texture_renderer =
             LinearToSrgbRenderer::new(device, queue, render_state.target_format);
@@ -242,6 +282,8 @@ impl LightingRenderer {
         return Some(LightingRenderer {
             shadow_map_renderer: Arc::new(RwLock::new(shadow_map_renderer)),
             mesh_renderer: Arc::new(RwLock::new(mesh_renderer)),
+            debug_renderer: Arc::new(RwLock::new(debug_renderer)),
+            shadow_map_view_renderer: Arc::new(RwLock::new(shadow_map_view_renderer)),
             lines_renderer: Arc::new(RwLock::new(lines_renderer)),
             copy_texture_renderer: Arc::new(RwLock::new(copy_texture_renderer)),
             frame_buffers: Arc::new(RwLock::new(HashMap::new())),
@@ -254,6 +296,7 @@ impl LightingRenderer {
         rect: egui::Rect,
         node: &Arc<RwLock<Node>>,
         render_camera: &RenderCamera,
+        debug_shadow_mode: DirectionalShadowDebugMode,
     ) {
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
@@ -261,11 +304,14 @@ impl LightingRenderer {
                 rect: [rect.min.x, rect.min.y, rect.max.x, rect.max.y],
                 shadow_map_renderer: self.shadow_map_renderer.clone(),
                 mesh_renderer: self.mesh_renderer.clone(),
+                debug_renderer: self.debug_renderer.clone(),
+                shadow_map_view_renderer: self.shadow_map_view_renderer.clone(),
                 lines_renderer: self.lines_renderer.clone(),
                 copy_texture_renderer: self.copy_texture_renderer.clone(),
                 frame_buffers: self.frame_buffers.clone(),
                 node: node.clone(),
                 render_camera: render_camera.clone(),
+                debug_shadow_mode,
             },
         ));
     }

@@ -2,13 +2,6 @@ use super::texture::RenderTexture;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum DirectionalShadowProjection {
-    #[default]
-    Csm,
-    Lspsm,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct DirectionalRenderLight {
     pub id: Uuid,
@@ -19,8 +12,7 @@ pub struct DirectionalRenderLight {
     pub cast_shadow: bool,      // Whether the light casts shadow
     pub shadow_bias: f32,       // Shadow depth bias
     pub shadow_slope_bias: f32, // Shadow slope-scale bias
-    pub cascade_count: u32,     // Number of CSM cascades (1..4)
-    pub shadow_projection: DirectionalShadowProjection,
+    pub cascade_count: u32,     // Reserved for future cascades. Current rewrite uses 1.
 }
 
 #[derive(Debug, Clone, Default)]

@@ -1,13 +1,14 @@
 use super::camera::RenderCamera;
 use super::light::DirectionalRenderLight;
-use super::light::DirectionalShadowProjection;
 use super::light::RenderLight;
 use super::material::RenderCategory;
 use super::render_item::RenderItem;
 use super::render_resource::RenderResourceManager;
 use super::texture::RenderTexture;
 use std::collections::HashMap;
+use std::fs;
 use std::sync::Arc;
+use std::sync::{Mutex, OnceLock};
 
 use eframe::wgpu;
 use uuid::Uuid;
@@ -18,12 +19,22 @@ pub const DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT: usize = 4;
 const SHADOW_XY_EPSILON: f32 = 1e-3;
 const SHADOW_CASTER_Z_EPSILON: f32 = 1e-3;
 const SPLIT_DEPTH_EPSILON: f32 = 1e-4;
-const CSM_MIN_SPLIT_SPAN: f32 = 50.0;
-// Blend factor between uniform and logarithmic CSM split distributions.
-// split = lerp(uniform_split, log_split, CASCADE_SPLIT_LAMBDA)
-// 0.0 -> fully uniform, 1.0 -> fully logarithmic.
-// Higher values allocate more resolution to near-camera cascades.
-const CASCADE_SPLIT_LAMBDA: f32 = 0.9;
+
+static LAST_SHADOW_DEBUG_INFO: OnceLock<Mutex<String>> = OnceLock::new();
+
+fn set_last_shadow_debug_info(text: String) {
+    let slot = LAST_SHADOW_DEBUG_INFO.get_or_init(|| Mutex::new(String::new()));
+    let file_text = text.clone();
+    if let Ok(mut guard) = slot.lock() {
+        *guard = text;
+    }
+    let _ = fs::write("/tmp/pbrt_shadow_debug.txt", file_text);
+}
+
+pub fn get_last_shadow_debug_info() -> String {
+    let slot = LAST_SHADOW_DEBUG_INFO.get_or_init(|| Mutex::new(String::new()));
+    slot.lock().map(|s| s.clone()).unwrap_or_default()
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ShadowMaps {
@@ -77,17 +88,6 @@ fn get_aabb_corners(min: glam::Vec3, max: glam::Vec3) -> [glam::Vec3; 8] {
 fn expand_bounds(min: &mut glam::Vec3, max: &mut glam::Vec3, p: glam::Vec3) {
     *min = min.min(p);
     *max = max.max(p);
-}
-
-fn build_cascade_splits(near: f32, far: f32, cascade_count: usize) -> Vec<f32> {
-    let mut splits = vec![far; cascade_count];
-    for i in 1..=cascade_count {
-        let t = i as f32 / cascade_count as f32;
-        let log = near * (far / near).powf(t);
-        let uni = near + (far - near) * t;
-        splits[i - 1] = uni * (1.0 - CASCADE_SPLIT_LAMBDA) + log * CASCADE_SPLIT_LAMBDA;
-    }
-    splits
 }
 
 fn get_full_frustum_corners_world(render_camera: &RenderCamera) -> [glam::Vec3; 8] {
@@ -202,28 +202,56 @@ fn build_light_matrices_from_virtual_points_orthographic(
     light_dir: glam::Vec3,
     up: glam::Vec3,
 ) -> (glam::Mat4, glam::Mat4, glam::Mat4) {
-    let mut world_min_c = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
-    let mut world_max_c = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
-    for p in virtual_frustum_points.iter().copied() {
-        expand_bounds(&mut world_min_c, &mut world_max_c, p);
-    }
-    let world_center = 0.5 * (world_min_c + world_max_c);
-    let world_extent = world_max_c - world_min_c;
-    let world_radius = world_extent.length() * 0.5;
-    let light_distance = world_radius.max(1.0) * 2.0;
-    let eye = world_center - light_dir * light_distance;
-    let light_view = glam::Mat4::look_at_rh(eye, world_center, up);
+    let forward = light_dir.normalize_or_zero();
+    let right = up.cross(forward).normalize_or_zero();
+    let up = forward.cross(right).normalize_or_zero();
 
-    let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, 0.0);
-    let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, 0.0);
-    // Build XY bounds from receiver footprint (virtual frustum slice).
-    // Z is derived from caster points only.
+    let mut receiver_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+    let mut receiver_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for p in virtual_frustum_points.iter().copied() {
+        let lp = glam::vec3(p.dot(right), p.dot(up), p.dot(-forward));
+        expand_bounds(&mut receiver_min, &mut receiver_max, lp);
+    }
+
+    let mut caster_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+    let mut caster_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for p in caster_points_world.iter().copied() {
+        let lp = glam::vec3(p.dot(right), p.dot(up), p.dot(-forward));
+        expand_bounds(&mut caster_min, &mut caster_max, lp);
+    }
+
+    let light_space_center = glam::vec3(
+        0.5 * (receiver_min.x + receiver_max.x),
+        0.5 * (receiver_min.y + receiver_max.y),
+        0.5 * (caster_min.z + caster_max.z),
+    );
+    let origin =
+        right * light_space_center.x + up * light_space_center.y - forward * light_space_center.z;
+
+    let light_view = glam::Mat4::from_cols_array(&[
+        right.x,
+        up.x,
+        -forward.x,
+        0.0,
+        right.y,
+        up.y,
+        -forward.y,
+        0.0,
+        right.z,
+        up.z,
+        -forward.z,
+        0.0,
+        -origin.dot(right),
+        -origin.dot(up),
+        origin.dot(forward),
+        1.0,
+    ]);
+
+    let mut light_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+    let mut light_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
     for p_world in virtual_frustum_points.iter().copied() {
         let p = light_view.transform_point3(p_world);
-        light_min.x = light_min.x.min(p.x);
-        light_min.y = light_min.y.min(p.y);
-        light_max.x = light_max.x.max(p.x);
-        light_max.y = light_max.y.max(p.y);
+        expand_bounds(&mut light_min, &mut light_max, p);
     }
 
     let margin = SHADOW_BOUNDS_MARGIN;
@@ -308,6 +336,30 @@ fn build_light_matrices_from_virtual_points_orthographic(
         near,
         far
     );
+    let debug_text = format!(
+        "origin=({:.2},{:.2},{:.2})\nlight_dir=({:.2},{:.2},{:.2})\nxy=[{:.2},{:.2}]x[{:.2},{:.2}] size=({:.2},{:.2})\ncenter_xy=({:.2},{:.2})\ncaster_z=[{:.4},{:.4}] mz={:.4}\nnear/far=[{:.4},{:.4}] overlap={}",
+        origin.x,
+        origin.y,
+        origin.z,
+        light_dir.x,
+        light_dir.y,
+        light_dir.z,
+        light_min.x,
+        light_max.x,
+        light_min.y,
+        light_max.y,
+        width,
+        height,
+        center_x,
+        center_y,
+        caster_z_min,
+        caster_z_max,
+        mz,
+        near,
+        far,
+        has_overlap_caster
+    );
+    set_last_shadow_debug_info(debug_text);
     let light_proj = glam::Mat4::orthographic_rh(left, right, bottom, top, near, far);
     let light_view_proj = light_proj * light_view;
     (light_view, light_proj, light_view_proj)
@@ -369,43 +421,20 @@ fn create_directional_light_shadow(
     directional_light: &DirectionalRenderLight,
     ctx: &ShadowSceneContext,
 ) -> Option<Arc<RenderDirectionalLightShadow>> {
-    match directional_light.shadow_projection {
-        DirectionalShadowProjection::Lspsm => create_directional_light_shadow_lspsm(
-            device,
-            render_camera,
-            render_resource_manager,
-            light_matrix,
-            directional_light,
-            ctx,
-        ),
-        DirectionalShadowProjection::Csm => create_directional_light_shadow_csm(
-            device,
-            render_camera,
-            render_resource_manager,
-            light_matrix,
-            directional_light,
-            ctx,
-        ),
-    }
-}
+    assert!(
+        directional_light.cast_shadow,
+        "create_directional_light_shadow called for non-shadow-casting light"
+    );
 
-fn build_directional_light_basis(
-    render_camera: &RenderCamera,
-    light_matrix: glam::Mat4,
-    directional_light: &DirectionalRenderLight,
-) -> Option<(glam::Vec3, glam::Vec3)> {
     let mut light_dir = glam::vec3(
         directional_light.direction[0],
         directional_light.direction[1],
         directional_light.direction[2],
     );
-    light_dir = light_matrix
-        .transform_vector3(light_dir)
-        .normalize_or_zero();
+    light_dir = light_matrix.transform_vector3(light_dir).normalize_or_zero();
     if light_dir.length_squared() < 1e-8 {
         return None;
     }
-
     let camera_up = render_camera.up.normalize_or_zero();
     let up = if camera_up.length_squared() > 1e-8 && light_dir.abs().dot(camera_up) < 0.99 {
         camera_up
@@ -414,7 +443,59 @@ fn build_directional_light_basis(
     } else {
         glam::vec3(1.0, 0.0, 0.0)
     };
-    Some((light_dir, up))
+    let split_basis = build_split_basis(render_camera, light_dir)?;
+    let virtual_frustum_points = if ctx.receiver_points_world.is_empty() {
+        ctx.full_frustum_corners.to_vec()
+    } else {
+        ctx.receiver_points_world.clone()
+    };
+    let (light_view, light_proj, light_view_proj) =
+        build_light_matrices_from_virtual_points_orthographic(
+            &virtual_frustum_points,
+            &ctx.caster_points_world,
+            light_dir,
+            up,
+        );
+
+    let mut split_end = f32::NEG_INFINITY;
+    for corner in ctx.full_frustum_corners {
+        let split_depth = split_basis.project_depth(corner);
+        if split_depth.is_finite() && split_depth > SPLIT_DEPTH_EPSILON {
+            split_end = split_end.max(split_depth);
+        }
+    }
+    if !split_end.is_finite() {
+        return None;
+    }
+
+    let render_texture =
+        get_directional_shadow_texture(device, render_resource_manager, directional_light, 0);
+    let mut debug_text = get_last_shadow_debug_info();
+    if !debug_text.is_empty() {
+        debug_text.push('\n');
+    }
+    debug_text.push_str(&format!(
+        "split_end={:.4} bias={:.5} slope_bias={:.5}",
+        split_end, directional_light.shadow_bias, directional_light.shadow_slope_bias
+    ));
+    set_last_shadow_debug_info(debug_text);
+    let cascades = vec![RenderDirectionalLightShadowCascade {
+        light_view,
+        light_proj,
+        light_view_proj,
+        split_origin: split_basis.origin,
+        split_forward: split_basis.z,
+        split_end,
+        texture: render_texture,
+    }];
+
+    Some(Arc::new(RenderDirectionalLightShadow {
+        id: directional_light.id,
+        edition: directional_light.edition.clone(),
+        shadow_bias: directional_light.shadow_bias,
+        shadow_slope_bias: directional_light.shadow_slope_bias,
+        cascades,
+    }))
 }
 
 fn get_directional_shadow_texture(
@@ -475,139 +556,6 @@ fn get_directional_shadow_texture(
     });
     render_resource_manager.add_texture(&tex);
     tex
-}
-
-fn create_directional_light_shadow_csm(
-    device: &wgpu::Device,
-    render_camera: &RenderCamera,
-    render_resource_manager: &mut RenderResourceManager,
-    light_matrix: glam::Mat4,
-    directional_light: &DirectionalRenderLight,
-    ctx: &ShadowSceneContext,
-) -> Option<Arc<RenderDirectionalLightShadow>> {
-    assert!(
-        directional_light.cast_shadow,
-        "create_directional_light_shadow_csm called for non-shadow-casting light"
-    );
-
-    let cascade_count = directional_light
-        .cascade_count
-        .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32) as usize;
-    let (light_dir, up) =
-        build_directional_light_basis(render_camera, light_matrix, directional_light)?;
-    let split_basis = build_split_basis(render_camera, light_dir)?;
-
-    let mut split_min = f32::INFINITY;
-    let mut split_max = f32::NEG_INFINITY;
-    for world in &ctx.receiver_points_world {
-        let split_depth = split_basis.project_depth(*world);
-        if split_depth.is_finite() && split_depth > SPLIT_DEPTH_EPSILON {
-            split_min = split_min.min(split_depth);
-            split_max = split_max.max(split_depth);
-        }
-    }
-    if !split_min.is_finite() || !split_max.is_finite() || split_max <= split_min {
-        for corner in ctx.full_frustum_corners {
-            let split_depth = split_basis.project_depth(corner);
-            if split_depth.is_finite() && split_depth > SPLIT_DEPTH_EPSILON {
-                split_min = split_min.min(split_depth);
-                split_max = split_max.max(split_depth);
-            }
-        }
-    }
-    if !split_min.is_finite() || !split_max.is_finite() || split_max <= split_min {
-        return None;
-    }
-    split_min = split_min.max(SPLIT_DEPTH_EPSILON);
-    split_max = split_max.max(split_min + CSM_MIN_SPLIT_SPAN);
-    log::info!(
-        "CSM light={} cascades={} split_range=[{:.4}, {:.4}]",
-        directional_light.id,
-        cascade_count,
-        split_min,
-        split_max,
-    );
-    let split_splits = build_cascade_splits(split_min, split_max, cascade_count);
-    assert_eq!(
-        split_splits.len(),
-        cascade_count,
-        "Unexpected split count: expected={}, actual={}",
-        cascade_count,
-        split_splits.len()
-    );
-    let mut cascades = Vec::with_capacity(cascade_count);
-    let mut cascade_near = split_min;
-    for (cascade_index, cascade_far) in split_splits.iter().copied().enumerate() {
-        assert!(
-            cascade_far > cascade_near,
-            "Invalid cascade interval: index={}, near={}, far={}",
-            cascade_index,
-            cascade_near,
-            cascade_far
-        );
-        log::info!(
-            "CSM light={} cascade={} near={:.4} far={:.4} split_end={:.4}",
-            directional_light.id,
-            cascade_index,
-            cascade_near,
-            cascade_far,
-            split_splits[cascade_index]
-        );
-        let virtual_points = get_frustum_slice_corners_from_split(
-            render_camera,
-            &ctx.full_frustum_corners,
-            &split_basis,
-            cascade_near,
-            cascade_far,
-        )?;
-        for p in virtual_points.iter() {
-            assert!(p.is_finite(), "Non-finite frustum slice point: {:?}", p);
-        }
-        let virtual_frustum_points = virtual_points.to_vec();
-        let (light_view, light_proj, light_view_proj) =
-            build_light_matrices_from_virtual_points_orthographic(
-                &virtual_frustum_points,
-                &ctx.caster_points_world,
-                light_dir,
-                up,
-            );
-        let render_texture = get_directional_shadow_texture(
-            device,
-            render_resource_manager,
-            directional_light,
-            cascade_index,
-        );
-
-        cascades.push(RenderDirectionalLightShadowCascade {
-            light_view,
-            light_proj,
-            light_view_proj,
-            split_origin: split_basis.origin,
-            split_forward: split_basis.z,
-            split_end: split_splits[cascade_index],
-            texture: render_texture,
-        });
-        cascade_near = cascade_far;
-    }
-
-    Some(Arc::new(RenderDirectionalLightShadow {
-        id: directional_light.id,
-        edition: directional_light.edition.clone(),
-        shadow_bias: directional_light.shadow_bias,
-        shadow_slope_bias: directional_light.shadow_slope_bias,
-        cascades,
-    }))
-}
-
-fn create_directional_light_shadow_lspsm(
-    _device: &wgpu::Device,
-    _render_camera: &RenderCamera,
-    _render_resource_manager: &mut RenderResourceManager,
-    _light_matrix: glam::Mat4,
-    _directional_light: &DirectionalRenderLight,
-    _ctx: &ShadowSceneContext,
-) -> Option<Arc<RenderDirectionalLightShadow>> {
-    todo!("create_directional_light_shadow_lspsm");
 }
 
 pub fn create_directional_light_shadows(

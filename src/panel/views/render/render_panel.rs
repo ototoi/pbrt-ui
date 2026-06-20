@@ -5,6 +5,7 @@ use super::render_state::RenderState;
 use super::render_view::RenderView;
 use super::scene_view::SceneView;
 use crate::render::render_mode::RenderMode;
+use crate::render::wgpu::shadow_debug_renderer::DirectionalShadowDebugMode;
 //
 use crate::controller::AppController;
 use crate::model::config::AppConfig;
@@ -22,6 +23,7 @@ pub struct RenderPanel {
     render_view: RenderView,
     scene_view: SceneView,
     render_mode: RenderMode,
+    shadow_debug_mode: DirectionalShadowDebugMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +63,7 @@ impl RenderPanel {
             render_view,
             scene_view,
             render_mode: RenderMode::Wire,
+            shadow_debug_mode: DirectionalShadowDebugMode::Off,
         }
     }
 
@@ -111,6 +114,21 @@ impl RenderPanel {
                             *mode,
                             egui::RichText::new(*label).family(egui::FontFamily::Monospace),
                         );
+                    }
+                    if self.render_mode == RenderMode::Lighting {
+                        ui.separator();
+                        egui::ComboBox::from_label("Shadow")
+                            .selected_text(format!("{:?}", self.shadow_debug_mode))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::Off, "Off");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::ShadowFactor, "Shadow Factor");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::ShadowDepth, "Shadow Depth");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::ProjectedUvz, "Projected UVZ");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::CascadeColor, "Cascade Color");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::SplitDepth, "Split Depth");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::SplitPick, "Split Pick");
+                                ui.selectable_value(&mut self.shadow_debug_mode, DirectionalShadowDebugMode::LightViewDepth, "Light View Depth");
+                            });
                     }
                     ui.separator();
                 })
@@ -223,12 +241,12 @@ impl RenderPanel {
                 match state {
                     RenderState::Ready => {
                         let node = self.app_controller.read().unwrap().get_root_node();
-                        self.scene_view.show(ui, &node, self.render_mode, true);
+                        self.scene_view.show(ui, &node, self.render_mode, self.shadow_debug_mode, true);
                     }
                     RenderState::Saving | RenderState::Rendering => {
                         if history.get_image_data().is_none() {
                             let node = self.app_controller.read().unwrap().get_root_node();
-                            self.scene_view.show(ui, &node, self.render_mode, false);
+                            self.scene_view.show(ui, &node, self.render_mode, self.shadow_debug_mode, false);
                         } else {
                             self.render_view.show(ui, history);
                         }
