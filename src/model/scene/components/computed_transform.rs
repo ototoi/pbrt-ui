@@ -3,16 +3,18 @@ use crate::model::base::Matrix4x4;
 
 #[derive(Debug, Clone)]
 pub struct ComputedTransformComponent {
-    local_matrix: Matrix4x4,
-    parent_world_matrix: Matrix4x4,
+    local_edition: String,
+    parent_world_edition: String,
+    world_edition: String,
     world_matrix: Matrix4x4,
 }
 
 impl Default for ComputedTransformComponent {
     fn default() -> Self {
         Self {
-            local_matrix: Matrix4x4::identity(),
-            parent_world_matrix: Matrix4x4::identity(),
+            local_edition: String::new(),
+            parent_world_edition: String::new(),
+            world_edition: String::new(),
             world_matrix: Matrix4x4::identity(),
         }
     }
@@ -23,22 +25,29 @@ impl ComputedTransformComponent {
         Self::default()
     }
 
-    pub fn matches(&self, local_matrix: &Matrix4x4, parent_world_matrix: &Matrix4x4) -> bool {
-        self.local_matrix == *local_matrix && self.parent_world_matrix == *parent_world_matrix
+    pub fn matches(&self, local_edition: &str, parent_world_edition: &str) -> bool {
+        self.local_edition == local_edition
+            && self.parent_world_edition == parent_world_edition
     }
 
     pub fn world_matrix(&self) -> Matrix4x4 {
         self.world_matrix
     }
 
+    pub fn world_edition(&self) -> String {
+        self.world_edition.clone()
+    }
+
     pub fn update(
         &mut self,
-        local_matrix: Matrix4x4,
-        parent_world_matrix: Matrix4x4,
+        local_edition: String,
+        parent_world_edition: String,
+        world_edition: String,
         world_matrix: Matrix4x4,
     ) {
-        self.local_matrix = local_matrix;
-        self.parent_world_matrix = parent_world_matrix;
+        self.local_edition = local_edition;
+        self.parent_world_edition = parent_world_edition;
+        self.world_edition = world_edition;
         self.world_matrix = world_matrix;
     }
 }
