@@ -1,5 +1,6 @@
 use crate::model::base::Matrix4x4;
 use crate::model::scene::CameraComponent;
+use crate::model::scene::ComputedTransformComponent;
 use crate::model::scene::Component;
 use crate::model::scene::LightComponent;
 use crate::model::scene::MaterialComponent;
@@ -46,6 +47,30 @@ fn get_local_matrix(node: &Arc<RwLock<Node>>) -> Matrix4x4 {
     return t.get_local_matrix();
 }
 
+fn get_world_matrix(node: &Arc<RwLock<Node>>, parent_matrix: &Matrix4x4) -> Matrix4x4 {
+    let local_matrix = get_local_matrix(node);
+
+    {
+        let node_ref = node.read().unwrap();
+        if let Some(component) = node_ref.get_component::<ComputedTransformComponent>()
+            && component.matches(&local_matrix, parent_matrix)
+        {
+            return component.world_matrix();
+        }
+    }
+
+    let world_matrix = *parent_matrix * local_matrix;
+    let mut node_ref = node.write().unwrap();
+    if let Some(component) = node_ref.get_component_mut::<ComputedTransformComponent>() {
+        component.update(local_matrix, *parent_matrix, world_matrix);
+    } else {
+        let mut component = ComputedTransformComponent::new();
+        component.update(local_matrix, *parent_matrix, world_matrix);
+        node_ref.add_component(component);
+    }
+    world_matrix
+}
+
 /*
 fn get_material(node: &Arc<RwLock<Node>>) -> Arc<RwLock<Material>> {
     let node = node.read().unwrap();
@@ -59,8 +84,7 @@ fn get_scene_item(parent_matrix: &Matrix4x4, node: &Arc<RwLock<Node>>, items: &m
         return;
     }
 
-    let local_matrix = get_local_matrix(node);
-    let world_matrix = *parent_matrix * local_matrix;
+    let world_matrix = get_world_matrix(node, parent_matrix);
 
     if has_component::<ShapeComponent>(node) && has_component::<MaterialComponent>(node) {
         let item = SceneItem::new(node.clone(), SceneItemType::Mesh, world_matrix);

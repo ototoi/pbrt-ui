@@ -1,6 +1,7 @@
 mod accelerator;
 mod animation;
 mod camera;
+mod computed_transform;
 mod component;
 mod coordinate_system;
 mod film;
@@ -18,6 +19,7 @@ mod transform;
 pub use accelerator::AcceleratorComponent;
 pub use animation::AnimationComponent;
 pub use camera::CameraComponent;
+pub use computed_transform::ComputedTransformComponent;
 pub use component::Component;
 pub use coordinate_system::CoordinateSystemComponent;
 pub use film::FilmComponent;
