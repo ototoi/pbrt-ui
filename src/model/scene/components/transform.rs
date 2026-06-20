@@ -1,5 +1,6 @@
 use super::component::Component;
 use crate::model::base::*;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct TransformComponent {
@@ -9,6 +10,10 @@ pub struct TransformComponent {
 impl Default for TransformComponent {
     fn default() -> Self {
         let mut props = PropertyMap::new();
+        props.insert(
+            "string edition",
+            Property::from(Uuid::new_v4().to_string()),
+        );
         props.insert("float position", Property::Floats(vec![0.0, 0.0, 0.0]));
         props.insert("float rotation", Property::Floats(vec![0.0, 0.0, 0.0]));
         props.insert("float scale", Property::Floats(vec![1.0, 1.0, 1.0]));
@@ -43,6 +48,7 @@ impl TransformComponent {
             "float scale",
             Property::Floats(vec![scale.x, scale.y, scale.z]),
         );
+        self.bump_edition();
     }
 
     pub fn get_local_trs(&self) -> (Vector3, Quaternion, Vector3) {
@@ -67,6 +73,19 @@ impl TransformComponent {
         let r = rotation.to_matrix();
         let s = Matrix4x4::scale(scale.x, scale.y, scale.z);
         return t * r * s;
+    }
+
+    pub fn get_edition(&self) -> String {
+        self.props
+            .find_one_string("string edition")
+            .unwrap_or_default()
+    }
+
+    fn bump_edition(&mut self) {
+        self.props.insert(
+            "string edition",
+            Property::from(Uuid::new_v4().to_string()),
+        );
     }
 
     pub fn is_identity(&self) -> bool {
