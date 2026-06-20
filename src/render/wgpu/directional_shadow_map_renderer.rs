@@ -42,6 +42,8 @@ struct LocalUniforms {
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct DirectionalShadowInfo {
     light_view_proj: [[f32; 4]; 4],
+    split_origin: [f32; 4],
+    split_forward: [f32; 4],
     split_end: f32,
     bias: f32,
     slope_bias: f32,
@@ -415,6 +417,18 @@ impl DirectionalShadowMapRenderer {
                 }
                 infos[info_index] = DirectionalShadowInfo {
                     light_view_proj: cascade.light_view_proj.to_cols_array_2d(),
+                    split_origin: [
+                        cascade.split_origin.x,
+                        cascade.split_origin.y,
+                        cascade.split_origin.z,
+                        1.0,
+                    ],
+                    split_forward: [
+                        cascade.split_forward.x,
+                        cascade.split_forward.y,
+                        cascade.split_forward.z,
+                        0.0,
+                    ],
                     split_end: cascade.split_end,
                     bias: shadow.shadow_bias,
                     slope_bias: shadow.shadow_slope_bias,

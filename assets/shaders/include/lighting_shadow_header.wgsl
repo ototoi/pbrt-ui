@@ -3,6 +3,8 @@
 
 struct DirectionalShadowInfo {
     light_view_proj: mat4x4<f32>,
+    split_origin: vec4<f32>,
+    split_forward: vec4<f32>,
     split_end: f32,
     bias: f32,
     slope_bias: f32,

@@ -15,7 +15,10 @@ use uuid::Uuid;
 const SHADOW_BOUNDS_MARGIN: f32 = 0.1;
 const DIRECTIONAL_SHADOW_MAP_SIZE: u32 = 2048;
 pub const DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT: usize = 4;
-const SHADOW_EPSILON: f32 = 1e-3;
+const SHADOW_XY_EPSILON: f32 = 1e-3;
+const SHADOW_CASTER_Z_EPSILON: f32 = 1e-3;
+const SPLIT_DEPTH_EPSILON: f32 = 1e-4;
+const CSM_MIN_SPLIT_SPAN: f32 = 50.0;
 // Blend factor between uniform and logarithmic CSM split distributions.
 // split = lerp(uniform_split, log_split, CASCADE_SPLIT_LAMBDA)
 // 0.0 -> fully uniform, 1.0 -> fully logarithmic.
@@ -39,6 +42,8 @@ pub struct RenderDirectionalLightShadowCascade {
     pub light_view: glam::Mat4,
     pub light_proj: glam::Mat4,
     pub light_view_proj: glam::Mat4,
+    pub split_origin: glam::Vec3,
+    pub split_forward: glam::Vec3,
     pub split_end: f32,
     pub texture: Arc<RenderTexture>,
 }
@@ -67,38 +72,6 @@ fn get_aabb_corners(min: glam::Vec3, max: glam::Vec3) -> [glam::Vec3; 8] {
         glam::vec3(max.x, max.y, min.z),
         glam::vec3(max.x, max.y, max.z),
     ]
-}
-
-fn intersects_camera_frustum(world_to_clip: glam::Mat4, world_points: &[glam::Vec3; 8]) -> bool {
-    // Conservative convex test in homogeneous clip-space.
-    let mut all_left = true;
-    let mut all_right = true;
-    let mut all_bottom = true;
-    let mut all_top = true;
-    let mut all_near = true;
-    let mut all_far = true;
-    for p in world_points.iter().copied() {
-        let c = world_to_clip * p.extend(1.0);
-        if c.x >= -c.w {
-            all_left = false;
-        }
-        if c.x <= c.w {
-            all_right = false;
-        }
-        if c.y >= -c.w {
-            all_bottom = false;
-        }
-        if c.y <= c.w {
-            all_top = false;
-        }
-        if c.z >= 0.0 {
-            all_near = false;
-        }
-        if c.z <= c.w {
-            all_far = false;
-        }
-    }
-    !(all_left || all_right || all_bottom || all_top || all_near || all_far)
 }
 
 fn expand_bounds(min: &mut glam::Vec3, max: &mut glam::Vec3, p: glam::Vec3) {
@@ -148,27 +121,84 @@ fn get_full_frustum_corners_world(render_camera: &RenderCamera) -> [glam::Vec3; 
     ]
 }
 
-fn get_frustum_slice_corners_from_full_frustum(
+#[derive(Debug, Clone, Copy)]
+struct SplitBasis {
+    origin: glam::Vec3,
+    z: glam::Vec3,
+}
+
+impl SplitBasis {
+    fn project_depth(&self, world: glam::Vec3) -> f32 {
+        (world - self.origin).dot(self.z)
+    }
+}
+
+fn build_split_basis(render_camera: &RenderCamera, light_dir: glam::Vec3) -> Option<SplitBasis> {
+    let camera_forward = render_camera.forward.normalize_or_zero();
+    let camera_up = render_camera.up.normalize_or_zero();
+    if camera_forward.length_squared() < 1e-8 {
+        return None;
+    }
+
+    let mut right = camera_forward.cross(light_dir).normalize_or_zero();
+    if right.length_squared() < 1e-8 {
+        right = camera_up.cross(light_dir).normalize_or_zero();
+    }
+    if right.length_squared() < 1e-8 {
+        right = glam::vec3(0.0, 1.0, 0.0).cross(light_dir).normalize_or_zero();
+    }
+    if right.length_squared() < 1e-8 {
+        return None;
+    }
+
+    let mut split_forward = light_dir.cross(right).normalize_or_zero();
+    if split_forward.length_squared() < 1e-8 {
+        return None;
+    }
+    if split_forward.dot(camera_forward) < 0.0 {
+        split_forward = -split_forward;
+        right = -right;
+    }
+    let up = split_forward.cross(right).normalize_or_zero();
+    if up.length_squared() < 1e-8 {
+        return None;
+    }
+
+    Some(SplitBasis {
+        origin: render_camera.position,
+        z: split_forward,
+    })
+}
+
+fn get_frustum_slice_corners_from_split(
+    render_camera: &RenderCamera,
     full_frustum_corners: &[glam::Vec3; 8],
-    near_t: f32,
-    far_t: f32,
-) -> [glam::Vec3; 8] {
-    let near_t = near_t.clamp(0.0, 1.0);
-    let far_t = far_t.clamp(near_t, 1.0);
+    split_basis: &SplitBasis,
+    split_near: f32,
+    split_far: f32,
+) -> Option<[glam::Vec3; 8]> {
+    let split_near = split_near.max(SPLIT_DEPTH_EPSILON);
+    let split_far = split_far.max(split_near + SPLIT_DEPTH_EPSILON);
+    let origin = render_camera.position;
     let mut out = [glam::Vec3::ZERO; 8];
     for i in 0..4 {
-        let n = full_frustum_corners[i];
-        let f = full_frustum_corners[4 + i];
-        out[i] = n + (f - n) * near_t;
-        out[4 + i] = n + (f - n) * far_t;
+        let far_corner = full_frustum_corners[4 + i];
+        let ray = far_corner - origin;
+        let ray_split_depth = ray.dot(split_basis.z);
+        if ray_split_depth <= SPLIT_DEPTH_EPSILON {
+            return None;
+        }
+        let near_scale = split_near / ray_split_depth;
+        let far_scale = split_far / ray_split_depth;
+        out[i] = origin + ray * near_scale;
+        out[4 + i] = origin + ray * far_scale;
     }
-    out
+    Some(out)
 }
 
 fn build_light_matrices_from_virtual_points_orthographic(
     virtual_frustum_points: &[glam::Vec3],
     caster_points_world: &[glam::Vec3],
-    full_scene_corners: &[glam::Vec3; 8],
     light_dir: glam::Vec3,
     up: glam::Vec3,
 ) -> (glam::Mat4, glam::Mat4, glam::Mat4) {
@@ -234,7 +264,7 @@ fn build_light_matrices_from_virtual_points_orthographic(
     if caster_z_max <= caster_z_min {
         // Degenerate slice (all caster samples on nearly the same light-space Z).
         // Keep the algorithm deterministic by enforcing a minimal depth thickness.
-        let half = (SHADOW_EPSILON * 0.5).max(5e-4);
+        let half = (SHADOW_CASTER_Z_EPSILON * 0.5).max(5e-4);
         caster_z_min -= half;
         caster_z_max += half;
     }
@@ -253,7 +283,7 @@ fn build_light_matrices_from_virtual_points_orthographic(
     let width = (light_max.x - light_min.x).abs() + 2.0 * mx;
     let height = (light_max.y - light_min.y).abs() + 2.0 * my;
     assert!(
-        width.is_finite() && height.is_finite() && width > SHADOW_EPSILON && height > SHADOW_EPSILON,
+        width.is_finite() && height.is_finite() && width > SHADOW_XY_EPSILON && height > SHADOW_XY_EPSILON,
         "Invalid receiver XY bounds in light-view: width={}, height={}",
         width,
         height
@@ -284,14 +314,8 @@ fn build_light_matrices_from_virtual_points_orthographic(
 }
 
 struct ShadowSceneContext {
-    receiver_depth_min: f32,
-    receiver_depth_max: f32,
-    camera_depth_min: f32,
-    camera_depth_max: f32,
-    split_depth_min: f32,
-    split_depth_max: f32,
-    full_scene_corners: [glam::Vec3; 8],
     full_frustum_corners: [glam::Vec3; 8],
+    receiver_points_world: Vec<glam::Vec3>,
     caster_points_world: Vec<glam::Vec3>,
 }
 
@@ -299,14 +323,9 @@ fn build_shadow_scene_context(
     render_camera: &RenderCamera,
     mesh_items: &[Arc<RenderItem>],
 ) -> Option<ShadowSceneContext> {
-    let mut world_min = glam::vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
-    let mut world_max = glam::vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
     let mut caster_points_world = Vec::new();
-    let mut receiver_depth_min = f32::INFINITY;
-    let mut receiver_depth_max = f32::NEG_INFINITY;
+    let mut receiver_points_world = Vec::new();
     let mut has_mesh = false;
-    let world_to_camera = render_camera.world_to_camera;
-    let world_to_clip = render_camera.camera_to_clip * world_to_camera;
 
     for item in mesh_items {
         if let RenderItem::Mesh(mesh_item) = item.as_ref() {
@@ -322,26 +341,10 @@ fn build_shadow_scene_context(
                 mesh_item.mesh.aabb.max[2],
             );
             let corners = get_aabb_corners(aabb_min, aabb_max);
-            let mut world_corners = [glam::Vec3::ZERO; 8];
-            for (corner_index, corner) in corners.iter().enumerate() {
-                let world = mesh_item.matrix.transform_point3(*corner);
-                expand_bounds(&mut world_min, &mut world_max, world);
+            for corner in corners {
+                let world = mesh_item.matrix.transform_point3(corner);
                 caster_points_world.push(world);
-                world_corners[corner_index] = world;
-            }
-
-            // Receiver range: only meshes intersecting current camera frustum.
-            if intersects_camera_frustum(world_to_clip, &world_corners) {
-                for world in world_corners.iter().copied() {
-                    // Keep depth convention identical to shader side:
-                    // view_depth = -view_position.z
-                    let view = world_to_camera.transform_point3(world);
-                    let depth = -view.z;
-                    if depth.is_finite() && depth > SHADOW_EPSILON {
-                        receiver_depth_min = receiver_depth_min.min(depth);
-                        receiver_depth_max = receiver_depth_max.max(depth);
-                    }
-                }
+                receiver_points_world.push(world);
             }
         }
     }
@@ -350,42 +353,10 @@ fn build_shadow_scene_context(
     }
 
     let full_frustum_corners = get_full_frustum_corners_world(render_camera);
-    let full_scene_corners = get_aabb_corners(world_min, world_max);
-    let camera_depth_min = render_camera.near;
-    let camera_depth_max = render_camera.far;
-    assert!(
-        camera_depth_min.is_finite()
-            && camera_depth_max.is_finite()
-            && camera_depth_min > 0.0
-            && camera_depth_max > camera_depth_min,
-        "Invalid camera depth range: min={}, max={}",
-        camera_depth_min,
-        camera_depth_max
-    );
-    let has_receiver_depth =
-        receiver_depth_min.is_finite() && receiver_depth_max.is_finite() && receiver_depth_max > receiver_depth_min;
-
-    let (receiver_depth_min, receiver_depth_max) = if has_receiver_depth {
-        (receiver_depth_min, receiver_depth_max)
-    } else {
-        log::info!("CSM: receiver depth unavailable; fallback to camera range");
-        (camera_depth_min, camera_depth_max)
-    };
-
-    // Keep shadow visibility stable first: use camera depth range for splits.
-    // Receiver depth is retained for diagnostics / next-step refinement.
-    let split_depth_min = camera_depth_min.max(SHADOW_EPSILON);
-    let split_depth_max = camera_depth_max;
 
     Some(ShadowSceneContext {
-        receiver_depth_min,
-        receiver_depth_max,
-        camera_depth_min,
-        camera_depth_max,
-        split_depth_min,
-        split_depth_max,
-        full_scene_corners,
         full_frustum_corners,
+        receiver_points_world,
         caster_points_world,
     })
 }
@@ -524,22 +495,37 @@ fn create_directional_light_shadow_csm(
         .clamp(1, DIRECTIONAL_SHADOW_CASCADE_MAX_COUNT as u32) as usize;
     let (light_dir, up) =
         build_directional_light_basis(render_camera, light_matrix, directional_light)?;
-    let camera_min = ctx.camera_depth_min;
-    let camera_max = ctx.camera_depth_max;
-    let receiver_min = ctx.receiver_depth_min;
-    let receiver_max = ctx.receiver_depth_max;
-    let split_min = ctx.split_depth_min;
-    let split_max = ctx.split_depth_max;
+    let split_basis = build_split_basis(render_camera, light_dir)?;
+
+    let mut split_min = f32::INFINITY;
+    let mut split_max = f32::NEG_INFINITY;
+    for world in &ctx.receiver_points_world {
+        let split_depth = split_basis.project_depth(*world);
+        if split_depth.is_finite() && split_depth > SPLIT_DEPTH_EPSILON {
+            split_min = split_min.min(split_depth);
+            split_max = split_max.max(split_depth);
+        }
+    }
+    if !split_min.is_finite() || !split_max.is_finite() || split_max <= split_min {
+        for corner in ctx.full_frustum_corners {
+            let split_depth = split_basis.project_depth(corner);
+            if split_depth.is_finite() && split_depth > SPLIT_DEPTH_EPSILON {
+                split_min = split_min.min(split_depth);
+                split_max = split_max.max(split_depth);
+            }
+        }
+    }
+    if !split_min.is_finite() || !split_max.is_finite() || split_max <= split_min {
+        return None;
+    }
+    split_min = split_min.max(SPLIT_DEPTH_EPSILON);
+    split_max = split_max.max(split_min + CSM_MIN_SPLIT_SPAN);
     log::info!(
-        "CSM light={} cascades={} split_range=[{:.4}, {:.4}] receiver_range=[{:.4}, {:.4}] camera_range=[{:.4}, {:.4}]",
+        "CSM light={} cascades={} split_range=[{:.4}, {:.4}]",
         directional_light.id,
         cascade_count,
         split_min,
         split_max,
-        receiver_min,
-        receiver_max,
-        camera_min,
-        camera_max
     );
     let split_splits = build_cascade_splits(split_min, split_max, cascade_count);
     assert_eq!(
@@ -549,8 +535,6 @@ fn create_directional_light_shadow_csm(
         cascade_count,
         split_splits.len()
     );
-    let cam_range = (camera_max - camera_min).max(SHADOW_EPSILON);
-
     let mut cascades = Vec::with_capacity(cascade_count);
     let mut cascade_near = split_min;
     for (cascade_index, cascade_far) in split_splits.iter().copied().enumerate() {
@@ -569,13 +553,13 @@ fn create_directional_light_shadow_csm(
             cascade_far,
             split_splits[cascade_index]
         );
-        let near_t = ((cascade_near - camera_min) / cam_range).clamp(0.0, 1.0);
-        let far_t = ((cascade_far - camera_min) / cam_range).clamp(near_t, 1.0);
-        let virtual_points = get_frustum_slice_corners_from_full_frustum(
+        let virtual_points = get_frustum_slice_corners_from_split(
+            render_camera,
             &ctx.full_frustum_corners,
-            near_t,
-            far_t,
-        );
+            &split_basis,
+            cascade_near,
+            cascade_far,
+        )?;
         for p in virtual_points.iter() {
             assert!(p.is_finite(), "Non-finite frustum slice point: {:?}", p);
         }
@@ -584,7 +568,6 @@ fn create_directional_light_shadow_csm(
             build_light_matrices_from_virtual_points_orthographic(
                 &virtual_frustum_points,
                 &ctx.caster_points_world,
-                &ctx.full_scene_corners,
                 light_dir,
                 up,
             );
@@ -599,6 +582,8 @@ fn create_directional_light_shadow_csm(
             light_view,
             light_proj,
             light_view_proj,
+            split_origin: split_basis.origin,
+            split_forward: split_basis.z,
             split_end: split_splits[cascade_index],
             texture: render_texture,
         });
