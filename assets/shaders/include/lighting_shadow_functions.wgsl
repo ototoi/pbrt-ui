@@ -7,7 +7,7 @@ const DIRECTIONAL_SHADOW_PCF_RADIUS: i32 = 1;
 fn get_directional_shadow_cascade_index(
     base_shadow_index: i32,
     cascade_count: u32,
-    view_depth: f32,
+    split_depth: f32,
 ) -> i32 {
     if (base_shadow_index < 0 || cascade_count == 0u) {
         return -1;
@@ -15,7 +15,7 @@ fn get_directional_shadow_cascade_index(
     let max_count = min(cascade_count, DIRECTIONAL_SHADOW_CASCADE_COUNT);
     for (var i: u32 = 0u; i < max_count; i++) {
         let idx = base_shadow_index + i32(i);
-        if (view_depth <= directional_shadow_infos[u32(idx)].split_end) {
+        if (split_depth <= directional_shadow_infos[u32(idx)].split_end) {
             return idx;
         }
     }
@@ -25,11 +25,11 @@ fn get_directional_shadow_cascade_index(
 fn project_directional_shadow_uv_depth(
     base_shadow_index: i32,
     cascade_count: u32,
-    view_depth: f32,
+    split_depth: f32,
     world_position: vec3<f32>,
 ) -> vec4<f32> {
     let shadow_index =
-        get_directional_shadow_cascade_index(base_shadow_index, cascade_count, view_depth);
+        get_directional_shadow_cascade_index(base_shadow_index, cascade_count, split_depth);
     if (shadow_index < 0) {
         return vec4<f32>(0.0, 0.0, 0.0, -1.0);
     }
@@ -54,11 +54,11 @@ fn project_directional_shadow_uv_depth(
 fn sample_directional_shadow_depth(
     base_shadow_index: i32,
     cascade_count: u32,
-    view_depth: f32,
+    split_depth: f32,
     uv: vec2<f32>,
 ) -> f32 {
     let shadow_index =
-        get_directional_shadow_cascade_index(base_shadow_index, cascade_count, view_depth);
+        get_directional_shadow_cascade_index(base_shadow_index, cascade_count, split_depth);
     if (shadow_index < 0) {
         return 1.0;
     }
@@ -75,7 +75,7 @@ fn sample_directional_shadow_depth(
 fn sample_directional_shadow_factor(
     base_shadow_index: i32,
     cascade_count: u32,
-    view_depth: f32,
+    split_depth: f32,
     world_position: vec3<f32>,
     surface_normal: vec3<f32>,
     light_direction: vec3<f32>,
@@ -83,7 +83,7 @@ fn sample_directional_shadow_factor(
     let projected = project_directional_shadow_uv_depth(
         base_shadow_index,
         cascade_count,
-        view_depth,
+        split_depth,
         world_position,
     );
     if (projected.w < 0.0) {

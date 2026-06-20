@@ -42,6 +42,8 @@ struct LocalUniforms {
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct DirectionalShadowInfo {
     light_view_proj: [[f32; 4]; 4],
+    split_origin: [f32; 4],
+    split_forward: [f32; 4],
     split_end: f32,
     bias: f32,
     slope_bias: f32,
@@ -162,8 +164,14 @@ impl DirectionalShadowMapRenderer {
         camera: &RenderCamera,
     ) -> Option<DirectionalShadowMaps> {
         let (mesh_items, light_items) = Self::split_items(render_items);
+        log::info!(
+            "ShadowPrepare: mesh_items={}, directional_lights={}",
+            mesh_items.len(),
+            light_items.len()
+        );
         if light_items.is_empty() {
             // No directional lights, no need to prepare shadow maps
+            log::info!("ShadowPrepare: skipped (no directional lights)");
             return None;
         }
         self.prepare_locals(device, queue, &mesh_items);
@@ -185,18 +193,26 @@ impl DirectionalShadowMapRenderer {
                 })
             })
             .collect::<Vec<_>>();
+        log::info!(
+            "ShadowPrepare: shadow_mesh_indices={}",
+            shadow_mesh_indices.len()
+        );
 
-        let directional_light_shadows = create_directional_light_shadows(
+        let Some(directional_light_shadows) = create_directional_light_shadows(
             device,
             queue,
             camera,
             &mesh_items,
             &light_items,
             render_resource_manager,
-        );
-        if directional_light_shadows.is_empty() {
+        ) else {
+            log::info!("ShadowPrepare: create_directional_light_shadows returned None");
             return None;
-        }
+        };
+        log::info!(
+            "ShadowPrepare: directional_light_shadows={}",
+            directional_light_shadows.len()
+        );
 
         let mut directional_shadow_index_map = HashMap::new();
         let mut base_shadow_index = 0i32;
@@ -401,6 +417,18 @@ impl DirectionalShadowMapRenderer {
                 }
                 infos[info_index] = DirectionalShadowInfo {
                     light_view_proj: cascade.light_view_proj.to_cols_array_2d(),
+                    split_origin: [
+                        cascade.split_origin.x,
+                        cascade.split_origin.y,
+                        cascade.split_origin.z,
+                        1.0,
+                    ],
+                    split_forward: [
+                        cascade.split_forward.x,
+                        cascade.split_forward.y,
+                        cascade.split_forward.z,
+                        0.0,
+                    ],
                     split_end: cascade.split_end,
                     bias: shadow.shadow_bias,
                     slope_bias: shadow.shadow_slope_bias,
