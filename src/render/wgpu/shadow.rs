@@ -367,6 +367,7 @@ fn build_light_matrices_from_virtual_points_orthographic(
 
 struct ShadowSceneContext {
     full_frustum_corners: [glam::Vec3; 8],
+    receiver_points_world: Vec<glam::Vec3>,
     caster_points_world: Vec<glam::Vec3>,
 }
 
@@ -375,6 +376,7 @@ fn build_shadow_scene_context(
     mesh_items: &[Arc<RenderItem>],
 ) -> Option<ShadowSceneContext> {
     let mut caster_points_world = Vec::new();
+    let mut receiver_points_world = Vec::new();
     let mut has_mesh = false;
 
     for item in mesh_items {
@@ -394,6 +396,7 @@ fn build_shadow_scene_context(
             for corner in corners {
                 let world = mesh_item.matrix.transform_point3(corner);
                 caster_points_world.push(world);
+                receiver_points_world.push(world);
             }
         }
     }
@@ -405,6 +408,7 @@ fn build_shadow_scene_context(
 
     Some(ShadowSceneContext {
         full_frustum_corners,
+        receiver_points_world,
         caster_points_world,
     })
 }
@@ -440,7 +444,11 @@ fn create_directional_light_shadow(
         glam::vec3(1.0, 0.0, 0.0)
     };
     let split_basis = build_split_basis(render_camera, light_dir)?;
-    let virtual_frustum_points = ctx.full_frustum_corners.to_vec();
+    let virtual_frustum_points = if ctx.receiver_points_world.is_empty() {
+        ctx.full_frustum_corners.to_vec()
+    } else {
+        ctx.receiver_points_world.clone()
+    };
     let (light_view, light_proj, light_view_proj) =
         build_light_matrices_from_virtual_points_orthographic(
             &virtual_frustum_points,
