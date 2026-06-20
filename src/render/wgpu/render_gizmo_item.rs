@@ -4,7 +4,7 @@ use super::material::RenderMaterial;
 use super::material::RenderUniformValue;
 use super::render_item::LinesRenderItem;
 use super::render_item::RenderItem;
-use super::render_item::create_render_pass;
+use super::render_pass_cache::create_render_pass;
 use super::render_resource::RenderResourceManager;
 use crate::model::scene::CoordinateSystemComponent;
 use crate::model::scene::Node;
