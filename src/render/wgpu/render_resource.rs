@@ -1,4 +1,3 @@
-use super::light::RenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
 use super::shader::RenderShader;
@@ -13,7 +12,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
 pub struct RenderResourceManager {
-    pub lights: HashMap<Uuid, Arc<RenderLight>>, // Assuming lights are also stored as RenderLines
     pub lines: HashMap<Uuid, Arc<RenderLines>>,
     pub shaders: HashMap<Uuid, Arc<RenderShader>>,
     pub materials: HashMap<Uuid, Arc<RenderMaterial>>,
@@ -23,24 +21,11 @@ pub struct RenderResourceManager {
 impl RenderResourceManager {
     pub fn new() -> Self {
         Self {
-            lights: HashMap::new(),
             lines: HashMap::new(),
             shaders: HashMap::new(),
             materials: HashMap::new(),
             textures: HashMap::new(),
         }
-    }
-    pub fn add_light(&mut self, light: &Arc<RenderLight>) {
-        let id = light.get_id();
-        self.lights.insert(id, light.clone());
-    }
-
-    pub fn get_light(&self, id: Uuid) -> Option<&Arc<RenderLight>> {
-        self.lights.get(&id)
-    }
-
-    pub fn remove_light(&mut self, id: Uuid) {
-        self.lights.remove(&id);
     }
 
     pub fn add_lines(&mut self, lines: &Arc<RenderLines>) {
