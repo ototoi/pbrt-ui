@@ -29,6 +29,7 @@ use crate::model::base::Vector3;
 use crate::model::scene::Light;
 use crate::model::scene::LightComponent;
 use crate::model::scene::Node;
+use crate::model::scene::RenderLightComponent;
 use crate::model::scene::ResourceCacheManager;
 use crate::model::scene::ResourceManager;
 use crate::model::scene::Shape;
@@ -76,277 +77,348 @@ fn get_light_id_edition(node: &Arc<RwLock<Node>>) -> Option<(Uuid, String)> {
     return None; // No LightComponent found
 }
 
-fn get_directional_light_item(
-    item: &SceneItem,
-    resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
-) -> Option<RenderItem> {
-    let node = &item.node;
+fn get_cached_render_light(node: &Arc<RwLock<Node>>, edition: &str) -> Option<Arc<RenderLight>> {
     let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<LightComponent>() {
-        let light = component.get_light();
-        let light = light.read().unwrap();
+    let component = node.get_component::<RenderLightComponent>()?;
+    let render_light = component.get_render_light()?;
+    if render_light.get_edition() == edition {
+        Some(render_light)
+    } else {
+        None
+    }
+}
 
-        let id = light.get_id();
-        let light_type = light.get_type();
-        let edition = light.get_edition();
-        if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition
-        {
-            let render_item = LightRenderItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(item.matrix),
-            };
-            return Some(RenderItem::Light(render_item));
-        }
-        assert!(
-            light_type == "distant",
-            "Expected light type to be 'distant', found: {}",
-            light_type
-        );
+fn set_cached_render_light(node: &Arc<RwLock<Node>>, render_light: Arc<RenderLight>) {
+    let mut node = node.write().unwrap();
+    if let Some(component) = node.get_component_mut::<RenderLightComponent>() {
+        component.set_render_light(render_light);
+    } else {
+        let mut component = RenderLightComponent::new();
+        component.set_render_light(render_light);
+        node.add_component(component);
+    }
+}
 
-        let props = light.as_property_map();
+struct DirectionalLightData {
+    id: Uuid,
+    edition: String,
+    direction: [f32; 3],
+    intensity: [f32; 3],
+    source_angle: f32,
+    cast_shadow: bool,
+    shadow_bias: f32,
+    shadow_slope_bias: f32,
+    cascade_count: u32,
+    shadow_projection: DirectionalShadowProjection,
+}
 
-        let mut from = props.get_floats("from");
-        if from.len() != 3 {
-            from = vec![0.0, 0.0, 0.0];
-        }
-        let mut to = props.get_floats("to");
-        if to.len() != 3 {
-            to = vec![0.0, 0.0, 1.0];
-        }
-        let from = Vector3::new(from[0], from[1], from[2]);
-        let to = Vector3::new(to[0], to[1], to[2]);
-        let dir = to - from;
-        let direction = [dir.x, dir.y, dir.z];
+struct PointLightData {
+    id: Uuid,
+    edition: String,
+    matrix: glam::Mat4,
+    intensity: [f32; 3],
+}
 
-        let l = get_color(props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-        let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+struct SpotLightData {
+    id: Uuid,
+    edition: String,
+    position: [f32; 3],
+    direction: [f32; 3],
+    intensity: [f32; 3],
+    inner_angle: f32,
+    outer_angle: f32,
+}
 
-        let source_angle = props.find_one_float("sourceangle").unwrap_or(0.5357);
-        let source_angle = source_angle.max(0.2); // Prevent too small angles
-        let source_angle = source_angle.to_radians();
-        let cascade_count = props.find_one_int("cascadecount").unwrap_or(4).clamp(1, 4) as u32;
-        let shadow_projection = props
-            .find_one_string("shadowprojection")
-            .unwrap_or_else(|| "csm".to_string())
-            .to_lowercase();
-        let shadow_projection = if shadow_projection == "lspsm" {
+struct InfiniteLightData {
+    id: Uuid,
+    edition: String,
+    intensity: [f32; 3],
+    mapname: String,
+    matrix: glam::Mat4,
+}
+
+fn read_directional_light_data(
+    node: &Arc<RwLock<Node>>,
+    resource_manager: &ResourceManager,
+) -> Option<DirectionalLightData> {
+    let light = {
+        let node_ref = node.read().unwrap();
+        node_ref.get_component::<LightComponent>()?.get_light()
+    };
+    let light = light.read().unwrap();
+    let props = light.as_property_map();
+
+    let mut from = props.get_floats("from");
+    if from.len() != 3 {
+        from = vec![0.0, 0.0, 0.0];
+    }
+    let mut to = props.get_floats("to");
+    if to.len() != 3 {
+        to = vec![0.0, 0.0, 1.0];
+    }
+    let from = Vector3::new(from[0], from[1], from[2]);
+    let to = Vector3::new(to[0], to[1], to[2]);
+    let dir = to - from;
+
+    let l = get_color(props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let source_angle = props.find_one_float("sourceangle").unwrap_or(0.5357).max(0.2);
+    let shadow_projection = props
+        .find_one_string("shadowprojection")
+        .unwrap_or_else(|| "csm".to_string())
+        .to_lowercase();
+
+    Some(DirectionalLightData {
+        id: light.get_id(),
+        edition: light.get_edition(),
+        direction: [dir.x, dir.y, dir.z],
+        intensity: [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]],
+        source_angle: source_angle.to_radians(),
+        cast_shadow: props
+            .find_one_bool("castshadow")
+            .or_else(|| props.find_one_bool("castshadows"))
+            .unwrap_or(true),
+        shadow_bias: props.find_one_float("shadowbias").unwrap_or(0.001).max(0.0),
+        shadow_slope_bias: props
+            .find_one_float("shadowslopebias")
+            .unwrap_or(0.01)
+            .max(0.0),
+        cascade_count: props.find_one_int("cascadecount").unwrap_or(4).clamp(1, 4) as u32,
+        shadow_projection: if shadow_projection == "lspsm" {
             DirectionalShadowProjection::Lspsm
         } else {
             DirectionalShadowProjection::Csm
-        };
-        let shadow_bias = props.find_one_float("shadowbias").unwrap_or(0.001).max(0.0);
-        let shadow_slope_bias = props
-            .find_one_float("shadowslopebias")
-            .unwrap_or(0.01)
-            .max(0.0);
+        },
+    })
+}
 
-        // Accept both spellings to be robust against source scene variants.
-        let cast_shadow = props
-            .find_one_bool("castshadow")
-            .or_else(|| props.find_one_bool("castshadows"))
-            .unwrap_or(true);
+fn read_point_light_data(
+    item: &SceneItem,
+    node: &Arc<RwLock<Node>>,
+    resource_manager: &ResourceManager,
+) -> Option<PointLightData> {
+    let light = {
+        let node_ref = node.read().unwrap();
+        node_ref.get_component::<LightComponent>()?.get_light()
+    };
+    let light = light.read().unwrap();
+    let props = light.as_property_map();
 
-        let intensity = [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]];
-        let render_light = DirectionalRenderLight {
-            id,
-            edition: edition.clone(),
-            direction,
-            intensity,
-            source_angle,
-            cast_shadow,
-            shadow_bias,
-            shadow_slope_bias,
-            cascade_count,
-            shadow_projection,
-            ..Default::default()
-        };
-        let render_light = Arc::new(RenderLight::Directional(render_light));
-        render_resource_manager.add_light(&render_light);
+    let mut from = props.get_floats("from");
+    if from.len() != 3 {
+        from = vec![0.0, 0.0, 0.0];
+    }
+    let translation = Matrix4x4::translate(from[0], from[1], from[2]);
+    let l = get_color(props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+    Some(PointLightData {
+        id: light.get_id(),
+        edition: light.get_edition(),
+        matrix: glam::Mat4::from(translation * item.matrix),
+        intensity: [4.0 * l[0] * scale[0], 4.0 * l[1] * scale[1], 4.0 * l[2] * scale[2]],
+    })
+}
+
+fn read_spot_light_data(
+    item: &SceneItem,
+    node: &Arc<RwLock<Node>>,
+    resource_manager: &ResourceManager,
+) -> Option<SpotLightData> {
+    let light = {
+        let node_ref = node.read().unwrap();
+        node_ref.get_component::<LightComponent>()?.get_light()
+    };
+    let light = light.read().unwrap();
+    let props = light.as_property_map();
+
+    let mut from = props.get_floats("from");
+    if from.len() != 3 {
+        from = vec![0.0, 0.0, 0.0];
+    }
+    let mut to = props.get_floats("to");
+    if to.len() != 3 {
+        to = vec![0.0, 0.0, 1.0];
+    }
+    let from = Vector3::new(from[0], from[1], from[2]);
+    let to = Vector3::new(to[0], to[1], to[2]);
+    let dir = (to - from).normalize();
+    let (du, dv) = coordinate_system(&dir);
+    let dir_to_z = Matrix4x4::new(
+        du.x, du.y, du.z, 0.0, dv.x, dv.y, dv.z, 0., dir.x, dir.y, dir.z, 0.0, 0.0, 0.0, 0.0,
+        1.0,
+    );
+    let mat =
+        Matrix4x4::translate(from.x, from.y, from.z) * Matrix4x4::inverse(&dir_to_z).unwrap();
+    let position = mat.transform_point(&Vector3::new(0.0, 0.0, 0.0));
+    let direction = mat.transform_vector(&Vector3::new(0.0, 0.0, 1.0)).normalize();
+
+    let coneangle = props.find_one_float("coneangle").unwrap_or(30.0);
+    let conedelta = props
+        .find_one_float("conedeltaangle")
+        .unwrap_or(props.find_one_float("conedelta").unwrap_or(5.0))
+        .clamp(0.0, coneangle);
+    let l = get_color(props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+
+    Some(SpotLightData {
+        id: light.get_id(),
+        edition: light.get_edition(),
+        position: [position.x, position.y, position.z],
+        direction: [direction.x, direction.y, direction.z],
+        intensity: [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]],
+        inner_angle: f32::to_radians((coneangle - conedelta).max(0.0)),
+        outer_angle: f32::to_radians(coneangle),
+    })
+}
+
+fn read_infinite_light_data(
+    item: &SceneItem,
+    node: &Arc<RwLock<Node>>,
+    resource_manager: &ResourceManager,
+) -> Option<InfiniteLightData> {
+    let light = {
+        let node_ref = node.read().unwrap();
+        node_ref.get_component::<LightComponent>()?.get_light()
+    };
+    let light = light.read().unwrap();
+    let props = light.as_property_map();
+    let l = get_color(props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+    let mapname = props.find_one_string("mapname").unwrap_or_default();
+
+    Some(InfiniteLightData {
+        id: light.get_id(),
+        edition: light.get_edition(),
+        intensity: [l[0] * scale[0], l[1] * scale[1], l[2] * scale[2]],
+        mapname,
+        matrix: glam::Mat4::from(get_rotation_matrix(&item.matrix)),
+    })
+}
+
+fn get_directional_light_item(
+    item: &SceneItem,
+    resource_manager: &ResourceManager,
+    _render_resource_manager: &mut RenderResourceManager,
+) -> Option<RenderItem> {
+    let node = &item.node;
+    let light_type = get_light_type(node)?;
+    assert!(
+        light_type == "distant",
+        "Expected light type to be 'distant', found: {}",
+        light_type
+    );
+    let data = read_directional_light_data(node, resource_manager)?;
+    if let Some(render_light) = get_cached_render_light(node, &data.edition) {
         let render_item = LightRenderItem {
-            light: render_light.clone(),
+            light: render_light,
             matrix: glam::Mat4::from(item.matrix),
         };
         return Some(RenderItem::Light(render_item));
     }
-    return None;
+    let render_light = Arc::new(RenderLight::Directional(DirectionalRenderLight {
+        id: data.id,
+        edition: data.edition.clone(),
+        direction: data.direction,
+        intensity: data.intensity,
+        source_angle: data.source_angle,
+        cast_shadow: data.cast_shadow,
+        shadow_bias: data.shadow_bias,
+        shadow_slope_bias: data.shadow_slope_bias,
+        cascade_count: data.cascade_count,
+        shadow_projection: data.shadow_projection,
+        ..Default::default()
+    }));
+    set_cached_render_light(node, render_light.clone());
+    let render_item = LightRenderItem {
+        light: render_light.clone(),
+        matrix: glam::Mat4::from(item.matrix),
+    };
+    Some(RenderItem::Light(render_item))
 }
 
 fn get_point_light_item(
     item: &SceneItem,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
+    _render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let node = &item.node;
-    let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<LightComponent>() {
-        let light = component.get_light();
-        let light = light.read().unwrap();
-
-        let id = light.get_id();
-        let light_type = light.get_type();
-        let edition = light.get_edition();
-        let props = light.as_property_map();
-        if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition
-        {
-            let mut from = props.get_floats("from");
-            if from.len() != 3 {
-                from = vec![0.0, 0.0, 0.0];
-            }
-            let translation = Matrix4x4::translate(from[0], from[1], from[2]);
-            let mat = translation * item.matrix;
-
+    let light_type = get_light_type(node)?;
+    assert!(
+        light_type == "point",
+        "Expected light type to be 'point', found: {}",
+        light_type
+    );
+    let data = read_point_light_data(item, node, resource_manager)?;
+    if let Some(render_light) = get_cached_render_light(node, &data.edition) {
             let render_item = LightRenderItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(mat),
+                light: render_light,
+                matrix: data.matrix,
             };
             return Some(RenderItem::Light(render_item));
-        }
-        assert!(
-            light_type == "point",
-            "Expected light type to be 'point', found: {}",
-            light_type
-        );
-
-        let mut from = props.get_floats("from");
-        if from.len() != 3 {
-            from = vec![0.0, 0.0, 0.0];
-        }
-
-        let translation = Matrix4x4::translate(from[0], from[1], from[2]);
-        let mat = translation * item.matrix;
-
-        let l = get_color(props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-        let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-
-        let p = 4.0; //std::f32::consts::PI;//1.0 / (4.0 * std::f32::consts::PI); // Point light power normalization
-        let intensity = [
-            p * l[0] * scale[0],
-            p * l[1] * scale[1],
-            p * l[2] * scale[2],
-        ];
-
-        let render_light = SphereRenderLight {
-            id,
-            edition: edition.clone(),
-            intensity,
-            radius: 0.0,
-            ..Default::default()
-        };
-        let render_light = Arc::new(RenderLight::Sphere(render_light));
-        render_resource_manager.add_light(&render_light);
-
-        let render_item = LightRenderItem {
-            light: render_light.clone(),
-            matrix: glam::Mat4::from(mat),
-        };
-        return Some(RenderItem::Light(render_item));
     }
-    return None; // Point lights are not yet supported
+    let render_light = Arc::new(RenderLight::Sphere(SphereRenderLight {
+        id: data.id,
+        edition: data.edition.clone(),
+        intensity: data.intensity,
+        radius: 0.0,
+        ..Default::default()
+    }));
+    set_cached_render_light(node, render_light.clone());
+
+    let render_item = LightRenderItem {
+        light: render_light.clone(),
+        matrix: data.matrix,
+    };
+    Some(RenderItem::Light(render_item))
 }
 
 fn get_spot_light_item(
     item: &SceneItem,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
+    _render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let node = &item.node;
-    let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<LightComponent>() {
-        let light = component.get_light();
-        let light = light.read().unwrap();
-
-        let id = light.get_id();
-        let light_type = light.get_type();
-        let edition = light.get_edition();
-        if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition
-        {
+    let light_type = get_light_type(node)?;
+    assert!(
+        light_type == "spot",
+        "Expected light type to be 'point', found: {}",
+        light_type
+    );
+    let data = read_spot_light_data(item, node, resource_manager)?;
+    if let Some(render_light) = get_cached_render_light(node, &data.edition) {
             let render_item = LightRenderItem {
-                light: render_light.clone(),
+                light: render_light,
                 matrix: glam::Mat4::from(item.matrix),
             };
             return Some(RenderItem::Light(render_item));
-        }
-        assert!(
-            light_type == "spot",
-            "Expected light type to be 'point', found: {}",
-            light_type
-        );
-        let props = light.as_property_map();
-
-        let mut from = props.get_floats("from");
-        if from.len() != 3 {
-            from = vec![0.0, 0.0, 0.0];
-        }
-        let mut to = props.get_floats("to");
-        if to.len() != 3 {
-            to = vec![0.0, 0.0, 1.0];
-        }
-        let from = Vector3::new(from[0], from[1], from[2]);
-        let to = Vector3::new(to[0], to[1], to[2]);
-        let dir = (to - from).normalize();
-        let (du, dv) = coordinate_system(&dir);
-        let dir_to_z = Matrix4x4::new(
-            du.x, du.y, du.z, 0.0, dv.x, dv.y, dv.z, 0., dir.x, dir.y, dir.z, 0.0, 0.0, 0.0, 0.0,
-            1.0,
-        );
-        let mat =
-            Matrix4x4::translate(from.x, from.y, from.z) * Matrix4x4::inverse(&dir_to_z).unwrap();
-
-        let position = Vector3::new(0.0, 0.0, 0.0); // Position is not used for spot lights
-        let direction = Vector3::new(0.0, 0.0, 1.0); // Direction is not used for spot lights
-        let position = mat.transform_point(&position);
-        let direction = mat.transform_vector(&direction).normalize();
-
-        let coneangle = props.find_one_float("coneangle").unwrap_or(30.0);
-        let conedelta = props.find_one_float("conedelta").unwrap_or(5.0); //5.0
-        let conedelta = props.find_one_float("conedeltaangle").unwrap_or(conedelta);
-        let conedelta = conedelta.clamp(0.0, coneangle);
-
-        let inner_angle = f32::to_radians((coneangle - conedelta).max(0.0));
-        let outer_angle = f32::to_radians(coneangle);
-
-        let l = get_color(props, "I", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-        let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-
-        let p = 1.0; // / std::f32::consts::PI; // Point light power normalization
-        let intensity = [
-            p * l[0] * scale[0],
-            p * l[1] * scale[1],
-            p * l[2] * scale[2],
-        ];
-        let render_light = DiskRenderLight {
-            id,
-            edition: edition.clone(),
-            position: [position.x, position.y, position.z], // Position is not used for spot lights
-            direction: [direction.x, direction.y, direction.z], // Direction is not used for spot lights
-            intensity,
-            radius: 0.0,
-            inner_angle, // Inner radius for spot lights
-            outer_angle, // Outer radius for spot lights
-            ..Default::default()
-        };
-        let render_light = Arc::new(RenderLight::Disk(render_light));
-        render_resource_manager.add_light(&render_light);
-
-        let render_item = LightRenderItem {
-            light: render_light.clone(),
-            matrix: glam::Mat4::from(item.matrix),
-        };
-        return Some(RenderItem::Light(render_item));
     }
-    return None; // Point lights are not yet supported
+    let render_light = Arc::new(RenderLight::Disk(DiskRenderLight {
+        id: data.id,
+        edition: data.edition.clone(),
+        position: data.position,
+        direction: data.direction,
+        intensity: data.intensity,
+        radius: 0.0,
+        inner_angle: data.inner_angle,
+        outer_angle: data.outer_angle,
+        ..Default::default()
+    }));
+    set_cached_render_light(node, render_light.clone());
+
+    let render_item = LightRenderItem {
+        light: render_light.clone(),
+        matrix: glam::Mat4::from(item.matrix),
+    };
+    Some(RenderItem::Light(render_item))
 }
 
 fn get_sphere_light_item(
+    node: &Arc<RwLock<Node>>,
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let shape_type = shape.get_type();
     assert!(
@@ -360,11 +432,9 @@ fn get_sphere_light_item(
     let shape_edition = shape.get_edition();
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
-    if let Some(render_light) = render_resource_manager.get_light(id)
-        && render_light.get_edition() == edition
-    {
+    if let Some(render_light) = get_cached_render_light(node, &edition) {
         let render_item = LightRenderItem {
-            light: render_light.clone(),
+            light: render_light,
             matrix: glam::Mat4::from(matrix),
         };
         return Some(RenderItem::Light(render_item));
@@ -413,7 +483,7 @@ fn get_sphere_light_item(
         radius,
     };
     let render_light = Arc::new(RenderLight::Sphere(render_light));
-    render_resource_manager.add_light(&render_light);
+    set_cached_render_light(node, render_light.clone());
 
     let render_item = LightRenderItem {
         light: render_light.clone(),
@@ -423,11 +493,11 @@ fn get_sphere_light_item(
 }
 
 fn get_disk_light_item(
+    node: &Arc<RwLock<Node>>,
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let shape_type = shape.get_type();
     assert!(
@@ -441,11 +511,9 @@ fn get_disk_light_item(
     let shape_edition = shape.get_edition();
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
-    if let Some(render_light) = render_resource_manager.get_light(id)
-        && render_light.get_edition() == edition
-    {
+    if let Some(render_light) = get_cached_render_light(node, &edition) {
         let render_item = LightRenderItem {
-            light: render_light.clone(),
+            light: render_light,
             matrix: glam::Mat4::from(matrix),
         };
         return Some(RenderItem::Light(render_item));
@@ -500,7 +568,7 @@ fn get_disk_light_item(
         twosided,
     };
     let render_light = Arc::new(RenderLight::Disk(render_light));
-    render_resource_manager.add_light(&render_light);
+    set_cached_render_light(node, render_light.clone());
 
     let render_item = LightRenderItem {
         light: render_light.clone(),
@@ -510,11 +578,11 @@ fn get_disk_light_item(
 }
 
 fn get_rects_light_item(
+    node: &Arc<RwLock<Node>>,
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let shape_type = shape.get_type();
     assert!(
@@ -528,11 +596,9 @@ fn get_rects_light_item(
     let shape_edition = shape.get_edition();
     let edition = format!("{}-{}", light_edition, shape_edition); // Combine editions of light and shape
 
-    if let Some(render_light) = render_resource_manager.get_light(id)
-        && render_light.get_edition() == edition
-    {
+    if let Some(render_light) = get_cached_render_light(node, &edition) {
         let render_item = LightRenderItem {
-            light: render_light.clone(),
+            light: render_light,
             matrix: glam::Mat4::from(matrix),
         };
         return Some(RenderItem::Light(render_item));
@@ -597,7 +663,7 @@ fn get_rects_light_item(
                 rects: render_rects,
             };
             let render_light = Arc::new(RenderLight::_Rects(render_light));
-            render_resource_manager.add_light(&render_light);
+            set_cached_render_light(node, render_light.clone());
 
             let render_item = LightRenderItem {
                 light: render_light.clone(),
@@ -610,11 +676,11 @@ fn get_rects_light_item(
 }
 
 fn get_area_light_item_core(
+    node: &Arc<RwLock<Node>>,
     light: &Light,
     shape: &Shape,
     matrix: &Matrix4x4,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let light_type = light.get_type();
     let shape_type = shape.get_type();
@@ -626,29 +692,29 @@ fn get_area_light_item_core(
     match shape_type.as_str() {
         "sphere" => {
             return get_sphere_light_item(
+                node,
                 light,
                 shape,
                 matrix,
                 resource_manager,
-                render_resource_manager,
             );
         }
         "disk" => {
             return get_disk_light_item(
+                node,
                 light,
                 shape,
                 matrix,
                 resource_manager,
-                render_resource_manager,
             );
         }
         "trianglemesh" | "plymesh" => {
             return get_rects_light_item(
+                node,
                 light,
                 shape,
                 matrix,
                 resource_manager,
-                render_resource_manager,
             );
         }
         _ => {
@@ -661,29 +727,17 @@ fn get_area_light_item_core(
 fn get_area_light_item(
     item: &SceneItem,
     resource_manager: &ResourceManager,
-    render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let node = &item.node;
-    let node = node.read().unwrap();
-    let components = (
-        node.get_component::<LightComponent>(),
-        node.get_component::<ShapeComponent>(),
-    );
-    if let (Some(light_component), Some(shape_component)) = components {
-        let light = light_component.get_light();
-        let light = light.read().unwrap();
-
-        let shape = shape_component.get_shape();
-        let shape = shape.read().unwrap();
-        return get_area_light_item_core(
-            &light,
-            &shape,
-            &item.matrix,
-            resource_manager,
-            render_resource_manager,
-        );
-    }
-    return None;
+    let (light, shape) = {
+        let node_ref = node.read().unwrap();
+        let light = node_ref.get_component::<LightComponent>()?.get_light();
+        let shape = node_ref.get_component::<ShapeComponent>()?.get_shape();
+        (light, shape)
+    };
+    let light = light.read().unwrap();
+    let shape = shape.read().unwrap();
+    get_area_light_item_core(&item.node, &light, &shape, &item.matrix, resource_manager)
 }
 
 fn get_image_data(image: &DynaImage) -> image::Rgba32FImage {
@@ -798,75 +852,45 @@ fn get_infinite_light_item(
     render_resource_manager: &mut RenderResourceManager,
 ) -> Option<RenderItem> {
     let node = &item.node;
-    let node = node.read().unwrap();
-    if let Some(component) = node.get_component::<LightComponent>() {
-        let light = component.get_light();
-        let light = light.read().unwrap();
-
-        let id = light.get_id();
-        let light_type = light.get_type();
-        let edition = light.get_edition();
-
-        if let Some(render_light) = render_resource_manager.get_light(id)
-            && render_light.get_edition() == edition
-        {
+    let light_type = get_light_type(node)?;
+    assert!(
+        light_type == "infinite",
+        "Expected light type to be 'infinite', found: {}",
+        light_type
+    );
+    let data = read_infinite_light_data(item, node, resource_manager)?;
+    if let Some(render_light) = get_cached_render_light(node, &data.edition) {
             let render_item = LightRenderItem {
-                light: render_light.clone(),
+                light: render_light,
                 matrix: glam::Mat4::from(item.matrix),
             };
             return Some(RenderItem::Light(render_item));
-        }
-
-        assert!(
-            light_type == "infinite",
-            "Expected light type to be 'infinite', found: {}",
-            light_type
-        );
-
-        let props = light.as_property_map();
-
-        let l = get_color(props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-        let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
-
-        let p = 1.0; // / std::f32::consts::PI; // Point light power normalization
-        let intensity = [
-            p * l[0] * scale[0],
-            p * l[1] * scale[1],
-            p * l[2] * scale[2],
-        ];
-
-        let mapname = props.find_one_string("mapname").unwrap_or("".to_string());
-        if mapname.is_empty() {
-            return None; // No texture map specified for infinite light
-        }
-
-        // Use only rotation part of the matrix for infinite light
-        let light_matrix = get_rotation_matrix(&item.matrix);
-
-        if let Some(texture) = get_render_texture(
-            device,
-            queue,
-            resource_manager,
-            resource_cache_manager,
-            render_resource_manager,
-            &mapname,
-        ) {
-            let render_light = InfiniteRenderLight {
-                id,
-                edition: edition.clone(),
-                intensity,
-                texture: Some(texture.clone()),
-            };
-            let render_light = Arc::new(RenderLight::Infinite(render_light));
-            render_resource_manager.add_light(&render_light);
-            let render_item = LightRenderItem {
-                light: render_light.clone(),
-                matrix: glam::Mat4::from(light_matrix),
-            };
-            return Some(RenderItem::Light(render_item));
-        }
     }
-    return None; // Placeholder for light retrieval logic
+    if data.mapname.is_empty() {
+        return None;
+    }
+    if let Some(texture) = get_render_texture(
+        device,
+        queue,
+        resource_manager,
+        resource_cache_manager,
+        render_resource_manager,
+        &data.mapname,
+    ) {
+        let render_light = Arc::new(RenderLight::Infinite(InfiniteRenderLight {
+            id: data.id,
+            edition: data.edition.clone(),
+            intensity: data.intensity,
+            texture: Some(texture.clone()),
+        }));
+        set_cached_render_light(node, render_light.clone());
+        let render_item = LightRenderItem {
+            light: render_light.clone(),
+            matrix: data.matrix,
+        };
+        return Some(RenderItem::Light(render_item));
+    }
+    None
 }
 
 fn get_lines_material(
@@ -989,7 +1013,7 @@ fn get_render_light_item(
                 return get_spot_light_item(item, resource_manager, render_resource_manager); // Spot lights are not yet supported
             }
             "diffuse" | "area" => {
-                return get_area_light_item(item, resource_manager, render_resource_manager); // Area lights are not yet supported
+                return get_area_light_item(item, resource_manager); // Area lights are not yet supported
             }
             "infinite" => {
                 return get_infinite_light_item(
