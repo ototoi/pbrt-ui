@@ -1,7 +1,6 @@
 use super::light::RenderLight;
 use super::lines::RenderLines;
 use super::material::RenderMaterial;
-use super::mesh::RenderMesh;
 use super::shader::RenderShader;
 use super::texture::RenderTexture;
 use crate::model::scene::Component;
@@ -14,7 +13,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
 pub struct RenderResourceManager {
-    pub meshes: HashMap<Uuid, Arc<RenderMesh>>,
     pub lights: HashMap<Uuid, Arc<RenderLight>>, // Assuming lights are also stored as RenderLines
     pub lines: HashMap<Uuid, Arc<RenderLines>>,
     pub shaders: HashMap<Uuid, Arc<RenderShader>>,
@@ -25,7 +23,6 @@ pub struct RenderResourceManager {
 impl RenderResourceManager {
     pub fn new() -> Self {
         Self {
-            meshes: HashMap::new(),
             lights: HashMap::new(),
             lines: HashMap::new(),
             shaders: HashMap::new(),
@@ -33,19 +30,6 @@ impl RenderResourceManager {
             textures: HashMap::new(),
         }
     }
-    pub fn add_mesh(&mut self, mesh: &Arc<RenderMesh>) {
-        let id = mesh.get_id();
-        self.meshes.insert(id, mesh.clone());
-    }
-
-    pub fn get_mesh(&self, id: Uuid) -> Option<&Arc<RenderMesh>> {
-        self.meshes.get(&id)
-    }
-
-    pub fn remove_mesh(&mut self, id: Uuid) {
-        self.meshes.remove(&id);
-    }
-
     pub fn add_light(&mut self, light: &Arc<RenderLight>) {
         let id = light.get_id();
         self.lights.insert(id, light.clone());
