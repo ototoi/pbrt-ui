@@ -21,6 +21,8 @@ pub mod render_resource;
 pub mod render_texture_cache;
 pub mod shader;
 pub mod shadow;
+pub mod shadow_debug_renderer;
+pub mod shadow_map_view_renderer;
 pub mod shadow_map_renderer;
 pub mod solid_mesh_renderer;
 pub mod solid_renderer;

@@ -1,5 +1,4 @@
 use super::light::DirectionalRenderLight;
-use super::light::DirectionalShadowProjection;
 use super::light::DiskRenderLight;
 use super::light::InfiniteRenderLight;
 use super::light::RectRenderLight;
@@ -108,8 +107,6 @@ struct DirectionalLightData {
     cast_shadow: bool,
     shadow_bias: f32,
     shadow_slope_bias: f32,
-    cascade_count: u32,
-    shadow_projection: DirectionalShadowProjection,
 }
 
 struct PointLightData {
@@ -163,11 +160,6 @@ fn read_directional_light_data(
     let l = get_color(props, "L", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
     let scale = get_color(props, "scale", resource_manager).unwrap_or([1.0, 1.0, 1.0, 1.0]);
     let source_angle = props.find_one_float("sourceangle").unwrap_or(0.5357).max(0.2);
-    let shadow_projection = props
-        .find_one_string("shadowprojection")
-        .unwrap_or_else(|| "csm".to_string())
-        .to_lowercase();
-
     Some(DirectionalLightData {
         id: light.get_id(),
         edition: light.get_edition(),
@@ -183,12 +175,6 @@ fn read_directional_light_data(
             .find_one_float("shadowslopebias")
             .unwrap_or(0.01)
             .max(0.0),
-        cascade_count: props.find_one_int("cascadecount").unwrap_or(4).clamp(1, 4) as u32,
-        shadow_projection: if shadow_projection == "lspsm" {
-            DirectionalShadowProjection::Lspsm
-        } else {
-            DirectionalShadowProjection::Csm
-        },
     })
 }
 
@@ -325,8 +311,7 @@ fn get_directional_light_item(
         cast_shadow: data.cast_shadow,
         shadow_bias: data.shadow_bias,
         shadow_slope_bias: data.shadow_slope_bias,
-        cascade_count: data.cascade_count,
-        shadow_projection: data.shadow_projection,
+        cascade_count: 1,
         ..Default::default()
     }));
     set_cached_render_light(node, render_light.clone());

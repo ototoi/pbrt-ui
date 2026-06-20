@@ -12,6 +12,7 @@ use crate::render::RenderMode;
 use crate::render::SolidRenderer;
 use crate::render::WireRenderer;
 use crate::render::wgpu::camera::RenderCamera;
+use crate::render::wgpu::shadow_debug_renderer::DirectionalShadowDebugMode;
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -50,6 +51,7 @@ impl SceneView {
         ui: &mut egui::Ui,
         node: &Arc<RwLock<Node>>,
         render_mode: RenderMode,
+        debug_shadow_mode: DirectionalShadowDebugMode,
         is_playing: bool,
     ) {
         let available_rect = ui.available_rect_before_wrap();
@@ -158,7 +160,7 @@ impl SceneView {
             }
             RenderMode::Lighting => {
                 if let Some(renderer) = &mut self.shaded {
-                    renderer.render(ui, rect, node, &render_camera);
+                    renderer.render(ui, rect, node, &render_camera, debug_shadow_mode);
                 }
             }
             _ => {
