@@ -1,0 +1,328 @@
+{
+  "camera": {
+    "implementation": "perspective",
+    "inside_medium": null,
+    "outside_medium": null,
+    "parameters": [
+      {
+        "color_space": null,
+        "name": "fov",
+        "type": "float",
+        "values": [
+          42.0
+        ]
+      }
+    ],
+    "transform": {
+      "end": [
+        -0.8320502943379999,
+        -0.181698090536,
+        -0.524097425664,
+        4.0,
+        0.0,
+        0.944830070786,
+        -0.32756089103999997,
+        2.5,
+        0.554700196225,
+        -0.272547135804,
+        -0.786146138497,
+        6.000000000000001,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "start": [
+        -0.8320502943379999,
+        -0.181698090536,
+        -0.524097425664,
+        4.0,
+        0.0,
+        0.944830070786,
+        -0.32756089103999997,
+        2.5,
+        0.554700196225,
+        -0.272547135804,
+        -0.786146138497,
+        6.000000000000001,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "instances": [],
+  "lights": [
+    {
+      "implementation": "infinite",
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": "srgb",
+          "name": "L",
+          "type": "rgb",
+          "values": [
+            0.8,
+            0.9,
+            1.0
+          ]
+        }
+      ],
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "options": [],
+  "settings": [
+    {
+      "implementation": "independent",
+      "kind": "Sampler",
+      "parameters": []
+    },
+    {
+      "implementation": "path",
+      "kind": "Integrator",
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "maxdepth",
+          "type": "integer",
+          "values": [
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "implementation": "rgb",
+      "kind": "Film",
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "xresolution",
+          "type": "integer",
+          "values": [
+            128
+          ]
+        },
+        {
+          "color_space": null,
+          "name": "yresolution",
+          "type": "integer",
+          "values": [
+            128
+          ]
+        }
+      ]
+    }
+  ],
+  "shapes": [
+    {
+      "area_light": null,
+      "implementation": "sphere",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": "srgb",
+            "name": "reflectance",
+            "type": "rgb",
+            "values": [
+              0.65,
+              0.16,
+              0.08
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            1.0
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "area_light": null,
+      "implementation": "trianglemesh",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": "srgb",
+            "name": "reflectance",
+            "type": "rgb",
+            "values": [
+              0.5,
+              0.5,
+              0.5
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "P",
+          "type": "point3",
+          "values": [
+            -5.0,
+            -1.0,
+            -5.0,
+            5.0,
+            -1.0,
+            -5.0,
+            5.0,
+            -1.0,
+            5.0,
+            -5.0,
+            -1.0,
+            5.0
+          ]
+        },
+        {
+          "color_space": null,
+          "name": "indices",
+          "type": "integer",
+          "values": [
+            0,
+            2,
+            1,
+            0,
+            3,
+            2
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ]
+}

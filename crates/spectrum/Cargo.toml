@@ -1,0 +1,9 @@
+[package]
+name = "spectrum"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Spectrum-ish values (rgb, blackbody, named, wavelength/value pairs) to the linear RGB the previews and colour swatches draw with (no pbrt-r4, no GPUI)."
+
+[dependencies]

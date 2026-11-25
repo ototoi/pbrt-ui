@@ -1,0 +1,20 @@
+[package]
+name = "scene-parse"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "pbrt-ui owned PBRT parser producing preview geometry (no pbrt-r4 dependency)."
+
+[dependencies]
+protocol = { path = "../protocol" }
+spectrum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+image = { workspace = true }
+flate2 = "1"
+tempfile = "3"
+
+[dev-dependencies]

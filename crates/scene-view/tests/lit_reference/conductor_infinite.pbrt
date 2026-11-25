@@ -1,0 +1,7 @@
+Film "rgb" "integer xresolution" 128 "integer yresolution" 128
+LookAt 0 0 5 0 0 0 0 1 0
+Camera "perspective" "float fov" 40
+WorldBegin
+LightSource "infinite" "rgb L" [1 1 1]
+Material "conductor" "float roughness" 0.09
+Shape "sphere"

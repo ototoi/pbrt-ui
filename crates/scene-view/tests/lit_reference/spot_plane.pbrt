@@ -1,0 +1,7 @@
+Film "rgb" "integer xresolution" 128 "integer yresolution" 128
+LookAt 0 0 6 0 0 0 0 1 0
+Camera "perspective" "float fov" 40
+WorldBegin
+LightSource "spot" "point from" [0 0 4] "point to" [0 0 0] "float coneangle" 25 "float conedelta" 10 "rgb I" [12 12 12]
+Material "diffuse" "rgb reflectance" [0.7 0.7 0.7]
+Shape "trianglemesh" "point3 P" [-3 -3 0 3 -3 0 3 3 0 -3 3 0] "integer indices" [0 1 2 0 2 3]

@@ -1,0 +1,14 @@
+Film "rgb" "integer xresolution" [128] "integer yresolution" [128]
+LookAt 0 0 5  0 0 0  0 1 0
+Camera "perspective" "float fov" [45]
+Sampler "halton" "integer pixelsamples" [4096]
+Integrator "path" "integer maxdepth" [1]
+WorldBegin
+Translate 0.3 0 0
+Rotate 90 1 0 0
+Texture "result" "spectrum" "directionmix" "rgb tex1" [0.9 0.1 0.1] "rgb tex2" [0.1 0.1 0.9] "vector3 dir" [0 1 0]
+Rotate -90 1 0 0
+Translate -0.3 0 0
+Material "diffuse" "texture reflectance" "result"
+LightSource "infinite" "rgb L" [1 1 1]
+Shape "sphere" "float radius" [1.5]

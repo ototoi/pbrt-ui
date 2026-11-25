@@ -1,0 +1,17 @@
+[package]
+name = "mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "pbrt-ui-mcp: stdio MCP bridge to the core API."
+
+[dependencies]
+protocol = { workspace = true }
+serde_json = { workspace = true }
+cli = { path = "../cli" }
+base64 = "0.22"
+
+[[bin]]
+name = "pbrt-ui-mcp"
+path = "src/main.rs"

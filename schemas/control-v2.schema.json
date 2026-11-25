@@ -1,0 +1,6625 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PBRT UI control v2 (viewer and native projects)",
+  "description": "UTF-8 NDJSON objects, at most 8 MiB excluding LF/CRLF. Duplicate keys are rejected before schema validation. Methods added in later phases are unsupported until their capabilities are enabled. UUID formats and request_id byte length are also checked by the Rust host.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    },
+    {
+      "$ref": "#/$defs/event"
+    }
+  ],
+  "$defs": {
+    "counter": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,18}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+    },
+    "project_ref": {
+      "type": "object",
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "activation": {
+          "$ref": "#/$defs/counter"
+        }
+      },
+      "required": [
+        "project_id",
+        "revision",
+        "activation"
+      ],
+      "additionalProperties": false
+    },
+    "project_context": {
+      "type": "object",
+      "properties": {
+        "activation": {
+          "$ref": "#/$defs/counter"
+        },
+        "project": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "revision": {
+                  "$ref": "#/$defs/counter"
+                },
+                "activation": {
+                  "$ref": "#/$defs/counter"
+                }
+              },
+              "required": [
+                "project_id",
+                "revision",
+                "activation"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "activation",
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.app.hello": {
+      "type": "object",
+      "properties": {
+        "client_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supported_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "client_name",
+        "supported_protocols"
+      ],
+      "additionalProperties": false
+    },
+    "params.app.get_state": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "params.app.get_capabilities": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "params.app.quit": {
+      "type": "object",
+      "properties": {
+        "discard_unsaved": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "params.job.get": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.job.cancel": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.job.list": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "cursor": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "params.events.read": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/counter"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000,
+          "default": 0
+        }
+      },
+      "required": [
+        "after"
+      ],
+      "additionalProperties": false
+    },
+    "params.render.get_settings": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "params.render.set_settings": {
+      "type": "object",
+      "properties": {
+        "settings": {
+          "type": "object",
+          "properties": {
+            "samples_per_pixel": {
+              "type": "null",
+              "description": "Deprecated compatibility field; must be null. Final render quality comes from the scene Sampler."
+            },
+            "threads": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gpu": {
+              "type": "boolean",
+              "default": false
+            },
+            "max_depth": {
+              "type": "null",
+              "description": "Deprecated compatibility field; must be null. Final render depth comes from the scene Integrator."
+            }
+          },
+          "required": [
+            "samples_per_pixel",
+            "threads",
+            "max_depth"
+          ],
+          "additionalProperties": false
+        },
+        "expected_settings_revision": {
+          "$ref": "#/$defs/counter"
+        }
+      },
+      "required": [
+        "settings",
+        "expected_settings_revision"
+      ],
+      "additionalProperties": false
+    },
+    "params.render.ipr_set": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "samples_per_pixel": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "threads": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_depth": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "debounce_ms": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 5000
+            }
+          },
+          "required": [
+            "samples_per_pixel",
+            "threads",
+            "max_depth",
+            "debounce_ms"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "enabled",
+        "settings"
+      ],
+      "additionalProperties": false
+    },
+    "params.render.ipr_submit": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/project_ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "view": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "camera": {
+                  "type": "object",
+                  "properties": {
+                    "eye": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "target": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "up": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "projection": {
+                      "const": "perspective"
+                    },
+                    "fov_y_degrees": {
+                      "type": "number",
+                      "exclusiveMinimum": 0.1,
+                      "exclusiveMaximum": 179
+                    },
+                    "near": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "far": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "mirror": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "eye",
+                    "target",
+                    "up",
+                    "projection",
+                    "fov_y_degrees",
+                    "near",
+                    "far"
+                  ],
+                  "additionalProperties": false
+                },
+                "size": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8192
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "mode": {
+                  "enum": [
+                    "solid",
+                    "normal",
+                    "wireframe",
+                    "lit"
+                  ]
+                },
+                "time": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "camera",
+                "size",
+                "mode",
+                "time"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "params.artifact.get": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "artifact_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.artifact.export": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "absolute_path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "artifact_id",
+        "absolute_path"
+      ],
+      "additionalProperties": false
+    },
+    "params.workspace.reset_layout": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "params.project.get_state": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "params.project.import": {
+      "type": "object",
+      "properties": {
+        "expected_current": {
+          "$ref": "#/$defs/project_context"
+        },
+        "discard_unsaved": {
+          "type": "boolean",
+          "default": false
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "destination": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "expected_current",
+        "source_path"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.import_scene": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "source_path"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.import_resource": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "source_path",
+        "folder"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.open": {
+      "type": "object",
+      "properties": {
+        "expected_current": {
+          "$ref": "#/$defs/project_context"
+        },
+        "discard_unsaved": {
+          "type": "boolean",
+          "default": false
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_current",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.create": {
+      "type": "object",
+      "properties": {
+        "expected_current": {
+          "$ref": "#/$defs/project_context"
+        },
+        "discard_unsaved": {
+          "type": "boolean",
+          "default": false
+        },
+        "path": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "coordinate_system": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "up": {
+                  "enum": [
+                    "+X",
+                    "-X",
+                    "+Y",
+                    "-Y",
+                    "+Z",
+                    "-Z"
+                  ]
+                },
+                "handedness": {
+                  "enum": [
+                    "left",
+                    "right"
+                  ]
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "expected_current",
+        "path",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.close": {
+      "type": "object",
+      "properties": {
+        "expected_current": {
+          "$ref": "#/$defs/project_context"
+        },
+        "discard_unsaved": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "expected_current"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.save": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "destination": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.export": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "destination": {
+          "type": "string"
+        },
+        "scene": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "destination"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.preview": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "destination": {
+          "type": "string"
+        },
+        "store": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stage_assets": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "project",
+        "destination"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.preview_transforms": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "base_revision": {
+          "$ref": "#/$defs/counter"
+        }
+      },
+      "required": [
+        "project",
+        "base_revision"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.render": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "expected_settings_revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "view": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "camera": {
+                  "type": "object",
+                  "properties": {
+                    "eye": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "target": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "up": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "projection": {
+                      "const": "perspective"
+                    },
+                    "fov_y_degrees": {
+                      "type": "number",
+                      "exclusiveMinimum": 0.1,
+                      "exclusiveMaximum": 179
+                    },
+                    "near": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "far": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "mirror": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "eye",
+                    "target",
+                    "up",
+                    "projection",
+                    "fov_y_degrees",
+                    "near",
+                    "far"
+                  ],
+                  "additionalProperties": false
+                },
+                "size": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8192
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "mode": {
+                  "enum": [
+                    "solid",
+                    "normal",
+                    "wireframe",
+                    "lit"
+                  ]
+                },
+                "time": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "camera",
+                "size",
+                "mode",
+                "time"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "camera": {
+          "anyOf": [
+            {
+              "enum": [
+                "scene",
+                "view"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "expected_settings_revision"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.capture": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "view": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "camera": {
+                  "type": "object",
+                  "properties": {
+                    "eye": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "target": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "up": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "projection": {
+                      "const": "perspective"
+                    },
+                    "fov_y_degrees": {
+                      "type": "number",
+                      "exclusiveMinimum": 0.1,
+                      "exclusiveMaximum": 179
+                    },
+                    "near": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "far": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "mirror": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "eye",
+                    "target",
+                    "up",
+                    "projection",
+                    "fov_y_degrees",
+                    "near",
+                    "far"
+                  ],
+                  "additionalProperties": false
+                },
+                "size": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8192
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "mode": {
+                  "enum": [
+                    "solid",
+                    "normal",
+                    "wireframe",
+                    "lit"
+                  ]
+                },
+                "time": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "camera",
+                "size",
+                "mode",
+                "time"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "camera": {
+          "anyOf": [
+            {
+              "enum": [
+                "scene",
+                "view"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "debug_albedo": {
+          "type": "boolean",
+          "default": false
+        },
+        "debug_ao": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.pick": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "view": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "camera": {
+                  "type": "object",
+                  "properties": {
+                    "eye": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "target": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "up": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "projection": {
+                      "const": "perspective"
+                    },
+                    "fov_y_degrees": {
+                      "type": "number",
+                      "exclusiveMinimum": 0.1,
+                      "exclusiveMaximum": 179
+                    },
+                    "near": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "far": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "mirror": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "eye",
+                    "target",
+                    "up",
+                    "projection",
+                    "fov_y_degrees",
+                    "near",
+                    "far"
+                  ],
+                  "additionalProperties": false
+                },
+                "size": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8192
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "mode": {
+                  "enum": [
+                    "solid",
+                    "normal",
+                    "wireframe",
+                    "lit"
+                  ]
+                },
+                "time": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "camera",
+                "size",
+                "mode",
+                "time"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "normalized_xy": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "project",
+        "normalized_xy"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.apply": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "edits": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "create_camera"
+                  },
+                  "scene": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scene"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "create_configuration"
+                  },
+                  "scene": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "configuration": {
+                    "enum": [
+                      "film",
+                      "sampler",
+                      "integrator",
+                      "pixel_filter",
+                      "accelerator"
+                    ]
+                  },
+                  "implementation": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scene",
+                  "configuration"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_render_camera"
+                  },
+                  "scene": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "camera": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scene",
+                  "camera"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_scene_coordinate_system"
+                  },
+                  "scene": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "up": {
+                    "enum": [
+                      "+X",
+                      "-X",
+                      "+Y",
+                      "-Y",
+                      "+Z",
+                      "-Z"
+                    ]
+                  },
+                  "handedness": {
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scene",
+                  "up",
+                  "handedness"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "create_scene"
+                  },
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "location"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "duplicate_scene"
+                  },
+                  "scene": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scene",
+                  "location"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "delete_scene"
+                  },
+                  "scene": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scene"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "move_item"
+                  },
+                  "item": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "scene"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "asset"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "item",
+                  "location"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "delete_item"
+                  },
+                  "item": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "scene"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "asset"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "item"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "create_folder"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "move_folder"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "delete_folder"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "rename_node"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_node_active"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "active"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "rename_resource"
+                  },
+                  "resource_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "kind",
+                  "resource_id",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_texture_value_type"
+                  },
+                  "resource_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "value": {
+                    "enum": [
+                      "float",
+                      "spectrum"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "resource_id",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_transform"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "identity"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "translate"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 3,
+                            "maxItems": 3
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "scale"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 3,
+                            "maxItems": 3
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "look_at"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 9,
+                            "maxItems": 9
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "replace"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 16,
+                            "maxItems": 16
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "concat"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 16,
+                            "maxItems": 16
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "rotate"
+                          },
+                          "value": {
+                            "type": "object",
+                            "properties": {
+                              "degrees": {
+                                "type": "number"
+                              },
+                              "axis": {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                },
+                                "minItems": 3,
+                                "maxItems": 3
+                              }
+                            },
+                            "required": [
+                              "degrees",
+                              "axis"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_material_binding"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "default"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "none"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "value": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_parameter"
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "node"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "value_type": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "value_type": {
+                            "type": "string"
+                          },
+                          "color_space": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "values": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "floats"
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "number"
+                                    },
+                                    "maxItems": 4096
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "integers"
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^(0|-[1-9][0-9]*|[1-9][0-9]*)$"
+                                    },
+                                    "maxItems": 4096
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "booleans"
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "boolean"
+                                    },
+                                    "maxItems": 4096
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "strings"
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "maxLength": 4096
+                                    },
+                                    "maxItems": 4096
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "builtin_spectra"
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "maxLength": 4096
+                                    },
+                                    "maxItems": 4096
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "assets"
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "maxItems": 4096
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "resources"
+                                  },
+                                  "value": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "enum": [
+                                          "material",
+                                          "texture",
+                                          "medium",
+                                          "object_definition",
+                                          "spectrum_data"
+                                        ]
+                                      },
+                                      "ids": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "maxItems": 4096
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "ids"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value_type",
+                          "values"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "name",
+                  "value_type",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_parameter_values"
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "node"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "values": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "floats"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "integers"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^(0|-[1-9][0-9]*|[1-9][0-9]*)$"
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "booleans"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "boolean"
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "strings"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 4096
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "builtin_spectra"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 4096
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "assets"
+                          },
+                          "value": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resources"
+                          },
+                          "value": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "material",
+                                  "texture",
+                                  "medium",
+                                  "object_definition",
+                                  "spectrum_data"
+                                ]
+                              },
+                              "ids": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "maxItems": 4096
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ids"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "name",
+                  "offset",
+                  "values"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "create_preset"
+                  },
+                  "preset": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "parent": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "after": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "definition": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "view": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "position": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 3,
+                            "maxItems": 3
+                          },
+                          "look_at": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "minItems": 3,
+                            "maxItems": 3
+                          }
+                        },
+                        "required": [
+                          "position",
+                          "look_at"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "preset",
+                  "parent"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "create_resource"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "resource_kind": {
+                    "enum": [
+                      "material",
+                      "texture",
+                      "medium",
+                      "object_definition",
+                      "spectrum_data"
+                    ]
+                  },
+                  "implementation": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "folder": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "texture_value_type": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "float",
+                          "spectrum"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "parameters": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "value_type": {
+                              "type": "string"
+                            },
+                            "color_space": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "values": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "floats"
+                                    },
+                                    "value": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "number"
+                                      },
+                                      "maxItems": 4096
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "integers"
+                                    },
+                                    "value": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "pattern": "^(0|-[1-9][0-9]*|[1-9][0-9]*)$"
+                                      },
+                                      "maxItems": 4096
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "booleans"
+                                    },
+                                    "value": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "boolean"
+                                      },
+                                      "maxItems": 4096
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "strings"
+                                    },
+                                    "value": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 4096
+                                      },
+                                      "maxItems": 4096
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "builtin_spectra"
+                                    },
+                                    "value": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 4096
+                                      },
+                                      "maxItems": 4096
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "assets"
+                                    },
+                                    "value": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      "maxItems": 4096
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "resources"
+                                    },
+                                    "value": {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "enum": [
+                                            "material",
+                                            "texture",
+                                            "medium",
+                                            "object_definition",
+                                            "spectrum_data"
+                                          ]
+                                        },
+                                        "ids": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                          },
+                                          "maxItems": 4096
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "ids"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "value_type",
+                            "values"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 4096
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "resource_kind",
+                  "implementation",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "delete_node"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "duplicate_node"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "move_node"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "parent": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "after": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "parent"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "make_object_definition"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "label": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "unpack_object_instance"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_instance_definition"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "definition": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "definition"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_local_binding"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "material": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "default"
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "none"
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "resource"
+                              },
+                              "value": {
+                                "type": "string",
+                                "format": "uuid"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "medium": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "inside": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "outside": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "inside",
+                          "outside"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_area_light"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "light": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "implementation": {
+                            "type": "string"
+                          },
+                          "parameters": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "value_type": {
+                                      "type": "string"
+                                    },
+                                    "color_space": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "values": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "floats"
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "number"
+                                              },
+                                              "maxItems": 4096
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "integers"
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "pattern": "^(0|-[1-9][0-9]*|[1-9][0-9]*)$"
+                                              },
+                                              "maxItems": 4096
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "booleans"
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "boolean"
+                                              },
+                                              "maxItems": 4096
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "strings"
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "maxLength": 4096
+                                              },
+                                              "maxItems": 4096
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "builtin_spectra"
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "maxLength": 4096
+                                              },
+                                              "maxItems": 4096
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "assets"
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                              },
+                                              "maxItems": 4096
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "const": "resources"
+                                            },
+                                            "value": {
+                                              "type": "object",
+                                              "properties": {
+                                                "kind": {
+                                                  "enum": [
+                                                    "material",
+                                                    "texture",
+                                                    "medium",
+                                                    "object_definition",
+                                                    "spectrum_data"
+                                                  ]
+                                                },
+                                                "ids": {
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                  },
+                                                  "maxItems": 4096
+                                                }
+                                              },
+                                              "required": [
+                                                "kind",
+                                                "ids"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "value_type",
+                                    "values"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "maxItems": 4096
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "implementation"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "clear_local_binding"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "material": {
+                    "type": "boolean"
+                  },
+                  "medium": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "material",
+                  "medium"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_reverse_orientation"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_local_matrix"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "matrix": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 16,
+                    "maxItems": 16
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "matrix"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_local_trs"
+                  },
+                  "node_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "translation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "rotation_euler_degrees": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "scale": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "kind",
+                  "node_id",
+                  "translation",
+                  "rotation_euler_degrees",
+                  "scale"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_asset_reference"
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "node"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "asset": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "name",
+                  "asset"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "connect_texture"
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "node"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "parameter": {
+                    "type": "string"
+                  },
+                  "texture": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "create": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "implementation": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "folder": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "implementation",
+                          "label"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "image": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "parameter"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "disconnect_texture"
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "node"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "parameter": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "parameter"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "set_implementation"
+                  },
+                  "target": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "node"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "resource"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "implementation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "parameters": {
+                    "const": "keep_compatible"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "implementation",
+                  "parameters"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "capture": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "view": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "camera": {
+                          "type": "object",
+                          "properties": {
+                            "eye": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3
+                            },
+                            "target": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3
+                            },
+                            "up": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3
+                            },
+                            "projection": {
+                              "const": "perspective"
+                            },
+                            "fov_y_degrees": {
+                              "type": "number",
+                              "exclusiveMinimum": 0.1,
+                              "exclusiveMaximum": 179
+                            },
+                            "near": {
+                              "type": "number",
+                              "exclusiveMinimum": 0
+                            },
+                            "far": {
+                              "type": "number",
+                              "exclusiveMinimum": 0
+                            },
+                            "mirror": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "eye",
+                            "target",
+                            "up",
+                            "projection",
+                            "fov_y_degrees",
+                            "near",
+                            "far"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "size": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 8192
+                          },
+                          "minItems": 2,
+                          "maxItems": 2
+                        },
+                        "mode": {
+                          "enum": [
+                            "solid",
+                            "normal",
+                            "wireframe",
+                            "lit"
+                          ]
+                        },
+                        "time": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "camera",
+                        "size",
+                        "mode",
+                        "time"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "edits"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.undo": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.redo": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.list_nodes": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "view": {
+          "enum": [
+            "directives",
+            "scene_graph"
+          ],
+          "default": "directives"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.list_contents": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.list_references": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "item": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "scene"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "resource"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "asset"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      },
+      "required": [
+        "project",
+        "item"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.list_scenes": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.open_scene": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "scene": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "project",
+        "scene"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.close_scene": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.list_presets": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_node": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "node_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "project",
+        "node_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_resource": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "resource_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "project",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_asset": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "project",
+        "asset_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_cache": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "item": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "item",
+        "key"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.put_cache": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "item": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "thumbnail",
+            "preview"
+          ]
+        },
+        "media_type": {
+          "type": "string"
+        },
+        "data_base64": {
+          "type": "string",
+          "maxLength": 5592408
+        }
+      },
+      "required": [
+        "project",
+        "item",
+        "key",
+        "kind",
+        "media_type",
+        "data_base64"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_parameters": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "node"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "resource"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      },
+      "required": [
+        "project",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_parameter_values": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "node"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "resource"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        }
+      },
+      "required": [
+        "project",
+        "target",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.set_parameter_values": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "node"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "resource"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "windows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "values": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "floats"
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        },
+                        "maxItems": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "integers"
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(0|-[1-9][0-9]*|[1-9][0-9]*)$"
+                        },
+                        "maxItems": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "booleans"
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "boolean"
+                        },
+                        "maxItems": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "strings"
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 4096
+                        },
+                        "maxItems": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "builtin_spectra"
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 4096
+                        },
+                        "maxItems": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "assets"
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "maxItems": 4096
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "resources"
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "material",
+                              "texture",
+                              "medium",
+                              "object_definition",
+                              "spectrum_data"
+                            ]
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "ids"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "offset",
+              "values"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "project",
+        "target",
+        "name",
+        "windows"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_resource_graph": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "resource_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.list_spectra": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "params.project.spectrum_color": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "node"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "resource"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "albedo",
+                "unbounded",
+                "illuminant",
+                "chromaticity",
+                "conductor"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "target",
+        "parameter"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.preview_texture": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "resource_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.preview_material": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "resource_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.preview_asset": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "asset_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "asset_id"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.plan_implementation": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "node"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "resource"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "kind",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "implementation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "project",
+        "target",
+        "implementation"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_parameter_schema": {
+      "type": "object",
+      "properties": {
+        "directive": {
+          "enum": [
+            "Shape",
+            "Material",
+            "MakeNamedMaterial",
+            "LightSource",
+            "AreaLightSource",
+            "Texture",
+            "MakeNamedMedium",
+            "Camera",
+            "Film",
+            "Sampler",
+            "Integrator",
+            "PixelFilter",
+            "Accelerator"
+          ]
+        },
+        "implementation": {
+          "type": "string"
+        },
+        "texture_value_type": {
+          "enum": [
+            "float",
+            "spectrum"
+          ]
+        }
+      },
+      "required": [
+        "directive",
+        "implementation"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.search_nodes": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "view": {
+          "enum": [
+            "directives",
+            "scene_graph"
+          ],
+          "default": "directives"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      },
+      "required": [
+        "project",
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.search_contents": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      },
+      "required": [
+        "project",
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.get_view": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.set_camera": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "expected_view_revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "camera": {
+          "type": "object",
+          "properties": {
+            "eye": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "target": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "up": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "projection": {
+              "const": "perspective"
+            },
+            "fov_y_degrees": {
+              "type": "number",
+              "exclusiveMinimum": 0.1,
+              "exclusiveMaximum": 179
+            },
+            "near": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "far": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "mirror": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "eye",
+            "target",
+            "up",
+            "projection",
+            "fov_y_degrees",
+            "near",
+            "far"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "project",
+        "expected_view_revision",
+        "camera"
+      ],
+      "additionalProperties": false
+    },
+    "params.project.configure_view": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/project_ref"
+        },
+        "expected_view_revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "normal",
+                "wireframe",
+                "lit"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "expected_view_revision"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "app.hello"
+            },
+            "params": {
+              "$ref": "#/$defs/params.app.hello"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "app.get_state"
+            },
+            "params": {
+              "$ref": "#/$defs/params.app.get_state"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "app.get_capabilities"
+            },
+            "params": {
+              "$ref": "#/$defs/params.app.get_capabilities"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "app.quit"
+            },
+            "params": {
+              "$ref": "#/$defs/params.app.quit"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "job.get"
+            },
+            "params": {
+              "$ref": "#/$defs/params.job.get"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "job.cancel"
+            },
+            "params": {
+              "$ref": "#/$defs/params.job.cancel"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "job.list"
+            },
+            "params": {
+              "$ref": "#/$defs/params.job.list"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "events.read"
+            },
+            "params": {
+              "$ref": "#/$defs/params.events.read"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "render.get_settings"
+            },
+            "params": {
+              "$ref": "#/$defs/params.render.get_settings"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "render.set_settings"
+            },
+            "params": {
+              "$ref": "#/$defs/params.render.set_settings"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "render.ipr_set"
+            },
+            "params": {
+              "$ref": "#/$defs/params.render.ipr_set"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "render.ipr_submit"
+            },
+            "params": {
+              "$ref": "#/$defs/params.render.ipr_submit"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "artifact.get"
+            },
+            "params": {
+              "$ref": "#/$defs/params.artifact.get"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "artifact.export"
+            },
+            "params": {
+              "$ref": "#/$defs/params.artifact.export"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "workspace.reset_layout"
+            },
+            "params": {
+              "$ref": "#/$defs/params.workspace.reset_layout"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_state"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_state"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.import"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.import"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.import_scene"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.import_scene"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.import_resource"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.import_resource"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.open"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.open"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.create"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.create"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.close"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.close"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.save"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.save"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.export"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.export"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.preview"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.preview"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.preview_transforms"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.preview_transforms"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.render"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.render"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.capture"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.capture"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.pick"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.pick"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.apply"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.apply"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.undo"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.undo"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.redo"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.redo"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.list_nodes"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.list_nodes"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.list_contents"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.list_contents"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.list_references"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.list_references"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.list_scenes"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.list_scenes"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.open_scene"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.open_scene"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.close_scene"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.close_scene"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.list_presets"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.list_presets"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_node"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_node"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_resource"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_resource"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_asset"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_asset"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_cache"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_cache"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.put_cache"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.put_cache"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_parameters"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_parameters"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_parameter_values"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_parameter_values"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.set_parameter_values"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.set_parameter_values"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_resource_graph"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_resource_graph"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.list_spectra"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.list_spectra"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.spectrum_color"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.spectrum_color"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.preview_texture"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.preview_texture"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.preview_material"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.preview_material"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.preview_asset"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.preview_asset"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.plan_implementation"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.plan_implementation"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_parameter_schema"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_parameter_schema"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.search_nodes"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.search_nodes"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.search_contents"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.search_contents"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.get_view"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.get_view"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.set_camera"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.set_camera"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "const": "2"
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "method": {
+              "const": "project.configure_view"
+            },
+            "params": {
+              "$ref": "#/$defs/params.project.configure_view"
+            }
+          },
+          "required": [
+            "protocol",
+            "request_id",
+            "method",
+            "params"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_request",
+            "unsupported_protocol",
+            "unsupported",
+            "not_found",
+            "revision_conflict",
+            "stale_scene",
+            "stale_project",
+            "read_only",
+            "unsaved_changes",
+            "project_locked",
+            "cancelled",
+            "stale_frame",
+            "invalid_cursor",
+            "request_id_conflict",
+            "busy",
+            "invalid_camera",
+            "parse_failed",
+            "reference_unresolved",
+            "source_changed",
+            "preview_unavailable",
+            "resource_exhausted",
+            "worker_crashed",
+            "output_invalid",
+            "io_error",
+            "resync_required",
+            "unsupported_path_encoding",
+            "unsupported_time",
+            "bounds_unavailable",
+            "display_color_space_unsupported"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "details": {}
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "2"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "result": {},
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "result"
+          ],
+          "not": {
+            "required": [
+              "error"
+            ]
+          }
+        },
+        {
+          "required": [
+            "error"
+          ],
+          "not": {
+            "required": [
+              "result"
+            ]
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "sequence": {
+          "$ref": "#/$defs/counter"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {}
+      },
+      "required": [
+        "sequence",
+        "kind"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

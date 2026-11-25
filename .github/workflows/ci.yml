@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Full debuginfo test binaries fill the hosted runner's disk (lld then dies
+  # with SIGBUS); CI needs neither debuginfo nor incremental state.
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libx11-xcb-dev libegl1-mesa-dev libgl1-mesa-dev libvulkan-dev libasound2-dev libfontconfig-dev pkg-config
+      - name: Format
+        run: cargo fmt --all --check
+      # Existing warnings remain, so clippy must exit 0 without -D warnings.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked
+      # GPU tests are #[ignore]d; hosted runners have no reliable adapter.
+      - name: Test
+        run: cargo test --workspace --locked --no-fail-fast
+      - name: Control schema
+        run: python3 scripts/generate-control-schema.py --check

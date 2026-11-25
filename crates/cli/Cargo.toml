@@ -1,0 +1,21 @@
+[package]
+name = "cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "pbrt-ui-ctl: CLI client over the Unix socket protocol. Implemented in P1."
+
+[dependencies]
+protocol = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+base64 = "0.22"
+
+[target.'cfg(windows)'.dependencies]
+uds_windows = "1"
+
+[[bin]]
+name = "pbrt-ui-ctl"
+path = "src/main.rs"

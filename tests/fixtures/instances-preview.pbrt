@@ -1,0 +1,23 @@
+# One two-shape definition, three independent placements sharing two meshes.
+LookAt 9 6 12 0 1 0 0 1 0
+Camera "perspective" "float fov" [42]
+WorldBegin
+ObjectBegin "column"
+AttributeBegin
+Rotate -90 1 0 0
+Shape "cylinder" "float radius" [0.6] "float zmax" [2]
+AttributeEnd
+Translate 0 2.4 0
+Shape "sphere" "float radius" [0.8]
+ObjectEnd
+AttributeBegin
+Translate -3 0 0
+ObjectInstance "column"
+AttributeEnd
+ObjectInstance "column"
+AttributeBegin
+Translate 3 0 0
+ObjectInstance "column"
+AttributeEnd
+Shape "trianglemesh" "point3 P" [-7 0 -4 7 0 -4 7 0 4 -7 0 4] "integer indices" [0 2 1 0 3 2]
+WorldEnd

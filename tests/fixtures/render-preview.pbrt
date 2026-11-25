@@ -1,0 +1,14 @@
+# Small external-renderer fixture with lighting and a reflective sphere.
+LookAt 4 2.5 6 0 0 0 0 1 0
+Camera "perspective" "float fov" [42]
+Film "rgb" "integer xresolution" [128] "integer yresolution" [128]
+Sampler "independent"
+Integrator "path" "integer maxdepth" [4]
+WorldBegin
+LightSource "infinite" "rgb L" [0.8 0.9 1]
+AttributeBegin
+Material "diffuse" "rgb reflectance" [0.65 0.16 0.08]
+Shape "sphere" "float radius" [1]
+AttributeEnd
+Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+Shape "trianglemesh" "point3 P" [-5 -1 -5 5 -1 -5 5 -1 5 -5 -1 5] "integer indices" [0 2 1 0 3 2]

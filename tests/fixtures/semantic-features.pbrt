@@ -1,0 +1,74 @@
+# Semantic-equivalence fixture: named resources, declaration transforms, media,
+# area lights, object definitions with inherited state, motion and coordinates.
+LookAt 0 2 10 0 1 0 0 1 0
+Camera "perspective" "float fov" [40]
+Sampler "halton" "integer pixelsamples" [16]
+Integrator "volpath" "integer maxdepth" [5]
+Film "rgb" "integer xresolution" [320] "integer yresolution" [240] "string filename" ["out.exr"]
+Option "disablepixeljitter" true
+TransformTimes 0 1
+WorldBegin
+CoordinateSystem "origin"
+AttributeBegin
+Rotate 30 0 1 0
+Texture "checks" "spectrum" "checkerboard" "float uscale" [8] "float vscale" [8] "rgb tex1" [1 1 1] "rgb tex2" [0 0 0]
+AttributeEnd
+MakeNamedMaterial "floor" "string type" ["diffuse"] "texture reflectance" ["checks"]
+MakeNamedMaterial "gold" "string type" ["conductor"] "spectrum eta" ["metal-Au-eta"] "spectrum k" ["metal-Au-k"] "float roughness" [0.1]
+AttributeBegin
+Translate 0 1 0
+Scale 2 2 2
+MakeNamedMedium "fog" "string type" ["homogeneous"] "rgb sigma_a" [0.1 0.1 0.1] "rgb sigma_s" [0.5 0.5 0.5] "float scale" [0.5]
+AttributeEnd
+LightSource "infinite" "rgb L" [0.2 0.2 0.25]
+AttributeBegin
+Translate 0 4 0
+LightSource "point" "rgb I" [10 10 10]
+AttributeEnd
+NamedMaterial "floor"
+Shape "bilinearmesh" "point3 P" [-5 0 -5 5 0 -5 -5 0 5 5 0 5]
+AttributeBegin
+NamedMaterial "gold"
+ReverseOrientation
+Translate -1.5 1 0
+Shape "sphere" "float radius" [1]
+AttributeEnd
+AttributeBegin
+MediumInterface "fog" ""
+Material "dielectric" "float eta" [1.5]
+Translate 1.5 1 0
+Shape "sphere" "float radius" [1]
+AttributeEnd
+AttributeBegin
+Translate 0 3 -2
+AreaLightSource "diffuse" "blackbody L" [6500] "float scale" [4]
+Shape "disk" "float radius" [0.5]
+AttributeEnd
+AttributeBegin
+ColorSpace "aces2065-1"
+Material "diffuse" "rgb reflectance" [0.2 0.5 0.8]
+ObjectBegin "pillar"
+Shape "cylinder" "float radius" [0.2] "float zmax" [2]
+ObjectEnd
+AttributeEnd
+AttributeBegin
+Translate -3 0 -3
+ObjectInstance "pillar"
+AttributeEnd
+AttributeBegin
+Translate 3 0 -3
+ObjectInstance "pillar"
+AttributeEnd
+AttributeBegin
+Translate 0 0.5 2
+ActiveTransform EndTime
+Translate 0 0.5 0
+ActiveTransform All
+Shape "sphere" "float radius" [0.3]
+AttributeEnd
+AttributeBegin
+CoordSysTransform "origin"
+Translate 0 0 -4
+Shape "sphere" "float radius" [0.25]
+AttributeEnd
+WorldEnd

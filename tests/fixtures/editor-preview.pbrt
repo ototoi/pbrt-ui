@@ -1,0 +1,22 @@
+# Geometry-only editor fixture; the renderer remains an external CLI.
+LookAt 6 4 8 0 0.5 0 0 1 0
+Camera "perspective" "float fov" [42]
+Film "rgb" "integer xresolution" [1280] "integer yresolution" [720]
+WorldBegin
+Material "diffuse" "rgb reflectance" [0.6 0.65 0.7]
+AttributeBegin
+Translate -1.6 0 0
+Shape "sphere" "float radius" [1]
+AttributeEnd
+AttributeBegin
+Translate 1.4 -1 0
+Rotate -90 1 0 0
+Shape "cylinder" "float radius" [0.7] "float zmin" [0] "float zmax" [2]
+AttributeEnd
+AttributeBegin
+Translate 0 -1 -2
+Rotate -90 1 0 0
+Shape "cone" "float radius" [0.9] "float height" [2]
+AttributeEnd
+Shape "trianglemesh" "point3 P" [-5 -1 -5 5 -1 -5 5 -1 5 -5 -1 5] "integer indices" [0 2 1 0 3 2]
+WorldEnd

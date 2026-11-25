@@ -1,0 +1,38 @@
+[package]
+name = "scene-view"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "wgpu offscreen scene view: camera, solid/normal/wireframe, pick, capture. P0 verifies headless offscreen render + RGBA readback."
+
+[dependencies]
+protocol = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+image = { workspace = true }
+pollster = { workspace = true }
+sha2 = { workspace = true }
+scene-parse = { workspace = true }
+spectrum = { workspace = true }
+half = "2.7.1"
+
+[[bin]]
+name = "p0-offscreen"
+path = "src/bin/p0_offscreen.rs"
+
+[[bin]]
+name = "pbrt-ui-capture"
+path = "src/bin/pbrt-ui-capture.rs"
+
+[dev-dependencies]
+tempfile = "3"
+# Same naga major as wgpu 30 so WGSL parsing tests match the driver-visible rules.
+naga = { version = "30", features = ["wgsl-in"] }
+
+# DXC, statically linked: FXC (wgpu's default DX12 compiler) took about 17
+# minutes for the Lit shaders. Building needs MSVC's "C++ ATL" component.
+[target.'cfg(windows)'.dependencies]
+wgpu = { workspace = true, features = ["static-dxc"] }

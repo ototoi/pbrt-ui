@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/protocol",
+    "crates/project",
+    "crates/pbrt-io",
+    "crates/core",
+    "crates/scene-parse",
+    "crates/scene-view",
+    "crates/spectrum",
+    "crates/desktop",
+    "crates/cli",
+    "crates/mcp",
+    "tools/fit-ltc",
+    "tools/xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["Toru Matsuoka <tx.matsuoka@gmail.com>"]
+
+[workspace.dependencies]
+# Internal crates (path deps within the UI workspace).
+protocol = { path = "crates/protocol" }
+project = { path = "crates/project" }
+pbrt-io = { path = "crates/pbrt-io" }
+scene-parse = { path = "crates/scene-parse" }
+spectrum = { path = "crates/spectrum" }
+
+# Shared, wire-safe dependencies: no serde-only new features leak into the
+# wire spec.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+sha2 = "0.10"
+
+# Dependencies used by verification tools and preview compatibility checks.
+# wgpu matches the version used by pbrt-r4.
+wgpu = { version = "30.0.0", default-features = false, features = ["std", "wgsl", "vulkan", "metal", "dx12"] }
+image = "0.24"
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+
+[profile.dev.package."*"]
+opt-level = 2

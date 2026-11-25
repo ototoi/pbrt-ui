@@ -1,0 +1,13 @@
+Film "rgb" "integer xresolution" [128] "integer yresolution" [128]
+LookAt 0 0 5  0 0 0  0 1 0
+Camera "perspective" "float fov" [45]
+Sampler "halton" "integer pixelsamples" [4096]
+Integrator "path" "integer maxdepth" [1]
+WorldBegin
+Texture "image" "spectrum" "imagemap" "string filename" "quadrants.png" "string encoding" "linear"
+Texture "amount" "float" "imagemap" "string filename" "quadrants.png" "string encoding" "linear"
+Texture "scaled" "spectrum" "scale" "texture tex" "image" "float scale" [0.5]
+Texture "result" "spectrum" "mix" "rgb tex1" [0.2 0.4 0.6] "texture tex2" "scaled" "texture amount" "amount"
+Material "diffuse" "texture reflectance" "result"
+LightSource "infinite" "rgb L" [1 1 1]
+Shape "trianglemesh" "point3 P" [-1 -1 0 1 -1 0 1 1 0 -1 1 0] "texcoord2 uv" [0 0 1 0 1 1 0 1] "integer indices" [0 1 2 0 2 3]

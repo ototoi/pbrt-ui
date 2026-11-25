@@ -1,0 +1,5 @@
+Film "rgb" "integer xresolution" [ 16 ] "integer yresolution" [ 16 ]
+Camera "perspective" "float fov" [ 45 ]
+WorldBegin
+Material "diffuse" "rgb reflectance" [ 0.5 0.5 0.5 ]
+Shape "sphere" "float radius" [ 1 ]

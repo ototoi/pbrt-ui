@@ -1,0 +1,20 @@
+# Matrix-transform fixture: bracketed Transform/ConcatTransform plus the
+# animation-time directives.
+TransformTimes 0 2
+ActiveTransform StartTime
+LookAt 3 2 6 0 0 0 0 1 0
+Camera "perspective" "float fov" [45]
+Film "rgb" "integer xresolution" [16] "integer yresolution" [16]
+WorldBegin
+AttributeBegin
+Transform [ 1 0 0 0  0 1 0 0  0 0 1 0  -1.5 0 0.5 1 ]
+Shape "sphere" "float radius" [1]
+ConcatTransform [ 1 0 0 0  0 1 0 0  0 0 1 0  2.5 0 0.75 1 ]
+Shape "cone" "float radius" [0.5] "float height" [1.5]
+AttributeEnd
+ActiveTransform EndTime
+AttributeBegin
+Translate 2 0 0
+Shape "cylinder" "float radius" [0.25] "float zmin" [0] "float zmax" [1]
+AttributeEnd
+WorldEnd

@@ -1,0 +1,646 @@
+{
+  "camera": {
+    "implementation": "perspective",
+    "inside_medium": null,
+    "outside_medium": null,
+    "parameters": [
+      {
+        "color_space": null,
+        "name": "fov",
+        "type": "float",
+        "values": [
+          42.0
+        ]
+      }
+    ],
+    "transform": {
+      "end": [
+        -0.7999999999999999,
+        -0.18973665961,
+        -0.56920997883,
+        9.0,
+        0.0,
+        0.9486832980509999,
+        -0.316227766017,
+        6.0,
+        0.6,
+        -0.252982212813,
+        -0.75894663844,
+        12.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "start": [
+        -0.7999999999999999,
+        -0.18973665961,
+        -0.56920997883,
+        9.0,
+        0.0,
+        0.9486832980509999,
+        -0.316227766017,
+        6.0,
+        0.6,
+        -0.252982212813,
+        -0.75894663844,
+        12.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "instances": [
+    {
+      "definition": {
+        "instances": [],
+        "lights": [],
+        "shapes": [
+          {
+            "area_light": null,
+            "implementation": "cylinder",
+            "inside_medium": null,
+            "material": "default",
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.6
+                ]
+              },
+              {
+                "color_space": null,
+                "name": "zmax",
+                "type": "float",
+                "values": [
+                  2.0
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                6.123233995736766e-17,
+                1.0,
+                0.0,
+                0.0,
+                -1.0,
+                6.123233995736766e-17,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                6.123233995736766e-17,
+                1.0,
+                0.0,
+                0.0,
+                -1.0,
+                6.123233995736766e-17,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          },
+          {
+            "area_light": null,
+            "implementation": "sphere",
+            "inside_medium": null,
+            "material": "default",
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.8
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                2.4,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                2.4,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          -3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          -3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "definition": {
+        "instances": [],
+        "lights": [],
+        "shapes": [
+          {
+            "area_light": null,
+            "implementation": "cylinder",
+            "inside_medium": null,
+            "material": "default",
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.6
+                ]
+              },
+              {
+                "color_space": null,
+                "name": "zmax",
+                "type": "float",
+                "values": [
+                  2.0
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                6.123233995736766e-17,
+                1.0,
+                0.0,
+                0.0,
+                -1.0,
+                6.123233995736766e-17,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                6.123233995736766e-17,
+                1.0,
+                0.0,
+                0.0,
+                -1.0,
+                6.123233995736766e-17,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          },
+          {
+            "area_light": null,
+            "implementation": "sphere",
+            "inside_medium": null,
+            "material": "default",
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.8
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                2.4,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                2.4,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "definition": {
+        "instances": [],
+        "lights": [],
+        "shapes": [
+          {
+            "area_light": null,
+            "implementation": "cylinder",
+            "inside_medium": null,
+            "material": "default",
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.6
+                ]
+              },
+              {
+                "color_space": null,
+                "name": "zmax",
+                "type": "float",
+                "values": [
+                  2.0
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                6.123233995736766e-17,
+                1.0,
+                0.0,
+                0.0,
+                -1.0,
+                6.123233995736766e-17,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                6.123233995736766e-17,
+                1.0,
+                0.0,
+                0.0,
+                -1.0,
+                6.123233995736766e-17,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          },
+          {
+            "area_light": null,
+            "implementation": "sphere",
+            "inside_medium": null,
+            "material": "default",
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.8
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                2.4,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                2.4,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "lights": [],
+  "options": [],
+  "settings": [
+    {
+      "implementation": "rgb",
+      "kind": "Film",
+      "parameters": []
+    }
+  ],
+  "shapes": [
+    {
+      "area_light": null,
+      "implementation": "trianglemesh",
+      "inside_medium": null,
+      "material": "default",
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "P",
+          "type": "point3",
+          "values": [
+            -7.0,
+            0.0,
+            -4.0,
+            7.0,
+            0.0,
+            -4.0,
+            7.0,
+            0.0,
+            4.0,
+            -7.0,
+            0.0,
+            4.0
+          ]
+        },
+        {
+          "color_space": null,
+          "name": "indices",
+          "type": "integer",
+          "values": [
+            0,
+            2,
+            1,
+            0,
+            3,
+            2
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ]
+}

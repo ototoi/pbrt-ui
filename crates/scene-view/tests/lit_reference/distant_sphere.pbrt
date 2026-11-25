@@ -1,0 +1,7 @@
+Film "rgb" "integer xresolution" 128 "integer yresolution" 128
+LookAt 0 0 5 0 0 0 0 1 0
+Camera "perspective" "float fov" 40
+WorldBegin
+LightSource "distant" "point from" [2 4 3] "point to" [0 0 0] "rgb L" [1.2 1.0 0.8]
+Material "diffuse" "rgb reflectance" [0.55 0.4 0.25]
+Shape "sphere" "float radius" 1

@@ -1,0 +1,28 @@
+pbrt-ui
+Copyright 2025-2026 Toru Matsuoka
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes code and data derived from the following projects,
+both licensed under the Apache License, Version 2.0.
+
+pbrt-v4 (https://github.com/mmp/pbrt-v4)
+Copyright (c) 1998-2020 Matt Pharr, Wenzel Jakob and Greg Humphreys.
+  - Measured spectral data: the named metal curves and the D65 illuminant in
+    crates/spectrum/src/named_curves.rs, and the gold eta/k spectra in
+    tests/fixtures/spectra/Au.eta.spd and Au.k.spd.
+  - Perlin noise, FBm and turbulence in crates/scene-parse/src/texture_eval.
+    The permutation table is Ken Perlin's "Improved Noise" reference table
+    (SIGGRAPH 2002).
+  - Parameter names and defaults of PBRT v4 scene objects.
+
+pbrt-r4 (https://github.com/ototoi/pbrt-r4)
+Copyright Toru Matsuoka.
+  - The data above, as transcribed in pbrt-r4 (src/util/spectrum/named_arrays.rs
+    and src/textures/noise.rs).
+  - The per-implementation parameter tables in
+    crates/pbrt-io/src/parameter_schema.rs.
+
+The screenshots in docs/screenshots show the Contemporary Bathroom scene from
+pbrt-v4-scenes (https://github.com/mmp/pbrt-v4-scenes). The model is by Mareck,
+via Blend Swap, and is in the public domain (CC0).

@@ -1,0 +1,15 @@
+Film "rgb" "integer xresolution" 128 "integer yresolution" 128
+LookAt 0 -6 5  0 0 0.3  0 0 1
+Camera "perspective" "float fov" 40
+WorldBegin
+AttributeBegin
+Translate 0.4 0.3 3.5
+LightSource "goniometric" "string filename" "gonio_diagram.png" "float power" [80]
+AttributeEnd
+Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+Shape "trianglemesh" "point3 P" [-4 -4 0 4 -4 0 4 4 0 -4 4 0] "integer indices" [0 1 2 0 2 3]
+Shape "trianglemesh" "point3 P" [-0.6 -0.6 1.2 0.6 -0.6 1.2 0.6 0.6 1.2 -0.6 0.6 1.2] "integer indices" [0 1 2 0 2 3]
+AttributeBegin
+Translate 1.6 0.8 0.5
+Shape "sphere" "float radius" 0.5
+AttributeEnd

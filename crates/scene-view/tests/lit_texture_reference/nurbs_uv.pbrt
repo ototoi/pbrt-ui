@@ -1,0 +1,17 @@
+Film "rgb" "integer xresolution" [128] "integer yresolution" [128]
+LookAt 0 0 5  0 0 0  0 1 0
+Camera "perspective" "float fov" [45]
+Sampler "halton" "integer pixelsamples" [4096]
+Integrator "path" "integer maxdepth" [1]
+WorldBegin
+Texture "result" "spectrum" "bilerp" "rgb v00" [0.9 0.1 0.1] "rgb v10" [0.1 0.9 0.1] "rgb v01" [0.1 0.1 0.9] "rgb v11" [0.9 0.9 0.1]
+LightSource "infinite" "rgb L" [1 1 1]
+AttributeBegin
+Material "diffuse" "rgb reflectance" [0.02 0.02 0.02]
+Shape "trianglemesh" "point3 P" [-30 -30 -50 30 -30 -50 30 30 -50 -30 30 -50] "integer indices" [0 1 2 0 2 3]
+AttributeEnd
+Material "diffuse" "texture reflectance" "result"
+Translate 0 -0.3 0
+Scale 1.15 1.15 1.5
+Rotate -65 1 0 0
+Shape "nurbs" "integer nu" [3] "integer nv" [3] "integer uorder" [3] "integer vorder" [3] "integer diceu" [64] "integer dicev" [64] "float uknots" [0.25 0.25 0.25 0.75 0.75 0.75] "float vknots" [0.3 0.3 0.3 0.6 0.6 0.6] "point3 P" [-1 -1 0.125  0 -1 -0.05  1 -1 0.1  -1 0 0.05  0 0 -0.15  1 0 0.025  -1 1 0.075  0 1 0.05  1 1 0.125]

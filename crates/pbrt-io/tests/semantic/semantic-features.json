@@ -1,0 +1,1350 @@
+{
+  "camera": {
+    "implementation": "perspective",
+    "inside_medium": null,
+    "outside_medium": null,
+    "parameters": [
+      {
+        "color_space": null,
+        "name": "fov",
+        "type": "float",
+        "values": [
+          40.0
+        ]
+      }
+    ],
+    "transform": {
+      "end": [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.99503719021,
+        -0.099503719021,
+        2.0,
+        0.0,
+        -0.099503719021,
+        -0.99503719021,
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "start": [
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.99503719021,
+        -0.099503719021,
+        2.0,
+        0.0,
+        -0.099503719021,
+        -0.99503719021,
+        10.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "instances": [
+    {
+      "definition": {
+        "instances": [],
+        "lights": [],
+        "shapes": [
+          {
+            "area_light": null,
+            "implementation": "cylinder",
+            "inside_medium": null,
+            "material": {
+              "declared_transform": null,
+              "implementation": "diffuse",
+              "kind": "Material",
+              "parameters": [
+                {
+                  "color_space": "aces2065-1",
+                  "name": "reflectance",
+                  "type": "rgb",
+                  "values": [
+                    0.2,
+                    0.5,
+                    0.8
+                  ]
+                }
+              ],
+              "texture_value_type": null
+            },
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.2
+                ]
+              },
+              {
+                "color_space": null,
+                "name": "zmax",
+                "type": "float",
+                "values": [
+                  2.0
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          -3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          -3.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          -3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          -3.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "definition": {
+        "instances": [],
+        "lights": [],
+        "shapes": [
+          {
+            "area_light": null,
+            "implementation": "cylinder",
+            "inside_medium": null,
+            "material": {
+              "declared_transform": null,
+              "implementation": "diffuse",
+              "kind": "Material",
+              "parameters": [
+                {
+                  "color_space": "aces2065-1",
+                  "name": "reflectance",
+                  "type": "rgb",
+                  "values": [
+                    0.2,
+                    0.5,
+                    0.8
+                  ]
+                }
+              ],
+              "texture_value_type": null
+            },
+            "outside_medium": null,
+            "parameters": [
+              {
+                "color_space": null,
+                "name": "radius",
+                "type": "float",
+                "values": [
+                  0.2
+                ]
+              },
+              {
+                "color_space": null,
+                "name": "zmax",
+                "type": "float",
+                "values": [
+                  2.0
+                ]
+              }
+            ],
+            "reverse_orientation": false,
+            "transform": {
+              "end": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "start": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          -3.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          3.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          -3.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "lights": [
+    {
+      "implementation": "infinite",
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": "srgb",
+          "name": "L",
+          "type": "rgb",
+          "values": [
+            0.2,
+            0.2,
+            0.25
+          ]
+        }
+      ],
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "implementation": "point",
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": "srgb",
+          "name": "I",
+          "type": "rgb",
+          "values": [
+            10.0,
+            10.0,
+            10.0
+          ]
+        }
+      ],
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          4.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          4.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "options": [
+    {
+      "name": "disablepixeljitter",
+      "value": true
+    }
+  ],
+  "settings": [
+    {
+      "implementation": "halton",
+      "kind": "Sampler",
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "pixelsamples",
+          "type": "integer",
+          "values": [
+            16
+          ]
+        }
+      ]
+    },
+    {
+      "implementation": "rgb",
+      "kind": "Film",
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "xresolution",
+          "type": "integer",
+          "values": [
+            320
+          ]
+        },
+        {
+          "color_space": null,
+          "name": "yresolution",
+          "type": "integer",
+          "values": [
+            240
+          ]
+        }
+      ]
+    },
+    {
+      "implementation": "volpath",
+      "kind": "Integrator",
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "maxdepth",
+          "type": "integer",
+          "values": [
+            5
+          ]
+        }
+      ]
+    }
+  ],
+  "shapes": [
+    {
+      "area_light": null,
+      "implementation": "bilinearmesh",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "reflectance",
+            "type": "texture",
+            "values": [
+              {
+                "declared_transform": {
+                  "end": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "start": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "implementation": "checkerboard",
+                "kind": "Texture",
+                "parameters": [
+                  {
+                    "color_space": "srgb",
+                    "name": "tex1",
+                    "type": "rgb",
+                    "values": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "color_space": "srgb",
+                    "name": "tex2",
+                    "type": "rgb",
+                    "values": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "uscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "vscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  }
+                ],
+                "texture_value_type": "Spectrum"
+              }
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "P",
+          "type": "point3",
+          "values": [
+            -5.0,
+            0.0,
+            -5.0,
+            5.0,
+            0.0,
+            -5.0,
+            -5.0,
+            0.0,
+            5.0,
+            5.0,
+            0.0,
+            5.0
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "area_light": null,
+      "implementation": "sphere",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "conductor",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": "srgb",
+            "name": "eta",
+            "type": "spectrum",
+            "values": {
+              "builtin": [
+                "metal-Au-eta"
+              ]
+            }
+          },
+          {
+            "color_space": "srgb",
+            "name": "k",
+            "type": "spectrum",
+            "values": {
+              "builtin": [
+                "metal-Au-k"
+              ]
+            }
+          },
+          {
+            "color_space": null,
+            "name": "roughness",
+            "type": "float",
+            "values": [
+              0.1
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            1.0
+          ]
+        }
+      ],
+      "reverse_orientation": true,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          -1.5,
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          -1.5,
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "area_light": null,
+      "implementation": "sphere",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "reflectance",
+            "type": "texture",
+            "values": [
+              {
+                "declared_transform": {
+                  "end": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "start": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "implementation": "checkerboard",
+                "kind": "Texture",
+                "parameters": [
+                  {
+                    "color_space": "srgb",
+                    "name": "tex1",
+                    "type": "rgb",
+                    "values": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "color_space": "srgb",
+                    "name": "tex2",
+                    "type": "rgb",
+                    "values": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "uscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "vscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  }
+                ],
+                "texture_value_type": "Spectrum"
+              }
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            0.25
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          -4.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          -4.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "area_light": null,
+      "implementation": "sphere",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "reflectance",
+            "type": "texture",
+            "values": [
+              {
+                "declared_transform": {
+                  "end": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "start": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "implementation": "checkerboard",
+                "kind": "Texture",
+                "parameters": [
+                  {
+                    "color_space": "srgb",
+                    "name": "tex1",
+                    "type": "rgb",
+                    "values": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "color_space": "srgb",
+                    "name": "tex2",
+                    "type": "rgb",
+                    "values": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "uscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "vscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  }
+                ],
+                "texture_value_type": "Spectrum"
+              }
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            0.3
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          2.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.5,
+          0.0,
+          0.0,
+          1.0,
+          2.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "area_light": null,
+      "implementation": "sphere",
+      "inside_medium": {
+        "declared_transform": {
+          "end": [
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "start": [
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "implementation": "homogeneous",
+        "kind": "Medium",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "scale",
+            "type": "float",
+            "values": [
+              0.5
+            ]
+          },
+          {
+            "color_space": "srgb",
+            "name": "sigma_a",
+            "type": "rgb",
+            "values": [
+              0.1,
+              0.1,
+              0.1
+            ]
+          },
+          {
+            "color_space": "srgb",
+            "name": "sigma_s",
+            "type": "rgb",
+            "values": [
+              0.5,
+              0.5,
+              0.5
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "material": {
+        "declared_transform": null,
+        "implementation": "dielectric",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "eta",
+            "type": "float",
+            "values": [
+              1.5
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            1.0
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          1.5,
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          1.5,
+          0.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "area_light": {
+        "implementation": "diffuse",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "L",
+            "type": "blackbody",
+            "values": [
+              6500.0
+            ]
+          },
+          {
+            "color_space": null,
+            "name": "scale",
+            "type": "float",
+            "values": [
+              4.0
+            ]
+          }
+        ]
+      },
+      "implementation": "disk",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": null,
+            "name": "reflectance",
+            "type": "texture",
+            "values": [
+              {
+                "declared_transform": {
+                  "end": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "start": [
+                    0.8660254037844387,
+                    0.0,
+                    0.49999999999999994,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    -0.49999999999999994,
+                    0.0,
+                    0.8660254037844387,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                },
+                "implementation": "checkerboard",
+                "kind": "Texture",
+                "parameters": [
+                  {
+                    "color_space": "srgb",
+                    "name": "tex1",
+                    "type": "rgb",
+                    "values": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "color_space": "srgb",
+                    "name": "tex2",
+                    "type": "rgb",
+                    "values": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "uscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  },
+                  {
+                    "color_space": null,
+                    "name": "vscale",
+                    "type": "float",
+                    "values": [
+                      8.0
+                    ]
+                  }
+                ],
+                "texture_value_type": "Spectrum"
+              }
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            0.5
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          3.0,
+          0.0,
+          0.0,
+          1.0,
+          -2.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          3.0,
+          0.0,
+          0.0,
+          1.0,
+          -2.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ]
+}

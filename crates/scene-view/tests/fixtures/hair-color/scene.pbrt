@@ -1,0 +1,31 @@
+# Four cubic curves, left to right: default, literal color, texture color,
+# explicit reflectance overriding texture color (Lit preview compatibility).
+Film "rgb" "integer xresolution" [640] "integer yresolution" [480]
+LookAt 0 0 -6  0 0 0  0 1 0
+Camera "perspective" "float fov" [35]
+WorldBegin
+LightSource "infinite" "rgb L" [0.5 0.5 0.5]
+LightSource "distant" "point3 from" [-3 4 -5] "point3 to" [0 0 0] "rgb L" [1 1 1]
+Texture "hair-stripes" "spectrum" "checkerboard"
+    "integer dimension" [2] "float uscale" [6] "float vscale" [0] "string aamode" ["none"]
+    "rgb tex1" [0.9 0.1 0.05] "rgb tex2" [0.05 0.2 0.9]
+AttributeBegin
+Material "hair"
+Shape "curve" "string type" "cylinder" "float width" [0.12]
+    "point3 P" [-1.2 -1 0  -1.5 -0.3 0  -0.9 0.3 0  -1.2 1 0]
+AttributeEnd
+AttributeBegin
+Material "hair" "rgb color" [0.1 0.7 0.2]
+Shape "curve" "string type" "cylinder" "float width" [0.12]
+    "point3 P" [-0.4 -1 0  -0.7 -0.3 0  -0.1 0.3 0  -0.4 1 0]
+AttributeEnd
+AttributeBegin
+Material "hair" "texture color" "hair-stripes"
+Shape "curve" "string type" "cylinder" "float width" [0.12]
+    "point3 P" [0.4 -1 0  0.1 -0.3 0  0.7 0.3 0  0.4 1 0]
+AttributeEnd
+AttributeBegin
+Material "hair" "rgb reflectance" [0.7 0.5 0.1] "texture color" "hair-stripes"
+Shape "curve" "string type" "cylinder" "float width" [0.12]
+    "point3 P" [1.2 -1 0  0.9 -0.3 0  1.5 0.3 0  1.2 1 0]
+AttributeEnd

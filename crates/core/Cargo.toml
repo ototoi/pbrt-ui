@@ -1,0 +1,36 @@
+[package]
+name = "core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Application core: project, render, job and IPR state, command processing, revision checks, jobs, artifacts, events. No GPUI/MCP/r4/wgpu deps."
+
+[dependencies]
+protocol = { workspace = true }
+project = { workspace = true }
+pbrt-io = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+base64 = "0.22"
+image = { workspace = true }
+tempfile = "3"
+sha2 = "0.10"
+scene-parse = { workspace = true }
+spectrum = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+uds_windows = "1"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Console", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[dev-dependencies]
+flate2 = "1"
+
+[[bin]]
+name = "pbrt-ui-host"
+path = "src/bin/pbrt-ui-host.rs"

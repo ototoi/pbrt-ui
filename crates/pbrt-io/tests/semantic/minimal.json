@@ -1,0 +1,157 @@
+{
+  "camera": {
+    "implementation": "perspective",
+    "inside_medium": null,
+    "outside_medium": null,
+    "parameters": [
+      {
+        "color_space": null,
+        "name": "fov",
+        "type": "float",
+        "values": [
+          45.0
+        ]
+      }
+    ],
+    "transform": {
+      "end": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "start": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "instances": [],
+  "lights": [],
+  "options": [],
+  "settings": [
+    {
+      "implementation": "rgb",
+      "kind": "Film",
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "xresolution",
+          "type": "integer",
+          "values": [
+            16
+          ]
+        },
+        {
+          "color_space": null,
+          "name": "yresolution",
+          "type": "integer",
+          "values": [
+            16
+          ]
+        }
+      ]
+    }
+  ],
+  "shapes": [
+    {
+      "area_light": null,
+      "implementation": "sphere",
+      "inside_medium": null,
+      "material": {
+        "declared_transform": null,
+        "implementation": "diffuse",
+        "kind": "Material",
+        "parameters": [
+          {
+            "color_space": "srgb",
+            "name": "reflectance",
+            "type": "rgb",
+            "values": [
+              0.5,
+              0.5,
+              0.5
+            ]
+          }
+        ],
+        "texture_value_type": null
+      },
+      "outside_medium": null,
+      "parameters": [
+        {
+          "color_space": null,
+          "name": "radius",
+          "type": "float",
+          "values": [
+            1.0
+          ]
+        }
+      ],
+      "reverse_orientation": false,
+      "transform": {
+        "end": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "start": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    }
+  ]
+}
