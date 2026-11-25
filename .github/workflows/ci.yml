@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Free disk space
@@ -43,5 +43,7 @@ jobs:
       # GPU tests are #[ignore]d; hosted runners have no reliable adapter.
       - name: Test
         run: cargo test --workspace --locked --no-fail-fast
+      # The schema test is ignored on Windows; Linux and macOS cover it.
       - name: Control schema
+        if: runner.os != 'Windows'
         run: python3 scripts/generate-control-schema.py --check
