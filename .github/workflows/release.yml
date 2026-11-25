@@ -1,0 +1,82 @@
+name: Release
+
+# Push a tag such as v0.1.0 (or run it by hand with a tag name) to build the
+# release folders on Linux, macOS and Windows and attach them to a draft
+# GitHub Release. Publish the draft by hand after checking it.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release, e.g. v0.1.0 (created on the selected branch if missing)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04 rather than latest: the binaries then run on older glibc too.
+          - { os: ubuntu-22.04, target: linux-x86_64 }
+          - { os: macos-latest, target: macos-arm64 }
+          - { os: windows-latest, target: windows-x86_64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libx11-xcb-dev libegl1-mesa-dev libgl1-mesa-dev libvulkan-dev libasound2-dev libfontconfig-dev pkg-config
+      - name: Build the release folder
+        shell: bash
+        run: cargo xtask dist --bundle-r4 "dist/pbrt-ui-$TAG-${{ matrix.target }}"
+      - name: Archive
+        shell: bash
+        run: |
+          cd dist
+          name="pbrt-ui-$TAG-${{ matrix.target }}"
+          if [ "$RUNNER_OS" = Windows ]; then 7z a "$name.zip" "$name"; else tar czf "$name.tar.gz" "$name"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --draft --generate-notes --title "pbrt-ui $TAG"
