@@ -102,6 +102,20 @@ fn run(args: Vec<String>) -> Result<(), String> {
     for file in ["README.md", "LICENSE", "NOTICE"] {
         copy(&root.join(file), &output.join(file))?;
     }
+    if cfg!(target_os = "linux") {
+        // The optional menu entry; `fs::copy` keeps the script's executable bit.
+        let assets = root.join("crates/desktop/assets");
+        for (from, name) in [
+            (
+                root.join("packaging/linux/install-desktop-entry.sh"),
+                "install-desktop-entry.sh",
+            ),
+            (assets.join("pbrt-ui.png"), "pbrt-ui.png"),
+            (assets.join("pbrt-ui.svg"), "pbrt-ui.svg"),
+        ] {
+            copy(&from, &output.join(name))?;
+        }
+    }
     println!("Built distribution: {}", output.display());
     Ok(())
 }
