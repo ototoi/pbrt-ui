@@ -74,10 +74,8 @@ mod tests {
             resolve_cache_directory(
                 Platform::Windows,
                 lookup(&[("LOCALAPPDATA", "C:/Users/u/Local")])
-            )
-            .unwrap()
-            .to_string_lossy(),
-            "C:/Users/u/Local/pbrt-ui"
+            ),
+            Some(PathBuf::from("C:/Users/u/Local").join("pbrt-ui"))
         );
         assert_eq!(
             resolve_cache_directory(Platform::Windows, lookup(&[])),
