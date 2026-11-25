@@ -63,6 +63,19 @@ Platform requirements:
 - **Windows:** Visual Studio 2022 17.10 or later, with "Desktop development with C++" and the
   "C++ ATL" component.
 
+### Linux application menu
+
+The Linux release folder includes `install-desktop-entry.sh`. It adds pbrt-ui, with its icon,
+to your application menu (for your user only):
+
+```sh
+./install-desktop-entry.sh              # add the menu entry
+./install-desktop-entry.sh --uninstall  # remove it
+```
+
+The entry points at the folder, so run the script again if you move the folder. A folder path
+that contains `%` is not supported.
+
 ## Getting started
 
 ```sh
