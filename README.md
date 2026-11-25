@@ -206,4 +206,13 @@ the control socket works.
 - [Development](docs/development.md): building, testing, the workspace layout and packaging.
 - [Project format 3](docs/project-format-three.md): file format versions and migration.
 
-Licensed under Apache-2.0; see [LICENSE](LICENSE).
+## License
+
+pbrt-ui is licensed under the [Apache License, Version 2.0](LICENSE).
+
+Some data and code come from [pbrt-v4](https://github.com/mmp/pbrt-v4) and
+[pbrt-r4](https://github.com/ototoi/pbrt-r4), both also Apache-2.0: measured spectra, the noise
+functions and the scene parameter tables. [NOTICE](NOTICE) lists them, with the screenshot credit.
+
+A release folder built with `--bundle-r4` also contains pbrt-r4, under its own license in
+`LICENSE-pbrt-r4`.
