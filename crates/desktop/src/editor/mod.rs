@@ -380,6 +380,9 @@ pub(crate) fn run(
                     size(px(1440.), px(960.)),
                     cx,
                 ))),
+                icon: window_icon(),
+                // Wayland matches the window to a `pbrt-ui.desktop` entry by this id.
+                app_id: Some("pbrt-ui".into()),
                 ..Default::default()
             };
             let menu_bar = AppMenuBar::new(cx);
@@ -391,4 +394,21 @@ pub(crate) fn run(
             .expect("failed to open editor window");
             cx.activate(true);
         });
+}
+
+/// The window icon (X11 shows it; Wayland and macOS take theirs elsewhere).
+fn window_icon() -> Option<Arc<image::RgbaImage>> {
+    let png = include_bytes!("../../assets/pbrt-ui.png");
+    image::load_from_memory_with_format(png, image::ImageFormat::Png)
+        .ok()
+        .map(|icon| Arc::new(icon.into_rgba8()))
+}
+
+#[cfg(test)]
+mod window_icon_tests {
+    #[test]
+    fn the_embedded_window_icon_decodes() {
+        let icon = super::window_icon().expect("the bundled PNG decodes");
+        assert_eq!(icon.dimensions(), (256, 256));
+    }
 }
