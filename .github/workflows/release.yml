@@ -1,15 +1,15 @@
 name: Release
 
-# Push a tag such as v0.1.0 (or run it by hand with a tag name) to build the
-# release folders on Linux, macOS and Windows and attach them to a draft
-# GitHub Release. Publish the draft by hand after checking it.
+# Push a tag such as v0.1.0 to build the release folders on Linux, macOS and
+# Windows and attach them to a draft GitHub Release; run it by hand to rebuild
+# an existing tag. Publish the draft by hand after checking it.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag to release, e.g. v0.1.0 (created on the selected branch if missing)
+        description: Existing tag to build, e.g. v0.1.0
         required: true
 
 permissions:
@@ -36,7 +36,10 @@ jobs:
       - name: Free disk space
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      # Always the tag itself, so the archives match their tagged source.
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -78,5 +81,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag \
             --draft --generate-notes --title "pbrt-ui $TAG"
