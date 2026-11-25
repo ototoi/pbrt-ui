@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3445"/><stop offset="1" stop-color="#151a24"/>
+    </linearGradient>
+    <radialGradient id="sphere" cx="0.36" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#f4f7fb"/><stop offset="0.45" stop-color="#b9c4d4"/><stop offset="1" stop-color="#4a5568"/>
+    </radialGradient>
+    <clipPath id="tile"><rect x="8" y="8" width="240" height="240" rx="52"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+  <g clip-path="url(#tile)" stroke="#55627a" stroke-width="3" fill="none">
+    <path d="M8 168 H248 M8 196 H248 M8 232 H248"/>
+    <path d="M128 150 L128 260 M128 150 L60 260 M128 150 L196 260 M128 150 L8 230 M128 150 L248 230"/>
+  </g>
+  <ellipse cx="128" cy="178" rx="54" ry="10" fill="#000" opacity="0.35"/>
+  <circle cx="128" cy="124" r="52" fill="url(#sphere)"/>
+  <g stroke-width="9" stroke-linecap="round">
+    <line x1="128" y1="124" x2="128" y2="42" stroke="#5fd16a"/>
+    <line x1="128" y1="124" x2="208" y2="124" stroke="#ef5350"/>
+    <line x1="128" y1="124" x2="82" y2="168" stroke="#4f8ff7"/>
+  </g>
+  <path d="M128 28 l-12 20 h24 z" fill="#5fd16a"/>
+  <path d="M222 124 l-20 -12 v24 z" fill="#ef5350"/>
+  <path d="M72 178 l22 -4 l-14 -16 z" fill="#4f8ff7"/>
+  <circle cx="128" cy="124" r="8" fill="#f2f2f2"/>
+</svg>

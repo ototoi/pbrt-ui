@@ -93,12 +93,21 @@ fn load(document: ProjectDocument) -> CoreState {
     core
 }
 
-/// Request the preview job whose success records the preview base /// diffs against (fabricated I/O like the load above returns its job id).
+/// An absolute slot path on every platform (`/preview-slot` is relative on Windows).
+fn preview_slot() -> String {
+    std::env::temp_dir()
+        .join("preview-slot")
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// Request the preview job whose success records the preview base the
+/// transform diffs run against (fabricated I/O like the load above returns its job id).
 fn request_preview(core: &mut CoreState) -> JobId {
     let reference = core.projects.reference().unwrap();
     let response = core.handle(request(
         Method::ProjectPreview,
-        json!({"project":reference,"destination":"/preview-slot"}),
+        json!({"project":reference,"destination":preview_slot()}),
     ));
     assert!(response.error.is_none(), "{:?}", response.error);
     serde_json::from_value(response.result.unwrap()["job_id"].clone()).unwrap()
@@ -113,7 +122,7 @@ fn finish_preview(core: &mut CoreState, job_id: JobId) {
     core.project_io_finished(
         job_id,
         Ok(IoOutput::Previewed {
-            path: "/preview-slot".into(),
+            path: preview_slot().into(),
             draws: 0,
             unsupported: 0,
             warnings: Vec::new(),
