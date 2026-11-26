@@ -104,7 +104,10 @@ impl Display {
                         let vertical = protocol::view::camera_fov_y(Some(fov), screenwindow, parameter("frameaspectratio"), Some(aspect));
                         // Orbit turns about the camera's up, so keep the scene's up axis
                         // rather than the camera's own (tilted) up; a rolled camera loses its roll.
-                        self.camera.eye=eye; self.camera.target=target; self.camera.up=up_for_view(eye, target, self.scene_up().vector(), camera_up); self.camera.fov_y_degrees=vertical; self.camera.mirror=self.scene_mirror();
+                        self.camera.eye=eye; self.camera.target=target; self.camera.up=up_for_view(eye, target, self.scene_up().vector(), camera_up); self.camera.fov_y_degrees=vertical;
+                        let bounds = self.project_geometry.as_ref().and_then(|geometry| geometry.bounds.as_ref());
+                        (self.camera.near, self.camera.far) = clipping_for_eye(eye, bounds);
+                        self.camera.mirror=self.scene_mirror();
                         self.dirty=true; self.arm_ipr_submit(); Ok(())
                     })()
                 }
@@ -1027,6 +1030,17 @@ fn preview_parameter_numbers(values: &Value) -> Option<Vec<f64>> {
         .collect()
 }
 
+fn clipping_for_eye(eye: [f64; 3], bounds: Option<&protocol::geometry::Bounds>) -> (f64, f64) {
+    let (center, radius) = bounds
+        .map(|bounds| (bounds.center(), bounds.half_diagonal().max(1e-3)))
+        .unwrap_or(([0.; 3], 1.));
+    let distance = (0..3)
+        .map(|axis| (eye[axis] - center[axis]).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    ((distance - radius * 2.).max(0.001), distance + radius * 2.)
+}
+
 /// Keep the scene axis as screen-up unless it would make the view basis
 /// degenerate; top-down views need the camera's own world-space up vector.
 fn up_for_view(
@@ -1054,7 +1068,7 @@ fn up_for_view(
 
 #[cfg(test)]
 mod tests {
-    use super::{reveal_candidate, up_for_view};
+    use super::{clipping_for_eye, reveal_candidate, up_for_view};
     use serde_json::json;
 
     #[test]
@@ -1089,6 +1103,18 @@ mod tests {
             forward[0] * up[1] - forward[1] * up[0],
         ];
         assert!(cross.iter().map(|value| value * value).sum::<f64>() >= 1e-18);
+    }
+
+    #[test]
+    fn selected_camera_clipping_contains_distant_scene_bounds() {
+        let bounds = protocol::geometry::Bounds {
+            min: [-1., -1., -1.],
+            max: [1., 1., 1.],
+        };
+        let (near, far) = clipping_for_eye([0., 0., 1000.], Some(&bounds));
+        assert!(near > 990.);
+        assert!(far > 1000.);
+        assert!(near < far);
     }
 }
 
