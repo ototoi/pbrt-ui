@@ -13,7 +13,7 @@ use crate::editor::{EditorPanel, Session, editor_panels, spectrum_editor};
 use crate::editor::{parameter_field, parameter_rows, transform_form::TransformForm};
 use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::input::Input;
-use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
+use gpui_kit::component::menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenu, PopupMenuItem};
 use gpui_kit::component::{
     Disableable, Icon, Sizable,
     button::{Button, ButtonVariants as _},
@@ -46,6 +46,34 @@ struct HeaderDetails {
     open_in_editor: Option<String>,
     read_only: bool,
     active_toggle: Option<(String, bool)>,
+    node_kind: Option<String>,
+}
+
+fn inspector_node_menu(mut menu: PopupMenu, kind: &str, read_only: bool) -> PopupMenu {
+    for item in crate::editor::hierarchy::node_menu_items(kind, read_only) {
+        let action = item.action;
+        menu =
+            menu.item(
+                PopupMenuItem::new(item.label).on_click(move |_, window, cx| match action {
+                    crate::editor::hierarchy::NodeMenuAction::Rename => window
+                        .dispatch_action(Box::new(crate::editor::menu::RenameHierarchyNode), cx),
+                    crate::editor::hierarchy::NodeMenuAction::Duplicate => {
+                        window.dispatch_action(Box::new(crate::editor::menu::DuplicateNode), cx)
+                    }
+                    crate::editor::hierarchy::NodeMenuAction::Delete => {
+                        window.dispatch_action(Box::new(crate::editor::menu::DeleteNode), cx)
+                    }
+                    crate::editor::hierarchy::NodeMenuAction::MakeObjectDefinition => window
+                        .dispatch_action(Box::new(crate::editor::menu::MakeObjectDefinition), cx),
+                    crate::editor::hierarchy::NodeMenuAction::UnpackInstance => window
+                        .dispatch_action(Box::new(crate::editor::menu::UnpackObjectInstance), cx),
+                    crate::editor::hierarchy::NodeMenuAction::FrameSelection => {
+                        window.dispatch_action(Box::new(crate::editor::FrameSelected), cx)
+                    }
+                }),
+            );
+    }
+    menu
 }
 
 /// Send one edit; the Viewer never gets here because its forms are hidden.
@@ -1215,6 +1243,8 @@ impl EditorPanel {
         kind: String,
         details: HeaderDetails,
     ) -> AnyElement {
+        let menu_kind = details.node_kind.clone();
+        let menu_read_only = details.read_only;
         let title: AnyElement = match (&self.label_input, details.read_only) {
             (Some((_, _, input)), false) => Input::new(input).small().w_full().into_any_element(),
             _ => div()
@@ -1265,7 +1295,18 @@ impl EditorPanel {
                                     window.dispatch_action(Box::new(OpenInEditor { id }), cx)
                                 }
                             }),
-                    ),
+                    )
+                    .when_some(menu_kind.clone(), |row, kind| {
+                        row.child(
+                            Button::new("inspector-node-menu")
+                                .icon(assets::IconName::EllipsisVertical)
+                                .xsmall()
+                                .accessibility_label("Node actions")
+                                .dropdown_menu(move |menu, _, _| {
+                                    inspector_node_menu(menu, &kind, menu_read_only)
+                                }),
+                        )
+                    }),
             )
             .children(
                 details
@@ -1273,6 +1314,13 @@ impl EditorPanel {
                     .into_iter()
                     .map(|line| div().text_color(muted()).truncate().child(line)),
             )
+            .context_menu(move |menu, _, _| {
+                if let Some(kind) = menu_kind.as_ref() {
+                    inspector_node_menu(menu, kind, menu_read_only)
+                } else {
+                    menu
+                }
+            })
             .into_any_element()
     }
 
@@ -1347,65 +1395,15 @@ impl EditorPanel {
                                 node["active"] != false,
                             )
                         }),
+                        node_kind: Some(kind.to_owned()),
                     },
                 ),
             );
             if let Some(message) = label_message.clone() {
                 content = content.child(feedback_line(message));
             }
-            if kind == "group" && !read_only {
-                content = content.child(
-                    Button::new("inspector-make-object-definition")
-                        .icon(assets::IconName::EllipsisVertical)
-                        .label("Actions")
-                        .xsmall()
-                        .dropdown_menu(move |menu, _, _| {
-                            // The workspace action selects the new instance.
-                            menu.item(PopupMenuItem::new("Make Object Definition").on_click(
-                                |_, window, cx| {
-                                    window.dispatch_action(
-                                        Box::new(crate::editor::menu::MakeObjectDefinition),
-                                        cx,
-                                    )
-                                },
-                            ))
-                        }),
-                );
-            }
             if let Some(error) = node["components_error"].as_str() {
                 content = content.child(div().text_color(rgb(0xd99a74)).child(error.to_owned()));
-            }
-            // Show Add Component ▸ under the header with the components this
-            // object can still take.
-            // the button is always there (a removed component must be
-            // addable again, and new kinds may come); an object that takes
-            // nothing now says so in the menu.
-            if !read_only {
-                let session = self.session.clone();
-                let rows = component_menu::addable(node);
-                content = content.child(
-                    Button::new("inspector-add-component")
-                        .icon(assets::IconName::Plus)
-                        .label("Add Component")
-                        .xsmall()
-                        .dropdown_menu(move |menu, _, _| {
-                            let mut menu = menu;
-                            if rows.is_empty() {
-                                menu = menu.item(
-                                    PopupMenuItem::new("No components to add").disabled(true),
-                                );
-                            }
-                            for (label, edit) in rows.clone() {
-                                let session = session.clone();
-                                menu = menu.item(PopupMenuItem::new(label).on_click(
-                                    move |_, _, cx| {
-                                        apply(&session, "inspector-add", edit.clone(), cx)
-                                    },
-                                ));
-                            }
-                            menu
-                        }),
-                );
             }
             for component in node["components"].as_array().cloned().unwrap_or_default() {
                 let feedback = self.session.read(cx).edit_feedback.clone();
@@ -1453,6 +1451,33 @@ impl EditorPanel {
                         camera_align,
                     },
                 ));
+            }
+            if !read_only {
+                let session = self.session.clone();
+                let rows = component_menu::addable(node);
+                content = content.child(
+                    Button::new("inspector-add-component")
+                        .icon(assets::IconName::Plus)
+                        .label("Add Component")
+                        .xsmall()
+                        .dropdown_menu(move |menu, _, _| {
+                            let mut menu = menu;
+                            if rows.is_empty() {
+                                menu = menu.item(
+                                    PopupMenuItem::new("No components to add").disabled(true),
+                                );
+                            }
+                            for (label, edit) in rows.clone() {
+                                let session = session.clone();
+                                menu = menu.item(PopupMenuItem::new(label).on_click(
+                                    move |_, _, cx| {
+                                        apply(&session, "inspector-add", edit.clone(), cx)
+                                    },
+                                ));
+                            }
+                            menu
+                        }),
+                );
             }
         } else if details["item"].is_object() {
             content = content.child(self.item_inspector(details, read_only, &folded, cx));
@@ -1560,6 +1585,7 @@ impl EditorPanel {
                         .map(str::to_owned),
                     read_only: read_only || details["resource"].is_null(),
                     active_toggle: None,
+                    node_kind: None,
                 },
             ),
         );
