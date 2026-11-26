@@ -58,7 +58,23 @@ impl Display {
                     Ok(())
                 }
                 Command::Orbit(x,y) => if self.project_geometry.is_some() { self.camera.orbit(x,y).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
+                Command::RetargetAt(xy) => {
+                    if let Some(frame) = &self.last_frame {
+                        if let Ok(pick) = frame.pick_at(xy) {
+                            if let Some(node) = self.project_pick_nodes.get(&pick) {
+                                let ids = BTreeSet::from([node.clone()]);
+                                if let Some(bounds) = self.project_geometry.as_ref().and_then(|geometry| crate::project_preview::selected_bounds(geometry, &self.project_pick_nodes, &self.project_object_bounds, self.project_time, &ids)) {
+                                    let centre = bounds.center();
+                                    self.camera.retarget_depth(centre).map(|()| { self.dirty = true; self.arm_ipr_submit(); })
+                                } else {
+                                    Ok(())
+                                }
+                            } else { Ok(()) }
+                        } else { Ok(()) }
+                    } else { Ok(()) }
+                }
                 Command::Pan(x,y) => if self.project_geometry.is_some() { self.camera.pan(x,y).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
+                Command::Fly(delta) => if self.project_geometry.is_some() { self.camera.fly_relative(delta).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
                 Command::Dolly(value) => if self.project_geometry.is_some() { self.camera.dolly(value).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
                 Command::GizmoPreview(delta) => {
                     self.gizmo_delta = delta;

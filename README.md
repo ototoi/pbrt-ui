@@ -153,6 +153,10 @@ On macOS, use Cmd instead of Ctrl.
 
 In the Scene viewport:
 
+| Fly | Right drag + W/A/S/D, Q/E (Shift: faster) |
+
+Right drag orbits about the object under the cursor.
+
 | Action | Input |
 |---|---|
 | Orbit / Pan / Zoom | Right drag / Middle drag / Wheel |

@@ -15,6 +15,55 @@ use gpui_kit::*;
 use scene_view::PreviewMode;
 use scene_view::preview::gizmo::Tool;
 use scene_view::preview::light_gizmo::LightKind;
+use std::time::Instant;
+
+#[derive(Default)]
+pub(in crate::editor) struct FlyKeys {
+    right_down: bool,
+    held: std::collections::BTreeSet<String>,
+}
+
+impl FlyKeys {
+    pub(in crate::editor) fn right_down(&mut self) {
+        self.right_down = true;
+    }
+    pub(in crate::editor) fn right_up(&mut self) {
+        self.right_down = false;
+        self.held.clear();
+    }
+    pub(in crate::editor) fn clear(&mut self) {
+        self.right_up();
+    }
+    pub(in crate::editor) fn key(&mut self, key: &str, pressed: bool) {
+        if !self.right_down {
+            return;
+        }
+        let key = key.to_ascii_lowercase();
+        if matches!(key.as_str(), "w" | "a" | "s" | "d" | "q" | "e" | "shift") {
+            if pressed {
+                self.held.insert(key);
+            } else {
+                self.held.remove(&key);
+            }
+        }
+    }
+    pub(in crate::editor) fn movement(&self) -> [f64; 3] {
+        let axis = |positive: &str, negative: &str| {
+            (if self.held.contains(positive) { 1. } else { 0. })
+                - (if self.held.contains(negative) { 1. } else { 0. })
+        };
+        [axis("d", "a"), axis("e", "q"), axis("w", "s")]
+    }
+    pub(in crate::editor) fn faster(&self) -> bool {
+        self.held.contains("shift")
+    }
+    pub(in crate::editor) fn is_down(&self) -> bool {
+        self.right_down
+    }
+    pub(in crate::editor) fn gizmo_shortcuts_allowed(&self) -> bool {
+        !self.right_down
+    }
+}
 impl EditorPanel {
     pub(super) fn project_scene(&self, cx: &mut Context<Self>) -> AnyElement {
         // The preview draws at the viewport's size, known after layout.
@@ -225,11 +274,25 @@ impl EditorPanel {
                 MouseButton::Right,
                 cx.listener(|this, event: &MouseDownEvent, window, cx| {
                     this.focus.focus(window, cx);
+                    this.fly_keys.right_down();
+                    this.fly_tick = Instant::now();
                     // A right click while dragging the gizmo cancels it.
                     if this.gizmo_cancel(cx) {
                         return;
                     }
-                    this.last_mouse = Some(event.position)
+                    this.last_mouse = Some(event.position);
+                    let model = this.session.read(cx);
+                    if crate::editor::session::scene_geometry_interactive(
+                        model.updating,
+                        model.stale_frame,
+                    ) && let Some(xy) = image_coordinates_for_size(
+                        this.viewport.get(),
+                        event.position,
+                        model.image_size,
+                    ) {
+                        this.session
+                            .update(cx, |s, cx| s.send(Command::RetargetAt(xy), cx));
+                    }
                 }),
             )
             .on_mouse_up(
@@ -239,6 +302,20 @@ impl EditorPanel {
             .on_mouse_up_out(
                 MouseButton::Left,
                 cx.listener(|this, _: &MouseUpEvent, _, cx| this.gizmo_release(cx)),
+            )
+            .on_mouse_up(
+                MouseButton::Right,
+                cx.listener(|this, _: &MouseUpEvent, _, _| {
+                    this.last_mouse = None;
+                    this.fly_keys.right_up();
+                }),
+            )
+            .on_mouse_up_out(
+                MouseButton::Right,
+                cx.listener(|this, _: &MouseUpEvent, _, _| {
+                    this.last_mouse = None;
+                    this.fly_keys.right_up();
+                }),
             )
             .on_mouse_down(
                 MouseButton::Middle,
@@ -470,7 +547,7 @@ fn light_drag_hint(kind: Option<LightKind>, editable: bool) -> Option<&'static s
 
 #[cfg(test)]
 mod tests {
-    use super::{LightKind, gizmo_space_face, light_drag_hint};
+    use super::{FlyKeys, LightKind, gizmo_space_face, light_drag_hint};
     use gpui_kit::assets;
 
     /// The icon and tooltip follow the space the toggle switches
@@ -519,5 +596,36 @@ mod tests {
         );
         assert_eq!(light_drag_hint(None, true), None);
         assert_eq!(light_drag_hint(None, false), None);
+    }
+
+    #[test]
+    fn fly_keys_track_press_release_and_clear_on_right_button_up() {
+        let mut keys = FlyKeys::default();
+        keys.key("w", true);
+        assert_eq!(keys.movement(), [0., 0., 0.]);
+        keys.right_down();
+        keys.key("W", true);
+        keys.key("d", true);
+        assert_eq!(keys.movement(), [1., 0., 1.]);
+        keys.key("w", false);
+        assert_eq!(keys.movement(), [1., 0., 0.]);
+        keys.key("shift", true);
+        assert!(keys.faster());
+        keys.right_up();
+        assert!(!keys.is_down());
+        assert_eq!(keys.movement(), [0., 0., 0.]);
+        assert!(!keys.faster());
+    }
+
+    #[test]
+    fn gizmo_keys_do_not_dispatch_as_tools_while_flying() {
+        let mut keys = FlyKeys::default();
+        keys.right_down();
+        keys.key("w", true);
+        assert!(keys.is_down());
+        assert!(!keys.gizmo_shortcuts_allowed());
+        assert_eq!(keys.movement(), [0., 0., 1.]);
+        keys.right_up();
+        assert!(keys.gizmo_shortcuts_allowed());
     }
 }
