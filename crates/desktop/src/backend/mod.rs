@@ -680,7 +680,9 @@ struct Display {
     preview_ready: bool,
     camera: ViewerCamera,
     scene_camera: Option<ViewerCamera>,
-    view_revision: Option<Value>,
+    /// The wire camera this display last wrote to, or adopted from, the shared
+    /// view. A shared camera that differs from it was set by another client.
+    synced_camera: Option<Value>,
     mode: PreviewMode,
     size: [u32; 2],
     dirty: bool,

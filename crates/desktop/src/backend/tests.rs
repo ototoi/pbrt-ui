@@ -2233,7 +2233,7 @@ fn an_export_puts_its_warnings_in_the_console() {
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
         scene_camera: None,
-        view_revision: None,
+        synced_camera: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2330,7 +2330,7 @@ fn a_settled_save_logs_one_console_line() {
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
         scene_camera: None,
-        view_revision: None,
+        synced_camera: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2443,7 +2443,7 @@ fn a_refused_job_submission_settles_its_form() {
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
         scene_camera: None,
-        view_revision: None,
+        synced_camera: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2534,7 +2534,7 @@ fn parallel_imports_each_deliver_their_reports() {
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
         scene_camera: None,
-        view_revision: None,
+        synced_camera: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2728,7 +2728,7 @@ fn bare_display(core: app_core::CoreHandle) -> (Display, mpsc::Receiver<Update>)
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
         scene_camera: None,
-        view_revision: None,
+        synced_camera: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -3216,6 +3216,9 @@ fn external_project_view_moves_the_desktop_camera() {
     let mut display = bare_display(host.handle()).0;
     display.last_project = json!({"context":{"project":project},"active_handedness":"right"});
     display.project_geometry = Some(protocol::geometry::GeometryManifest::default());
+    // The display first publishes its own camera.
+    display.view_due = Some(Instant::now() - Duration::from_millis(1));
+    display.poll_view_sync();
     let mut remote_camera = ViewerCamera::frame(None, 1.).to_protocol();
     remote_camera.eye[0] += 10.;
     let initial = request(
@@ -3224,7 +3227,6 @@ fn external_project_view_moves_the_desktop_camera() {
         json!({"project":display.last_project["context"]["project"]}),
     )
     .unwrap();
-    display.view_revision = Some(initial["view_revision"].clone());
     request(
         &display.core,
         Method::ProjectSetCamera,
@@ -3256,6 +3258,36 @@ fn desktop_view_write_is_not_adopted_as_an_external_camera() {
     display.poll_view_sync();
     assert_eq!(display.camera.to_protocol(), written);
     assert!(!display.dirty);
+}
+
+#[test]
+fn a_view_resize_does_not_make_the_next_orbit_snap_back() {
+    let (_temp, host, project) = native_project("WorldBegin\nShape \"sphere\"\nWorldEnd\n");
+    let mut display = bare_display(host.handle()).0;
+    display.last_project = json!({"context":{"project":project}});
+    display.project_geometry = Some(protocol::geometry::GeometryManifest::default());
+    let tick = |display: &mut Display| {
+        display.view_due = Some(Instant::now() - Duration::from_millis(1));
+        display.poll_view_sync();
+    };
+    tick(&mut display);
+    // A new size goes out as configure_view, which bumps the view revision.
+    display.size = [640, 480];
+    tick(&mut display);
+    display.camera.orbit(0.3, 0.).unwrap();
+    let orbited = display.camera.to_protocol();
+    tick(&mut display);
+    assert_eq!(display.camera.to_protocol(), orbited);
+    let shared = request(
+        &display.core,
+        Method::ProjectGetView,
+        json!({"project":display.last_project["context"]["project"]}),
+    )
+    .unwrap();
+    assert_eq!(
+        shared["view"]["camera"],
+        serde_json::to_value(orbited).unwrap()
+    );
 }
 
 #[test]

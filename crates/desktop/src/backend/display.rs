@@ -34,7 +34,7 @@ pub(super) fn run(
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
         scene_camera: None,
-        view_revision: None,
+        synced_camera: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,

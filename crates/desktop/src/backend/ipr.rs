@@ -51,36 +51,40 @@ impl Display {
             Ok(camera) => camera,
             Err(_) => return,
         };
-        if self.view_revision.as_ref() != Some(&current["view_revision"])
-            && current["view"]["camera"] != camera
+        // Compare cameras, not revisions: size, mode and time changes also bump
+        // the view revision, and must not make our own camera look foreign.
+        let shared = &current["view"]["camera"];
+        if self
+            .synced_camera
+            .as_ref()
+            .is_some_and(|synced| synced != shared)
+            && *shared != camera
+            && let Ok(wire_camera) =
+                serde_json::from_value::<protocol::view::Camera>(shared.clone())
         {
-            if let Ok(wire_camera) =
-                serde_json::from_value::<protocol::view::Camera>(current["view"]["camera"].clone())
-            {
-                let mut adopted = ViewerCamera::from_protocol(wire_camera);
-                adopted.mirror = self.scene_mirror();
-                self.camera = adopted;
-                self.view_revision = Some(current["view_revision"].clone());
-                self.dirty = true;
-                self.arm_ipr_submit();
-                return;
-            }
+            let mut adopted = ViewerCamera::from_protocol(wire_camera);
+            adopted.mirror = self.scene_mirror();
+            self.camera = adopted;
+            self.synced_camera = Some(shared.clone());
+            self.dirty = true;
+            self.arm_ipr_submit();
+            return;
         }
-        if current["view"].is_null() || current["view"]["camera"] != camera {
-            let stale = request(
+        if current["view"].is_null() || *shared != camera {
+            let written = request(
                 &self.core,
                 Method::ProjectSetCamera,
                 json!({"project":project,"expected_view_revision":current["view_revision"],"camera":camera}),
             );
-            if let Ok(result) = stale {
-                self.view_revision = Some(result["view_revision"].clone());
-                self.view_due = Some(Instant::now());
-            } else {
-                // Remote edits raced us; refetch the revision on the next tick.
-                self.view_due = Some(Instant::now());
+            if written.is_ok() {
+                self.synced_camera = Some(camera);
             }
+            // On a stale revision another client raced us; the next tick
+            // refetches and adopts its camera.
+            self.view_due = Some(Instant::now());
             return;
         }
+        self.synced_camera = Some(camera);
         if current["view"]["size"] != json!(self.render_size())
             || current["view"]["mode"] != json!(mode)
             || current["view"]["time"] != json!(self.project_time)
