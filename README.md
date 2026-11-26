@@ -152,6 +152,7 @@ On macOS, use Cmd instead of Ctrl.
 | Render scene camera / Render view / Cancel render | Ctrl+Enter / Ctrl+Shift+Enter / Ctrl+. |
 | Align Camera to View | Ctrl+Shift+F |
 | Align View to Selected | — |
+| Pivot / Center | Z |
 
 In the Scene viewport:
 

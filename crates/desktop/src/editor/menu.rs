@@ -632,6 +632,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("r", super::ScaleTool, Some("SceneViewport")),
         KeyBinding::new("q", super::NoTool, Some("SceneViewport")),
         KeyBinding::new("x", super::ToggleGizmoSpace, Some("SceneViewport")),
+        KeyBinding::new("z", super::ToggleGizmoPivot, Some("SceneViewport")),
     ]);
 }
 

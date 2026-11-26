@@ -13,6 +13,8 @@ pub struct Target {
     pub node_id: String,
     pub project: Value,
     pub world: Mat4,
+    /// Optional world-space pivot used by Center mode.
+    pub pivot: Option<[f64; 3]>,
     /// The transform parent's world: identity when `local.parent` is root.
     pub parent: Mat4,
     /// The current TRS, sent back unchanged for the parts a move keeps.
@@ -57,6 +59,7 @@ pub fn target(details: &Value) -> Result<Target, String> {
         node_id: node["node_id"].as_str().unwrap_or_default().to_owned(),
         project: node["project"].clone(),
         world: start,
+        pivot: None,
         parent,
         trs: local["trs"].is_object().then(|| local["trs"].clone()),
     })
@@ -97,7 +100,7 @@ impl Target {
         match drag {
             Drag::Move(d) => Mat4::translation(d[0], d[1], d[2]),
             Drag::Rotate { axis, degrees } => {
-                let o = self.origin();
+                let o = self.pivot.unwrap_or_else(|| self.origin());
                 Mat4::translation(o[0], o[1], o[2])
                     .compose(Mat4::rotation(degrees, axis[0], axis[1], axis[2]))
                     .compose(Mat4::translation(-o[0], -o[1], -o[2]))
@@ -105,9 +108,23 @@ impl Target {
             // Scale in the object's own frame: `world · diag · world⁻¹`.
             Drag::Scale(f) => inverse(self.world)
                 .map(|wi| {
-                    self.world
+                    let scale = self
+                        .world
                         .compose(Mat4::scale(f[0], f[1], f[2]))
-                        .compose(wi)
+                        .compose(wi);
+                    let origin = self.origin();
+                    let centre = self.pivot.unwrap_or(origin);
+                    Mat4::translation(
+                        centre[0] - origin[0],
+                        centre[1] - origin[1],
+                        centre[2] - origin[2],
+                    )
+                    .compose(scale)
+                    .compose(Mat4::translation(
+                        origin[0] - centre[0],
+                        origin[1] - centre[1],
+                        origin[2] - centre[2],
+                    ))
                 })
                 .unwrap_or_else(Mat4::identity),
         }
@@ -153,7 +170,7 @@ fn matrix_edit(node_id: &str, matrix: [f64; 16]) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{Drag, Mat4, target};
+    use super::{Drag, Mat4, inverse, matrix, target};
     use serde_json::{Value, json};
 
     fn details(world: Mat4, local: Mat4, parent: &str, trs: Value) -> Value {
@@ -269,5 +286,49 @@ mod tests {
         let axes = t.local_axes();
         assert!((axes[0][1] - 1.).abs() < 1e-12 && axes[0][0].abs() < 1e-12);
         assert!((axes[1][0] + 1.).abs() < 1e-12);
+    }
+
+    #[test]
+    fn center_rotate_and_scale_keep_the_selection_centre_fixed_under_a_parent() {
+        let parent = Mat4::translation(4., -2., 1.).compose(Mat4::rotation(37., 0., 0., 1.));
+        let local = Mat4::translation(2., 1., -3.)
+            .compose(Mat4::rotation(21., 0., 1., 0.))
+            .compose(Mat4::scale(2., 3., 1.));
+        let world = parent.compose(local);
+        let mut target = target(&details(world, local, "group", Value::Null)).unwrap();
+        let centre = [3.5, -1.25, 2.];
+        target.pivot = Some(centre);
+
+        for drag in [
+            Drag::Rotate {
+                axis: [0., 0., 1.],
+                degrees: 63.,
+            },
+            Drag::Scale([1.7, 0.6, 1.2]),
+        ] {
+            let delta = target.delta_matrix(drag);
+            let moved = delta.transform_point(centre);
+            for axis in 0..3 {
+                assert!((moved[axis] - centre[axis]).abs() < 1e-9);
+            }
+            let edit = target.edit(drag).unwrap();
+            assert_eq!(edit["kind"], "set_local_matrix");
+            let committed = matrix(&edit["matrix"]).unwrap();
+            let expected = inverse(parent).unwrap().compose(delta.compose(world));
+            for (actual, expected) in committed.0.iter().zip(expected.0) {
+                assert!((actual - expected).abs() < 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    fn move_is_independent_of_the_pivot() {
+        let world = Mat4::translation(2., 3., 4.).compose(Mat4::rotation(30., 0., 0., 1.));
+        let trs = json!({"translation":[2.,3.,4.],"rotation_euler_degrees":[0.,0.,30.],"scale":[1.,1.,1.]});
+        let mut target = target(&details(world, world, "root", trs)).unwrap();
+        let drag = Drag::Move([1., -2., 3.]);
+        let pivot_mode = target.delta_matrix(drag);
+        target.pivot = Some([90., -40., 12.]);
+        assert_eq!(pivot_mode, target.delta_matrix(drag));
     }
 }

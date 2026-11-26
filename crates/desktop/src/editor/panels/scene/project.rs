@@ -247,6 +247,18 @@ impl EditorPanel {
                     .on_click(cx.listener(|this, _, _, cx| this.gizmo_toggle_space(cx))),
             );
         }
+        let pivot_label = if self.gizmo_center { "Center" } else { "Pivot" };
+        let pivot_tooltip = format!("{pivot_label} (Z)");
+        toolbar = toolbar.child(
+            Button::new("gizmo-pivot")
+                .label(pivot_label)
+                .small()
+                .when(self.gizmo_center, |button| button.primary())
+                .toggled(self.gizmo_center)
+                .tooltip(pivot_tooltip.clone())
+                .accessibility_label(pivot_tooltip)
+                .on_click(cx.listener(|this, _, _, cx| this.gizmo_toggle_pivot(cx))),
+        );
         if model.supported_times.len() > 1 {
             toolbar = toolbar
                 .child(div().text_xs().child(format!("t={:.3}", model.view_time)))

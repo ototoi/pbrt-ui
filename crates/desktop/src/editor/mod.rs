@@ -67,7 +67,8 @@ actions!(
         RotateTool,
         ScaleTool,
         NoTool,
-        ToggleGizmoSpace
+        ToggleGizmoSpace,
+        ToggleGizmoPivot,
     ]
 );
 
@@ -184,6 +185,7 @@ struct Session {
     reveal_where_used: Option<(String, String, Vec<String>)>,
     selected_project_node: Option<String>,
     project_inspector: serde_json::Value,
+    selection_bounds_center: Option<[f64; 3]>,
     /// The node editor's selected value node the Inspector follows
     /// — the inline
     /// colour page the Inspector shows until any other selection
@@ -313,6 +315,7 @@ struct EditorPanel {
     /// The active gizmo tool and its Local / World space.
     gizmo_tool: scene_view::preview::gizmo::Tool,
     gizmo_space: panels::scene::Space,
+    gizmo_center: bool,
     /// When the Jobs panel first saw each job, and its final elapsed time.
     job_times: std::collections::HashMap<String, (std::time::Instant, Option<std::time::Duration>)>,
 }

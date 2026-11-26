@@ -123,10 +123,14 @@ impl EditorPanel {
         if session.document().is_read_only() {
             return Some(Err("Viewer is read-only".into()));
         }
-        let target = match crate::editor::gizmo::target(details) {
+        let mut target = match crate::editor::gizmo::target(details) {
             Ok(target) => target,
             Err(reason) => return Some(Err(reason)),
         };
+        let bounds_center = session.selection_bounds_center;
+        if self.gizmo_center {
+            target.pivot = bounds_center;
+        }
         // The Inspector refreshes after an edit; until then the values are
         // stale and a drag would start from the old place.
         if target.project != session.project_value() {
@@ -141,11 +145,16 @@ impl EditorPanel {
             Some(Drag::Move(d)) => d,
             _ => [0.; 3],
         };
-        let o = target.origin();
+        let o = target.pivot.unwrap_or_else(|| target.origin());
         // A pivot off the image draws nothing, so say why instead of
         // "Drag to move"; a drag in progress keeps its gizmo wherever it goes.
         if self.gizmo_drag.is_none() && !on_image(projector.project(o), size) {
-            return Some(Err("pivot is off screen · F focuses the selection".into()));
+            let hint = if self.gizmo_center {
+                "center is off screen · F focuses the selection"
+            } else {
+                "pivot is off screen · Z switches to Center · F focuses the selection"
+            };
+            return Some(Err(hint.into()));
         }
         let gizmo = Gizmo {
             tool: self.gizmo_tool,
@@ -382,6 +391,14 @@ impl EditorPanel {
             Space::Local => Space::World,
             Space::World => Space::Local,
         };
+        cx.notify();
+    }
+
+    /// Switch between the node pivot and the selection bounds centre.
+    pub(crate) fn gizmo_toggle_pivot(&mut self, cx: &mut Context<Self>) {
+        self.gizmo_cancel(cx);
+        self.gizmo_center = !self.gizmo_center;
+        self.gizmo_hover = None;
         cx.notify();
     }
 
