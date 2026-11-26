@@ -55,6 +55,16 @@ impl EditorPanel {
             })
             .detach();
         }
+        if matches!(kind, PanelKind::Scene) {
+            cx.observe_window_activation(window, |this, window, cx| {
+                if !window.is_window_active() {
+                    this.fly_keys.clear();
+                    this.last_mouse = None;
+                    cx.notify();
+                }
+            })
+            .detach();
+        }
         Self {
             settings_form: matches!(kind, PanelKind::Render).then(|| {
                 cx.new(|cx| render_settings::SettingsForm::new(session.clone(), window, cx))
