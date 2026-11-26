@@ -18,6 +18,28 @@ use scene_view::preview::light_gizmo::LightKind;
 use std::time::Instant;
 
 #[derive(Default)]
+pub(in crate::editor) struct FlyClock {
+    tick: Option<Instant>,
+}
+
+impl FlyClock {
+    pub(in crate::editor) fn start_if_idle(&mut self, now: Instant) {
+        self.tick.get_or_insert(now);
+    }
+
+    pub(in crate::editor) fn consume(&mut self, now: Instant) -> f64 {
+        let Some(tick) = self.tick.replace(now) else {
+            return 0.;
+        };
+        now.duration_since(tick).as_secs_f64().min(0.1)
+    }
+
+    pub(in crate::editor) fn reset(&mut self) {
+        self.tick = None;
+    }
+}
+
+#[derive(Default)]
 pub(in crate::editor) struct FlyKeys {
     right_down: bool,
     held: std::collections::BTreeSet<String>,
@@ -275,7 +297,7 @@ impl EditorPanel {
                 cx.listener(|this, event: &MouseDownEvent, window, cx| {
                     this.focus.focus(window, cx);
                     this.fly_keys.right_down();
-                    this.fly_tick = Instant::now();
+                    this.fly_clock.start_if_idle(Instant::now());
                     // A right click while dragging the gizmo cancels it.
                     if this.gizmo_cancel(cx) {
                         return;
@@ -308,6 +330,7 @@ impl EditorPanel {
                 cx.listener(|this, _: &MouseUpEvent, _, _| {
                     this.last_mouse = None;
                     this.fly_keys.right_up();
+                    this.fly_clock.reset();
                 }),
             )
             .on_mouse_up_out(
@@ -315,6 +338,7 @@ impl EditorPanel {
                 cx.listener(|this, _: &MouseUpEvent, _, _| {
                     this.last_mouse = None;
                     this.fly_keys.right_up();
+                    this.fly_clock.reset();
                 }),
             )
             .on_mouse_down(
@@ -547,8 +571,9 @@ fn light_drag_hint(kind: Option<LightKind>, editable: bool) -> Option<&'static s
 
 #[cfg(test)]
 mod tests {
-    use super::{FlyKeys, LightKind, gizmo_space_face, light_drag_hint};
+    use super::{FlyClock, FlyKeys, LightKind, gizmo_space_face, light_drag_hint};
     use gpui_kit::assets;
+    use std::time::{Duration, Instant};
 
     /// The icon and tooltip follow the space the toggle switches
     /// from — Local shows a box, World the globe — and each names the
@@ -615,6 +640,16 @@ mod tests {
         assert!(!keys.is_down());
         assert_eq!(keys.movement(), [0., 0., 0.]);
         assert!(!keys.faster());
+    }
+
+    #[test]
+    fn fly_clock_keeps_elapsed_time_across_repeated_keys_until_consumed() {
+        let start = Instant::now();
+        let mut clock = FlyClock::default();
+        clock.start_if_idle(start);
+        clock.start_if_idle(start + Duration::from_millis(20));
+        assert!((clock.consume(start + Duration::from_millis(50)) - 0.05).abs() < 0.001);
+        assert!((clock.consume(start + Duration::from_millis(80)) - 0.03).abs() < 0.001);
     }
 
     #[test]

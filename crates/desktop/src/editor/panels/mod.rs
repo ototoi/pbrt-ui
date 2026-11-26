@@ -59,6 +59,7 @@ impl EditorPanel {
             cx.observe_window_activation(window, |this, window, cx| {
                 if !window.is_window_active() {
                     this.fly_keys.clear();
+                    this.fly_clock.reset();
                     this.last_mouse = None;
                     cx.notify();
                 }
@@ -91,7 +92,7 @@ impl EditorPanel {
             viewport_requested: Cell::new([0, 0]),
             last_mouse: None,
             fly_keys: scene::FlyKeys::default(),
-            fly_tick: std::time::Instant::now(),
+            fly_clock: scene::FlyClock::default(),
             gizmo_hover: None,
             gizmo_drag: None,
             light_hover: None,
@@ -129,10 +130,10 @@ impl Render for EditorPanel {
             // window never reports active and the held state would vanish.
             if !self.focus.is_focused(window) {
                 self.fly_keys.clear();
+                self.fly_clock.reset();
             } else {
                 let now = std::time::Instant::now();
-                let dt = now.duration_since(self.fly_tick).as_secs_f64().min(0.1);
-                self.fly_tick = now;
+                let dt = self.fly_clock.consume(now);
                 let mut movement = self.fly_keys.movement();
                 if movement.iter().any(|axis| *axis != 0.) {
                     let magnitude = movement.iter().map(|axis| axis * axis).sum::<f64>().sqrt();
@@ -229,7 +230,6 @@ impl Render for EditorPanel {
                         if event.keystroke.modifiers.shift {
                             this.fly_keys.key("shift", true);
                         }
-                        this.fly_tick = std::time::Instant::now();
                         // Render keeps requesting frames while keys are held;
                         // request_animation_frame is only allowed during paint.
                         cx.notify();
