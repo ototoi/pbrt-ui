@@ -505,13 +505,25 @@ pub(super) fn film_aspect(
 /// elements are strings so large integers survive JSON. Floats arrive as
 /// `{"kind":"finite","value":42.0}` (non-finite floats have no number).
 pub(super) fn first_preview_number(values: &Value) -> Option<f64> {
-    let first = &values["value"][0];
-    first
+    preview_number(&values["value"][0])
+}
+
+/// Every element of a parameter preview as a number, or `None` if any is not.
+pub(super) fn preview_numbers(values: &Value) -> Option<Vec<f64>> {
+    values["value"]
+        .as_array()?
+        .iter()
+        .map(preview_number)
+        .collect()
+}
+
+fn preview_number(value: &Value) -> Option<f64> {
+    value
         .as_f64()
-        .or_else(|| first.as_str().and_then(|text| text.trim().parse().ok()))
+        .or_else(|| value.as_str().and_then(|text| text.trim().parse().ok()))
         .or_else(|| {
-            (first["kind"] == "finite")
-                .then(|| first["value"].as_f64())
+            (value["kind"] == "finite")
+                .then(|| value["value"].as_f64())
                 .flatten()
         })
 }
@@ -650,8 +662,19 @@ pub(super) fn created_resource_entry(
 
 #[cfg(test)]
 mod film_aspect_tests {
-    use super::first_preview_number;
+    use super::{first_preview_number, preview_numbers};
     use serde_json::json;
+
+    #[test]
+    fn reads_every_tagged_float_of_a_screenwindow() {
+        let window = json!({"kind":"floats","value":[
+            {"kind":"finite","value":-1.5},{"kind":"finite","value":1.5},
+            {"kind":"finite","value":-1.0},{"kind":"finite","value":1.0}]});
+        assert_eq!(preview_numbers(&window), Some(vec![-1.5, 1.5, -1.0, 1.0]));
+        let broken =
+            json!({"kind":"floats","value":[{"kind":"finite","value":1.0},{"kind":"nan"}]});
+        assert_eq!(preview_numbers(&broken), None);
+    }
 
     #[test]
     fn reads_the_tagged_floats_of_a_parameter_preview() {

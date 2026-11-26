@@ -94,7 +94,7 @@ impl Display {
                         let m: [f64; 16] = serde_json::from_value(world.clone()).map_err(|error| error.to_string())?;
                         let camera_parameters = camera_parameter_page(&self.core, &project, &node_id).unwrap_or_else(|_| json!({"parameters":[]}));
                         let parameter = |name: &str| camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == name).and_then(|p| first_preview_number(&p["values"]));
-                        let screenwindow = camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == "screenwindow").and_then(|p| preview_parameter_numbers(&p["values"])).and_then(|values| <[f64; 4]>::try_from(values).ok());
+                        let screenwindow = camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == "screenwindow").and_then(|p| preview_numbers(&p["values"])).and_then(|values| <[f64; 4]>::try_from(values).ok());
                         // `halffov` wins when declared, as Align Camera to View writes it then.
                         let fov = parameter("halffov").map(|half| half * 2.).or_else(|| parameter("fov")).unwrap_or(90.);
                         let scene_id = self.last_project["active_scene"].as_str().unwrap_or_default();
@@ -1016,18 +1016,6 @@ fn reveal_candidate(id: &str, data: &Value) -> Option<(usize, String, Option<Str
         (Some("scope"), _) => Some((3, id.to_owned(), None)),
         _ => None,
     }
-}
-
-fn preview_parameter_numbers(values: &Value) -> Option<Vec<f64>> {
-    values["value"]
-        .as_array()?
-        .iter()
-        .map(|value| {
-            value
-                .as_f64()
-                .or_else(|| value.as_str().and_then(|text| text.trim().parse().ok()))
-        })
-        .collect()
 }
 
 fn clipping_for_eye(eye: [f64; 3], bounds: Option<&protocol::geometry::Bounds>) -> (f64, f64) {
