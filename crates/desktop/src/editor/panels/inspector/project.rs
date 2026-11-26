@@ -55,16 +55,34 @@ fn inspector_node_menu(
     kind: &str,
     read_only: bool,
     in_definition: bool,
+    label_input: Option<Entity<gpui_kit::component::input::InputState>>,
 ) -> PopupMenu {
     for item in crate::editor::hierarchy::node_menu_items(kind, read_only, in_definition) {
         let action = item.action;
+        let label_input = label_input.clone();
         menu = menu.item(
             PopupMenuItem::new(item.label).on_click(move |_, window, cx| {
-                window.dispatch_action(action.workspace_action(), cx)
+                if inspector_uses_label_input(action) {
+                    if let Some(input) = &label_input {
+                        input.update(cx, |input, cx| input.focus(window, cx));
+                        window.on_next_frame(|window, cx| {
+                            window.dispatch_action(
+                                Box::new(gpui_kit::component::input::SelectAll),
+                                cx,
+                            );
+                        });
+                    }
+                } else {
+                    window.dispatch_action(action.workspace_action(), cx)
+                }
             }),
         );
     }
     menu
+}
+
+fn inspector_uses_label_input(action: crate::editor::hierarchy::NodeMenuAction) -> bool {
+    action == crate::editor::hierarchy::NodeMenuAction::Rename
 }
 
 /// Send one edit; the Viewer never gets here because its forms are hidden.
@@ -1237,6 +1255,8 @@ impl EditorPanel {
         let menu_kind = details.node_kind.clone();
         let menu_read_only = details.read_only;
         let menu_in_definition = details.in_definition;
+        let menu_label_input = self.label_input.as_ref().map(|(_, _, input)| input.clone());
+        let context_label_input = menu_label_input.clone();
         let title: AnyElement = match (&self.label_input, details.read_only) {
             (Some((_, _, input)), false) => Input::new(input).small().w_full().into_any_element(),
             _ => div()
@@ -1300,6 +1320,7 @@ impl EditorPanel {
                                         &kind,
                                         menu_read_only,
                                         menu_in_definition,
+                                        menu_label_input.clone(),
                                     )
                                 }),
                         )
@@ -1313,7 +1334,13 @@ impl EditorPanel {
             )
             .context_menu(move |menu, _, _| {
                 if let Some(kind) = menu_kind.as_ref() {
-                    inspector_node_menu(menu, kind, menu_read_only, menu_in_definition)
+                    inspector_node_menu(
+                        menu,
+                        kind,
+                        menu_read_only,
+                        menu_in_definition,
+                        context_label_input.clone(),
+                    )
                 } else {
                     menu
                 }
@@ -2134,5 +2161,15 @@ mod transform_header_tests {
             transform_header_control(&json!({"kind": "shape"}), false, None),
             None
         );
+    }
+
+    #[test]
+    fn inspector_rename_uses_the_header_label_input() {
+        assert!(super::inspector_uses_label_input(
+            crate::editor::hierarchy::NodeMenuAction::Rename
+        ));
+        assert!(!super::inspector_uses_label_input(
+            crate::editor::hierarchy::NodeMenuAction::Duplicate
+        ));
     }
 }
