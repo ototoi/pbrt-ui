@@ -158,12 +158,13 @@ impl ParameterField {
                         if matches!(event, InputEvent::Change) {
                             this.draft_history = true;
                         }
-                        if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur) {
-                            if matches!(event, InputEvent::Blur) && this.is_integer_single() {
-                                this.finish_steps(cx);
-                            } else if this.is_modified(cx) {
-                                this.apply_texts(cx);
-                            }
+                        // Enter commits typed text, as before. Blur only settles a run of
+                        // spin-box steps; typed text still waits for Enter.
+                        if matches!(event, InputEvent::PressEnter { .. }) && this.is_modified(cx) {
+                            this.apply_texts(cx);
+                        }
+                        if matches!(event, InputEvent::Blur) && this.is_integer_single() {
+                            this.finish_steps(cx);
                         }
                     },
                 )
@@ -324,11 +325,13 @@ impl ParameterField {
     }
 
     fn integer_minimum(&self) -> Option<i64> {
-        let positive = matches!(
-            self.row.name.as_str(),
-            "pixelsamples" | "maxdepth" | "nsamples"
-        );
-        positive.then_some(1)
+        // Sample counts need at least one; maxdepth 0 is valid in PBRT (emitted
+        // light only).
+        match self.row.name.as_str() {
+            "pixelsamples" | "nsamples" => Some(1),
+            "maxdepth" => Some(0),
+            _ => None,
+        }
     }
 
     fn step_integer(
@@ -363,8 +366,7 @@ impl ParameterField {
     fn finish_steps(&mut self, cx: &mut Context<Self>) {
         self.step_generation = self.step_generation.wrapping_add(1);
         let current = self.inputs[0].read(cx).value().parse::<i64>().ok();
-        let stepped = take_step_commit(&mut self.step_baseline, current);
-        if stepped || (self.step_baseline.is_none() && self.is_modified(cx)) {
+        if take_step_commit(&mut self.step_baseline, current) {
             self.apply_texts(cx);
         }
     }
