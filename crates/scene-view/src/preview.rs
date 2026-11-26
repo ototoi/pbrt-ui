@@ -197,8 +197,15 @@ impl ViewerCamera {
             return Err("fly movement must be finite".into());
         }
         let forward = norm(sub(self.target, self.eye)).ok_or("camera eye and target coincide")?;
-        let right = norm(cross(forward, self.up)).ok_or("camera up is parallel to view")?;
-        let up = norm(cross(right, forward)).ok_or("camera up is parallel to view")?;
+        // Screen right as `pan` sees it: up × forward (pbrt's left-handed
+        // LookAt), turned round when the image is mirrored.
+        let camera_right = norm(cross(self.up, forward)).ok_or("camera up is parallel to view")?;
+        let up = cross(forward, camera_right);
+        let right = if self.mirror {
+            camera_right.map(|v| -v)
+        } else {
+            camera_right
+        };
         let offset = sub(self.target, self.eye);
         let distance = dot(offset, offset).sqrt().max(self.near);
         let delta = [
@@ -488,6 +495,35 @@ mod tests {
         camera.fly([2., -3., 4.]).unwrap();
         assert_eq!(camera.eye, [3., -1., 7.]);
         assert_eq!(camera.target, [3., -1., -3.]);
+    }
+
+    #[test]
+    fn fly_right_goes_where_a_pan_to_the_right_goes() {
+        for mirror in [false, true] {
+            let start = ViewerCamera {
+                eye: [1., 2., 3.],
+                target: [-2., 1., -5.],
+                up: [0., 1., 0.],
+                fov_y_degrees: 45.,
+                near: 0.1,
+                far: 100.,
+                mirror,
+            };
+            let (mut flown, mut panned) = (start, start);
+            flown.fly_relative([1., 0., 0.]).unwrap();
+            // pan(-1, 0) shifts the camera along its screen right.
+            panned.pan(-1., 0.).unwrap();
+            let fly = norm(sub(flown.eye, start.eye)).unwrap();
+            let pan = norm(sub(panned.eye, start.eye)).unwrap();
+            assert!(
+                dot(fly, pan) > 0.999,
+                "mirror {mirror}: fly {fly:?} pan {pan:?}"
+            );
+            // Up stays up.
+            flown = start;
+            flown.fly_relative([0., 1., 0.]).unwrap();
+            assert!(flown.eye[1] > start.eye[1], "mirror {mirror}");
+        }
     }
 
     /// Pitch is measured against the camera's own up axis, so a Z-up scene

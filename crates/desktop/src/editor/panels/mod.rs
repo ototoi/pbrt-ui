@@ -115,7 +115,9 @@ impl Focusable for EditorPanel {
 impl Render for EditorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if matches!(self.kind, PanelKind::Scene) && self.fly_keys.is_down() {
-            if !window.is_window_active() || !self.focus.is_focused(window) {
+            // Not `is_window_active`: without a window manager (Xephyr) the
+            // window never reports active and the held state would vanish.
+            if !self.focus.is_focused(window) {
                 self.fly_keys.clear();
             } else {
                 let now = std::time::Instant::now();
@@ -209,7 +211,7 @@ impl Render for EditorPanel {
                             this.gizmo_toggle_space(cx);
                         }
                     }))
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                         if !this.fly_keys.is_down() {
                             return;
                         }
@@ -218,7 +220,8 @@ impl Render for EditorPanel {
                             this.fly_keys.key("shift", true);
                         }
                         this.fly_tick = std::time::Instant::now();
-                        window.request_animation_frame();
+                        // Render keeps requesting frames while keys are held;
+                        // request_animation_frame is only allowed during paint.
                         cx.notify();
                     }))
                     .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| {
