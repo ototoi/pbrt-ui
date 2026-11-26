@@ -135,16 +135,17 @@ pub fn framing_camera_up(
 /// window, `frameaspectratio` or `film_resolution` the recorded fov passes
 /// through. The viewer rejects 179° and above; a widened angle is clamped to
 /// stay just under it so the scene camera's pose is kept.
-fn camera_record_fov_y(record: &CameraRecord) -> f64 {
+pub fn camera_fov_y(
+    fov_degrees: Option<f64>,
+    screenwindow: Option<[f64; 4]>,
+    frame_aspect_ratio: Option<f64>,
+    film_aspect: Option<f64>,
+) -> f64 {
     const CEILING: f64 = 178.9;
-    let fov = record.fov_degrees.unwrap_or(45.);
-    let extent = match record.screenwindow {
+    let fov = fov_degrees.unwrap_or(45.);
+    let extent = match screenwindow {
         Some([_, _, bottom, top]) if top > bottom => (top - bottom) / 2.,
-        _ => match record.frame_aspect_ratio.or(record
-            .film_resolution
-            .filter(|[w, h]| *w > 0 && *h > 0)
-            .map(|[w, h]| w as f64 / h as f64))
-        {
+        _ => match frame_aspect_ratio.or(film_aspect) {
             Some(frame) if frame > 0. && frame < 1. => 1. / frame,
             _ => 1.,
         },
@@ -153,6 +154,17 @@ fn camera_record_fov_y(record: &CameraRecord) -> f64 {
         return fov;
     }
     (2. * ((fov.to_radians() / 2.).tan() * extent).atan().to_degrees()).min(CEILING)
+}
+fn camera_record_fov_y(record: &CameraRecord) -> f64 {
+    camera_fov_y(
+        record.fov_degrees,
+        record.screenwindow,
+        record.frame_aspect_ratio,
+        record
+            .film_resolution
+            .filter(|[w, h]| *w > 0 && *h > 0)
+            .map(|[w, h]| w as f64 / h as f64),
+    )
 }
 /// Scene-camera candidate from a manifest's parsed `Camera "perspective"`:
 /// `None` when the manifest has no usable perspective LookAt.

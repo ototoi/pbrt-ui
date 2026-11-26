@@ -94,12 +94,14 @@ impl Display {
                         let m: [f64; 16] = serde_json::from_value(world.clone()).map_err(|error| error.to_string())?;
                         let camera_parameters = camera_parameter_page(&self.core, &project, &node_id).unwrap_or_else(|_| json!({"parameters":[]}));
                         let parameter = |name: &str| camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == name).and_then(|p| first_preview_number(&p["values"]));
+                        let screenwindow = camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == "screenwindow").and_then(|p| preview_parameter_numbers(&p["values"])).and_then(|values| <[f64; 4]>::try_from(values).ok());
                         // `halffov` wins when declared, as Align Camera to View writes it then.
                         let fov = parameter("halffov").map(|half| half * 2.).or_else(|| parameter("fov")).unwrap_or(90.);
                         let scene_id = self.last_project["active_scene"].as_str().unwrap_or_default();
                         let aspect = film_aspect(&self.core, &project, scene_id).unwrap_or(self.size[0] as f64 / self.size[1].max(1) as f64);
                         let distance = ((0..3).map(|i| (self.camera.eye[i] - self.camera.target[i]).powi(2)).sum::<f64>()).sqrt().max(1e-3);
-                        let (eye, target, camera_up, vertical) = crate::editor::view_from_camera(&m, fov, aspect, distance).ok_or("The selected camera's transform is degenerate")?;
+                        let (eye, target, camera_up, _) = crate::editor::view_from_camera(&m, fov, aspect, distance).ok_or("The selected camera's transform is degenerate")?;
+                        let vertical = protocol::view::camera_fov_y(Some(fov), screenwindow, parameter("frameaspectratio"), Some(aspect));
                         // Orbit turns about the camera's up, so keep the scene's up axis
                         // rather than the camera's own (tilted) up; a rolled camera loses its roll.
                         self.camera.eye=eye; self.camera.target=target; self.camera.up=up_for_view(eye, target, self.scene_up().vector(), camera_up); self.camera.fov_y_degrees=vertical; self.camera.mirror=self.scene_mirror();
@@ -1011,6 +1013,18 @@ fn reveal_candidate(id: &str, data: &Value) -> Option<(usize, String, Option<Str
         (Some("scope"), _) => Some((3, id.to_owned(), None)),
         _ => None,
     }
+}
+
+fn preview_parameter_numbers(values: &Value) -> Option<Vec<f64>> {
+    values["value"]
+        .as_array()?
+        .iter()
+        .map(|value| {
+            value
+                .as_f64()
+                .or_else(|| value.as_str().and_then(|text| text.trim().parse().ok()))
+        })
+        .collect()
 }
 
 /// Keep the scene axis as screen-up unless it would make the view basis
