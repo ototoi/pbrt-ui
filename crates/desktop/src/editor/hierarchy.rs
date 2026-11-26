@@ -28,6 +28,8 @@ pub(super) enum NodeMenuAction {
     MakeObjectDefinition,
     UnpackInstance,
     FrameSelection,
+    AlignViewToSelected,
+    AlignCameraToView,
 }
 
 impl NodeMenuAction {
@@ -40,6 +42,8 @@ impl NodeMenuAction {
             Self::MakeObjectDefinition => Box::new(super::menu::MakeObjectDefinition),
             Self::UnpackInstance => Box::new(super::menu::UnpackObjectInstance),
             Self::FrameSelection => Box::new(super::FrameSelected),
+            Self::AlignViewToSelected => Box::new(super::menu::AlignViewToSelected),
+            Self::AlignCameraToView => Box::new(super::menu::AlignCameraToView),
         }
     }
 }
@@ -58,10 +62,17 @@ pub(super) fn node_menu_items(
 ) -> Vec<NodeMenuItem> {
     use NodeMenuAction::*;
     if read_only {
-        return vec![NodeMenuItem {
+        let mut items = vec![NodeMenuItem {
             label: "Frame Selection",
             action: FrameSelection,
         }];
+        if kind == "camera" && !in_definition {
+            items.push(NodeMenuItem {
+                label: "Align View to Selected",
+                action: AlignViewToSelected,
+            });
+        }
+        return items;
     }
     let mut items = vec![NodeMenuItem {
         label: "Rename",
@@ -78,6 +89,16 @@ pub(super) fn node_menu_items(
         });
     }
     if !in_definition {
+        if kind == "camera" {
+            items.push(NodeMenuItem {
+                label: "Align View to Selected",
+                action: AlignViewToSelected,
+            });
+            items.push(NodeMenuItem {
+                label: "Align Camera to View",
+                action: AlignCameraToView,
+            });
+        }
         match kind {
             "group" => items.push(NodeMenuItem {
                 label: "Make Object Definition",
@@ -2416,7 +2437,14 @@ mod icon_tests {
         );
         assert_eq!(
             labels("camera"),
-            ["Rename", "Duplicate", "Delete", "Frame Selection"]
+            [
+                "Rename",
+                "Duplicate",
+                "Delete",
+                "Align View to Selected",
+                "Align Camera to View",
+                "Frame Selection"
+            ]
         );
         assert_eq!(labels("scene"), ["Rename", "Frame Selection"]);
     }
@@ -2467,14 +2495,17 @@ mod icon_tests {
     #[test]
     fn shared_node_menu_keeps_only_frame_selection_in_viewer_mode() {
         for kind in ["group", "instance", "shape", "camera", "scene"] {
-            assert_eq!(
-                node_menu_items(kind, true, false),
-                [NodeMenuItem {
-                    label: "Frame Selection",
-                    action: NodeMenuAction::FrameSelection
-                }],
-                "{kind}"
-            );
+            let mut expected = vec![NodeMenuItem {
+                label: "Frame Selection",
+                action: NodeMenuAction::FrameSelection,
+            }];
+            if kind == "camera" {
+                expected.push(NodeMenuItem {
+                    label: "Align View to Selected",
+                    action: NodeMenuAction::AlignViewToSelected,
+                });
+            }
+            assert_eq!(node_menu_items(kind, true, false), expected, "{kind}");
         }
     }
 }

@@ -7,16 +7,17 @@ use super::document::{
     suggested_project_name,
 };
 use super::menu::{
-    self, AddSceneToProject, AlignCameraToView, AlignViewToSceneCamera, CancelRender,
-    CloseDocument, CloseScene, ConfirmDeleteHierarchyNode, ContentsDelete, ContentsImportResource,
-    ContentsMove, ContentsNewFolder, ContentsOpen, ContentsRename, CreateDefinitionPreset,
-    CreatePreset, CreateResource, DeleteNode, Deselect, DuplicateNode, DuplicateScene, ExportPbrt,
-    LitMode, MakeObjectDefinition, MenuState, NewProject, NewScene, NormalMode, OpenArrayEditor,
-    OpenInEditor, OpenPbrtScene, OpenProject, OpenRecent, OpenRenderSettings, OpenSceneId, QuitApp,
-    RedoEdit, ReloadSource, RenderCurrentView, RenderSceneCamera, ResetPanelLayout,
-    RevealDefinition, RevealItem, RevealNode, SaveProject, SaveProjectAs, ShowAbout,
-    ShowControlEndpoint, ShowInspector, SolidMode, ToggleGpu, TogglePanel, UndoEdit,
-    UnpackObjectInstance, UnsavedCancel, UnsavedDiscard, UnsavedSave, WireframeMode,
+    self, AddSceneToProject, AlignCameraToView, AlignViewToSceneCamera, AlignViewToSelected,
+    CancelRender, CloseDocument, CloseScene, ConfirmDeleteHierarchyNode, ContentsDelete,
+    ContentsImportResource, ContentsMove, ContentsNewFolder, ContentsOpen, ContentsRename,
+    CreateDefinitionPreset, CreatePreset, CreateResource, DeleteNode, Deselect, DuplicateNode,
+    DuplicateScene, ExportPbrt, LitMode, MakeObjectDefinition, MenuState, NewProject, NewScene,
+    NormalMode, OpenArrayEditor, OpenInEditor, OpenPbrtScene, OpenProject, OpenRecent,
+    OpenRenderSettings, OpenSceneId, QuitApp, RedoEdit, ReloadSource, RenderCurrentView,
+    RenderSceneCamera, ResetPanelLayout, RevealDefinition, RevealItem, RevealNode, SaveProject,
+    SaveProjectAs, ShowAbout, ShowControlEndpoint, ShowInspector, SolidMode, ToggleGpu,
+    TogglePanel, UndoEdit, UnpackObjectInstance, UnsavedCancel, UnsavedDiscard, UnsavedSave,
+    WireframeMode,
 };
 use super::prompt;
 use super::status;
@@ -1752,6 +1753,22 @@ impl Render for Workspace {
                     this.session
                         .update(cx, |session, cx| session.send(Command::ViewSceneCamera, cx));
                 }
+            }))
+            .on_action(cx.listener(|this, _: &AlignViewToSelected, _, cx| {
+                let (node_id, project) = {
+                    let session = this.session.read(cx);
+                    (
+                        session.selected_project_node.clone(),
+                        session.project_value(),
+                    )
+                };
+                let Some(node_id) = node_id else {
+                    this.set_status("Select a camera to align the view to".into(), cx);
+                    return;
+                };
+                this.session.update(cx, |session, cx| {
+                    session.send(Command::ViewSelectedCamera { project, node_id }, cx)
+                });
             }))
             .on_action(cx.listener(|this, _: &RenderSceneCamera, _, cx| {
                 if this.session.read(cx).project.active_scene.is_none() {

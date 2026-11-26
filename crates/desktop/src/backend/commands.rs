@@ -128,6 +128,32 @@ impl Display {
                         Err("Wait for the project preview before aligning to the scene camera".into())
                     }
                 }
+                Command::ViewSelectedCamera { project, node_id } => {
+                    (|| {
+                        let id = uuid::Uuid::parse_str(&node_id).map_err(|error| error.to_string())?;
+                        let node = request(&self.core, Method::ProjectGetNode, json!({"project":project,"node_id":id}))?;
+                        if node["object"] != "camera" { return Err("Select a camera to align the view to".into()); }
+                        let world = node["components"].as_array().into_iter().flatten().find(|component| component["kind"] == "transform").map(|component| &component["world"]["start"]).ok_or("The selected camera has no evaluated world transform")?;
+                        let m: [f64; 16] = serde_json::from_value(world.clone()).map_err(|error| error.to_string())?;
+                        let camera_parameters = camera_parameter_page(&self.core, &project, &node_id).unwrap_or_else(|_| json!({"parameters":[]}));
+                        let parameter = |name: &str| camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == name).and_then(|p| first_preview_number(&p["values"]));
+                        let screenwindow = camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == "screenwindow").and_then(|p| preview_numbers(&p["values"])).and_then(|values| <[f64; 4]>::try_from(values).ok());
+                        // `halffov` wins when declared, as Align Camera to View writes it then.
+                        let fov = parameter("halffov").map(|half| half * 2.).or_else(|| parameter("fov")).unwrap_or(90.);
+                        let scene_id = self.last_project["active_scene"].as_str().unwrap_or_default();
+                        let aspect = film_aspect(&self.core, &project, scene_id).unwrap_or(self.size[0] as f64 / self.size[1].max(1) as f64);
+                        let distance = ((0..3).map(|i| (self.camera.eye[i] - self.camera.target[i]).powi(2)).sum::<f64>()).sqrt().max(1e-3);
+                        let (eye, target, camera_up, _) = crate::editor::view_from_camera(&m, fov, aspect, distance).ok_or("The selected camera's transform is degenerate")?;
+                        let vertical = protocol::view::camera_fov_y(Some(fov), screenwindow, parameter("frameaspectratio"), Some(aspect));
+                        // Orbit turns about the camera's up, so keep the scene's up axis
+                        // rather than the camera's own (tilted) up; a rolled camera loses its roll.
+                        self.camera.eye=eye; self.camera.target=target; self.camera.up=up_for_view(eye, target, self.scene_up().vector(), camera_up); self.camera.fov_y_degrees=vertical;
+                        let bounds = self.project_geometry.as_ref().and_then(|geometry| geometry.bounds.as_ref());
+                        (self.camera.near, self.camera.far) = clipping_for_eye(eye, bounds);
+                        self.camera.mirror=self.scene_mirror();
+                        self.dirty=true; self.arm_ipr_submit(); Ok(())
+                    })()
+                }
                 // The F key frames the selection; with nothing
                 // selected it frames the whole scene, like Frame All.
                 Command::FrameSelection => match self.selected_project_node.clone() {
@@ -1035,9 +1061,45 @@ fn reveal_candidate(id: &str, data: &Value) -> Option<(usize, String, Option<Str
     }
 }
 
+fn clipping_for_eye(eye: [f64; 3], bounds: Option<&protocol::geometry::Bounds>) -> (f64, f64) {
+    let (center, radius) = bounds
+        .map(|bounds| (bounds.center(), bounds.half_diagonal().max(1e-3)))
+        .unwrap_or(([0.; 3], 1.));
+    let distance = (0..3)
+        .map(|axis| (eye[axis] - center[axis]).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    ((distance - radius * 2.).max(0.001), distance + radius * 2.)
+}
+
+/// Keep the scene axis as screen-up unless it would make the view basis
+/// degenerate; top-down views need the camera's own world-space up vector.
+fn up_for_view(
+    eye: [f64; 3],
+    target: [f64; 3],
+    scene_up: [f64; 3],
+    camera_up: [f64; 3],
+) -> [f64; 3] {
+    let forward = std::array::from_fn::<_, 3, _>(|i| target[i] - eye[i]);
+    let length = |vector: [f64; 3]| vector.iter().map(|value| value * value).sum::<f64>().sqrt();
+    let forward_length = length(forward);
+    let scene_length = length(scene_up);
+    let parallel = forward_length > 0.
+        && scene_length > 0.
+        && (forward
+            .iter()
+            .zip(scene_up)
+            .map(|(a, b)| a * b)
+            .sum::<f64>()
+            / (forward_length * scene_length))
+            .abs()
+            > 0.999;
+    if parallel { camera_up } else { scene_up }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::reveal_candidate;
+    use super::{clipping_for_eye, reveal_candidate, up_for_view};
     use serde_json::json;
 
     #[test]
@@ -1059,6 +1121,31 @@ mod tests {
             reveal_candidate("group", &json!({"kind":"scope"})).unwrap(),
             (3, "group".into(), None)
         );
+    }
+
+    #[test]
+    fn top_down_camera_uses_camera_up_when_scene_up_is_parallel() {
+        let up = up_for_view([0., 2., 0.], [0., 0., 0.], [0., 1., 0.], [0., 0., 1.]);
+        assert_eq!(up, [0., 0., 1.]);
+        let forward = [0., -2., 0.];
+        let cross = [
+            forward[1] * up[2] - forward[2] * up[1],
+            forward[2] * up[0] - forward[0] * up[2],
+            forward[0] * up[1] - forward[1] * up[0],
+        ];
+        assert!(cross.iter().map(|value| value * value).sum::<f64>() >= 1e-18);
+    }
+
+    #[test]
+    fn selected_camera_clipping_contains_distant_scene_bounds() {
+        let bounds = protocol::geometry::Bounds {
+            min: [-1., -1., -1.],
+            max: [1., 1., 1.],
+        };
+        let (near, far) = clipping_for_eye([0., 0., 1000.], Some(&bounds));
+        assert!(near > 990.);
+        assert!(far > 1000.);
+        assert!(near < far);
     }
 }
 

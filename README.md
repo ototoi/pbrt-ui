@@ -150,6 +150,8 @@ On macOS, use Cmd instead of Ctrl.
 | New group | Ctrl+Shift+N |
 | Duplicate / Delete / Rename (Hierarchy) | Ctrl+D / Delete / F2 |
 | Render scene camera / Render view / Cancel render | Ctrl+Enter / Ctrl+Shift+Enter / Ctrl+. |
+| Align Camera to View | Ctrl+Shift+F |
+| Align View to Selected | — |
 
 In the Scene viewport:
 

@@ -88,6 +88,10 @@ pub enum Command {
     FrameAll,
     FrameSelection,
     ViewSceneCamera,
+    ViewSelectedCamera {
+        project: Value,
+        node_id: String,
+    },
     /// The Scene viewport's size in pixels.
     Resize([u32; 2]),
     Orbit(f64, f64),

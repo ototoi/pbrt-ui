@@ -77,6 +77,37 @@ pub fn aligned_camera_fov(view_fov_y_degrees: f64, film_aspect: f64) -> f64 {
     }
 }
 
+/// Eye, target, up and vertical fov in degrees.
+pub type CameraView = ([f64; 3], [f64; 3], [f64; 3], f64);
+
+/// The view a camera node looks through, the inverse of `align_camera_edits`:
+/// `camera_to_world` is the node's row-major world matrix (camera space looks
+/// down +Z with +Y up; a right-handed scene's `Scale -1 1 1` only flips X), and
+/// `camera_fov` the camera's `fov` along the film's shorter axis. Returns eye,
+/// target `distance` ahead, up and the vertical fov.
+pub fn view_from_camera(
+    camera_to_world: &[f64; 16],
+    camera_fov: f64,
+    film_aspect: f64,
+    distance: f64,
+) -> Option<CameraView> {
+    let m = camera_to_world;
+    let unit = |v: [f64; 3]| {
+        let length = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        (length.is_finite() && length > 1e-12).then(|| v.map(|c| c / length))
+    };
+    let eye = [m[3], m[7], m[11]];
+    let forward = unit([m[2], m[6], m[10]])?;
+    let up = unit([m[1], m[5], m[9]])?;
+    let target = std::array::from_fn(|i| eye[i] + forward[i] * distance);
+    let vertical = if film_aspect >= 1.0 {
+        camera_fov
+    } else {
+        (2.0 * ((camera_fov.to_radians() / 2.0).tan() / film_aspect).atan()).to_degrees()
+    };
+    Some((eye, target, up, vertical))
+}
+
 /// Pose and framing edits for one camera transaction. `camera_parameters`
 /// comes from the same ProjectGetParameters read used by the Inspector.
 pub fn align_camera_edits(
@@ -559,6 +590,37 @@ mod tests {
         let expected =
             (2.0 * ((view_fov.to_radians() / 2.0).tan() * 9.0 / 16.0).atan()).to_degrees();
         assert!((aligned_camera_fov(view_fov, 9.0 / 16.0) - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn aligning_a_camera_to_a_view_and_back_round_trips() {
+        let eye: [f64; 3] = [1.5, 2.0, -3.0];
+        let target: [f64; 3] = [-0.5, 0.25, 4.0];
+        let distance = ((0..3).map(|i| (target[i] - eye[i]).powi(2)).sum::<f64>()).sqrt();
+        for handedness in ["left", "right"] {
+            for (aspect, view_fov) in [(16. / 9., 40.0), (0.6, 55.0)] {
+                let system: project::CoordinateSystem =
+                    serde_json::from_value(json!({"up":"+Y","handedness":handedness})).unwrap();
+                let view = project::presets::PresetView {
+                    position: eye,
+                    look_at: target,
+                };
+                let pose = project::presets::camera_pose(system, Some(view)).unwrap();
+                let camera_fov = super::aligned_camera_fov(view_fov, aspect);
+                let (back_eye, back_target, back_up, back_fov) =
+                    super::view_from_camera(&pose.start, camera_fov, aspect, distance).unwrap();
+                for i in 0..3 {
+                    assert!((back_eye[i] - eye[i]).abs() < 1e-9, "{handedness} eye");
+                    assert!(
+                        (back_target[i] - target[i]).abs() < 1e-9,
+                        "{handedness} target"
+                    );
+                }
+                // Up is +Y projected off the view direction.
+                assert!(back_up[1] > 0.9, "{handedness} up {back_up:?}");
+                assert!((back_fov - view_fov).abs() < 1e-9, "{handedness} fov");
+            }
+        }
     }
 
     #[test]
