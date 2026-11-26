@@ -476,14 +476,17 @@ pub(super) fn film_aspect(
         Method::ProjectGetNode,
         json!({"project":project,"node_id":scene_id}),
     )?;
-    let target = node["components"]
+    let Some(target) = node["components"]
         .as_array()
         .into_iter()
         .flatten()
         .find(|component| component["kind"] == "film")
         .map(|component| component["parameter_target"].clone())
         .filter(|target| target["id"].is_string())
-        .ok_or("active Scene has no Film configuration target")?;
+    else {
+        // No Film directive: the renderer uses PBRT's default 1280x720 film.
+        return Ok(1280.0 / 720.0);
+    };
     let page = parameter_pages(core, project, &target)?;
     let integer = |name: &str, default: f64| {
         page["parameters"]
@@ -499,12 +502,18 @@ pub(super) fn film_aspect(
 }
 
 /// Parameter previews arrive as `{"kind":"integers","value":["600"]}`: the
-/// elements are strings so large integers survive JSON.
-fn first_preview_number(values: &Value) -> Option<f64> {
+/// elements are strings so large integers survive JSON. Floats arrive as
+/// `{"kind":"finite","value":42.0}` (non-finite floats have no number).
+pub(super) fn first_preview_number(values: &Value) -> Option<f64> {
     let first = &values["value"][0];
     first
         .as_f64()
         .or_else(|| first.as_str().and_then(|text| text.trim().parse().ok()))
+        .or_else(|| {
+            (first["kind"] == "finite")
+                .then(|| first["value"].as_f64())
+                .flatten()
+        })
 }
 
 pub(super) fn camera_parameter_page(
@@ -643,6 +652,14 @@ pub(super) fn created_resource_entry(
 mod film_aspect_tests {
     use super::first_preview_number;
     use serde_json::json;
+
+    #[test]
+    fn reads_the_tagged_floats_of_a_parameter_preview() {
+        let fov = json!({"kind":"floats","value":[{"kind":"finite","value":42.0}]});
+        assert_eq!(first_preview_number(&fov), Some(42.0));
+        let infinite = json!({"kind":"floats","value":[{"kind":"positive_infinity"}]});
+        assert_eq!(first_preview_number(&infinite), None);
+    }
 
     #[test]
     fn reads_the_integer_strings_of_a_parameter_preview() {
