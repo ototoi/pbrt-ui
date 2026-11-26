@@ -3261,6 +3261,19 @@ fn desktop_view_write_is_not_adopted_as_an_external_camera() {
 }
 
 #[test]
+fn an_idle_display_keeps_looking_at_the_shared_view() {
+    let (_temp, host, project) = native_project("WorldBegin\nShape \"sphere\"\nWorldEnd\n");
+    let mut display = bare_display(host.handle()).0;
+    display.last_project = json!({"context":{"project":project}});
+    display.project_geometry = Some(protocol::geometry::GeometryManifest::default());
+    assert!(display.view_due.is_none());
+    // Nothing moved here, yet the next look at the shared view is booked, so
+    // a camera set by another client is noticed.
+    display.poll_view_sync();
+    assert!(display.view_due.is_some());
+}
+
+#[test]
 fn a_view_resize_does_not_make_the_next_orbit_snap_back() {
     let (_temp, host, project) = native_project("WorldBegin\nShape \"sphere\"\nWorldEnd\n");
     let mut display = bare_display(host.handle()).0;

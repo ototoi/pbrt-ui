@@ -25,7 +25,13 @@ impl Display {
     /// settle. The desktop's own picks, renders and IPR keeps pushing their
     /// exact explicit view; the shared copy serves external callers.
     pub(super) fn poll_view_sync(&mut self) {
-        let Some(due) = self.view_due else { return };
+        // The app state carries no view revision, so look at the shared view
+        // now and then even when nothing here moved: another client may have
+        // set its camera.
+        let Some(due) = self.view_due else {
+            self.view_due = Some(Instant::now() + Duration::from_millis(500));
+            return;
+        };
         if Instant::now() < due {
             return;
         }
