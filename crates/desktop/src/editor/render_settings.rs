@@ -4,11 +4,12 @@ use crate::backend::Command;
 use gpui_kit::{
     component::{
         Sizable,
-        input::{Input, InputEvent, InputState},
+        input::{InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     },
     *,
 };
 use protocol::{Revision, jobs::RenderSettings};
+use std::time::Duration;
 
 pub(super) fn flipped_gpu_settings(
     state: &serde_json::Value,
@@ -27,6 +28,7 @@ pub struct SettingsForm {
     pending: Option<[String; 2]>,
     gpu: bool,
     message: String,
+    step_generation: u64,
 }
 /// Threads is an execution-environment setting. Samples overrides the scene's
 /// Sampler for renders started here only; blank leaves image quality to the scene.
@@ -112,6 +114,7 @@ impl SettingsForm {
             })
         });
         for input in &inputs {
+            input.update(cx, |state, cx| state.set_step(None, window, cx));
             cx.observe(input, |_, _, cx| cx.notify()).detach();
             // Blur commits a changed, valid edit too, so tabbing away from a
             // fresh value still saves it.
@@ -119,6 +122,35 @@ impl SettingsForm {
                 InputEvent::PressEnter { .. } | InputEvent::Blur => this.commit(cx),
                 _ => {}
             })
+            .detach();
+            cx.subscribe_in(
+                input,
+                window,
+                |this, input, event: &NumberInputEvent, window, cx| {
+                    let NumberInputEvent::Step(action) = event;
+                    let current = input.read(cx).value().trim().parse::<u32>().unwrap_or(0);
+                    let value = match action {
+                        StepAction::Increment => current.saturating_add(1).max(1),
+                        StepAction::Decrement => current.saturating_sub(1).max(1),
+                    };
+                    input.update(cx, |state, cx| {
+                        state.set_value(value.to_string(), window, cx)
+                    });
+                    this.step_generation = this.step_generation.wrapping_add(1);
+                    let generation = this.step_generation;
+                    cx.spawn(async move |this, cx| {
+                        cx.background_executor()
+                            .timer(Duration::from_millis(400))
+                            .await;
+                        let _ = this.update(cx, |this, cx| {
+                            if this.step_generation == generation {
+                                this.commit(cx);
+                            }
+                        });
+                    })
+                    .detach();
+                },
+            )
             .detach();
         }
         cx.observe_in(&session, window, |this, _, window, cx| {
@@ -133,6 +165,7 @@ impl SettingsForm {
             pending: None,
             gpu,
             message: String::new(),
+            step_generation: 0,
         }
     }
     fn values(&self, cx: &App) -> [String; 2] {
@@ -199,7 +232,7 @@ impl Render for SettingsForm {
                 div()
                     .w(px(90.))
                     .child(label)
-                    .child(Input::new(&self.inputs[i]).small()),
+                    .child(NumberInput::new(&self.inputs[i]).small()),
             );
         }
         row.child(self.message.clone())
