@@ -989,6 +989,7 @@ impl Session {
                 | Command::FrameSelection
                 | Command::Orbit(..)
                 | Command::Pan(..)
+                | Command::Fly(..)
                 | Command::Dolly(_)
         ) {
             self.updating = true;

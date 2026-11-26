@@ -298,6 +298,8 @@ struct EditorPanel {
     /// The Scene preview size last sent to the backend.
     viewport_requested: Cell<[u32; 2]>,
     last_mouse: Option<Point<Pixels>>,
+    fly_keys: panels::scene::FlyKeys,
+    fly_clock: panels::scene::FlyClock,
     /// The Scene gizmo's hovered handle, keyed by the node it was
     /// hovered on so a new selection never inherits it, and the
     /// drag in progress.

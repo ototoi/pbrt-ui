@@ -91,7 +91,12 @@ pub enum Command {
     /// The Scene viewport's size in pixels.
     Resize([u32; 2]),
     Orbit(f64, f64),
+    RetargetAt {
+        frame_id: u64,
+        xy: [f64; 2],
+    },
     Pan(f64, f64),
+    Fly([f64; 3]),
     Dolly(f64),
     /// While a gizmo drags, draw the selection moved by this world
     /// matrix; `None` puts it back.

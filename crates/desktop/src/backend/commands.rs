@@ -1,6 +1,30 @@
 //! Display adapter phase; state stays owned by Display.
 use super::*;
 use std::collections::BTreeSet;
+
+fn frame_request_is_fresh(
+    requested: u64,
+    current_frame: u64,
+    dirty: bool,
+    render_in_flight: bool,
+    preview_ready: bool,
+    preview_key: Option<&str>,
+    current_state: Result<Value, String>,
+) -> bool {
+    requested == current_frame
+        && !dirty
+        && !render_in_flight
+        && preview_ready
+        && current_state.is_ok_and(|state| {
+            Some(project_preview_key(
+                &state["context"]["project"],
+                &state["active_scene"],
+            ))
+            .as_deref()
+                == preview_key
+        })
+}
+
 impl Display {
     pub(super) fn handle_commands(&mut self, commands: impl IntoIterator<Item = Command>) {
         for command in commands {
@@ -58,7 +82,26 @@ impl Display {
                     Ok(())
                 }
                 Command::Orbit(x,y) => if self.project_geometry.is_some() { self.camera.orbit(x,y).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
+                Command::RetargetAt { frame_id: requested, xy } => {
+                    let current = request(&self.core, Method::ProjectGetState, json!({}));
+                    if frame_request_is_fresh(requested, self.frame_id, self.dirty, self.render_in_flight, self.preview_ready, self.project_preview_key.as_deref(), current)
+                        && let Some(frame) = &self.last_frame
+                    {
+                        if let Ok(pick) = frame.pick_at(xy) {
+                            if let Some(node) = self.project_pick_nodes.get(&pick) {
+                                let ids = BTreeSet::from([node.clone()]);
+                                if let Some(bounds) = self.project_geometry.as_ref().and_then(|geometry| crate::project_preview::selected_bounds(geometry, &self.project_pick_nodes, &self.project_object_bounds, self.project_time, &ids)) {
+                                    let centre = bounds.center();
+                                    self.camera.retarget_depth(centre).map(|()| { self.dirty = true; self.arm_ipr_submit(); })
+                                } else {
+                                    Ok(())
+                                }
+                            } else { Ok(()) }
+                        } else { Ok(()) }
+                    } else { Ok(()) }
+                }
                 Command::Pan(x,y) => if self.project_geometry.is_some() { self.camera.pan(x,y).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
+                Command::Fly(delta) => if self.project_geometry.is_some() { self.camera.fly_relative(delta).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
                 Command::Dolly(value) => if self.project_geometry.is_some() { self.camera.dolly(value).map(|()|{self.dirty=true;self.arm_ipr_submit();}) } else { Ok(()) },
                 Command::GizmoPreview(delta) => {
                     self.gizmo_delta = delta;
@@ -117,8 +160,9 @@ impl Display {
                 },
                 Command::Pick { frame_id: requested, xy }=>{
                     let current = request(&self.core,Method::ProjectGetState,json!({}));
-                    if requested == self.frame_id && !self.dirty && !self.render_in_flight && self.preview_ready && current.is_ok_and(|state| Some(project_preview_key(&state["context"]["project"], &state["active_scene"])).as_deref() == self.project_preview_key.as_deref()) {
-                        if let Some(frame) = &self.last_frame {
+                    if frame_request_is_fresh(requested, self.frame_id, self.dirty, self.render_in_flight, self.preview_ready, self.project_preview_key.as_deref(), current)
+                        && let Some(frame) = &self.last_frame
+                    {
                             match frame.pick_at(xy) {
                                 Ok(pick) => {
                                     self.selected_project_node = self.project_pick_nodes.get(&pick).cloned();
@@ -137,7 +181,6 @@ impl Display {
                                 }
                                 Err(error) => {let _=self.tx.send(Update::Status(error));}
                             }
-                        }
                     }
                     Ok(())
                 }
@@ -1112,5 +1155,54 @@ pub(super) fn import_failure_message(job: &Value) -> String {
         format!("Import failed: {reason}. The open project is unchanged.")
     } else {
         format!("Import failed: {file}: {reason}. The open project is unchanged.")
+    }
+}
+
+#[cfg(test)]
+mod freshness_tests {
+    use super::*;
+
+    #[test]
+    fn frame_request_requires_the_displayed_clean_preview() {
+        let state = json!({"context":{"project":{}},"active_scene":null});
+        let key = project_preview_key(&state["context"]["project"], &state["active_scene"]);
+        let current_state = || Ok(state.clone());
+
+        assert!(frame_request_is_fresh(
+            7,
+            7,
+            false,
+            false,
+            true,
+            Some(&key),
+            current_state(),
+        ));
+        assert!(!frame_request_is_fresh(
+            6,
+            7,
+            false,
+            false,
+            true,
+            Some(&key),
+            current_state(),
+        ));
+        assert!(!frame_request_is_fresh(
+            7,
+            7,
+            true,
+            false,
+            true,
+            Some(&key),
+            current_state(),
+        ));
+        assert!(!frame_request_is_fresh(
+            7,
+            7,
+            false,
+            true,
+            true,
+            Some(&key),
+            current_state(),
+        ));
     }
 }

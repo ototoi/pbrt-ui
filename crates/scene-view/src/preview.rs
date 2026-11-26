@@ -168,6 +168,58 @@ impl ViewerCamera {
         self.up = world_up;
         Ok(())
     }
+    /// Move the orbit target to a point's depth without changing the view direction.
+    pub fn retarget_depth(&mut self, centre: [f64; 3]) -> Result<(), String> {
+        let forward = norm(sub(self.target, self.eye)).ok_or("camera eye and target coincide")?;
+        let depth = dot(sub(centre, self.eye), forward);
+        // A centre beside or behind the eye (a floor under the camera) would pull
+        // the pivot onto the eye, and fly speed (orbit distance) to zero: keep it.
+        if !depth.is_finite() || depth <= self.near {
+            return Ok(());
+        }
+        self.target = [
+            self.eye[0] + forward[0] * depth,
+            self.eye[1] + forward[1] * depth,
+            self.eye[2] + forward[2] * depth,
+        ];
+        Ok(())
+    }
+    /// Translate eye and target in camera-relative world space.
+    pub fn fly(&mut self, delta: [f64; 3]) -> Result<(), String> {
+        if delta.iter().any(|v| !v.is_finite()) {
+            return Err("fly delta must be finite".into());
+        }
+        for (axis, offset) in delta.iter().enumerate() {
+            self.eye[axis] += offset;
+            self.target[axis] += offset;
+        }
+        Ok(())
+    }
+    /// Move in the camera's local right, up, and forward directions. Each input
+    /// unit is one orbit distance, which keeps navigation useful across scales.
+    pub fn fly_relative(&mut self, movement: [f64; 3]) -> Result<(), String> {
+        if movement.iter().any(|v| !v.is_finite()) {
+            return Err("fly movement must be finite".into());
+        }
+        let forward = norm(sub(self.target, self.eye)).ok_or("camera eye and target coincide")?;
+        // Screen right as `pan` sees it: up × forward (pbrt's left-handed
+        // LookAt), turned round when the image is mirrored.
+        let camera_right = norm(cross(self.up, forward)).ok_or("camera up is parallel to view")?;
+        let up = cross(forward, camera_right);
+        let right = if self.mirror {
+            camera_right.map(|v| -v)
+        } else {
+            camera_right
+        };
+        let offset = sub(self.target, self.eye);
+        let distance = dot(offset, offset).sqrt().max(self.near);
+        let delta = [
+            (right[0] * movement[0] + up[0] * movement[1] + forward[0] * movement[2]) * distance,
+            (right[1] * movement[0] + up[1] * movement[1] + forward[1] * movement[2]) * distance,
+            (right[2] * movement[0] + up[2] * movement[1] + forward[2] * movement[2]) * distance,
+        ];
+        self.fly(delta)
+    }
     pub fn pan(&mut self, horizontal: f64, vertical: f64) -> Result<(), String> {
         if !horizontal.is_finite() || !vertical.is_finite() {
             return Err("pan delta must be finite".into());
@@ -415,6 +467,86 @@ mod tests {
         )
         .sqrt();
         assert!(after < before);
+    }
+
+    #[test]
+    fn retarget_depth_preserves_view_direction() {
+        let mut camera = ViewerCamera {
+            eye: [1., 2., 3.],
+            target: [1., 2., -7.],
+            up: [0., 1., 0.],
+            fov_y_degrees: 45.,
+            near: 0.1,
+            far: 100.,
+            mirror: false,
+        };
+        let forward = norm(sub(camera.target, camera.eye)).unwrap();
+        camera.retarget_depth([4., 5., -7.]).unwrap();
+        assert!((norm(sub(camera.target, camera.eye)).unwrap()[2] - forward[2]).abs() < 1e-12);
+        assert!((dot(sub(camera.target, camera.eye), forward) - 10.).abs() < 1e-12);
+    }
+
+    #[test]
+    fn retarget_depth_keeps_the_pivot_for_a_centre_beside_or_behind_the_eye() {
+        let start = ViewerCamera {
+            eye: [1., 2., 3.],
+            target: [1., 2., -7.],
+            up: [0., 1., 0.],
+            fov_y_degrees: 45.,
+            near: 0.1,
+            far: 100.,
+            mirror: false,
+        };
+        for centre in [[1., -5., 3.], [4., 2., 10.], [1., 2., 2.95]] {
+            let mut camera = start;
+            camera.retarget_depth(centre).unwrap();
+            assert_eq!(camera.target, start.target, "{centre:?}");
+        }
+    }
+
+    #[test]
+    fn fly_moves_eye_and_target_by_the_same_vector() {
+        let mut camera = ViewerCamera {
+            eye: [1., 2., 3.],
+            target: [1., 2., -7.],
+            up: [0., 1., 0.],
+            fov_y_degrees: 45.,
+            near: 0.1,
+            far: 100.,
+            mirror: false,
+        };
+        camera.fly([2., -3., 4.]).unwrap();
+        assert_eq!(camera.eye, [3., -1., 7.]);
+        assert_eq!(camera.target, [3., -1., -3.]);
+    }
+
+    #[test]
+    fn fly_right_goes_where_a_pan_to_the_right_goes() {
+        for mirror in [false, true] {
+            let start = ViewerCamera {
+                eye: [1., 2., 3.],
+                target: [-2., 1., -5.],
+                up: [0., 1., 0.],
+                fov_y_degrees: 45.,
+                near: 0.1,
+                far: 100.,
+                mirror,
+            };
+            let (mut flown, mut panned) = (start, start);
+            flown.fly_relative([1., 0., 0.]).unwrap();
+            // pan(-1, 0) shifts the camera along its screen right.
+            panned.pan(-1., 0.).unwrap();
+            let fly = norm(sub(flown.eye, start.eye)).unwrap();
+            let pan = norm(sub(panned.eye, start.eye)).unwrap();
+            assert!(
+                dot(fly, pan) > 0.999,
+                "mirror {mirror}: fly {fly:?} pan {pan:?}"
+            );
+            // Up stays up.
+            flown = start;
+            flown.fly_relative([0., 1., 0.]).unwrap();
+            assert!(flown.eye[1] > start.eye[1], "mirror {mirror}");
+        }
     }
 
     /// Pitch is measured against the camera's own up axis, so a Z-up scene

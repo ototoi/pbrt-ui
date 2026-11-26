@@ -6,6 +6,7 @@ mod jobs;
 mod render;
 pub(super) mod scene;
 use super::{EditorPanel, PanelKind, Session, hierarchy, render_settings};
+use crate::backend::Command;
 use gpui_kit::component::dock::{BasePanel, Panel, PanelEvent};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -54,6 +55,17 @@ impl EditorPanel {
             })
             .detach();
         }
+        if matches!(kind, PanelKind::Scene) {
+            cx.observe_window_activation(window, |this, window, cx| {
+                if !window.is_window_active() {
+                    this.fly_keys.clear();
+                    this.fly_clock.reset();
+                    this.last_mouse = None;
+                    cx.notify();
+                }
+            })
+            .detach();
+        }
         Self {
             settings_form: matches!(kind, PanelKind::Render).then(|| {
                 cx.new(|cx| render_settings::SettingsForm::new(session.clone(), window, cx))
@@ -79,6 +91,8 @@ impl EditorPanel {
             viewport: Rc::new(Cell::new(Bounds::default())),
             viewport_requested: Cell::new([0, 0]),
             last_mouse: None,
+            fly_keys: scene::FlyKeys::default(),
+            fly_clock: scene::FlyClock::default(),
             gizmo_hover: None,
             gizmo_drag: None,
             light_hover: None,
@@ -111,6 +125,28 @@ impl Focusable for EditorPanel {
 }
 impl Render for EditorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if matches!(self.kind, PanelKind::Scene) && self.fly_keys.is_down() {
+            // Not `is_window_active`: without a window manager (Xephyr) the
+            // window never reports active and the held state would vanish.
+            if !self.focus.is_focused(window) {
+                self.fly_keys.clear();
+                self.fly_clock.reset();
+            } else {
+                let now = std::time::Instant::now();
+                let dt = self.fly_clock.consume(now);
+                let mut movement = self.fly_keys.movement();
+                if movement.iter().any(|axis| *axis != 0.) {
+                    let magnitude = movement.iter().map(|axis| axis * axis).sum::<f64>().sqrt();
+                    let speed = if self.fly_keys.faster() { 3. } else { 1. };
+                    for axis in &mut movement {
+                        *axis = *axis / magnitude * dt * speed;
+                    }
+                    self.session
+                        .update(cx, |session, cx| session.send(Command::Fly(movement), cx));
+                }
+                window.request_animation_frame();
+            }
+        }
         if matches!(self.kind, PanelKind::Inspector) {
             self.prepare_inspector(window, cx);
         }
@@ -154,19 +190,56 @@ impl Render for EditorPanel {
                             .update(cx, |session, cx| session.deselect_node(cx));
                     }))
                     .on_action(cx.listener(|this, _: &super::MoveTool, _, cx| {
-                        this.gizmo_set_tool(scene_view::preview::gizmo::Tool::Move, cx);
+                        if this.fly_keys.is_down() {
+                            cx.propagate();
+                        } else {
+                            this.gizmo_set_tool(scene_view::preview::gizmo::Tool::Move, cx);
+                        }
                     }))
                     .on_action(cx.listener(|this, _: &super::RotateTool, _, cx| {
-                        this.gizmo_set_tool(scene_view::preview::gizmo::Tool::Rotate, cx);
+                        if this.fly_keys.is_down() {
+                            cx.propagate();
+                        } else {
+                            this.gizmo_set_tool(scene_view::preview::gizmo::Tool::Rotate, cx);
+                        }
                     }))
                     .on_action(cx.listener(|this, _: &super::ScaleTool, _, cx| {
-                        this.gizmo_set_tool(scene_view::preview::gizmo::Tool::Scale, cx);
+                        if this.fly_keys.is_down() {
+                            cx.propagate();
+                        } else {
+                            this.gizmo_set_tool(scene_view::preview::gizmo::Tool::Scale, cx);
+                        }
                     }))
                     .on_action(cx.listener(|this, _: &super::NoTool, _, cx| {
-                        this.gizmo_set_tool(scene_view::preview::gizmo::Tool::None, cx);
+                        if this.fly_keys.is_down() {
+                            cx.propagate();
+                        } else {
+                            this.gizmo_set_tool(scene_view::preview::gizmo::Tool::None, cx);
+                        }
                     }))
                     .on_action(cx.listener(|this, _: &super::ToggleGizmoSpace, _, cx| {
-                        this.gizmo_toggle_space(cx);
+                        if this.fly_keys.gizmo_shortcuts_allowed() {
+                            this.gizmo_toggle_space(cx);
+                        }
+                    }))
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                        if !this.fly_keys.is_down() {
+                            return;
+                        }
+                        this.fly_keys.key(&event.keystroke.key, true);
+                        if event.keystroke.modifiers.shift {
+                            this.fly_keys.key("shift", true);
+                        }
+                        // Render keeps requesting frames while keys are held;
+                        // request_animation_frame is only allowed during paint.
+                        cx.notify();
+                    }))
+                    .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| {
+                        this.fly_keys.key(&event.keystroke.key, false);
+                        if !event.keystroke.modifiers.shift {
+                            this.fly_keys.key("shift", false);
+                        }
+                        cx.notify();
                     }))
             })
             .bg(rgb(0x25272d))
