@@ -45,33 +45,24 @@ struct HeaderDetails {
     lines: Vec<String>,
     open_in_editor: Option<String>,
     read_only: bool,
+    in_definition: bool,
     active_toggle: Option<(String, bool)>,
     node_kind: Option<String>,
 }
 
-fn inspector_node_menu(mut menu: PopupMenu, kind: &str, read_only: bool) -> PopupMenu {
-    for item in crate::editor::hierarchy::node_menu_items(kind, read_only) {
+fn inspector_node_menu(
+    mut menu: PopupMenu,
+    kind: &str,
+    read_only: bool,
+    in_definition: bool,
+) -> PopupMenu {
+    for item in crate::editor::hierarchy::node_menu_items(kind, read_only, in_definition) {
         let action = item.action;
-        menu =
-            menu.item(
-                PopupMenuItem::new(item.label).on_click(move |_, window, cx| match action {
-                    crate::editor::hierarchy::NodeMenuAction::Rename => window
-                        .dispatch_action(Box::new(crate::editor::menu::RenameHierarchyNode), cx),
-                    crate::editor::hierarchy::NodeMenuAction::Duplicate => {
-                        window.dispatch_action(Box::new(crate::editor::menu::DuplicateNode), cx)
-                    }
-                    crate::editor::hierarchy::NodeMenuAction::Delete => {
-                        window.dispatch_action(Box::new(crate::editor::menu::DeleteNode), cx)
-                    }
-                    crate::editor::hierarchy::NodeMenuAction::MakeObjectDefinition => window
-                        .dispatch_action(Box::new(crate::editor::menu::MakeObjectDefinition), cx),
-                    crate::editor::hierarchy::NodeMenuAction::UnpackInstance => window
-                        .dispatch_action(Box::new(crate::editor::menu::UnpackObjectInstance), cx),
-                    crate::editor::hierarchy::NodeMenuAction::FrameSelection => {
-                        window.dispatch_action(Box::new(crate::editor::FrameSelected), cx)
-                    }
-                }),
-            );
+        menu = menu.item(
+            PopupMenuItem::new(item.label).on_click(move |_, window, cx| {
+                window.dispatch_action(action.workspace_action(), cx)
+            }),
+        );
     }
     menu
 }
@@ -1245,6 +1236,7 @@ impl EditorPanel {
     ) -> AnyElement {
         let menu_kind = details.node_kind.clone();
         let menu_read_only = details.read_only;
+        let menu_in_definition = details.in_definition;
         let title: AnyElement = match (&self.label_input, details.read_only) {
             (Some((_, _, input)), false) => Input::new(input).small().w_full().into_any_element(),
             _ => div()
@@ -1303,7 +1295,12 @@ impl EditorPanel {
                                 .xsmall()
                                 .accessibility_label("Node actions")
                                 .dropdown_menu(move |menu, _, _| {
-                                    inspector_node_menu(menu, &kind, menu_read_only)
+                                    inspector_node_menu(
+                                        menu,
+                                        &kind,
+                                        menu_read_only,
+                                        menu_in_definition,
+                                    )
                                 }),
                         )
                     }),
@@ -1316,7 +1313,7 @@ impl EditorPanel {
             )
             .context_menu(move |menu, _, _| {
                 if let Some(kind) = menu_kind.as_ref() {
-                    inspector_node_menu(menu, kind, menu_read_only)
+                    inspector_node_menu(menu, kind, menu_read_only, menu_in_definition)
                 } else {
                     menu
                 }
@@ -1387,6 +1384,9 @@ impl EditorPanel {
                         lines,
                         open_in_editor: None,
                         read_only,
+                        in_definition:
+                            crate::editor::project_actions::definition_instances_for_node(details)
+                                .is_some(),
                         active_toggle: (!read_only
                             && matches!(kind, "shape" | "light" | "instance" | "group"))
                         .then(|| {
@@ -1584,6 +1584,7 @@ impl EditorPanel {
                         .and(item["id"].as_str())
                         .map(str::to_owned),
                     read_only: read_only || details["resource"].is_null(),
+                    in_definition: false,
                     active_toggle: None,
                     node_kind: None,
                 },
