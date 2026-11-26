@@ -91,7 +91,10 @@ pub enum Command {
     /// The Scene viewport's size in pixels.
     Resize([u32; 2]),
     Orbit(f64, f64),
-    RetargetAt([f64; 2]),
+    RetargetAt {
+        frame_id: u64,
+        xy: [f64; 2],
+    },
     Pan(f64, f64),
     Fly([f64; 3]),
     Dolly(f64),

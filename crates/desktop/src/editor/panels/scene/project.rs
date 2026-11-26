@@ -312,8 +312,9 @@ impl EditorPanel {
                         event.position,
                         model.image_size,
                     ) {
+                        let frame_id = model.frame_id;
                         this.session
-                            .update(cx, |s, cx| s.send(Command::RetargetAt(xy), cx));
+                            .update(cx, |s, cx| s.send(Command::RetargetAt { frame_id, xy }, cx));
                     }
                 }),
             )
