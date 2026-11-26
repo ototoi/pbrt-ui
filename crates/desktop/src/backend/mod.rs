@@ -418,6 +418,8 @@ pub enum Update {
     /// `ProjectInspector` answer still queued from before the deselect,
     /// so a node that answer restored is cleared again.
     ProjectDeselected,
+    /// Centre of the selected node's preview bounds, including descendants.
+    SelectionBounds(Option<[f64; 3]>),
     /// In-place save finished; the window runs any pending action on success.
     SaveSettled {
         ok: bool,
@@ -759,7 +761,7 @@ struct Display {
     /// Pick ids of the selected node and its descendants, outlined in the
     /// preview, and the they were computed for.
     highlight: BTreeSet<u32>,
-    highlight_key: Option<(Option<String>, Option<String>)>,
+    highlight_key: Option<(Option<String>, Option<String>, f64)>,
     /// Lit notes already sent to the Console, so re-uploads after edits do
     /// not repeat them.
     logged_lit_notes: Vec<String>,

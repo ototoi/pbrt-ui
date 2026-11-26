@@ -1128,6 +1128,7 @@ impl Session {
                             changed = true;
                             match update {
                                 Update::LayoutReset => this.layout_revision += 1,
+                                Update::SelectionBounds(bounds) => this.selection_bounds_center = bounds,
                                 Update::Quit => cx.quit(),
                                 Update::Jobs(jobs) => {
                                     this.render_start.observe_jobs(&jobs, Instant::now());
@@ -2155,6 +2156,7 @@ impl Session {
             reveal_picked: None,
             selected_project_node: None,
             project_inspector: serde_json::json!({"message":"Select a project node"}),
+            selection_bounds_center: None,
             graph_value: None,
             node_editor_creates: Default::default(),
             node_editor_create_key: 0,

@@ -7,6 +7,7 @@ impl Display {
         let key = (
             self.selected_project_node.clone(),
             self.project_preview_key.clone(),
+            self.project_time,
         );
         if self.highlight_key.as_ref() == Some(&key) {
             return;
@@ -22,6 +23,18 @@ impl Display {
             }
             nodes.insert(id);
         }
+        let bounds = self.project_geometry.as_ref().and_then(|geometry| {
+            crate::project_preview::selected_bounds(
+                geometry,
+                &self.project_pick_nodes,
+                &self.project_object_bounds,
+                self.project_time,
+                &nodes,
+            )
+        });
+        let _ = self.tx.send(Update::SelectionBounds(
+            bounds.map(|bounds| bounds.center()),
+        ));
         let highlight = self
             .project_pick_nodes
             .iter()

@@ -99,6 +99,7 @@ impl EditorPanel {
             light_drag: None,
             gizmo_tool: scene_view::preview::gizmo::Tool::Move,
             gizmo_space: scene::Space::Local,
+            gizmo_center: false,
             job_times: Default::default(),
         }
     }
@@ -220,6 +221,11 @@ impl Render for EditorPanel {
                     .on_action(cx.listener(|this, _: &super::ToggleGizmoSpace, _, cx| {
                         if this.fly_keys.gizmo_shortcuts_allowed() {
                             this.gizmo_toggle_space(cx);
+                        }
+                    }))
+                    .on_action(cx.listener(|this, _: &super::ToggleGizmoPivot, _, cx| {
+                        if this.fly_keys.gizmo_shortcuts_allowed() {
+                            this.gizmo_toggle_pivot(cx);
                         }
                     }))
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
