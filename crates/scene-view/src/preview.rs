@@ -171,7 +171,12 @@ impl ViewerCamera {
     /// Move the orbit target to a point's depth without changing the view direction.
     pub fn retarget_depth(&mut self, centre: [f64; 3]) -> Result<(), String> {
         let forward = norm(sub(self.target, self.eye)).ok_or("camera eye and target coincide")?;
-        let depth = dot(sub(centre, self.eye), forward).max(self.near);
+        let depth = dot(sub(centre, self.eye), forward);
+        // A centre beside or behind the eye (a floor under the camera) would pull
+        // the pivot onto the eye, and fly speed (orbit distance) to zero: keep it.
+        if !depth.is_finite() || depth <= self.near {
+            return Ok(());
+        }
         self.target = [
             self.eye[0] + forward[0] * depth,
             self.eye[1] + forward[1] * depth,
@@ -479,6 +484,24 @@ mod tests {
         camera.retarget_depth([4., 5., -7.]).unwrap();
         assert!((norm(sub(camera.target, camera.eye)).unwrap()[2] - forward[2]).abs() < 1e-12);
         assert!((dot(sub(camera.target, camera.eye), forward) - 10.).abs() < 1e-12);
+    }
+
+    #[test]
+    fn retarget_depth_keeps_the_pivot_for_a_centre_beside_or_behind_the_eye() {
+        let start = ViewerCamera {
+            eye: [1., 2., 3.],
+            target: [1., 2., -7.],
+            up: [0., 1., 0.],
+            fov_y_degrees: 45.,
+            near: 0.1,
+            far: 100.,
+            mirror: false,
+        };
+        for centre in [[1., -5., 3.], [4., 2., 10.], [1., 2., 2.95]] {
+            let mut camera = start;
+            camera.retarget_depth(centre).unwrap();
+            assert_eq!(camera.target, start.target, "{centre:?}");
+        }
     }
 
     #[test]
