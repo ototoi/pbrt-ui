@@ -124,6 +124,11 @@ impl Display {
                 let activation_changed = previous["project_id"] != reference["project_id"]
                     || previous["activation"] != reference["activation"];
                 let scene_changed = previous_scene != self.last_project["active_scene"];
+                if activation_changed || scene_changed {
+                    // The kept scene camera belongs to the old scene; Align View
+                    // to Scene Camera waits for the new preview to set it.
+                    self.scene_camera = None;
+                }
                 if activation_changed {
                     // Retire the previous activation's completed slot now.
                     // An in-flight publisher is left for PreviewCleanup,
