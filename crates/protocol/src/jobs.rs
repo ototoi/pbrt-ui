@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RenderSettings {
-    /// Deprecated compatibility field; final renders require None because
-    /// the scene's Sampler controls image quality.
+    /// Optional final-render sample count. None uses the scene Sampler.
     pub samples_per_pixel: Option<u32>,
     /// None: the renderer decides (all cores).
     pub threads: Option<u32>,

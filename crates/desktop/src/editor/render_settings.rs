@@ -21,19 +21,26 @@ pub(super) fn flipped_gpu_settings(
 
 pub struct SettingsForm {
     session: Entity<Session>,
-    inputs: [Entity<InputState>; 1],
-    baseline: [String; 1],
+    inputs: [Entity<InputState>; 2],
+    baseline: [String; 2],
     revision: Revision,
-    pending: Option<[String; 1]>,
+    pending: Option<[String; 2]>,
     gpu: bool,
     message: String,
 }
-/// Threads is an execution-environment setting; image quality comes from the scene.
-fn fields(settings: &RenderSettings) -> [String; 1] {
-    [settings.threads.map(|v| v.to_string()).unwrap_or_default()]
+/// Threads is an execution-environment setting. Samples overrides the scene's
+/// Sampler for renders started here only; blank leaves image quality to the scene.
+fn fields(settings: &RenderSettings) -> [String; 2] {
+    [
+        settings.threads.map(|v| v.to_string()).unwrap_or_default(),
+        settings
+            .samples_per_pixel
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
+    ]
 }
-const BLANK: [&str; 1] = ["auto"];
-fn parse(values: &[String; 1], gpu: bool) -> Result<RenderSettings, String> {
+const BLANK: [&str; 2] = ["auto", "scene"];
+fn parse(values: &[String; 2], gpu: bool) -> Result<RenderSettings, String> {
     let number = |i: usize, label: &str| {
         values[i]
             .trim()
@@ -46,46 +53,47 @@ fn parse(values: &[String; 1], gpu: bool) -> Result<RenderSettings, String> {
             .transpose()
     };
     let threads = optional(0, "Threads")?;
-    if threads.is_some_and(|n| n == 0 || n > 1024) {
+    let samples_per_pixel = optional(1, "Samples")?;
+    if threads.is_some_and(|n| n == 0 || n > 1024)
+        || samples_per_pixel.is_some_and(|n| n == 0 || n > 1_048_576)
+    {
         return Err("Settings exceed the supported limits".into());
     }
     Ok(RenderSettings {
-        samples_per_pixel: None,
+        samples_per_pixel,
         threads,
         gpu,
         max_depth: None,
     })
 }
 
-/// Enter and blur commit an edited Threads field.
-enum ThreadsCommit {
-    /// The field still holds its baseline text, or the settings already
+/// Enter and blur commit an edited field.
+enum SettingsCommit {
+    /// The fields still hold their baseline text, or the settings already
     /// on their way: nothing to send.
     Unchanged,
     /// A changed, valid field: the settings to save.
     Apply(RenderSettings),
-    /// A changed, invalid field: today's Apply error message still shows.
+    /// A changed, invalid field: the error message shows.
     Invalid(String),
 }
 
-/// The commit decision Enter and blur share: an unchanged field sends
-/// nothing, a changed valid field applies, a changed invalid one keeps
-/// the error feedback the removed Apply button showed.
-/// Enter then blur before the backend answers must not resend: the
-/// second write would carry the old revision and report a conflict.
-fn threads_commit(
-    values: &[String; 1],
-    baseline: &[String; 1],
-    pending: Option<&[String; 1]>,
+/// The commit decision Enter and blur share. Enter then blur before the
+/// backend answers must not resend: the second write would carry the old
+/// revision and report a conflict.
+fn settings_commit(
+    values: &[String; 2],
+    baseline: &[String; 2],
+    pending: Option<&[String; 2]>,
     gpu: bool,
-) -> ThreadsCommit {
+) -> SettingsCommit {
     if values == baseline {
-        ThreadsCommit::Unchanged
+        SettingsCommit::Unchanged
     } else {
         match parse(values, gpu) {
-            Ok(settings) if pending == Some(&fields(&settings)) => ThreadsCommit::Unchanged,
-            Ok(settings) => ThreadsCommit::Apply(settings),
-            Err(message) => ThreadsCommit::Invalid(message),
+            Ok(settings) if pending == Some(&fields(&settings)) => SettingsCommit::Unchanged,
+            Ok(settings) => SettingsCommit::Apply(settings),
+            Err(message) => SettingsCommit::Invalid(message),
         }
     }
 }
@@ -105,12 +113,10 @@ impl SettingsForm {
         });
         for input in &inputs {
             cx.observe(input, |_, _, cx| cx.notify()).detach();
-            // Enter commits the edited value.
-            // did; blur commits an edit only when it changed and is
-            // valid, so tabbing away from a fresh value still saves it.
+            // Blur commits a changed, valid edit too, so tabbing away from a
+            // fresh value still saves it.
             cx.subscribe(input, |this, _, event: &InputEvent, cx| match event {
-                InputEvent::PressEnter { .. } => this.commit(cx),
-                InputEvent::Blur => this.commit(cx),
+                InputEvent::PressEnter { .. } | InputEvent::Blur => this.commit(cx),
                 _ => {}
             })
             .detach();
@@ -129,7 +135,7 @@ impl SettingsForm {
             message: String::new(),
         }
     }
-    fn values(&self, cx: &App) -> [String; 1] {
+    fn values(&self, cx: &App) -> [String; 2] {
         std::array::from_fn(|i| self.inputs[i].read(cx).value().to_string())
     }
     fn sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -144,8 +150,8 @@ impl SettingsForm {
         };
         let incoming = fields(&settings);
         self.gpu = settings.gpu;
-        // With no Reload control, a change from elsewhere (CLI,
-        // agent) replaces what is typed here instead of blocking it.
+        // With no Reload control, a change from elsewhere (CLI, agent)
+        // replaces what is typed here instead of blocking it.
         if self.revision != revision
             || self.values(cx) == self.baseline
             || self.pending.as_ref() == Some(&incoming)
@@ -162,20 +168,18 @@ impl SettingsForm {
         }
         cx.notify();
     }
-    /// Enter and blur land here: an unchanged field sends nothing,
-    /// a changed valid one saves, a changed invalid one keeps the error.
     fn commit(&mut self, cx: &mut Context<Self>) {
         let values = self.values(cx);
-        match threads_commit(&values, &self.baseline, self.pending.as_ref(), self.gpu) {
-            ThreadsCommit::Unchanged => {}
-            ThreadsCommit::Apply(settings) => {
+        match settings_commit(&values, &self.baseline, self.pending.as_ref(), self.gpu) {
+            SettingsCommit::Unchanged => {}
+            SettingsCommit::Apply(settings) => {
                 self.pending = Some(fields(&settings));
                 let expected = self.revision.clone();
                 self.session.update(cx, |s, cx| {
                     s.send(Command::Settings(settings, expected), cx)
                 });
             }
-            ThreadsCommit::Invalid(message) => self.message = message,
+            SettingsCommit::Invalid(message) => self.message = message,
         }
         cx.notify();
     }
@@ -190,7 +194,7 @@ impl Render for SettingsForm {
             .px_2()
             .pb_2()
             .text_xs();
-        for (i, label) in ["Threads"].into_iter().enumerate() {
+        for (i, label) in ["Threads", "Samples"].into_iter().enumerate() {
             row = row.child(
                 div()
                     .w(px(90.))
@@ -198,91 +202,96 @@ impl Render for SettingsForm {
                     .child(Input::new(&self.inputs[i]).small()),
             );
         }
-        // Enter applies, blur applies a changed valid edit; blank keeps
-        // meaning all cores, and parse errors show here.
         row.child(self.message.clone())
     }
 }
 #[cfg(test)]
 mod tests {
-    use super::{ThreadsCommit, flipped_gpu_settings, parse, threads_commit};
-    /// Scene quality comes from its Sampler and Integrator; blank Threads uses all cores.
+    use super::{SettingsCommit, flipped_gpu_settings, parse, settings_commit};
     #[test]
-    fn blank_samples_and_threads_leave_them_to_the_scene_and_renderer() {
-        let settings = parse(&[" ".into()], false).unwrap();
-        assert_eq!(
-            (
-                settings.samples_per_pixel,
-                settings.threads,
-                settings.max_depth
-            ),
-            (None, None, None)
-        );
-        assert_eq!(super::fields(&settings), [""]);
+    fn blank_fields_use_scene_and_renderer_defaults() {
+        let settings = parse(&[" ".into(), " ".into()], false).unwrap();
+        assert_eq!((settings.samples_per_pixel, settings.threads), (None, None));
+        assert_eq!(super::fields(&settings), ["", ""]);
     }
-
     #[test]
-    fn thread_integer_limits_are_validated_before_commit() {
-        let settings = parse(&["4".into()], false).unwrap();
+    fn fields_validate_and_parse_limits() {
+        let settings = parse(&["4".into(), "32".into()], false).unwrap();
         assert_eq!(
-            (
-                settings.samples_per_pixel,
-                settings.threads,
-                settings.max_depth
-            ),
-            (None, Some(4), None)
+            (settings.threads, settings.samples_per_pixel),
+            (Some(4), Some(32))
         );
-        assert!(parse(&["1.5".into()], false).is_err());
-        assert!(parse(&["0".into()], false).is_err());
-        assert!(parse(&["1025".into()], false).is_err());
-        assert!(parse(&["4".into()], true).unwrap().gpu);
+        for input in [
+            ["1.5".into(), "".into()],
+            ["0".into(), "".into()],
+            ["1025".into(), "".into()],
+            ["".into(), "0".into()],
+            ["".into(), "1048577".into()],
+        ] {
+            assert!(parse(&input, false).is_err());
+        }
+        assert!(parse(&["4".into(), "".into()], true).unwrap().gpu);
     }
-
     #[test]
-    fn gpu_toggle_preserves_threads_and_advances_only_the_gpu_flag() {
+    fn gpu_toggle_preserves_other_settings() {
         let (settings, revision) = flipped_gpu_settings(&serde_json::json!({
-            "settings": {"threads": 6, "gpu": false}, "settings_revision": "7"
+            "settings": {"threads": 6, "samples_per_pixel": 32, "gpu": false},
+            "settings_revision": "7"
         }))
         .unwrap();
         assert!(settings.gpu);
-        assert_eq!(settings.threads, Some(6));
+        assert_eq!(
+            (settings.threads, settings.samples_per_pixel),
+            (Some(6), Some(32))
+        );
         assert_eq!(revision.0, "7");
     }
-
-    /// Enter (and blur after an edit) is the only way to commit the
-    /// thread limit now the Apply button is gone.
     #[test]
-    fn enter_applies_the_thread_count_and_blank_means_all_cores() {
-        // A changed valid field applies: Enter and blur share this commit.
-        let ThreadsCommit::Apply(settings) =
-            threads_commit(&["4".into()], &["".into()], None, true)
-        else {
-            panic!("a changed valid field should apply");
-        };
-        assert_eq!(settings.threads, Some(4));
-        assert!(settings.gpu);
-        // An emptied field applies all cores, as blank always did.
-        let ThreadsCommit::Apply(settings) =
-            threads_commit(&[" ".into()], &["4".into()], None, true)
-        else {
-            panic!("clearing the field should apply the default");
-        };
-        assert_eq!(settings.threads, None);
-        // An unchanged field sends nothing: blurring without edits must
-        // not stack a no-op revision.
+    fn enter_and_blur_share_commit_behavior() {
         assert!(matches!(
-            threads_commit(&["4".to_owned()], &["4".to_owned()], None, true),
-            ThreadsCommit::Unchanged
+            settings_commit(
+                &["4".into(), "32".into()],
+                &["".into(), "".into()],
+                None,
+                true
+            ),
+            SettingsCommit::Apply(_)
         ));
-        // An invalid edit keeps today's Apply error message.
         assert!(matches!(
-            threads_commit(&["1.5".into()], &["".into()], None, true),
-            ThreadsCommit::Invalid(_)
+            settings_commit(
+                &[" ".into(), "".into()],
+                &["4".into(), "32".into()],
+                None,
+                true
+            ),
+            SettingsCommit::Apply(_)
         ));
-        // Enter then blur before the save answers: the blur sends nothing.
         assert!(matches!(
-            threads_commit(&["4".into()], &["".into()], Some(&["4".into()]), true),
-            ThreadsCommit::Unchanged
+            settings_commit(
+                &["4".into(), "32".into()],
+                &["4".into(), "32".into()],
+                None,
+                true
+            ),
+            SettingsCommit::Unchanged
+        ));
+        assert!(matches!(
+            settings_commit(
+                &["1.5".into(), "".into()],
+                &["".into(), "".into()],
+                None,
+                true
+            ),
+            SettingsCommit::Invalid(_)
+        ));
+        assert!(matches!(
+            settings_commit(
+                &["4".into(), "32".into()],
+                &["".into(), "".into()],
+                Some(&["4".into(), "32".into()]),
+                true
+            ),
+            SettingsCommit::Unchanged
         ));
     }
 }

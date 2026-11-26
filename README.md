@@ -181,7 +181,9 @@ layout. The layout is saved in `layout.json` in the config folder:
 
 The renderer always runs as a separate program, so a render never blocks editing. The Scene
 Inspector's Render Settings choose the camera Render Scene uses. The scene's Sampler and
-Integrator set the samples per pixel and the maximum depth. Leave Threads blank to use all cores.
+Integrator set samples per pixel and maximum depth by default; the Render panel can override
+samples per pixel for renders started in pbrt-ui. Leave Samples blank to use the scene Sampler,
+and Threads blank to use all cores.
 
 The Render panel shows intermediate images while the renderer works. Parts it has not reached
 yet show a grey checker. The panel shows the result tone-mapped. The full-range EXR is kept, and
