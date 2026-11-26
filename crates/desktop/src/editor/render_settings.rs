@@ -28,6 +28,8 @@ pub struct SettingsForm {
     gpu: bool,
     message: String,
 }
+/// Threads is an execution-environment setting. Samples overrides the scene's
+/// Sampler for renders started here only; blank leaves image quality to the scene.
 fn fields(settings: &RenderSettings) -> [String; 2] {
     [
         settings.threads.map(|v| v.to_string()).unwrap_or_default(),
@@ -65,11 +67,20 @@ fn parse(values: &[String; 2], gpu: bool) -> Result<RenderSettings, String> {
     })
 }
 
+/// Enter and blur commit an edited field.
 enum SettingsCommit {
+    /// The fields still hold their baseline text, or the settings already
+    /// on their way: nothing to send.
     Unchanged,
+    /// A changed, valid field: the settings to save.
     Apply(RenderSettings),
+    /// A changed, invalid field: the error message shows.
     Invalid(String),
 }
+
+/// The commit decision Enter and blur share. Enter then blur before the
+/// backend answers must not resend: the second write would carry the old
+/// revision and report a conflict.
 fn settings_commit(
     values: &[String; 2],
     baseline: &[String; 2],
@@ -102,6 +113,8 @@ impl SettingsForm {
         });
         for input in &inputs {
             cx.observe(input, |_, _, cx| cx.notify()).detach();
+            // Blur commits a changed, valid edit too, so tabbing away from a
+            // fresh value still saves it.
             cx.subscribe(input, |this, _, event: &InputEvent, cx| match event {
                 InputEvent::PressEnter { .. } | InputEvent::Blur => this.commit(cx),
                 _ => {}
@@ -137,6 +150,8 @@ impl SettingsForm {
         };
         let incoming = fields(&settings);
         self.gpu = settings.gpu;
+        // With no Reload control, a change from elsewhere (CLI, agent)
+        // replaces what is typed here instead of blocking it.
         if self.revision != revision
             || self.values(cx) == self.baseline
             || self.pending.as_ref() == Some(&incoming)
