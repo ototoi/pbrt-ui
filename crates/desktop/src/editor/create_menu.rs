@@ -77,6 +77,9 @@ pub fn aligned_camera_fov(view_fov_y_degrees: f64, film_aspect: f64) -> f64 {
     }
 }
 
+/// Eye, target, up and vertical fov in degrees.
+pub type CameraView = ([f64; 3], [f64; 3], [f64; 3], f64);
+
 /// The view a camera node looks through, the inverse of `align_camera_edits`:
 /// `camera_to_world` is the node's row-major world matrix (camera space looks
 /// down +Z with +Y up; a right-handed scene's `Scale -1 1 1` only flips X), and
@@ -87,7 +90,7 @@ pub fn view_from_camera(
     camera_fov: f64,
     film_aspect: f64,
     distance: f64,
-) -> Option<([f64; 3], [f64; 3], [f64; 3], f64)> {
+) -> Option<CameraView> {
     let m = camera_to_world;
     let unit = |v: [f64; 3]| {
         let length = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
