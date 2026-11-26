@@ -230,7 +230,7 @@ impl Render for SettingsForm {
         for (i, label) in ["Threads", "Samples"].into_iter().enumerate() {
             row = row.child(
                 div()
-                    .w(px(90.))
+                    .w(px(130.))
                     .child(label)
                     .child(NumberInput::new(&self.inputs[i]).small()),
             );
