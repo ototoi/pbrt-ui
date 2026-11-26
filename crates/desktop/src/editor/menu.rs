@@ -57,6 +57,7 @@ actions!(
         RenameHierarchyNode,
         AlignCameraToView,
         AlignViewToSceneCamera,
+        AlignViewToSelected,
     ]
 );
 
@@ -409,6 +410,8 @@ pub fn build_menus(state: &MenuState) -> Vec<Menu> {
         Menu::new("View").items([
             MenuItem::action("Align View to Scene Camera", AlignViewToSceneCamera)
                 .disabled(!state.document_action()),
+            MenuItem::action("Align View to Selected", AlignViewToSelected)
+                .disabled(!state.document_action()),
             MenuItem::action("Focus Selected", FrameSelected).disabled(!state.document_action()),
             MenuItem::action("Frame All", FrameAll).disabled(!state.document_action()),
             MenuItem::separator(),
@@ -591,6 +594,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(
             &format!("{modifier}-shift-enter"),
             RenderCurrentView,
+            Some("EditorWorkspace"),
+        ),
+        KeyBinding::new(
+            &format!("{modifier}-shift-f"),
+            AlignCameraToView,
             Some("EditorWorkspace"),
         ),
         KeyBinding::new(
@@ -899,7 +907,7 @@ mod tests {
         state.mode = PreviewMode::Wireframe;
         let menus = build_menus(&state);
         let view = menus.iter().find(|menu| menu.name == "View").unwrap();
-        let MenuItem::Submenu(modes) = &view.items[4] else {
+        let MenuItem::Submenu(modes) = &view.items[5] else {
             panic!("expected the display-mode submenu");
         };
         let checked = modes.items.iter().filter(|item| item.is_checked()).count();
@@ -986,8 +994,13 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(
-            names[..3],
-            ["Align View to Scene Camera", "Focus Selected", "Frame All"]
+            names[..4],
+            [
+                "Align View to Scene Camera",
+                "Align View to Selected",
+                "Focus Selected",
+                "Frame All"
+            ]
         );
     }
 }

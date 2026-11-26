@@ -85,6 +85,27 @@ impl Display {
                         Err("Wait for the project preview before aligning to the scene camera".into())
                     }
                 }
+                Command::ViewSelectedCamera { project, node_id } => {
+                    (|| {
+                        let id = uuid::Uuid::parse_str(&node_id).map_err(|error| error.to_string())?;
+                        let node = request(&self.core, Method::ProjectGetNode, json!({"project":project,"node_id":id}))?;
+                        if node["object"] != "camera" { return Err("Select a camera to align the view to".into()); }
+                        let world = node["components"].as_array().into_iter().flatten().find(|component| component["kind"] == "transform").map(|component| &component["world"]["start"]).ok_or("The selected camera has no evaluated world transform")?;
+                        let m: [f64; 16] = serde_json::from_value(world.clone()).map_err(|error| error.to_string())?;
+                        let eye = [m[12], m[13], m[14]];
+                        let axis = |i: usize| { let v = [m[i], m[i+1], m[i+2]]; let n = (v[0]*v[0]+v[1]*v[1]+v[2]*v[2]).sqrt(); [v[0]/n,v[1]/n,v[2]/n] };
+                        let forward = axis(8); let up = axis(4);
+                        let camera_parameters = camera_parameter_page(&self.core, &project, &node_id).unwrap_or_else(|_| json!({"parameters":[]}));
+                        let fov = camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == "fov").and_then(|p| p["values"]["value"][0].as_f64().or_else(|| p["values"]["value"][0].as_str().and_then(|value| value.parse().ok()))).unwrap_or(45.);
+                        let scene_id = self.last_project["active_scene"].as_str().unwrap_or_default();
+                        let aspect = film_aspect(&self.core, &project, scene_id).unwrap_or(self.size[0] as f64 / self.size[1].max(1) as f64);
+                        let vertical = if aspect < 1. { 2. * ((fov.to_radians()/2.).tan()/aspect).atan().to_degrees() } else { fov };
+                        let distance = ((self.camera.eye[0]-self.camera.target[0]).powi(2)+(self.camera.eye[1]-self.camera.target[1]).powi(2)+(self.camera.eye[2]-self.camera.target[2]).powi(2)).sqrt();
+                        let target = [eye[0]+forward[0]*distance,eye[1]+forward[1]*distance,eye[2]+forward[2]*distance];
+                        self.camera.eye=eye; self.camera.target=target; self.camera.up=up; self.camera.fov_y_degrees=vertical; self.camera.mirror=self.scene_mirror();
+                        self.dirty=true; self.arm_ipr_submit(); Ok(())
+                    })()
+                }
                 // The F key frames the selection; with nothing
                 // selected it frames the whole scene, like Frame All.
                 Command::FrameSelection => match self.selected_project_node.clone() {
