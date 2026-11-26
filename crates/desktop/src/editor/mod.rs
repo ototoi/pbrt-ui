@@ -7,7 +7,7 @@ mod components;
 mod contents_thumbnails;
 pub(crate) mod contents_tree;
 mod create_menu;
-pub(crate) use create_menu::align_camera_edits_for_type;
+pub(crate) use create_menu::{align_camera_edits_for_type, view_from_camera};
 pub(crate) mod dialogs;
 pub(crate) mod document;
 mod edit_feedback;

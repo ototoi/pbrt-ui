@@ -92,16 +92,14 @@ impl Display {
                         if node["object"] != "camera" { return Err("Select a camera to align the view to".into()); }
                         let world = node["components"].as_array().into_iter().flatten().find(|component| component["kind"] == "transform").map(|component| &component["world"]["start"]).ok_or("The selected camera has no evaluated world transform")?;
                         let m: [f64; 16] = serde_json::from_value(world.clone()).map_err(|error| error.to_string())?;
-                        let eye = [m[12], m[13], m[14]];
-                        let axis = |i: usize| { let v = [m[i], m[i+1], m[i+2]]; let n = (v[0]*v[0]+v[1]*v[1]+v[2]*v[2]).sqrt(); [v[0]/n,v[1]/n,v[2]/n] };
-                        let forward = axis(8); let up = axis(4);
                         let camera_parameters = camera_parameter_page(&self.core, &project, &node_id).unwrap_or_else(|_| json!({"parameters":[]}));
-                        let fov = camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == "fov").and_then(|p| p["values"]["value"][0].as_f64().or_else(|| p["values"]["value"][0].as_str().and_then(|value| value.parse().ok()))).unwrap_or(45.);
+                        let parameter = |name: &str| camera_parameters["parameters"].as_array().into_iter().flatten().find(|p| p["name"] == name).and_then(|p| p["values"]["value"][0].as_f64().or_else(|| p["values"]["value"][0].as_str().and_then(|value| value.parse().ok())));
+                        // `halffov` wins when declared, as Align Camera to View writes it then.
+                        let fov = parameter("halffov").map(|half| half * 2.).or_else(|| parameter("fov")).unwrap_or(90.);
                         let scene_id = self.last_project["active_scene"].as_str().unwrap_or_default();
                         let aspect = film_aspect(&self.core, &project, scene_id).unwrap_or(self.size[0] as f64 / self.size[1].max(1) as f64);
-                        let vertical = if aspect < 1. { 2. * ((fov.to_radians()/2.).tan()/aspect).atan().to_degrees() } else { fov };
-                        let distance = ((self.camera.eye[0]-self.camera.target[0]).powi(2)+(self.camera.eye[1]-self.camera.target[1]).powi(2)+(self.camera.eye[2]-self.camera.target[2]).powi(2)).sqrt();
-                        let target = [eye[0]+forward[0]*distance,eye[1]+forward[1]*distance,eye[2]+forward[2]*distance];
+                        let distance = ((0..3).map(|i| (self.camera.eye[i] - self.camera.target[i]).powi(2)).sum::<f64>()).sqrt().max(1e-3);
+                        let (eye, target, up, vertical) = crate::editor::view_from_camera(&m, fov, aspect, distance).ok_or("The selected camera's transform is degenerate")?;
                         self.camera.eye=eye; self.camera.target=target; self.camera.up=up; self.camera.fov_y_degrees=vertical; self.camera.mirror=self.scene_mirror();
                         self.dirty=true; self.arm_ipr_submit(); Ok(())
                     })()
