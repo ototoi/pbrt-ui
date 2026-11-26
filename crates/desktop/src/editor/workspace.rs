@@ -7,11 +7,11 @@ use super::document::{
     suggested_project_name,
 };
 use super::menu::{
-    self, AddSceneToProject, AlignCameraToView, CancelRender, CloseDocument, CloseScene,
-    ConfirmDeleteHierarchyNode, ContentsDelete, ContentsImportResource, ContentsMove,
-    ContentsNewFolder, ContentsOpen, ContentsRename, CreateDefinitionPreset, CreatePreset,
-    CreateResource, DeleteNode, Deselect, DuplicateNode, DuplicateScene, ExportPbrt, LitMode,
-    MakeObjectDefinition, MenuState, NewProject, NewScene, NormalMode, OpenArrayEditor,
+    self, AddSceneToProject, AlignCameraToView, AlignViewToSceneCamera, CancelRender,
+    CloseDocument, CloseScene, ConfirmDeleteHierarchyNode, ContentsDelete, ContentsImportResource,
+    ContentsMove, ContentsNewFolder, ContentsOpen, ContentsRename, CreateDefinitionPreset,
+    CreatePreset, CreateResource, DeleteNode, Deselect, DuplicateNode, DuplicateScene, ExportPbrt,
+    LitMode, MakeObjectDefinition, MenuState, NewProject, NewScene, NormalMode, OpenArrayEditor,
     OpenInEditor, OpenPbrtScene, OpenProject, OpenRecent, OpenRenderSettings, OpenSceneId, QuitApp,
     RedoEdit, ReloadSource, RenderCurrentView, RenderSceneCamera, ResetPanelLayout,
     RevealDefinition, RevealItem, RevealNode, SaveProject, SaveProjectAs, ShowAbout,
@@ -1747,6 +1747,12 @@ impl Render for Workspace {
             .on_action(
                 cx.listener(|this, _: &AlignCameraToView, _, cx| this.align_camera_to_view(cx)),
             )
+            .on_action(cx.listener(|this, _: &AlignViewToSceneCamera, _, cx| {
+                if this.session.read(cx).project.active_scene.is_some() {
+                    this.session
+                        .update(cx, |session, cx| session.send(Command::ViewSceneCamera, cx));
+                }
+            }))
             .on_action(cx.listener(|this, _: &RenderSceneCamera, _, cx| {
                 if this.session.read(cx).project.active_scene.is_none() {
                     return;

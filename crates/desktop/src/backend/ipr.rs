@@ -25,7 +25,10 @@ impl Display {
     /// settle. The desktop's own picks, renders and IPR keeps pushing their
     /// exact explicit view; the shared copy serves external callers.
     pub(super) fn poll_view_sync(&mut self) {
-        let Some(due) = self.view_due else { return };
+        let Some(due) = self.view_due else {
+            self.watch_shared_view();
+            return;
+        };
         if Instant::now() < due {
             return;
         }
@@ -51,21 +54,25 @@ impl Display {
             Ok(camera) => camera,
             Err(_) => return,
         };
-        if current["view"].is_null() || current["view"]["camera"] != camera {
-            let stale = request(
+        if self.adopt_external_camera(&current, &camera) {
+            return;
+        }
+        let shared = &current["view"]["camera"];
+        if current["view"].is_null() || *shared != camera {
+            let written = request(
                 &self.core,
                 Method::ProjectSetCamera,
                 json!({"project":project,"expected_view_revision":current["view_revision"],"camera":camera}),
             );
-            if stale.is_err() {
-                // Remote edits raced us; refetch the revision on the next tick.
-                self.view_due = Some(Instant::now());
-            } else {
-                // Layout follows the camera once it is established.
-                self.view_due = Some(Instant::now());
+            if written.is_ok() {
+                self.synced_camera = Some(camera);
             }
+            // On a stale revision another client raced us; the next tick
+            // refetches and adopts its camera.
+            self.view_due = Some(Instant::now());
             return;
         }
+        self.synced_camera = Some(camera);
         if current["view"]["size"] != json!(self.render_size())
             || current["view"]["mode"] != json!(mode)
             || current["view"]["time"] != json!(self.project_time)
@@ -80,6 +87,63 @@ impl Display {
                 self.view_due = Some(Instant::now());
             }
         }
+    }
+    /// Read-only look at the shared view while nothing here moved: the app
+    /// state carries no view revision, so poll for a camera another client
+    /// set. It never writes, so a size, mode or time set by that client stays.
+    fn watch_shared_view(&mut self) {
+        let now = Instant::now();
+        match self.view_watch_due {
+            Some(due) if now < due => return,
+            None => {
+                self.view_watch_due = Some(now + Duration::from_millis(500));
+                return;
+            }
+            Some(_) => self.view_watch_due = Some(now + Duration::from_millis(500)),
+        }
+        let project = self.last_project["context"]["project"].clone();
+        if !project.is_object() || self.project_geometry.is_none() {
+            return;
+        }
+        let (Ok(current), Ok(camera)) = (
+            request(
+                &self.core,
+                Method::ProjectGetView,
+                json!({"project":project}),
+            ),
+            serde_json::to_value(self.camera.to_protocol()),
+        ) else {
+            return;
+        };
+        self.adopt_external_camera(&current, &camera);
+    }
+
+    /// Take the shared camera when another client set it: it differs from the
+    /// camera this display last wrote or adopted. Cameras are compared, not
+    /// revisions, because size, mode and time changes also bump the revision.
+    fn adopt_external_camera(&mut self, current: &Value, camera: &Value) -> bool {
+        let shared = &current["view"]["camera"];
+        if !self
+            .synced_camera
+            .as_ref()
+            .is_some_and(|synced| synced != shared)
+            || shared == camera
+        {
+            return false;
+        }
+        let Ok(wire_camera) = serde_json::from_value::<protocol::view::Camera>(shared.clone())
+        else {
+            return false;
+        };
+        let mut adopted = ViewerCamera::from_protocol(wire_camera);
+        adopted.mirror = self.scene_mirror();
+        self.camera = adopted;
+        self.synced_camera = Some(shared.clone());
+        self.dirty = true;
+        // Re-render IPR from the new camera, but do not schedule a view write:
+        // that would push this window's size, mode and time over the caller's.
+        self.ipr_due = Some(Instant::now() + Duration::from_millis(300));
+        true
     }
     pub(super) fn poll_ipr_submit(&mut self) {
         let Some(due) = self.ipr_due else { return };

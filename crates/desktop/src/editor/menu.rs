@@ -56,6 +56,7 @@ actions!(
         UnpackObjectInstance,
         RenameHierarchyNode,
         AlignCameraToView,
+        AlignViewToSceneCamera,
     ]
 );
 
@@ -406,6 +407,8 @@ pub fn build_menus(state: &MenuState) -> Vec<Menu> {
             MenuItem::action("Delete", DeleteNode).disabled(!state.node_edit()),
         ]),
         Menu::new("View").items([
+            MenuItem::action("Align View to Scene Camera", AlignViewToSceneCamera)
+                .disabled(!state.document_action()),
             MenuItem::action("Focus Selected", FrameSelected).disabled(!state.document_action()),
             MenuItem::action("Frame All", FrameAll).disabled(!state.document_action()),
             MenuItem::separator(),
@@ -896,7 +899,7 @@ mod tests {
         state.mode = PreviewMode::Wireframe;
         let menus = build_menus(&state);
         let view = menus.iter().find(|menu| menu.name == "View").unwrap();
-        let MenuItem::Submenu(modes) = &view.items[3] else {
+        let MenuItem::Submenu(modes) = &view.items[4] else {
             panic!("expected the display-mode submenu");
         };
         let checked = modes.items.iter().filter(|item| item.is_checked()).count();
@@ -982,6 +985,9 @@ mod tests {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        assert_eq!(names[..2], ["Focus Selected", "Frame All"]);
+        assert_eq!(
+            names[..3],
+            ["Align View to Scene Camera", "Focus Selected", "Frame All"]
+        );
     }
 }

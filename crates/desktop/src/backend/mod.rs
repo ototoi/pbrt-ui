@@ -87,6 +87,7 @@ pub enum Command {
     Time(f64),
     FrameAll,
     FrameSelection,
+    ViewSceneCamera,
     /// The Scene viewport's size in pixels.
     Resize([u32; 2]),
     Orbit(f64, f64),
@@ -678,6 +679,12 @@ struct Display {
     )>,
     preview_ready: bool,
     camera: ViewerCamera,
+    scene_camera: Option<ViewerCamera>,
+    /// The wire camera this display last wrote to, or adopted from, the shared
+    /// view. A shared camera that differs from it was set by another client.
+    synced_camera: Option<Value>,
+    /// When the idle, read-only look for an external camera runs next.
+    view_watch_due: Option<Instant>,
     mode: PreviewMode,
     size: [u32; 2],
     dirty: bool,

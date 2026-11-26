@@ -74,6 +74,17 @@ impl Display {
                         Err("Wait for the project preview before framing".into())
                     }
                 }
+                Command::ViewSceneCamera => {
+                    if let Some(camera) = self.scene_camera {
+                        self.camera = camera;
+                        self.camera.mirror = self.scene_mirror();
+                        self.dirty = true;
+                        self.arm_ipr_submit();
+                        Ok(())
+                    } else {
+                        Err("Wait for the project preview before aligning to the scene camera".into())
+                    }
+                }
                 // The F key frames the selection; with nothing
                 // selected it frames the whole scene, like Frame All.
                 Command::FrameSelection => match self.selected_project_node.clone() {
