@@ -19,6 +19,84 @@ use std::{
     time::Duration,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum NodeMenuAction {
+    Rename,
+    Duplicate,
+    Delete,
+    ConfirmDelete,
+    MakeObjectDefinition,
+    UnpackInstance,
+    FrameSelection,
+}
+
+impl NodeMenuAction {
+    pub(super) fn workspace_action(self) -> Box<dyn Action> {
+        match self {
+            Self::Rename => Box::new(super::menu::RenameHierarchyNode),
+            Self::Duplicate => Box::new(super::menu::DuplicateNode),
+            Self::Delete => Box::new(super::menu::DeleteNode),
+            Self::ConfirmDelete => Box::new(super::menu::ConfirmDeleteHierarchyNode),
+            Self::MakeObjectDefinition => Box::new(super::menu::MakeObjectDefinition),
+            Self::UnpackInstance => Box::new(super::menu::UnpackObjectInstance),
+            Self::FrameSelection => Box::new(super::FrameSelected),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct NodeMenuItem {
+    pub label: &'static str,
+    pub action: NodeMenuAction,
+}
+
+/// The node commands shared by the Inspector and Hierarchy.
+pub(super) fn node_menu_items(
+    kind: &str,
+    read_only: bool,
+    in_definition: bool,
+) -> Vec<NodeMenuItem> {
+    use NodeMenuAction::*;
+    if read_only {
+        return vec![NodeMenuItem {
+            label: "Frame Selection",
+            action: FrameSelection,
+        }];
+    }
+    let mut items = vec![NodeMenuItem {
+        label: "Rename",
+        action: Rename,
+    }];
+    if super::node_edits::duplicate_delete(kind) {
+        items.push(NodeMenuItem {
+            label: "Duplicate",
+            action: Duplicate,
+        });
+        items.push(NodeMenuItem {
+            label: if in_definition { "Delete…" } else { "Delete" },
+            action: if in_definition { ConfirmDelete } else { Delete },
+        });
+    }
+    if !in_definition {
+        match kind {
+            "group" => items.push(NodeMenuItem {
+                label: "Make Object Definition",
+                action: MakeObjectDefinition,
+            }),
+            "instance" => items.push(NodeMenuItem {
+                label: "Unpack Instance",
+                action: UnpackInstance,
+            }),
+            _ => {}
+        }
+    }
+    items.push(NodeMenuItem {
+        label: "Frame Selection",
+        action: FrameSelection,
+    });
+    items
+}
+
 /// Presets an ObjectDefinition can hold: shapes and groups.
 fn definition_presets(presets: &[super::menu::PresetItem]) -> Vec<super::menu::PresetItem> {
     presets
@@ -1433,16 +1511,15 @@ impl Render for Hierarchy {
                             );
                             if in_definition {
                                 if !editable {
+                                    for item in node_menu_items(&object, true, true) {
+                                        if item.action == NodeMenuAction::FrameSelection {
+                                            menu = menu.menu(item.label, Box::new(super::FrameSelected));
+                                        }
+                                    }
                                     return menu;
                                 }
-                                menu = menu.menu("Rename", Box::new(super::menu::RenameHierarchyNode));
-                                if super::node_edits::duplicate_delete(&object) {
-                                    menu = menu
-                                        .menu("Duplicate", Box::new(super::menu::DuplicateNode))
-                                        .menu(
-                                            "Delete…",
-                                            Box::new(super::menu::ConfirmDeleteHierarchyNode),
-                                        );
+                                for item in node_menu_items(&object, false, true) {
+                                    menu = menu.menu(item.label, item.action.workspace_action());
                                 }
                                 if matches!(object.as_str(), "group" | "shape") {
                                     let tree = &menu_session.read(cx).project_tree;
@@ -1462,19 +1539,11 @@ impl Render for Hierarchy {
                                 }
                                 return menu;
                             }
-                            menu = menu.menu("Rename", Box::new(super::menu::RenameHierarchyNode));
-                            if !presets.is_empty() && super::node_edits::duplicate_delete(&object) {
-                                menu = menu
-                                    .menu("Duplicate", Box::new(super::menu::DuplicateNode))
-                                    .menu("Delete", Box::new(super::menu::DeleteNode))
-                                    .separator();
+                            let items = node_menu_items(&object, !editable, false);
+                            for item in items {
+                                menu = menu.menu(item.label, item.action.workspace_action());
                             }
-                            if object == "group" {
-                                menu = menu.menu("Make Object Definition", Box::new(super::menu::MakeObjectDefinition)).separator();
-                            }
-                            if object == "instance" {
-                                menu = menu.menu("Unpack Instance", Box::new(super::menu::UnpackObjectInstance)).separator();
-                            }
+                            if !presets.is_empty() && super::node_edits::duplicate_delete(&object) { menu = menu.separator(); }
                             create_submenu(menu, presets.clone(), window, cx, |preset| {
                                 Box::new(super::menu::CreatePreset { preset })
                             })
@@ -2288,7 +2357,10 @@ mod search_tests {
 
 #[cfg(test)]
 mod icon_tests {
-    use super::{IconName, object_icon, object_icon_for, object_label};
+    use super::{
+        IconName, NodeMenuAction, NodeMenuItem, node_menu_items, object_icon, object_icon_for,
+        object_label,
+    };
     use serde_json::json;
 
     #[test]
@@ -2308,5 +2380,101 @@ mod icon_tests {
         let group = json!({"object":"group","label":"G","components":["area_light"]});
         assert_eq!(object_icon(&group), IconName::Folder);
         assert_eq!(object_label(&group), "G  ✦");
+    }
+
+    #[test]
+    fn shared_node_menu_items_follow_hierarchy_order_for_each_kind() {
+        let labels = |kind| {
+            node_menu_items(kind, false, false)
+                .into_iter()
+                .map(|item| item.label)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            labels("group"),
+            [
+                "Rename",
+                "Duplicate",
+                "Delete",
+                "Make Object Definition",
+                "Frame Selection"
+            ]
+        );
+        assert_eq!(
+            labels("instance"),
+            [
+                "Rename",
+                "Duplicate",
+                "Delete",
+                "Unpack Instance",
+                "Frame Selection"
+            ]
+        );
+        assert_eq!(
+            labels("shape"),
+            ["Rename", "Duplicate", "Delete", "Frame Selection"]
+        );
+        assert_eq!(
+            labels("camera"),
+            ["Rename", "Duplicate", "Delete", "Frame Selection"]
+        );
+        assert_eq!(labels("scene"), ["Rename", "Frame Selection"]);
+    }
+
+    #[test]
+    fn definition_node_menu_items_confirm_delete_and_skip_definition_commands() {
+        for kind in ["group", "instance", "shape", "camera", "scene"] {
+            let items = node_menu_items(kind, false, true);
+            assert_eq!(items[0].action, NodeMenuAction::Rename, "{kind}");
+            assert_eq!(
+                items.last().unwrap().action,
+                NodeMenuAction::FrameSelection,
+                "{kind}"
+            );
+            if crate::editor::node_edits::duplicate_delete(kind) {
+                assert!(
+                    items.iter().any(|item| {
+                        item.label == "Delete…" && item.action == NodeMenuAction::ConfirmDelete
+                    }),
+                    "{kind}"
+                );
+            }
+            assert!(
+                !items.iter().any(|item| matches!(
+                    item.action,
+                    NodeMenuAction::MakeObjectDefinition | NodeMenuAction::UnpackInstance
+                )),
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_shared_node_menu_action_has_a_workspace_action() {
+        for action in [
+            NodeMenuAction::Rename,
+            NodeMenuAction::Duplicate,
+            NodeMenuAction::Delete,
+            NodeMenuAction::ConfirmDelete,
+            NodeMenuAction::MakeObjectDefinition,
+            NodeMenuAction::UnpackInstance,
+            NodeMenuAction::FrameSelection,
+        ] {
+            let _workspace_action = action.workspace_action();
+        }
+    }
+
+    #[test]
+    fn shared_node_menu_keeps_only_frame_selection_in_viewer_mode() {
+        for kind in ["group", "instance", "shape", "camera", "scene"] {
+            assert_eq!(
+                node_menu_items(kind, true, false),
+                [NodeMenuItem {
+                    label: "Frame Selection",
+                    action: NodeMenuAction::FrameSelection
+                }],
+                "{kind}"
+            );
+        }
     }
 }
