@@ -185,4 +185,14 @@ mod tests {
         let settings = RenderSettings::default();
         assert!(render_arguments(&settings, false).is_empty());
     }
+
+    #[test]
+    fn samples_argument_is_used_only_when_set() {
+        let settings = RenderSettings {
+            samples_per_pixel: Some(32),
+            ..RenderSettings::default()
+        };
+        assert_eq!(render_arguments(&settings, false), ["--spp", "32"]);
+        assert!(render_arguments(&RenderSettings::default(), false).is_empty());
+    }
 }

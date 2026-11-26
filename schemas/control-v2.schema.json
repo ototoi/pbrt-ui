@@ -230,8 +230,17 @@
           "type": "object",
           "properties": {
             "samples_per_pixel": {
-              "type": "null",
-              "description": "Deprecated compatibility field; must be null. Final render quality comes from the scene Sampler."
+              "description": "Optional final-render sample count; null uses the scene Sampler.",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "threads": {
               "anyOf": [

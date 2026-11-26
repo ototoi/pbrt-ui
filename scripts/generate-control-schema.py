@@ -58,7 +58,7 @@ def generate():
     vec3={'type':'array','items':{'type':'number'},'minItems':3,'maxItems':3}
     size={'type':'array','items':{'type':'integer','minimum':1,'maximum':8192},'minItems':2,'maxItems':2}
     camera=obj({'eye':vec3,'target':vec3,'up':vec3,'projection':{'const':'perspective'},'fov_y_degrees':{'type':'number','exclusiveMinimum':0.1,'exclusiveMaximum':179},'near':{'type':'number','exclusiveMinimum':0},'far':{'type':'number','exclusiveMinimum':0},'mirror':{'type':'boolean'}},['eye','target','up','projection','fov_y_degrees','near','far'])
-    settings=obj({'samples_per_pixel':{'type':'null','description':'Deprecated compatibility field; must be null. Final render quality comes from the scene Sampler.'},'threads':nullable({'type':'integer','minimum':1,'maximum':1024}),'gpu':{'type':'boolean','default':False},'max_depth':{'type':'null','description':'Deprecated compatibility field; must be null. Final render depth comes from the scene Integrator.'}},['samples_per_pixel','threads','max_depth'])
+    settings=obj({'samples_per_pixel':{'description':'Optional final-render sample count; null uses the scene Sampler.','anyOf':[{'type':'integer','minimum':1,'maximum':1048576},{'type':'null'}]},'threads':nullable({'type':'integer','minimum':1,'maximum':1024}),'gpu':{'type':'boolean','default':False},'max_depth':{'type':'null','description':'Deprecated compatibility field; must be null. Final render depth comes from the scene Integrator.'}},['samples_per_pixel','threads','max_depth'])
     display_mode={'enum':['solid','normal','wireframe','lit']}
     view_state=obj({'camera':camera,'size':size,'mode':display_mode,'time':{'type':'number'}},['camera','size','mode','time'])
     parameter_schemas.update({

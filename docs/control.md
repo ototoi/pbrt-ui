@@ -106,10 +106,9 @@ them.
   (`capture_job_id` in the result).
   - It is rejected before any edit if capture is unavailable.
   - Capture and pick need `pbrt-ui-capture` beside the host.
-- **Render settings:** `settings` keeps nullable `samples_per_pixel` and `max_depth` for
-  compatibility but rejects non-null values.
-  - Set them through the scene's Sampler and Integrator instead.
-  - Threads remains a shared setting. IPR keeps its own sample budget.
+- **Render settings:** `settings` accepts `samples_per_pixel` from 1 through 1,048,576;
+  null uses the scene's Sampler. `max_depth` must remain null and is controlled by the scene's
+  Integrator. Threads remains a shared setting. IPR keeps its own sample budget.
 
 ### Jobs and artifacts
 
