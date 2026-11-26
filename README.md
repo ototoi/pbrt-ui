@@ -162,6 +162,9 @@ In the Scene viewport:
 | Switch local and world gizmo | X |
 | Cancel a drag | Esc |
 
+Choose View > Align View to Scene Camera to restore the camera from the scene. The `project view`
+command also moves the open desktop viewport when it sets a camera.
+
 Window lists every panel and brings back closed ones. Window > Reset Layout restores the default
 layout. The layout is saved in `layout.json` in the config folder:
 

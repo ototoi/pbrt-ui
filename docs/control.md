@@ -87,6 +87,7 @@ them.
   - Rendering does not need the original PBRT files.
 - **`project view`** reads and sets the shared view (`project.get_view`, `set_camera`,
   `configure_view`).
+  Setting its camera also moves the open desktop window's viewport.
   - Its options are `[JSON] [--mode solid|normal|wireframe|lit] [--size WxH] [--time T]`.
   - With no JSON and no flags it prints the view.
   - The JSON may be a camera, a view state, or a previous `project view` result. The flags

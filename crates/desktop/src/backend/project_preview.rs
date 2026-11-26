@@ -130,15 +130,16 @@ impl Display {
         let owner_ref = &self.last_project["context"]["project"];
         let owner = camera_preservation::ProjectOwner::from_ref(owner_ref);
         let owner_key = owner.as_ref().map(|owner| owner.key()).unwrap_or_default();
+        let manifest_camera = ViewerCamera::from_manifest_up(
+            &manifest,
+            self.size[0] as f64 / self.size[1].max(1) as f64,
+            self.scene_up(),
+        );
+        self.scene_camera = Some(manifest_camera);
         if self.project_camera_owner.as_deref() != Some(&owner_key) {
             // Reload Source keeps the camera the user was looking through
             // across the new activation; a freshly opened document frames
             // its manifest camera.
-            let manifest_camera = ViewerCamera::from_manifest_up(
-                &manifest,
-                self.size[0] as f64 / self.size[1].max(1) as f64,
-                self.scene_up(),
-            );
             if let Some(owner) = owner.as_ref() {
                 self.choose_camera_for_preview(owner, manifest_camera);
             } else {

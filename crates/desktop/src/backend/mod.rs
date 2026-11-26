@@ -87,6 +87,7 @@ pub enum Command {
     Time(f64),
     FrameAll,
     FrameSelection,
+    ViewSceneCamera,
     /// The Scene viewport's size in pixels.
     Resize([u32; 2]),
     Orbit(f64, f64),
@@ -678,6 +679,8 @@ struct Display {
     )>,
     preview_ready: bool,
     camera: ViewerCamera,
+    scene_camera: Option<ViewerCamera>,
+    view_revision: Option<Value>,
     mode: PreviewMode,
     size: [u32; 2],
     dirty: bool,

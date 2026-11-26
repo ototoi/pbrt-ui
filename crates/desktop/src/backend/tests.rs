@@ -2232,6 +2232,8 @@ fn an_export_puts_its_warnings_in_the_console() {
         gpu_rx: gpu::orphan_rx(),
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        view_revision: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2327,6 +2329,8 @@ fn a_settled_save_logs_one_console_line() {
         gpu_rx: gpu::orphan_rx(),
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        view_revision: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2438,6 +2442,8 @@ fn a_refused_job_submission_settles_its_form() {
         gpu_rx: gpu::orphan_rx(),
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        view_revision: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2527,6 +2533,8 @@ fn parallel_imports_each_deliver_their_reports() {
         gpu_rx: gpu::orphan_rx(),
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        view_revision: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -2719,6 +2727,8 @@ fn bare_display(core: app_core::CoreHandle) -> (Display, mpsc::Receiver<Update>)
         gpu_rx: gpu::orphan_rx(),
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        view_revision: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
@@ -3198,6 +3208,65 @@ fn display_with_gpu_channels(
     display.gpu = gpu::GpuHandle::for_tests(requests);
     display.gpu_rx = gpu_rx;
     (display, updates, gpu_results, gpu_requests)
+}
+
+#[test]
+fn external_project_view_moves_the_desktop_camera() {
+    let (_temp, host, project) = native_project("WorldBegin\nShape \"sphere\"\nWorldEnd\n");
+    let mut display = bare_display(host.handle()).0;
+    display.last_project = json!({"context":{"project":project},"active_handedness":"right"});
+    display.project_geometry = Some(protocol::geometry::GeometryManifest::default());
+    let mut remote_camera = ViewerCamera::frame(None, 1.).to_protocol();
+    remote_camera.eye[0] += 10.;
+    let initial = request(
+        &display.core,
+        Method::ProjectGetView,
+        json!({"project":display.last_project["context"]["project"]}),
+    )
+    .unwrap();
+    display.view_revision = Some(initial["view_revision"].clone());
+    request(
+        &display.core,
+        Method::ProjectSetCamera,
+        json!({
+            "project":display.last_project["context"]["project"],
+            "expected_view_revision":initial["view_revision"], "camera":remote_camera
+        }),
+    )
+    .unwrap();
+    remote_camera.mirror = true;
+    display.view_due = Some(Instant::now() - Duration::from_millis(1));
+    display.poll_view_sync();
+    assert_eq!(display.camera.to_protocol(), remote_camera);
+    assert!(display.camera.mirror);
+    assert!(display.dirty);
+}
+
+#[test]
+fn desktop_view_write_is_not_adopted_as_an_external_camera() {
+    let (_temp, host, project) = native_project("WorldBegin\nShape \"sphere\"\nWorldEnd\n");
+    let mut display = bare_display(host.handle()).0;
+    display.last_project = json!({"context":{"project":project}});
+    display.project_geometry = Some(protocol::geometry::GeometryManifest::default());
+    display.view_due = Some(Instant::now() - Duration::from_millis(1));
+    display.poll_view_sync();
+    let written = display.camera.to_protocol();
+    display.dirty = false;
+    display.view_due = Some(Instant::now() - Duration::from_millis(1));
+    display.poll_view_sync();
+    assert_eq!(display.camera.to_protocol(), written);
+    assert!(!display.dirty);
+}
+
+#[test]
+fn view_scene_camera_restores_the_manifest_camera() {
+    let (_temp, host, _) = native_project("WorldBegin\nShape \"sphere\"\nWorldEnd\n");
+    let (mut display, _) = bare_display(host.handle());
+    let manifest_camera = ViewerCamera::frame(None, 1.);
+    display.scene_camera = Some(manifest_camera);
+    display.handle_commands([Command::ViewSceneCamera]);
+    assert_eq!(display.camera, manifest_camera);
+    assert!(display.dirty);
 }
 
 fn tiny_frame() -> PreviewFrame {

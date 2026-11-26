@@ -51,17 +51,32 @@ impl Display {
             Ok(camera) => camera,
             Err(_) => return,
         };
+        if self.view_revision.as_ref() != Some(&current["view_revision"])
+            && current["view"]["camera"] != camera
+        {
+            if let Ok(wire_camera) =
+                serde_json::from_value::<protocol::view::Camera>(current["view"]["camera"].clone())
+            {
+                let mut adopted = ViewerCamera::from_protocol(wire_camera);
+                adopted.mirror = self.scene_mirror();
+                self.camera = adopted;
+                self.view_revision = Some(current["view_revision"].clone());
+                self.dirty = true;
+                self.arm_ipr_submit();
+                return;
+            }
+        }
         if current["view"].is_null() || current["view"]["camera"] != camera {
             let stale = request(
                 &self.core,
                 Method::ProjectSetCamera,
                 json!({"project":project,"expected_view_revision":current["view_revision"],"camera":camera}),
             );
-            if stale.is_err() {
-                // Remote edits raced us; refetch the revision on the next tick.
+            if let Ok(result) = stale {
+                self.view_revision = Some(result["view_revision"].clone());
                 self.view_due = Some(Instant::now());
             } else {
-                // Layout follows the camera once it is established.
+                // Remote edits raced us; refetch the revision on the next tick.
                 self.view_due = Some(Instant::now());
             }
             return;

@@ -33,6 +33,8 @@ pub(super) fn run(
         queued_install: None,
         preview_ready: false,
         camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        view_revision: None,
         mode: PreviewMode::Solid,
         size: [1280, 720],
         dirty: false,
