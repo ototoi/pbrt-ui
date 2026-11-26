@@ -99,10 +99,10 @@ impl Display {
                         let scene_id = self.last_project["active_scene"].as_str().unwrap_or_default();
                         let aspect = film_aspect(&self.core, &project, scene_id).unwrap_or(self.size[0] as f64 / self.size[1].max(1) as f64);
                         let distance = ((0..3).map(|i| (self.camera.eye[i] - self.camera.target[i]).powi(2)).sum::<f64>()).sqrt().max(1e-3);
-                        let (eye, target, _, vertical) = crate::editor::view_from_camera(&m, fov, aspect, distance).ok_or("The selected camera's transform is degenerate")?;
+                        let (eye, target, camera_up, vertical) = crate::editor::view_from_camera(&m, fov, aspect, distance).ok_or("The selected camera's transform is degenerate")?;
                         // Orbit turns about the camera's up, so keep the scene's up axis
                         // rather than the camera's own (tilted) up; a rolled camera loses its roll.
-                        self.camera.eye=eye; self.camera.target=target; self.camera.up=self.scene_up().vector(); self.camera.fov_y_degrees=vertical; self.camera.mirror=self.scene_mirror();
+                        self.camera.eye=eye; self.camera.target=target; self.camera.up=up_for_view(eye, target, self.scene_up().vector(), camera_up); self.camera.fov_y_degrees=vertical; self.camera.mirror=self.scene_mirror();
                         self.dirty=true; self.arm_ipr_submit(); Ok(())
                     })()
                 }
@@ -1013,9 +1013,34 @@ fn reveal_candidate(id: &str, data: &Value) -> Option<(usize, String, Option<Str
     }
 }
 
+/// Keep the scene axis as screen-up unless it would make the view basis
+/// degenerate; top-down views need the camera's own world-space up vector.
+fn up_for_view(
+    eye: [f64; 3],
+    target: [f64; 3],
+    scene_up: [f64; 3],
+    camera_up: [f64; 3],
+) -> [f64; 3] {
+    let forward = std::array::from_fn::<_, 3, _>(|i| target[i] - eye[i]);
+    let length = |vector: [f64; 3]| vector.iter().map(|value| value * value).sum::<f64>().sqrt();
+    let forward_length = length(forward);
+    let scene_length = length(scene_up);
+    let parallel = forward_length > 0.
+        && scene_length > 0.
+        && (forward
+            .iter()
+            .zip(scene_up)
+            .map(|(a, b)| a * b)
+            .sum::<f64>()
+            / (forward_length * scene_length))
+            .abs()
+            > 0.999;
+    if parallel { camera_up } else { scene_up }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::reveal_candidate;
+    use super::{reveal_candidate, up_for_view};
     use serde_json::json;
 
     #[test]
@@ -1037,6 +1062,19 @@ mod tests {
             reveal_candidate("group", &json!({"kind":"scope"})).unwrap(),
             (3, "group".into(), None)
         );
+    }
+
+    #[test]
+    fn top_down_camera_uses_camera_up_when_scene_up_is_parallel() {
+        let up = up_for_view([0., 2., 0.], [0., 0., 0.], [0., 1., 0.], [0., 0., 1.]);
+        assert_eq!(up, [0., 0., 1.]);
+        let forward = [0., -2., 0.];
+        let cross = [
+            forward[1] * up[2] - forward[2] * up[1],
+            forward[2] * up[0] - forward[0] * up[2],
+            forward[0] * up[1] - forward[1] * up[0],
+        ];
+        assert!(cross.iter().map(|value| value * value).sum::<f64>() >= 1e-18);
     }
 }
 
