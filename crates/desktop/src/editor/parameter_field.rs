@@ -55,6 +55,7 @@ pub struct ParameterField {
     message: String,
     step_generation: u64,
     step_baseline: Option<i64>,
+    step_value: Option<i64>,
 }
 
 fn texts(field: &Field) -> Vec<String> {
@@ -88,6 +89,8 @@ impl ParameterField {
             input.update(cx, |input, cx| input.set_value(value.clone(), window, cx));
         }
         self.step_generation = self.step_generation.wrapping_add(1);
+        self.step_baseline = None;
+        self.step_value = None;
         self.project = project.clone();
         self.row = row.clone();
         self.items = items;
@@ -157,10 +160,18 @@ impl ParameterField {
                     |this, _state, event: &InputEvent, _window, cx| {
                         if matches!(event, InputEvent::Change) {
                             this.draft_history = true;
+                            if this.step_baseline.is_some()
+                                && this.inputs.first().is_some_and(|input| {
+                                    input.read(cx).value().parse::<i64>().ok() != this.step_value
+                                })
+                            {
+                                this.cancel_steps();
+                            }
                         }
                         // Enter commits typed text, as before. Blur only settles a run of
                         // spin-box steps; typed text still waits for Enter.
                         if matches!(event, InputEvent::PressEnter { .. }) && this.is_modified(cx) {
+                            this.cancel_steps();
                             this.apply_texts(cx);
                         }
                         if matches!(event, InputEvent::Blur) && this.is_integer_single() {
@@ -243,6 +254,7 @@ impl ParameterField {
             message: String::new(),
             step_generation: 0,
             step_baseline: None,
+            step_value: None,
         }
     }
 
@@ -344,6 +356,7 @@ impl ParameterField {
         let current = state.read(cx).value().parse::<i64>().unwrap_or(0);
         self.step_baseline.get_or_insert(current);
         let next = stepped_integer(current, action, self.integer_minimum());
+        self.step_value = Some(next);
         state.update(cx, |input, cx| {
             input.set_value(next.to_string(), window, cx)
         });
@@ -365,17 +378,26 @@ impl ParameterField {
 
     fn finish_steps(&mut self, cx: &mut Context<Self>) {
         self.step_generation = self.step_generation.wrapping_add(1);
+        self.step_value = None;
         let current = self.inputs[0].read(cx).value().parse::<i64>().ok();
         if take_step_commit(&mut self.step_baseline, current) {
             self.apply_texts(cx);
         }
     }
 
+    fn cancel_steps(&mut self) {
+        self.step_generation = self.step_generation.wrapping_add(1);
+        self.step_baseline = None;
+        self.step_value = None;
+    }
+
     fn apply_values(&mut self, texts: &[String], cx: &mut Context<Self>) {
         if self.is_integer_single()
             && let (Some(minimum), Some(value)) = (
                 self.integer_minimum(),
-                texts.first().and_then(|value| value.parse::<i64>().ok()),
+                texts
+                    .first()
+                    .and_then(|value| value.trim().parse::<i64>().ok()),
             )
             && value < minimum
         {
