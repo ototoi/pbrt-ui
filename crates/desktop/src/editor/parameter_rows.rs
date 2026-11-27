@@ -2168,6 +2168,12 @@ mod tests {
     }
 
     #[test]
+    fn multi_value_integer_parameters_remain_array_editor_rows() {
+        let parameter = declared("indices", "integer", "integers", json!(["1", "2", "3"]));
+        assert_eq!(field(&parameter, false), Field::Json);
+    }
+
+    #[test]
     fn an_undeclared_tuple_default_edits_as_a_vector() {
         // A spot light's from / to: a point3 default shows in x / y / z.
         let page = json!({"parameters":[],"schema":[spec("from",json!(["point3"]),

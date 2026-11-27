@@ -13,7 +13,9 @@ use super::parameter_values::{self, Table};
 use crate::backend::{Command, Follow};
 use gpui::{App, Context, Entity, IntoElement, ParentElement, Render, Rgba, Styled, Window};
 use gpui_kit::component::checkbox::Checkbox;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{
+    Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction,
+};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
 use gpui_kit::component::popover::Popover;
 use gpui_kit::component::{
@@ -24,6 +26,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use serde_json::Value;
 use std::rc::Rc;
+use std::time::Duration;
 
 pub struct ParameterField {
     session: Entity<Session>,
@@ -50,6 +53,9 @@ pub struct ParameterField {
     /// Stable across revisions: `parameter:<target id>:<name>`.
     form: String,
     message: String,
+    step_generation: u64,
+    step_baseline: Option<i64>,
+    step_value: Option<i64>,
 }
 
 fn texts(field: &Field) -> Vec<String> {
@@ -82,6 +88,9 @@ impl ParameterField {
         for (input, value) in self.inputs.iter().zip(&initial) {
             input.update(cx, |input, cx| input.set_value(value.clone(), window, cx));
         }
+        self.step_generation = self.step_generation.wrapping_add(1);
+        self.step_baseline = None;
+        self.step_value = None;
         self.project = project.clone();
         self.row = row.clone();
         self.items = items;
@@ -145,14 +154,45 @@ impl ParameterField {
                 // color at once). Focus changes are not relied on: the
                 // inputs here do not report them, and applying per channel
                 // would rebuild the row under the cursor.
-                cx.subscribe(&input, |this, _, event: &InputEvent, cx| {
-                    if matches!(event, InputEvent::Change) {
-                        this.draft_history = true;
-                    }
-                    if matches!(event, InputEvent::PressEnter { .. }) && this.is_modified(cx) {
-                        this.apply_texts(cx);
-                    }
-                })
+                cx.subscribe_in(
+                    &input,
+                    window,
+                    |this, _state, event: &InputEvent, _window, cx| {
+                        if matches!(event, InputEvent::Change) {
+                            this.draft_history = true;
+                            if this.step_baseline.is_some()
+                                && this.inputs.first().is_some_and(|input| {
+                                    input.read(cx).value().parse::<i64>().ok() != this.step_value
+                                })
+                            {
+                                this.cancel_steps();
+                            }
+                        }
+                        // Enter commits typed text, as before. Blur only settles a run of
+                        // spin-box steps; typed text still waits for Enter.
+                        if matches!(event, InputEvent::PressEnter { .. }) && this.is_modified(cx) {
+                            this.cancel_steps();
+                            this.apply_texts(cx);
+                        }
+                        if matches!(event, InputEvent::Blur) && this.is_integer_single() {
+                            this.finish_steps(cx);
+                        }
+                    },
+                )
+                .detach();
+                if matches!(row.field, Field::Number { integer: true, .. }) {
+                    input.update(cx, |state, cx| state.set_step(None, window, cx));
+                }
+                cx.subscribe_in(
+                    &input,
+                    window,
+                    |this, state, event: &NumberInputEvent, window, cx| {
+                        let NumberInputEvent::Step(action) = event;
+                        if this.is_integer_single() {
+                            this.step_integer(state, *action, window, cx);
+                        }
+                    },
+                )
                 .detach();
                 cx.observe(&input, |_, _, cx| cx.notify()).detach();
                 input
@@ -212,6 +252,9 @@ impl ParameterField {
             json,
             form,
             message: String::new(),
+            step_generation: 0,
+            step_baseline: None,
+            step_value: None,
         }
     }
 
@@ -289,7 +332,79 @@ impl ParameterField {
         self.apply_values(&texts, cx);
     }
 
+    fn is_integer_single(&self) -> bool {
+        matches!(self.row.field, Field::Number { integer: true, .. })
+    }
+
+    fn integer_minimum(&self) -> Option<i64> {
+        // Sample counts need at least one; maxdepth 0 is valid in PBRT (emitted
+        // light only).
+        match self.row.name.as_str() {
+            "pixelsamples" | "nsamples" => Some(1),
+            "maxdepth" => Some(0),
+            _ => None,
+        }
+    }
+
+    fn step_integer(
+        &mut self,
+        state: &Entity<InputState>,
+        action: StepAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let current = state.read(cx).value().parse::<i64>().unwrap_or(0);
+        self.step_baseline.get_or_insert(current);
+        let next = stepped_integer(current, action, self.integer_minimum());
+        self.step_value = Some(next);
+        state.update(cx, |input, cx| {
+            input.set_value(next.to_string(), window, cx)
+        });
+        self.step_generation = self.step_generation.wrapping_add(1);
+        let generation = self.step_generation;
+        let entity = cx.entity().downgrade();
+        cx.spawn(async move |_, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(400))
+                .await;
+            let _ = entity.update(cx, |this, cx| {
+                if this.step_generation == generation {
+                    this.finish_steps(cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn finish_steps(&mut self, cx: &mut Context<Self>) {
+        self.step_generation = self.step_generation.wrapping_add(1);
+        self.step_value = None;
+        let current = self.inputs[0].read(cx).value().parse::<i64>().ok();
+        if take_step_commit(&mut self.step_baseline, current) {
+            self.apply_texts(cx);
+        }
+    }
+
+    fn cancel_steps(&mut self) {
+        self.step_generation = self.step_generation.wrapping_add(1);
+        self.step_baseline = None;
+        self.step_value = None;
+    }
+
     fn apply_values(&mut self, texts: &[String], cx: &mut Context<Self>) {
+        if self.is_integer_single()
+            && let (Some(minimum), Some(value)) = (
+                self.integer_minimum(),
+                texts
+                    .first()
+                    .and_then(|value| value.trim().parse::<i64>().ok()),
+            )
+            && value < minimum
+        {
+            self.message = format!("Enter an integer of at least {minimum}");
+            cx.notify();
+            return;
+        }
         match parameter_rows::values(&self.row.field, texts) {
             Some(values) => {
                 let edit = parameter_rows::set_edit(&self.target, &self.row, values);
@@ -519,6 +634,9 @@ impl ParameterField {
                         cx,
                     ),
                 )
+                .into_any_element(),
+            Field::Number { integer: true, .. } => NumberInput::new(&self.inputs[0])
+                .xsmall()
                 .into_any_element(),
             Field::Number { .. } | Field::Text(_) => input(&self.inputs[0]),
             Field::Vector(_) => div()
@@ -759,6 +877,20 @@ impl ParameterField {
             )
             .into_any_element()
     }
+}
+
+fn stepped_integer(value: i64, action: StepAction, minimum: Option<i64>) -> i64 {
+    let delta = match action {
+        StepAction::Increment => 1_i64,
+        StepAction::Decrement => -1_i64,
+    };
+    value.saturating_add(delta).max(minimum.unwrap_or(i64::MIN))
+}
+
+fn take_step_commit(baseline: &mut Option<i64>, current: Option<i64>) -> bool {
+    baseline
+        .take()
+        .is_some_and(|baseline| Some(baseline) != current)
 }
 
 impl Render for ParameterField {
@@ -1238,4 +1370,37 @@ pub fn texture_value_type_selector(
             })
             .into_any_element(),
     )
+}
+
+#[cfg(test)]
+mod integer_step_tests {
+    use super::stepped_integer;
+    use gpui_kit::component::input::StepAction;
+
+    #[test]
+    fn stepping_observes_bounds_and_saturates() {
+        assert_eq!(stepped_integer(1, StepAction::Decrement, Some(1)), 1);
+        assert_eq!(stepped_integer(0, StepAction::Decrement, None), -1);
+        assert_eq!(
+            stepped_integer(i64::MAX, StepAction::Increment, None),
+            i64::MAX
+        );
+    }
+
+    #[test]
+    fn a_run_of_steps_produces_one_commit_signal() {
+        let actions = [
+            StepAction::Increment,
+            StepAction::Increment,
+            StepAction::Decrement,
+            StepAction::Increment,
+        ];
+        let final_value = actions
+            .into_iter()
+            .fold(8, |value, action| stepped_integer(value, action, Some(1)));
+        assert_eq!(final_value, 10);
+        let mut baseline = Some(8);
+        assert!(super::take_step_commit(&mut baseline, Some(final_value)));
+        assert!(!super::take_step_commit(&mut baseline, Some(final_value)));
+    }
 }
