@@ -84,6 +84,8 @@ pub enum Command {
     CancelJob(String),
     Export(protocol::ArtifactId, PathBuf),
     Mode(PreviewMode),
+    /// Show or hide Scene viewport gizmos, light guides and selection outline.
+    Overlays(bool),
     Time(f64),
     FrameAll,
     FrameSelection,
@@ -761,6 +763,7 @@ struct Display {
     /// Pick ids of the selected node and its descendants, outlined in the
     /// preview, and the they were computed for.
     highlight: BTreeSet<u32>,
+    overlays_visible: bool,
     highlight_key: Option<(Option<String>, Option<String>, f64)>,
     /// Lit notes already sent to the Console, so re-uploads after edits do
     /// not repeat them.

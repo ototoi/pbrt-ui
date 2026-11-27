@@ -71,6 +71,7 @@ pub(super) fn run(
         ipr_due: None,
         view_due: None,
         highlight: BTreeSet::new(),
+        overlays_visible: true,
         highlight_key: None,
         logged_lit_notes: Vec::new(),
         logged_preview_warnings: Vec::new(),

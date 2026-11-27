@@ -316,6 +316,8 @@ struct EditorPanel {
     gizmo_tool: scene_view::preview::gizmo::Tool,
     gizmo_space: panels::scene::Space,
     gizmo_center: bool,
+    overlays_visible: bool,
+    overlays_path: Option<std::path::PathBuf>,
     /// When the Jobs panel first saw each job, and its final elapsed time.
     job_times: std::collections::HashMap<String, (std::time::Instant, Option<std::time::Duration>)>,
 }

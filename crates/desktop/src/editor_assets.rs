@@ -17,7 +17,9 @@ gpui_kit::assets::icon_assets!(
         Droplets,
         Palette,
         Boxes,
-        FileBox
+        FileBox,
+        Eye,
+        EyeOff
     ]
 );
 
@@ -67,6 +69,8 @@ mod tests {
             IconName::Palette,
             IconName::Boxes,
             IconName::FileBox,
+            IconName::Eye,
+            IconName::EyeOff,
             // Toolbar icons that are not in the component default subset; they
             // must resolve through the complete catalog.
             IconName::Save,

@@ -159,13 +159,21 @@ impl Display {
                 size: self.size,
                 mode: self.mode,
                 time: self.project_time,
-                highlight: self.highlight.clone(),
+                highlight: highlight_for_overlays(self.overlays_visible, &self.highlight),
             })
             .is_ok()
         {
             self.render_in_flight = true;
             self.dirty = false;
         }
+    }
+}
+
+fn highlight_for_overlays(visible: bool, highlight: &BTreeSet<u32>) -> BTreeSet<u32> {
+    if visible {
+        highlight.clone()
+    } else {
+        BTreeSet::new()
     }
 }
 
@@ -209,6 +217,13 @@ pub(super) fn outline_selection(
 #[cfg(test)]
 mod outline_tests {
     use super::*;
+
+    #[test]
+    fn hiding_overlays_suppresses_outline_without_changing_selection_ids() {
+        let selected = BTreeSet::from([3, 7]);
+        assert_eq!(highlight_for_overlays(true, &selected), selected);
+        assert!(highlight_for_overlays(false, &selected).is_empty());
+    }
 
     #[test]
     fn the_selection_is_tinted_and_outlined_on_both_sides_of_its_edge() {

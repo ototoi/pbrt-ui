@@ -64,6 +64,13 @@ impl Display {
                     let _ = self.tx.send(Update::Mode(value));
                     Ok(())
                 }
+                Command::Overlays(visible) => {
+                    if self.overlays_visible != visible {
+                        self.overlays_visible = visible;
+                        self.dirty = true;
+                    }
+                    Ok(())
+                }
                 Command::Time(value) => {
                     self.project_time = value;
                     self.dirty = true;
