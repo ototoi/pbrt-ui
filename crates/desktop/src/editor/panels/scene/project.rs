@@ -259,6 +259,24 @@ impl EditorPanel {
                 .accessibility_label(pivot_tooltip)
                 .on_click(cx.listener(|this, _, _, cx| this.gizmo_toggle_pivot(cx))),
         );
+        toolbar = toolbar.child(
+            Button::new("scene-overlays")
+                .icon(if self.overlays_visible {
+                    assets::IconName::Eye
+                } else {
+                    assets::IconName::EyeOff
+                })
+                .small()
+                .when(self.overlays_visible, |button| button.primary())
+                .toggled(self.overlays_visible)
+                .accessibility_label("Overlays")
+                .tooltip(if self.overlays_visible {
+                    "Hide gizmo, light guides and selection outline"
+                } else {
+                    "Show gizmo, light guides and selection outline"
+                })
+                .on_click(cx.listener(|this, _, _, cx| this.toggle_overlays(cx))),
+        );
         if model.supported_times.len() > 1 {
             toolbar = toolbar
                 .child(div().text_xs().child(format!("t={:.3}", model.view_time)))
@@ -279,11 +297,11 @@ impl EditorPanel {
                     // A press on a gizmo handle drags it instead of picking;
                     // then the light's own handles — the transform
                     // gizmo's press wins when both are under the pointer.
-                    if this.gizmo_press(event.position, cx) {
+                    if this.overlays_visible && this.gizmo_press(event.position, cx) {
                         cx.notify();
                         return;
                     }
-                    if this.light_press(event.position, cx) {
+                    if this.overlays_visible && this.light_press(event.position, cx) {
                         cx.notify();
                         return;
                     }
@@ -365,8 +383,12 @@ impl EditorPanel {
                 // Ctrl snaps the drag to the grid.
                 let snap = window.modifiers().secondary();
                 match event.pressed_button {
-                    Some(MouseButton::Left) => this.gizmo_move(event.position, true, snap, cx),
-                    None => this.gizmo_move(event.position, false, snap, cx),
+                    Some(MouseButton::Left) if this.overlays_visible => {
+                        this.gizmo_move(event.position, true, snap, cx)
+                    }
+                    None if this.overlays_visible => {
+                        this.gizmo_move(event.position, false, snap, cx)
+                    }
                     _ => {}
                 }
                 if this.gizmo_drag.is_none()
@@ -411,7 +433,7 @@ impl EditorPanel {
                     .object_fit(ObjectFit::Contain),
             );
         }
-        let gizmo = if stale_frame || updating {
+        let gizmo = if !self.overlays_visible || stale_frame || updating {
             None
         } else {
             self.gizmo_view(cx)
@@ -429,7 +451,7 @@ impl EditorPanel {
         // spot's cone drag in progress paints its own lines — but
         // a stale or updating frame hides them all, and gizmo_move
         // drops the drag on the same condition, like the gizmo's.
-        let light = if stale_frame || updating {
+        let light = if !self.overlays_visible || stale_frame || updating {
             None
         } else {
             self.light_view(cx)
@@ -525,9 +547,12 @@ impl EditorPanel {
                         .text_ellipsis()
                         .text_color(rgb(0x9298a5))
                         .bg(rgb(0x17191e))
-                        .child(match gizmo_reason {
-                            Some(reason) => format!("No gizmo: {reason}"),
-                            None => {
+                        .child(if !self.overlays_visible {
+                            "Overlays hidden · click to select · F focus".to_owned()
+                        } else {
+                            match gizmo_reason {
+                                Some(reason) => format!("No gizmo: {reason}"),
+                                None => {
                                 let verb = match self.gizmo_tool {
                                     Tool::None => "W/E/R move/rotate/scale · click to select",
                                     Tool::Move => "Drag to move",
@@ -550,11 +575,35 @@ impl EditorPanel {
                                 format!(
                                     "{verb}{drag_hint} · Ctrl snap · X Local/World · Esc cancel · RMB orbit · F focus"
                                 )
+                                }
                             }
                         }),
                 ),
             )
             .into_any_element();
+    }
+}
+
+impl EditorPanel {
+    fn toggle_overlays(&mut self, cx: &mut Context<Self>) {
+        self.gizmo_cancel(cx);
+        self.gizmo_hover = None;
+        self.light_hover = None;
+        self.overlays_visible = !self.overlays_visible;
+        if let Some(path) = &self.overlays_path {
+            if let Err(error) =
+                crate::editor::layout::save_overlays(path, self.kind.name(), self.overlays_visible)
+            {
+                self.session.update(cx, |session, cx| {
+                    session.status = format!("Could not save viewport preferences: {error}");
+                    cx.notify();
+                });
+            }
+        }
+        self.session.update(cx, |session, cx| {
+            session.send(Command::Overlays(self.overlays_visible), cx)
+        });
+        cx.notify();
     }
 }
 

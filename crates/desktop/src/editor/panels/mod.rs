@@ -22,9 +22,20 @@ impl EditorPanel {
     pub(in crate::editor) fn new(
         kind: PanelKind,
         session: Entity<Session>,
+        layout_path: Option<std::path::PathBuf>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let overlays_path = layout_path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(|parent| parent.join("viewport-overlays.json"));
+        let overlays_visible = overlays_path
+            .as_deref()
+            .and_then(|path| std::fs::read(path).ok())
+            .as_deref()
+            .and_then(|bytes| super::layout::overlays_visible(bytes, kind.name()))
+            .unwrap_or(true);
         let contents_search_project_key = session.read(cx).project_value().to_string();
         cx.observe(&session, |this, _, cx| {
             let session = this.session.read(cx);
@@ -56,6 +67,11 @@ impl EditorPanel {
             .detach();
         }
         if matches!(kind, PanelKind::Scene) {
+            if !overlays_visible {
+                session.update(cx, |session, cx| {
+                    session.send(crate::backend::Command::Overlays(false), cx)
+                });
+            }
             cx.observe_window_activation(window, |this, window, cx| {
                 if !window.is_window_active() {
                     this.fly_keys.clear();
@@ -100,6 +116,10 @@ impl EditorPanel {
             gizmo_tool: scene_view::preview::gizmo::Tool::Move,
             gizmo_space: scene::Space::Local,
             gizmo_center: false,
+            overlays_visible,
+            overlays_path: matches!(kind, PanelKind::Scene)
+                .then_some(overlays_path)
+                .flatten(),
             job_times: Default::default(),
         }
     }

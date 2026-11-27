@@ -128,7 +128,9 @@ impl Workspace {
         let panels = PanelKind::ALL
             .into_iter()
             .map(|kind| {
-                let panel = cx.new(|cx| EditorPanel::new(kind, session.clone(), window, cx));
+                let panel = cx.new(|cx| {
+                    EditorPanel::new(kind, session.clone(), layout_path.clone(), window, cx)
+                });
                 let handle = panel.clone();
                 register_panel(cx, kind.name(), move |_, _, _| panel_handle(handle.clone()));
                 panel
