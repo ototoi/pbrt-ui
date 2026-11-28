@@ -209,17 +209,35 @@ fn asset_project(
     temporary: &std::path::Path,
     bytes: &[u8],
 ) -> (ProjectSession, FolderStore, AssetId, std::path::PathBuf) {
+    let (session, store, ids, path) = assets_project(temporary, &[("box.ply", bytes)]);
+    (session, store, ids[0], path)
+}
+
+/// `asset_project` with several assets, each at `Meshes/<name>`.
+fn assets_project(
+    temporary: &std::path::Path,
+    files: &[(&str, &[u8])],
+) -> (
+    ProjectSession,
+    FolderStore,
+    Vec<AssetId>,
+    std::path::PathBuf,
+) {
     let (mut document, _, _) = native_scene();
-    let asset = Asset {
-        id: AssetId::new(),
-        location: "Meshes/box.ply".into(),
-        media_type: "application/octet-stream".into(),
-        sha256: sha256hex(bytes),
-        size: bytes.len() as u64,
-        origin: None,
-    };
-    let id = asset.id;
-    document.assets.insert(id, asset.clone());
+    let assets = files
+        .iter()
+        .map(|(name, bytes)| Asset {
+            id: AssetId::new(),
+            location: format!("Meshes/{name}"),
+            media_type: "application/octet-stream".into(),
+            sha256: sha256hex(bytes),
+            size: bytes.len() as u64,
+            origin: None,
+        })
+        .collect::<Vec<_>>();
+    for asset in &assets {
+        document.assets.insert(asset.id, asset.clone());
+    }
     document.folders.insert("Meshes".into());
     let mut session = ProjectSession::new(document).unwrap();
     let path = temporary.join("project");
@@ -230,15 +248,24 @@ fn asset_project(
         session.revision().clone(),
     )
     .unwrap();
-    // Place the asset inside the store the way imports do, so its bytes and
-    // baseline are visible to saves.
-    store
-        .import_asset(&asset, std::io::Cursor::new(bytes), || false)
-        .unwrap();
+    // Place the assets inside the store the way imports do, so their bytes
+    // and baseline are visible to saves.
+    for (asset, (_, bytes)) in assets.iter().zip(files) {
+        store
+            .import_asset(asset, std::io::Cursor::new(*bytes), || false)
+            .unwrap();
+    }
     let receipt = store.save(&session.snapshot()).unwrap();
     session.mark_saved(&receipt).unwrap();
-    assert!(path.join("Assets/Meshes/box.ply").is_file());
-    (session, store, id, path)
+    for asset in &assets {
+        assert!(path.join("Assets").join(&asset.location).is_file());
+    }
+    (
+        session,
+        store,
+        assets.iter().map(|asset| asset.id).collect(),
+        path,
+    )
 }
 
 #[test]
@@ -363,4 +390,128 @@ fn sha256hex(bytes: &[u8]) -> String {
         let _ = write!(text, "{byte:02x}");
     }
     text
+}
+
+/// History keeps a copy, not a hard link: rewriting the user's file in place
+/// after the delete must not change the bytes Undo brings back.
+#[test]
+fn deleted_asset_history_is_not_changed_by_an_in_place_edit() {
+    let temporary = tempfile::tempdir().unwrap();
+    let staging = tempfile::tempdir().unwrap();
+    let bytes = b"ply mesh bytes";
+    let (mut session, store, asset, path) = asset_project(temporary.path(), bytes);
+    session.enable_payload_staging(staging.path(), path.join("Assets"));
+    // An I/O snapshot first, as every save does, pinning the file.
+    session.snapshot_for_io().unwrap();
+    session
+        .apply(
+            &session.revision(),
+            &[Edit::DeleteItem {
+                item: ItemId::Asset(asset),
+            }],
+        )
+        .unwrap();
+    let file = path.join("Assets/Meshes/box.ply");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&file)
+        .and_then(|mut file| std::io::Write::write_all(&mut file, b"PLY"))
+        .unwrap();
+    session.undo(&session.revision()).unwrap();
+    let snapshot = session.snapshot();
+    let lease = snapshot.payload_by(asset).unwrap();
+    assert_eq!(std::fs::read(lease.path()).unwrap(), bytes);
+    drop(store);
+}
+
+/// A file rewritten outside the application is adopted as the asset's new
+/// content by the next I/O snapshot; the save rewrites its sidecar, the
+/// session stays clean, and the project reopens with the new hash.
+#[test]
+fn an_asset_rewritten_outside_is_adopted_by_the_next_save() {
+    let temporary = tempfile::tempdir().unwrap();
+    let staging = tempfile::tempdir().unwrap();
+    let (mut session, mut store, asset, path) = asset_project(temporary.path(), b"ply mesh bytes");
+    session.enable_payload_staging(staging.path(), path.join("Assets"));
+    session.snapshot_for_io().unwrap();
+    let file = path.join("Assets/Meshes/box.ply");
+    let edited = b"ply mesh bytes, edited elsewhere";
+    std::fs::write(&file, edited).unwrap();
+
+    let snapshot = session.snapshot_for_io().unwrap();
+    assert_eq!(session.document().assets[&asset].sha256, sha256hex(edited));
+    assert!(!session.is_dirty());
+    let receipt = store.save(&snapshot).unwrap();
+    session.mark_saved(&receipt).unwrap();
+    assert!(!session.is_dirty());
+    let meta: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(path.join("Assets/Meshes/box.ply.meta")).unwrap())
+            .unwrap();
+    assert_eq!(meta["sha256"], sha256hex(edited));
+    drop(store);
+
+    // Rewritten again while closed: the open takes the bytes on disk.
+    let again = b"third version";
+    std::fs::write(&file, again).unwrap();
+    let (_, reopened) = FolderStore::open_project(&path).unwrap();
+    assert_eq!(reopened.document().assets[&asset].sha256, sha256hex(again));
+    assert_eq!(reopened.document().assets[&asset].size, again.len() as u64);
+}
+
+/// A failed I/O snapshot keeps its pins: they may hold the only bytes of a
+/// file deleted outside, which a later save restores.
+#[test]
+fn a_failed_io_snapshot_keeps_the_pin_of_a_file_deleted_outside() {
+    let temporary = tempfile::tempdir().unwrap();
+    let staging = tempfile::tempdir().unwrap();
+    let (mut session, mut store, _, path) = assets_project(
+        temporary.path(),
+        &[("a.ply", b"mesh a"), ("b.ply", b"mesh b")],
+    );
+    session.enable_payload_staging(staging.path(), path.join("Assets"));
+    session.snapshot_for_io().unwrap();
+    let a = path.join("Assets/Meshes/a.ply");
+    fs::remove_file(&a).unwrap();
+    fs::remove_file(path.join("Assets/Meshes/a.ply.meta")).unwrap();
+    // b changes, so its pin is dropped and the next snapshot scans `Assets/`,
+    // which fails on a malformed sidecar.
+    fs::write(path.join("Assets/Meshes/b.ply"), b"mesh b, edited").unwrap();
+    let stray = path.join("Assets/Meshes/stray.bin");
+    fs::write(&stray, b"stray").unwrap();
+    fs::write(path.join("Assets/Meshes/stray.bin.meta"), b"not json").unwrap();
+    assert!(session.snapshot_for_io().is_err());
+    fs::remove_file(&stray).unwrap();
+    fs::remove_file(path.join("Assets/Meshes/stray.bin.meta")).unwrap();
+    let receipt = store.save(&session.snapshot_for_io().unwrap()).unwrap();
+    session.mark_saved(&receipt).unwrap();
+    assert_eq!(fs::read(&a).unwrap(), b"mesh a");
+}
+
+/// History bytes that no longer match the record (the file was edited
+/// outside after an Undo) give way to the pin of the adopted content.
+#[test]
+fn a_stale_history_copy_does_not_replace_adopted_bytes() {
+    let temporary = tempfile::tempdir().unwrap();
+    let staging = tempfile::tempdir().unwrap();
+    let (mut session, mut store, asset, path) = asset_project(temporary.path(), b"ply mesh bytes");
+    session.enable_payload_staging(staging.path(), path.join("Assets"));
+    session
+        .apply(
+            &session.revision(),
+            &[Edit::DeleteItem {
+                item: ItemId::Asset(asset),
+            }],
+        )
+        .unwrap();
+    session.undo(&session.revision()).unwrap();
+    let file = path.join("Assets/Meshes/box.ply");
+    let edited = b"edited elsewhere after the undo";
+    fs::write(&file, edited).unwrap();
+    session.snapshot_for_io().unwrap();
+    assert_eq!(session.document().assets[&asset].sha256, sha256hex(edited));
+    fs::remove_file(&file).unwrap();
+    fs::remove_file(path.join("Assets/Meshes/box.ply.meta")).unwrap();
+    let receipt = store.save(&session.snapshot_for_io().unwrap()).unwrap();
+    session.mark_saved(&receipt).unwrap();
+    assert_eq!(fs::read(&file).unwrap(), edited);
 }

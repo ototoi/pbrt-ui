@@ -562,11 +562,95 @@ fn viewer_import_is_read_only_but_supports_queries_preview_and_export() {
     assert_eq!(state(&core)["dirty"], false);
 }
 
-/// An asset file rewritten outside the application (after Save As, when
-/// I/O jobs pin each asset's bytes first) is refused as a changed source
-/// naming the file, not as an internal copy error.
+/// A referenced asset whose file and `.meta` are deleted outside: while
+/// open, the save restores both from the bytes it pinned; while closed,
+/// the project still opens with the asset as a missing record (§5).
 #[test]
-fn an_asset_rewritten_outside_reports_a_changed_source() {
+fn a_referenced_asset_deleted_outside_is_restored_or_opens_missing() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::write(temp.path().join("checker.png"), b"not decoded by import").unwrap();
+    let source = temp.path().join("viewer.pbrt");
+    fs::write(
+        &source,
+        "WorldBegin\nTexture \"checker\" \"spectrum\" \"imagemap\" \"string filename\" \"checker.png\"\n\
+         Material \"diffuse\" \"texture reflectance\" \"checker\"\nShape \"sphere\"\n",
+    )
+    .unwrap();
+    let destination = temp.path().join("project");
+    fs::create_dir(&destination).unwrap();
+    let host = CoreHost::start(Limits::default());
+    let core = host.handle();
+    import_viewer(&core, &source);
+    let save_as = call(
+        &core,
+        Method::ProjectSave,
+        json!({"project":state(&core)["context"]["project"],"destination":destination}),
+    );
+    assert_eq!(wait(&core, save_as)["state"], "succeeded");
+    let reference = state(&core)["context"]["project"].clone();
+    // An in-place save pins the asset bytes of the project folder.
+    let save = call(&core, Method::ProjectSave, json!({"project":reference}));
+    assert_eq!(wait(&core, save)["state"], "succeeded");
+    let image = destination.join("Assets/Images/checker.png");
+    let meta = destination.join("Assets/Images/checker.png.meta");
+    fs::remove_file(&image).unwrap();
+    fs::remove_file(&meta).unwrap();
+    let save = call(&core, Method::ProjectSave, json!({"project":reference}));
+    let r = wait(&core, save);
+    assert_eq!(r["state"], "succeeded", "{r}");
+    assert_eq!(fs::read(&image).unwrap(), b"not decoded by import");
+    assert!(meta.is_file());
+
+    call(
+        &core,
+        Method::ProjectClose,
+        json!({"expected_current":state(&core)["context"],"discard_unsaved":true}),
+    );
+    fs::remove_file(&image).unwrap();
+    fs::remove_file(&meta).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let open = call(
+            &core,
+            Method::ProjectOpen,
+            json!({"path":destination,"expected_current":state(&core)["context"]}),
+        );
+        let result = wait(&core, open);
+        if result["state"] == "succeeded" {
+            break;
+        }
+        assert!(
+            result["error"]["code"] == "project_locked" && Instant::now() < deadline,
+            "{result}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let reference = state(&core)["context"]["project"].clone();
+    let save = call(&core, Method::ProjectSave, json!({"project":reference}));
+    assert_eq!(wait(&core, save)["state"], "succeeded");
+    assert!(!image.exists() && !meta.exists());
+    let export = call(
+        &core,
+        Method::ProjectExport,
+        json!({"project":reference,"destination":temp.path().join("bundle")}),
+    );
+    let result = wait(&core, export);
+    assert_eq!(result["state"], "failed", "{result}");
+    assert!(
+        result["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains(".missing"),
+        "{result}"
+    );
+}
+
+/// An asset file rewritten outside the application (after Save As, when
+/// I/O jobs pin each asset's bytes first) is adopted as the asset's new
+/// content: export and save succeed, the sidecar takes the new size, and
+/// the project stays clean (project folder §5).
+#[test]
+fn an_asset_rewritten_outside_is_adopted_as_new_content() {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join("checker.png"), b"not decoded by import").unwrap();
     let source = temp.path().join("viewer.pbrt");
@@ -592,19 +676,21 @@ fn an_asset_rewritten_outside_reports_a_changed_source() {
         b"not decoded by import, but longer now",
     )
     .unwrap();
-    // The bytes are pinned when the export is asked for.
-    let error = core
-        .request(request(
-            Method::ProjectExport,
-            json!({"project":state(&core)["context"]["project"],"destination":temp.path().join("bundle")}),
-        ))
-        .error
-        .expect("refused");
-    assert_eq!(error.code, ErrorCode::SourceChanged, "{error:?}");
-    assert_eq!(
-        error.details.unwrap()["files"],
-        json!(["Assets/Images/checker.png"])
+    let reference = state(&core)["context"]["project"].clone();
+    let export = call(
+        &core,
+        Method::ProjectExport,
+        json!({"project":reference,"destination":temp.path().join("bundle")}),
     );
+    assert_eq!(wait(&core, export)["state"], "succeeded");
+    assert_eq!(state(&core)["dirty"], false);
+    let save = call(&core, Method::ProjectSave, json!({"project":reference}));
+    assert_eq!(wait(&core, save)["state"], "succeeded");
+    let meta: Value = serde_json::from_slice(
+        &fs::read(destination.join("Assets/Images/checker.png.meta")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(meta["size"], "not decoded by import, but longer now".len());
 }
 
 #[test]

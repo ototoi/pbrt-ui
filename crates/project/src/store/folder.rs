@@ -506,10 +506,9 @@ impl FolderStore {
                     );
                 }
                 "asset" => {
-                    let (Some(expected_hash), Some(expected_size)) = (meta.sha256, meta.size)
-                    else {
+                    if meta.sha256.is_none() || meta.size.is_none() {
                         return Err(invalid("asset meta is missing its content hash or size"));
-                    };
+                    }
                     let mut file = File::open(&path)?;
                     let mut hasher = Sha256::new();
                     let mut size = 0u64;
@@ -527,10 +526,9 @@ impl FolderStore {
                         }
                         hasher.update(&buffer[..count]);
                     }
+                    // Bytes unlike the sidecar were edited outside: they are the
+                    // asset's content now, and the next save rewrites the sidecar.
                     let sha256 = format!("{:x}", hasher.finalize());
-                    if self.is_v3() && (sha256 != expected_hash || size != expected_size) {
-                        return Err(invalid("asset bytes do not match sidecar"));
-                    }
                     let id = AssetId(meta.id);
                     let origin = meta.origin.map(|origin| AssetOrigin {
                         logical_path: origin.logical_path,
@@ -635,6 +633,22 @@ impl FolderStore {
             &self.directory.join("Assets"),
             &mut document.folders,
         )?;
+        // An asset whose file and `.meta` both vanished outside stays a
+        // missing record (§5), so its references still resolve and the
+        // project opens; a save writes nothing for it.
+        for (id, size) in crate::ReferenceIndex::build(&document).unknown_assets(&document) {
+            document.assets.insert(
+                id,
+                Asset {
+                    id,
+                    location: format!("{}.missing", id.0),
+                    media_type: "application/octet-stream".into(),
+                    sha256: format!("{:x}", Sha256::digest(b"")),
+                    size,
+                    origin: None,
+                },
+            );
+        }
         Ok(document)
     }
 
@@ -1092,22 +1106,37 @@ impl FolderStore {
         self.require_recovered()?;
         let current_revision = crate::validation::revision(&self.manifest.saved_revision)?;
         let incoming_revision = crate::validation::revision(snapshot.revision())?;
-        let mut persisted_snapshot = snapshot.document().clone();
-        for asset in persisted_snapshot.assets.values_mut() {
-            if let Some(origin) = &mut asset.origin {
-                origin.origin = None;
-            }
-        }
+        // Asset files are checked per asset instead (`snapshot_plan`): a body
+        // rewritten outside was adopted by the session, and one deleted outside
+        // is restored from its pinned bytes.
+        let bodies = snapshot
+            .document()
+            .assets
+            .values()
+            .flat_map(|asset| {
+                let body = PathBuf::from("Assets").join(&asset.location);
+                [meta_path(&body), body]
+            })
+            .collect::<std::collections::BTreeSet<_>>();
         for (relative, expected) in &self.baseline {
+            if bodies.contains(relative) {
+                continue;
+            }
             if file_stamp(&self.directory.join(relative))? != Some(*expected) {
                 return Err(ProjectError::SourceChanged(
                     relative.to_string_lossy().into_owned(),
                 ));
             }
         }
+        // Asset records are left out: files changed outside are handled per
+        // asset in `snapshot_plan`.
+        let without_assets = |mut document: ProjectDocument| {
+            document.assets.clear();
+            document
+        };
         let same_revision_conflict = incoming_revision == current_revision
             && self.manifest.default_scene.is_some()
-            && self.read_document()? != persisted_snapshot;
+            && without_assets(self.read_document()?) != without_assets(snapshot.document().clone());
         if incoming_revision < current_revision || same_revision_conflict {
             return Err(ProjectError::RevisionConflict {
                 expected: snapshot.revision().0.clone(),
@@ -1171,10 +1200,18 @@ impl FolderStore {
             }
             let current = file_stamp(&path)?;
             let expected = self.baseline.get(&relative).copied();
-            if current != expected {
+            // Creating a file deleted outside overwrites nothing.
+            if current.is_some() && current != expected {
                 cleanup_plan(&self.directory, &plan);
                 cleanup_created_dirs(&created_dirs);
                 return Err(ProjectError::SourceChanged(relative.display().to_string()));
+            }
+            if current.is_some()
+                && let Err(error) = ensure_replaceable(&path, &relative)
+            {
+                cleanup_plan(&self.directory, &plan);
+                cleanup_created_dirs(&created_dirs);
+                return Err(error);
             }
             let parent = path
                 .parent()
@@ -1228,6 +1265,11 @@ impl FolderStore {
             }
             if current.is_none() {
                 continue;
+            }
+            if let Err(error) = ensure_replaceable(&path, &relative) {
+                cleanup_plan(&self.directory, &plan);
+                cleanup_created_dirs(&created_dirs);
+                return Err(error);
             }
             let backup = sibling_name(&path, "bak");
             copy_file_synced(&path, &backup)?;
@@ -1441,9 +1483,10 @@ impl FolderStore {
                         .payload_by(asset.id)
                         .and_then(|lease| lease.origin().cloned())
                 });
-            self.check_unchanged(&current)?;
-            self.check_unchanged(&meta_path(&current))?;
             let source = self.directory.join(&current);
+            if source.is_file() || self.directory.join(meta_path(&current)).is_file() {
+                self.check_unchanged(&meta_path(&current))?;
+            }
             if !source.is_file() {
                 if let Some(lease) = snapshot.payload_by(asset.id) {
                     // a previous save already
@@ -1506,7 +1549,9 @@ impl FolderStore {
                     );
                     continue;
                 }
-                return Err(invalid("asset file is missing"));
+                // Body and sidecar are both gone and no bytes were pinned:
+                // the record stays missing, and the files stay absent.
+                continue;
             }
             let input = File::open(&source)?;
             let mut bytes = Vec::new();
@@ -1516,7 +1561,8 @@ impl FolderStore {
             }
             let hash = format!("{:x}", Sha256::digest(&bytes));
             if hash != asset.sha256 || bytes.len() as u64 != asset.size {
-                return Err(invalid("asset contents do not match the project model"));
+                // Rewritten after the session adopted it; the next snapshot adopts again.
+                return Err(ProjectError::SourceChanged(current.display().to_string()));
             }
             expected.insert(target.clone());
             writes.insert(target.clone(), bytes);
@@ -1964,6 +2010,42 @@ fn copy_file_synced(source: &Path, destination: &Path) -> Result<()> {
     }
 }
 
+/// Windows refuses to replace or delete a file another program holds open
+/// without sharing delete access (many image viewers do). Find that before
+/// the journal makes the save irreversible, so nothing changes and the same
+/// save succeeds once the file is closed.
+#[cfg(windows)]
+fn ensure_replaceable(path: &Path, relative: &Path) -> Result<()> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const DELETE: u32 = 0x0001_0000;
+    const SHARE_ALL: u32 = 0x7;
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    match OpenOptions::new()
+        .access_mode(DELETE)
+        .share_mode(SHARE_ALL)
+        .open(path)
+    {
+        Ok(_) => Ok(()),
+        Err(error) if error.raw_os_error() == Some(ERROR_SHARING_VIOLATION) => {
+            Err(std::io::Error::new(
+                error.kind(),
+                format!(
+                    "{} is open in another program; close it and save again",
+                    relative.to_string_lossy().replace('\\', "/")
+                ),
+            )
+            .into())
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[cfg(not(windows))]
+fn ensure_replaceable(_: &Path, _: &Path) -> Result<()> {
+    Ok(())
+}
+
 fn cleanup_plan(root: &Path, files: &[JournalFile]) {
     for entry in files {
         for relative in [entry.temp.as_ref(), entry.backup.as_ref()]
@@ -1998,7 +2080,7 @@ fn digest_matches(path: &Path, expected: &str) -> Result<bool> {
     Ok(format!("{:x}", hash.finalize()) == expected)
 }
 
-fn hash_file(path: &Path) -> Result<(String, u64)> {
+pub(crate) fn hash_file(path: &Path) -> Result<(String, u64)> {
     let mut file = File::open(path)?;
     let mut hash = Sha256::new();
     let mut size = 0u64;
@@ -3077,6 +3159,30 @@ mod tests {
         assert!(root.join(".pbrtui/save-journal.json").exists());
         recover_journal(root).unwrap();
         assert!(!root.join(".pbrtui/save-journal.json").exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_file_held_without_delete_sharing_is_found_before_the_journal() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("held.png");
+        fs::write(&path, b"image").unwrap();
+        const FILE_SHARE_READ: u32 = 1;
+        let held = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&path)
+            .unwrap();
+        let error = ensure_replaceable(&path, Path::new("Assets\\held.png")).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Assets/held.png is open in another program"),
+            "{error}"
+        );
+        drop(held);
+        ensure_replaceable(&path, Path::new("Assets\\held.png")).unwrap();
     }
 
     #[test]

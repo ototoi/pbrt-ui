@@ -206,10 +206,12 @@ fn format_three_save_as_keeps_image_references_and_source_unchanged() {
 }
 
 #[test]
-fn corrupted_image_bytes_are_diagnosed_instead_of_changing_saved_identity() {
+/// Bytes edited outside keep the asset's id and become its content (§5).
+fn image_bytes_edited_outside_keep_the_id_and_take_the_new_hash() {
     let temporary = tempfile::tempdir().unwrap();
     let path = temporary.path().join("corrupt");
     let (document, asset, _) = image_document();
+    let original = document.assets[&asset].sha256.clone();
     let mut store =
         FolderStore::create_v3(&path, document.id, &document.title, Revision::initial()).unwrap();
     store
@@ -220,7 +222,10 @@ fn corrupted_image_bytes_are_diagnosed_instead_of_changing_saved_identity() {
         .unwrap();
     drop(store);
     fs::write(path.join("Assets/Images/wood.png"), b"changed").unwrap();
-    assert!(ProjectStore::open(&path).is_err());
+    let (_, session) = ProjectStore::open(&path).unwrap();
+    let opened = &session.document().assets[&asset];
+    assert_eq!(opened.size, b"changed".len() as u64);
+    assert_ne!(opened.sha256, original);
 }
 
 #[test]

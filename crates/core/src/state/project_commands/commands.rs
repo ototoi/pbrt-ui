@@ -289,7 +289,7 @@ impl CoreState {
             Method::ProjectSave => {
                 let p: dto::SaveProjectParams = params(request)?;
                 self.projects.check(&p.project)?;
-                let active = self.projects.active.as_ref().unwrap();
+                let active = self.projects.active.as_mut().unwrap();
                 if let Some(destination) = &p.destination {
                     validate_save_destination(destination)?;
                 } else if active.mode == dto::ProjectMode::Viewer {
@@ -334,7 +334,7 @@ impl CoreState {
                 let p: dto::ExportProjectParams = params(request)?;
                 self.projects.check(&p.project)?;
                 absolute(&p.destination)?;
-                let active = self.projects.active.as_ref().unwrap();
+                let active = self.projects.active.as_mut().unwrap();
                 let snapshot = snapshot_for_scene(active, p.scene)?;
                 let work = Work::Export {
                     store_id: active.store_id,
@@ -358,7 +358,7 @@ impl CoreState {
                 if let Some(store) = &p.store {
                     absolute(store)?;
                 }
-                let active = self.projects.active.as_ref().unwrap();
+                let active = self.projects.active.as_mut().unwrap();
                 // the pinned snapshot rides in both the
                 // job (which builds the package from it) and the pending
                 // record (which makes it the activation's preview base when
@@ -430,7 +430,7 @@ impl CoreState {
                     return Err(invalid("a scene-camera render takes no view"));
                 }
                 if camera == dto::RenderCamera::Scene {
-                    let active = self.projects.active.as_ref().unwrap();
+                    let active = self.projects.active.as_mut().unwrap();
                     let snapshot = snapshot_for_scene(active, p.scene)?;
                     let scene = snapshot
                         .scene_view()
@@ -487,7 +487,7 @@ impl CoreState {
                     );
                 }
                 self.ipr_preempt();
-                let active = self.projects.active.as_ref().unwrap();
+                let active = self.projects.active.as_mut().unwrap();
                 let config = self.service_config.as_ref().unwrap().for_project(
                     (active.mode == dto::ProjectMode::Project)
                         .then(|| active.path.as_deref())
@@ -508,13 +508,14 @@ impl CoreState {
                     snapshot,
                     destination,
                 };
+                let job_path = active
+                    .path
+                    .clone()
+                    .or_else(|| active.source_path.clone())
+                    .unwrap_or_default();
                 Ok(self.project_job(
                     "render",
-                    active
-                        .path
-                        .clone()
-                        .or_else(|| active.source_path.clone())
-                        .unwrap_or_default(),
+                    job_path,
                     Some(p.project.clone()),
                     work,
                     Pending::Render {
@@ -1070,13 +1071,13 @@ fn validate_save_destination(destination: &str) -> Result<(), ErrorPayload> {
 impl CoreState {
     /// Validates everything a capture needs so callers can fail before mutating the project.
     pub(super) fn check_capture_ready(
-        &self,
+        &mut self,
         project: &dto::ProjectRef,
         view: &Option<ViewState>,
         scene: Option<protocol::SceneId>,
     ) -> Result<(), ErrorPayload> {
         self.projects.check(project)?;
-        let active = self.projects.active.as_ref().unwrap();
+        let active = self.projects.active.as_mut().unwrap();
         snapshot_for_scene(active, scene)?;
         if self
             .service_config
@@ -1119,7 +1120,7 @@ impl CoreState {
         camera: Option<dto::RenderCamera>,
     ) -> Result<Value, ErrorPayload> {
         self.check_capture_ready(&project, &view, scene)?;
-        let active = self.projects.active.as_ref().unwrap();
+        let active = self.projects.active.as_mut().unwrap();
         let config = self.service_config.as_ref().unwrap().for_project(
             (active.mode == dto::ProjectMode::Project)
                 .then(|| active.path.as_deref())
@@ -1190,7 +1191,7 @@ impl CoreState {
 }
 
 fn snapshot_for_scene(
-    active: &ActiveProject,
+    active: &mut ActiveProject,
     scene: Option<protocol::SceneId>,
 ) -> Result<ProjectSnapshot, ErrorPayload> {
     let scene = scene

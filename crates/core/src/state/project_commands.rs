@@ -488,7 +488,7 @@ impl CoreState {
             .for_project(self.projects.project_folder())
             .ok()?;
         let reference = self.projects.reference()?;
-        let active = self.projects.active.as_ref()?;
+        let active = self.projects.active.as_mut()?;
         if self.jobs.iter().any(|record| {
             record.job.kind == crate::state::ipr::IPR_JOB_KIND && !record.job.state.is_terminal()
         }) {
@@ -510,16 +510,18 @@ impl CoreState {
                     .or_else(|| active.session.active_scene())?,
             )
             .ok()?;
+        let store_id = active.store_id;
+        let job_path = active
+            .path
+            .clone()
+            .or_else(|| active.source_path.clone())
+            .unwrap_or_default();
         let value = self.project_job(
             crate::state::ipr::IPR_JOB_KIND,
-            active
-                .path
-                .clone()
-                .or_else(|| active.source_path.clone())
-                .unwrap_or_default(),
+            job_path,
             Some(reference.clone()),
             Work::Export {
-                store_id: active.store_id,
+                store_id,
                 snapshot,
                 destination,
             },
