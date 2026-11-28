@@ -2416,6 +2416,23 @@ fn a_settled_save_logs_one_console_line() {
         display.poll_results();
     }
     assert!(save_end_lines(&rx).is_empty(), "a job end logs once");
+
+    // A save the core refuses before any job starts still settles, as a
+    // failure the window shows (and not only as a Console line).
+    let mut stale = reference.clone();
+    stale["project_id"] = json!("00000000-0000-4000-8000-000000000000");
+    display.handle_commands([Command::Project(
+        Method::ProjectSave,
+        json!({"project": stale}),
+    )]);
+    let settled = rx
+        .try_iter()
+        .find_map(|update| match update {
+            Update::SaveSettled { ok, error } => Some((ok, error)),
+            _ => None,
+        })
+        .expect("a refused save settles");
+    assert!(!settled.0 && settled.1.is_some(), "{settled:?}");
 }
 
 /// A job sent from a form (the array editor) reports a refusal at

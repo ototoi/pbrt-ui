@@ -282,6 +282,14 @@ impl Display {
                             let _ = self.tx.send(Update::UnsavedChanges);
                             Ok(())
                         }
+                        // A save refused before its job starts settles like a failed job.
+                        Err(error) if save => {
+                            let _ = self.tx.send(Update::SaveSettled {
+                                ok: false,
+                                error: Some(error.message),
+                            });
+                            Ok(())
+                        }
                         Err(error) => Err(error.message),
                     }
                 }
