@@ -737,16 +737,30 @@ impl ProjectSession {
     /// record takes the bytes on disk (project folder §5), without an Undo
     /// step and without changing whether the session is dirty.
     pub fn snapshot_for_io(&mut self) -> Result<ProjectSnapshot> {
+        // History bytes stand in only while they still match the record; an
+        // adopted edit leaves the history's copy stale.
         let mut held = self
             .snapshot()
             .payloads
             .iter()
+            .filter(|lease| {
+                self.document
+                    .assets
+                    .get(&lease.asset())
+                    .is_some_and(|asset| {
+                        asset.sha256 == lease.sha256() && asset.size == lease.size()
+                    })
+            })
             .map(|lease| lease.asset())
             .collect::<BTreeSet<_>>();
-        let mut cache = std::mem::take(self.io_leases.get_mut());
-        // A file rewritten outside is staged again, which reports the change.
-        cache.retain(|id, (lease, stamp)| {
-            self.document
+        let mut adopted = Vec::new();
+        {
+            // Borrowed in place: an early error must keep the pins, which may hold
+            // the only bytes of a file deleted outside.
+            let mut cache = self.io_leases.borrow_mut();
+            // A file rewritten outside is staged again, which reports the change.
+            cache.retain(|id, (lease, stamp)| {
+                self.document
                 .assets
                 .get(id)
                 .is_some_and(|asset| asset.sha256 == lease.sha256() && asset.size == lease.size())
@@ -754,47 +768,46 @@ impl ProjectSession {
                 && stamp
                     .as_ref()
                     .is_none_or(|stamp| stamp.unchanged() || !stamp.path.exists())
-        });
-        let unpinned = self
-            .document
-            .assets
-            .keys()
-            .any(|id| !held.contains(id) && !cache.contains_key(id));
-        // Scanning `Assets/` costs as much as the copies; skip it when warm.
-        let mut files = match &self.payloads {
-            Some(grounds) if unpinned || !held.is_empty() => {
-                crate::store::asset_files_by_id(&grounds.assets_root)?
-            }
-            _ => BTreeMap::new(),
-        };
-        // History bytes stand in only for a file that is gone; a file on disk wins.
-        held.retain(|id| !files.contains_key(id));
-        let missing = self
-            .document
-            .assets
-            .keys()
-            .filter(|id| !held.contains(id) && !cache.contains_key(id))
-            .copied()
-            .collect::<Vec<_>>();
-        let mut adopted = Vec::new();
-        for id in missing {
-            let mut asset = self.document.assets[&id].clone();
-            let persisted = files.remove(&id);
-            let staged = match self.stage_asset_at(&asset, persisted.clone(), true) {
-                Err(ProjectError::SourceChanged(_)) if persisted.is_some() => {
-                    let (path, _) = persisted.as_ref().unwrap();
-                    (asset.sha256, asset.size) = crate::store::hash_file(path)?;
-                    let staged = self.stage_asset_at(&asset, persisted, true)?;
-                    adopted.push(asset);
-                    staged
+            });
+            let unpinned = self
+                .document
+                .assets
+                .keys()
+                .any(|id| !held.contains(id) && !cache.contains_key(id));
+            // Scanning `Assets/` costs as much as the copies; skip it when warm.
+            let mut files = match &self.payloads {
+                Some(grounds) if unpinned || !held.is_empty() => {
+                    crate::store::asset_files_by_id(&grounds.assets_root)?
                 }
-                staged => staged?,
+                _ => BTreeMap::new(),
             };
-            if let Some(staged) = staged {
-                cache.insert(id, staged);
+            // History bytes stand in only for a file that is gone; a file on disk wins.
+            held.retain(|id| !files.contains_key(id));
+            let missing = self
+                .document
+                .assets
+                .keys()
+                .filter(|id| !held.contains(id) && !cache.contains_key(id))
+                .copied()
+                .collect::<Vec<_>>();
+            for id in missing {
+                let mut asset = self.document.assets[&id].clone();
+                let persisted = files.remove(&id);
+                let staged = match self.stage_asset_at(&asset, persisted.clone(), true) {
+                    Err(ProjectError::SourceChanged(_)) if persisted.is_some() => {
+                        let (path, _) = persisted.as_ref().unwrap();
+                        (asset.sha256, asset.size) = crate::store::hash_file(path)?;
+                        let staged = self.stage_asset_at(&asset, persisted, true)?;
+                        adopted.push(asset);
+                        staged
+                    }
+                    staged => staged?,
+                };
+                if let Some(staged) = staged {
+                    cache.insert(id, staged);
+                }
             }
         }
-        *self.io_leases.get_mut() = cache;
         if !adopted.is_empty() {
             let clean = self.saved_content.as_ref() == Some(&self.current_content);
             let mut document = (*self.document).clone();
