@@ -803,7 +803,7 @@ impl Workspace {
             .recent
             .iter()
             .map(|entry| menu::RecentItem {
-                label: entry.path.display().to_string(),
+                label: recent::menu_label(&entry.path, &home_directory()),
                 missing: !entry.path.exists(),
             })
             .collect();
