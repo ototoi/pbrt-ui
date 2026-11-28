@@ -222,7 +222,9 @@ fn points_of(pairs: &[f64]) -> Option<Vec<(f64, f64)>> {
     }
     Some(
         pairs
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|chunk| (chunk[0], chunk[1]))
             .collect(),
     )
@@ -937,7 +939,9 @@ mod tests {
         let scales = [0.5, 1., 10.];
         let colours = scales.map(|scale| {
             let scaled: Vec<f64> = curve
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .flat_map(|pair| [pair[0], pair[1] * scale])
                 .collect();
             chromaticity(Value::Pairs(&scaled)).unwrap()

@@ -50,8 +50,18 @@ fn file_samples(path: &Path) -> (Vec<f64>, Vec<f64>) {
         .map(|token| token.parse::<f64>().unwrap())
         .collect::<Vec<_>>();
     (
-        numbers.chunks_exact(2).map(|pair| pair[0]).collect(),
-        numbers.chunks_exact(2).map(|pair| pair[1]).collect(),
+        numbers
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| pair[0])
+            .collect(),
+        numbers
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| pair[1])
+            .collect(),
     )
 }
 

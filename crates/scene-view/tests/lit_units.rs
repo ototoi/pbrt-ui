@@ -172,7 +172,9 @@ fn hair_curve_fixture_renders_literal_texture_and_reflectance_precedence() {
     let pixels = |x: std::ops::Range<usize>| {
         frame
             .rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .enumerate()
             .filter_map(|(i, p)| {
                 let px = i % frame.width as usize;
@@ -282,7 +284,13 @@ fn zero_iso_renders_black() {
         64,
         PreviewMode::Lit,
     );
-    assert!(f.rgba.chunks_exact(4).all(|p| p[..3] == [0, 0, 0]));
+    assert!(
+        f.rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|p| p[..3] == [0, 0, 0])
+    );
 }
 #[test]
 #[ignore = "requires a GPU adapter"]
@@ -295,7 +303,7 @@ fn point_light_on_the_surface_stays_finite() {
         PreviewMode::Lit,
     );
     assert_eq!(f.rgba.len(), 64 * 64 * 4);
-    assert!(f.rgba.chunks_exact(4).all(|p| p[3] == 255));
+    assert!(f.rgba.as_chunks::<4>().0.iter().all(|p| p[3] == 255));
 }
 #[test]
 #[ignore = "requires a GPU adapter"]

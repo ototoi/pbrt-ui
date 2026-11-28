@@ -315,7 +315,9 @@ fn evict_preview_images(
 /// Mean normalized RGB luminance of a decoded render, before channel reordering.
 fn mean_luminance(rgba: &[u8]) -> Option<f64> {
     let (sum, count) = rgba
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .fold((0., 0usize), |(sum, count), pixel| {
             (
                 sum + (0.2126 * f64::from(pixel[0])
@@ -1150,7 +1152,7 @@ impl Session {
                                     this.render_project = project;
                                     this.render_received = received;
                                     this.render_mean_luminance = mean_luminance(&rgba);
-                                    for pixel in rgba.chunks_exact_mut(4) {
+                                    for pixel in rgba.as_chunks_mut::<4>().0 {
                                         pixel.swap(0, 2);
                                     }
                                     if let Some(buffer) =

@@ -411,7 +411,7 @@ fn install(
 
 /// WGPU reads back BGRA while the image crate wants rgba; swap in place.
 pub(super) fn swap_bgra_to_rgba(rgba: &mut [u8]) {
-    for pixel in rgba.chunks_exact_mut(4) {
+    for pixel in rgba.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2);
     }
 }

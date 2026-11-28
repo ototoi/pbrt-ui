@@ -299,7 +299,7 @@ impl ResourceEditor {
 fn decode(path: &str, media_type: &str) -> Result<(Arc<RenderImage>, [u32; 2], bool), String> {
     let (mut image, tone_mapped) = image_display::decode_to_rgba(path, media_type)?;
     let size = [image.width(), image.height()];
-    for pixel in image.chunks_exact_mut(4) {
+    for pixel in image.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2);
     }
     Ok((

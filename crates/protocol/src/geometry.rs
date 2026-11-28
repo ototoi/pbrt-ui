@@ -525,7 +525,7 @@ pub fn read_f32x3_array(blob: &[u8], array: &ArrayRef) -> Result<Vec<[f32; 3]>, 
     }
     let bytes = array_bytes(blob, array)?;
     let mut out = Vec::with_capacity(array.count as usize);
-    for chunk in bytes.chunks_exact(POSITION_STRIDE as usize) {
+    for chunk in bytes.as_chunks::<{ POSITION_STRIDE as usize }>().0 {
         out.push([
             f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
             f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
@@ -545,7 +545,7 @@ pub fn read_indices(blob: &[u8], array: &ArrayRef) -> Result<Vec<u32>, String> {
     }
     let bytes = array_bytes(blob, array)?;
     let mut out = Vec::with_capacity(array.count as usize);
-    for chunk in bytes.chunks_exact(INDEX_STRIDE as usize) {
+    for chunk in bytes.as_chunks::<{ INDEX_STRIDE as usize }>().0 {
         out.push(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
     }
     Ok(out)
@@ -578,7 +578,7 @@ pub fn read_f32x2_array(blob: &[u8], array: &ArrayRef) -> Result<Vec<[f32; 2]>, 
     }
     let bytes = array_bytes(blob, array)?;
     let mut out = Vec::with_capacity(array.count as usize);
-    for chunk in bytes.chunks_exact(UV_STRIDE as usize) {
+    for chunk in bytes.as_chunks::<{ UV_STRIDE as usize }>().0 {
         out.push([
             f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
             f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),

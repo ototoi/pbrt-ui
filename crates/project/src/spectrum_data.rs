@@ -59,8 +59,18 @@ pub fn parse_spd(bytes: &[u8]) -> std::result::Result<SpdSamples, String> {
         ));
     }
     let samples = SpdSamples {
-        wavelengths: numbers.chunks_exact(2).map(|pair| pair[0]).collect(),
-        values: numbers.chunks_exact(2).map(|pair| pair[1]).collect(),
+        wavelengths: numbers
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| pair[0])
+            .collect(),
+        values: numbers
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| pair[1])
+            .collect(),
     };
     for pair in samples.wavelengths.windows(2) {
         if pair[1] < pair[0] {

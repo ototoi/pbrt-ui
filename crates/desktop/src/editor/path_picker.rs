@@ -27,7 +27,8 @@ pub(crate) fn preferred_directory(
 
 pub(crate) fn pick_paths<T: 'static>(
     options: PathPromptOptions,
-    initial_dir: PathBuf,
+    // Only the Linux portal opens at a starting folder.
+    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] initial_dir: PathBuf,
     cx: &mut Context<T>,
 ) -> Task<Result<Option<Vec<PathBuf>>, String>> {
     #[cfg(target_os = "linux")]

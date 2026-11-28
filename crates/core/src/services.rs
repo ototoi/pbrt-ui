@@ -132,6 +132,8 @@ pub struct WorkResult {
 /// the scene and hard links to project assets. Windows' `%TEMP%` is already
 /// per-user.
 pub(crate) fn private_tempdir_in(parent: &Path) -> std::io::Result<tempfile::TempDir> {
+    // Only Unix narrows the permissions, so only Unix needs `mut`.
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut builder = tempfile::Builder::new();
     #[cfg(unix)]
     {

@@ -579,7 +579,7 @@ fn lit_mode_follows_light_intensity_and_area_emission_monotonically() {
         // Average over covered pixels only, ignoring the background.
         let mut sum = 0.;
         let mut count = 0;
-        for pixel in frame.rgba.chunks_exact(4) {
+        for pixel in frame.rgba.as_chunks::<4>().0 {
             if pixel[3] == 255 {
                 sum += pixel[0] as f32 + pixel[1] as f32 + pixel[2] as f32;
                 count += 1;
