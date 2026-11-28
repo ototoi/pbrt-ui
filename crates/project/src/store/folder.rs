@@ -1206,6 +1206,13 @@ impl FolderStore {
                 cleanup_created_dirs(&created_dirs);
                 return Err(ProjectError::SourceChanged(relative.display().to_string()));
             }
+            if current.is_some()
+                && let Err(error) = ensure_replaceable(&path, &relative)
+            {
+                cleanup_plan(&self.directory, &plan);
+                cleanup_created_dirs(&created_dirs);
+                return Err(error);
+            }
             let parent = path
                 .parent()
                 .ok_or_else(|| invalid("save path has no parent"))?;
@@ -1258,6 +1265,11 @@ impl FolderStore {
             }
             if current.is_none() {
                 continue;
+            }
+            if let Err(error) = ensure_replaceable(&path, &relative) {
+                cleanup_plan(&self.directory, &plan);
+                cleanup_created_dirs(&created_dirs);
+                return Err(error);
             }
             let backup = sibling_name(&path, "bak");
             copy_file_synced(&path, &backup)?;
@@ -1996,6 +2008,42 @@ fn copy_file_synced(source: &Path, destination: &Path) -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// Windows refuses to replace or delete a file another program holds open
+/// without sharing delete access (many image viewers do). Find that before
+/// the journal makes the save irreversible, so nothing changes and the same
+/// save succeeds once the file is closed.
+#[cfg(windows)]
+fn ensure_replaceable(path: &Path, relative: &Path) -> Result<()> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const DELETE: u32 = 0x0001_0000;
+    const SHARE_ALL: u32 = 0x7;
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    match OpenOptions::new()
+        .access_mode(DELETE)
+        .share_mode(SHARE_ALL)
+        .open(path)
+    {
+        Ok(_) => Ok(()),
+        Err(error) if error.raw_os_error() == Some(ERROR_SHARING_VIOLATION) => {
+            Err(std::io::Error::new(
+                error.kind(),
+                format!(
+                    "{} is open in another program; close it and save again",
+                    relative.to_string_lossy().replace('\\', "/")
+                ),
+            )
+            .into())
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[cfg(not(windows))]
+fn ensure_replaceable(_: &Path, _: &Path) -> Result<()> {
+    Ok(())
 }
 
 fn cleanup_plan(root: &Path, files: &[JournalFile]) {
@@ -3111,6 +3159,30 @@ mod tests {
         assert!(root.join(".pbrtui/save-journal.json").exists());
         recover_journal(root).unwrap();
         assert!(!root.join(".pbrtui/save-journal.json").exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_file_held_without_delete_sharing_is_found_before_the_journal() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("held.png");
+        fs::write(&path, b"image").unwrap();
+        const FILE_SHARE_READ: u32 = 1;
+        let held = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&path)
+            .unwrap();
+        let error = ensure_replaceable(&path, Path::new("Assets\\held.png")).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Assets/held.png is open in another program"),
+            "{error}"
+        );
+        drop(held);
+        ensure_replaceable(&path, Path::new("Assets\\held.png")).unwrap();
     }
 
     #[test]
