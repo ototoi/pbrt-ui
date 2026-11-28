@@ -189,7 +189,7 @@ impl ParameterField {
                     |this, state, event: &NumberInputEvent, window, cx| {
                         let NumberInputEvent::Step(action) = event;
                         if this.is_integer_single() {
-                            this.step_integer(state, *action, window, cx);
+                            this.step_integer(state, *action, step_size(window), window, cx);
                         }
                     },
                 )
@@ -350,12 +350,13 @@ impl ParameterField {
         &mut self,
         state: &Entity<InputState>,
         action: StepAction,
+        size: i64,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let current = state.read(cx).value().parse::<i64>().unwrap_or(0);
         self.step_baseline.get_or_insert(current);
-        let next = stepped_integer(current, action, self.integer_minimum());
+        let next = stepped_integer(current, action, self.integer_minimum(), size);
         self.step_value = Some(next);
         state.update(cx, |input, cx| {
             input.set_value(next.to_string(), window, cx)
@@ -635,8 +636,18 @@ impl ParameterField {
                     ),
                 )
                 .into_any_element(),
-            Field::Number { integer: true, .. } => NumberInput::new(&self.inputs[0])
-                .xsmall()
+            Field::Number { integer: true, .. } => div()
+                .on_action(cx.listener(|this, _: &super::menu::StepUpTen, window, cx| {
+                    let state = this.inputs[0].clone();
+                    this.step_integer(&state, StepAction::Increment, 10, window, cx);
+                }))
+                .on_action(
+                    cx.listener(|this, _: &super::menu::StepDownTen, window, cx| {
+                        let state = this.inputs[0].clone();
+                        this.step_integer(&state, StepAction::Decrement, 10, window, cx);
+                    }),
+                )
+                .child(NumberInput::new(&self.inputs[0]).xsmall())
                 .into_any_element(),
             Field::Number { .. } | Field::Text(_) => input(&self.inputs[0]),
             Field::Vector(_) => div()
@@ -879,10 +890,15 @@ impl ParameterField {
     }
 }
 
-fn stepped_integer(value: i64, action: StepAction, minimum: Option<i64>) -> i64 {
+/// A spin box step: 10 with Shift held, 1 otherwise.
+pub(super) fn step_size(window: &Window) -> i64 {
+    if window.modifiers().shift { 10 } else { 1 }
+}
+
+fn stepped_integer(value: i64, action: StepAction, minimum: Option<i64>, size: i64) -> i64 {
     let delta = match action {
-        StepAction::Increment => 1_i64,
-        StepAction::Decrement => -1_i64,
+        StepAction::Increment => size,
+        StepAction::Decrement => -size,
     };
     value.saturating_add(delta).max(minimum.unwrap_or(i64::MIN))
 }
@@ -1379,10 +1395,13 @@ mod integer_step_tests {
 
     #[test]
     fn stepping_observes_bounds_and_saturates() {
-        assert_eq!(stepped_integer(1, StepAction::Decrement, Some(1)), 1);
-        assert_eq!(stepped_integer(0, StepAction::Decrement, None), -1);
+        assert_eq!(stepped_integer(1, StepAction::Decrement, Some(1), 1), 1);
+        assert_eq!(stepped_integer(0, StepAction::Decrement, None, 1), -1);
+        // Shift steps by 10, still bounded below.
+        assert_eq!(stepped_integer(4, StepAction::Increment, None, 10), 14);
+        assert_eq!(stepped_integer(4, StepAction::Decrement, Some(1), 10), 1);
         assert_eq!(
-            stepped_integer(i64::MAX, StepAction::Increment, None),
+            stepped_integer(i64::MAX, StepAction::Increment, None, 1),
             i64::MAX
         );
     }
@@ -1395,9 +1414,9 @@ mod integer_step_tests {
             StepAction::Decrement,
             StepAction::Increment,
         ];
-        let final_value = actions
-            .into_iter()
-            .fold(8, |value, action| stepped_integer(value, action, Some(1)));
+        let final_value = actions.into_iter().fold(8, |value, action| {
+            stepped_integer(value, action, Some(1), 1)
+        });
         assert_eq!(final_value, 10);
         let mut baseline = Some(8);
         assert!(super::take_step_commit(&mut baseline, Some(final_value)));
