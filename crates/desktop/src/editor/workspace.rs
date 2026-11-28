@@ -967,7 +967,8 @@ impl Workspace {
                     .child(tabs(render, cx), None),
                 None,
             )
-            .child(tabs(bottom, cx), Some(px(180.)));
+            // Tall enough for the Contents search, path and one row of named items.
+            .child(tabs(bottom, cx), Some(px(260.)));
         let layout = DockLayout::h_split()
             .child(tabs(hierarchy, cx), Some(px(235.)))
             .child(center, None)
