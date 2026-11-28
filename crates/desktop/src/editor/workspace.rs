@@ -880,23 +880,36 @@ impl Workspace {
             .into_iter()
             .map(|sibling| PanelId::from(self.panel(sibling).entity_id()))
             .collect::<Vec<_>>();
+        let (beside, placement, size) = layout::reopen_split(kind);
+        let beside = match beside {
+            layout::Beside::Root => None,
+            layout::Beside::Panel(other) => Some(PanelId::from(self.panel(other).entity_id())),
+        };
         self.dock.update(cx, |dock, cx| {
-            let group = siblings.iter().find_map(|sibling| {
-                dock.layout(DockPlacement::Center)?
-                    .find_panel_node(*sibling)
-            });
+            let tree = dock.layout(DockPlacement::Center);
+            let group = siblings
+                .iter()
+                .find_map(|sibling| tree?.find_panel_node(*sibling));
+            let target = match group {
+                Some(node) => Some(InsertTarget::Tabs {
+                    node,
+                    ix: None,
+                    activate: true,
+                }),
+                // No group left: split beside where the default arrangement has it.
+                None => match beside {
+                    None => tree.map(|tree| tree.root().id()),
+                    Some(other) => tree.and_then(|tree| tree.find_panel_node(other)),
+                }
+                .map(|node| InsertTarget::Split {
+                    node,
+                    placement,
+                    size: size.map(px),
+                }),
+            };
             dock.add_panel_view(panel_handle(panel), DockPlacement::Center, None, window, cx);
-            if let Some(node) = group {
-                dock.move_panel(
-                    id,
-                    InsertTarget::Tabs {
-                        node,
-                        ix: None,
-                        activate: true,
-                    },
-                    window,
-                    cx,
-                );
+            if let Some(target) = target {
+                dock.move_panel(id, target, window, cx);
             }
         });
     }
