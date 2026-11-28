@@ -1,6 +1,7 @@
 //! Native project viewport and controls.
 use super::Space;
 use super::coordinates::image_coordinates_for_size;
+use super::navigation::{CameraDrag, camera_drag, pinch_dolly};
 use crate::backend::Command;
 use crate::editor::EditorPanel;
 use crate::editor::menu::{LitMode, NormalMode, SolidMode, WireframeMode};
@@ -84,6 +85,35 @@ impl FlyKeys {
     }
     pub(in crate::editor) fn gizmo_shortcuts_allowed(&self) -> bool {
         !self.right_down
+    }
+}
+
+impl EditorPanel {
+    fn begin_camera_drag(
+        &mut self,
+        drag: CameraDrag,
+        position: Point<Pixels>,
+        start_fly: bool,
+        retarget: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigation_drag = Some(drag);
+        self.last_mouse = Some(position);
+        if start_fly {
+            self.fly_keys.right_down();
+            self.fly_clock.start_if_idle(Instant::now());
+        }
+        if retarget {
+            let model = self.session.read(cx);
+            if crate::editor::session::scene_geometry_interactive(model.updating, model.stale_frame)
+                && let Some(xy) =
+                    image_coordinates_for_size(self.viewport.get(), position, model.image_size)
+            {
+                let frame_id = model.frame_id;
+                self.session
+                    .update(cx, |s, cx| s.send(Command::RetargetAt { frame_id, xy }, cx));
+            }
+        }
     }
 }
 impl EditorPanel {
@@ -294,6 +324,23 @@ impl EditorPanel {
                 MouseButton::Left,
                 cx.listener(|this, event: &MouseDownEvent, window, cx| {
                     this.focus.focus(window, cx);
+                    let modifiers = window.modifiers();
+                    if let Some(drag) = camera_drag(
+                        MouseButton::Left,
+                        modifiers.shift,
+                        modifiers.alt,
+                        modifiers.control,
+                        modifiers.platform,
+                    ) {
+                        this.begin_camera_drag(
+                            drag,
+                            event.position,
+                            false,
+                            drag == CameraDrag::Orbit,
+                            cx,
+                        );
+                        return;
+                    }
                     // A press on a gizmo handle drags it instead of picking;
                     // then the light's own handles — the transform
                     // gizmo's press wins when both are under the pointer.
@@ -326,40 +373,42 @@ impl EditorPanel {
                 MouseButton::Right,
                 cx.listener(|this, event: &MouseDownEvent, window, cx| {
                     this.focus.focus(window, cx);
-                    this.fly_keys.right_down();
-                    this.fly_clock.start_if_idle(Instant::now());
                     // A right click while dragging the gizmo cancels it.
                     if this.gizmo_cancel(cx) {
                         return;
                     }
-                    this.last_mouse = Some(event.position);
-                    let model = this.session.read(cx);
-                    if crate::editor::session::scene_geometry_interactive(
-                        model.updating,
-                        model.stale_frame,
-                    ) && let Some(xy) = image_coordinates_for_size(
-                        this.viewport.get(),
-                        event.position,
-                        model.image_size,
-                    ) {
-                        let frame_id = model.frame_id;
-                        this.session
-                            .update(cx, |s, cx| s.send(Command::RetargetAt { frame_id, xy }, cx));
-                    }
+                    let modifiers = window.modifiers();
+                    let drag = camera_drag(
+                        MouseButton::Right,
+                        modifiers.shift,
+                        modifiers.alt,
+                        modifiers.control,
+                        modifiers.platform,
+                    )
+                    .expect("right button always starts camera navigation");
+                    let fly = drag == CameraDrag::Orbit;
+                    this.begin_camera_drag(drag, event.position, fly, fly, cx);
                 }),
             )
             .on_mouse_up(
                 MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, cx| this.gizmo_release(cx)),
+                cx.listener(|this, _: &MouseUpEvent, _, cx| {
+                    this.navigation_drag = None;
+                    this.gizmo_release(cx)
+                }),
             )
             .on_mouse_up_out(
                 MouseButton::Left,
-                cx.listener(|this, _: &MouseUpEvent, _, cx| this.gizmo_release(cx)),
+                cx.listener(|this, _: &MouseUpEvent, _, cx| {
+                    this.navigation_drag = None;
+                    this.gizmo_release(cx)
+                }),
             )
             .on_mouse_up(
                 MouseButton::Right,
                 cx.listener(|this, _: &MouseUpEvent, _, _| {
                     this.last_mouse = None;
+                    this.navigation_drag = None;
                     this.fly_keys.right_up();
                     this.fly_clock.reset();
                 }),
@@ -368,20 +417,47 @@ impl EditorPanel {
                 MouseButton::Right,
                 cx.listener(|this, _: &MouseUpEvent, _, _| {
                     this.last_mouse = None;
+                    this.navigation_drag = None;
                     this.fly_keys.right_up();
                     this.fly_clock.reset();
+                }),
+            )
+            .on_mouse_up(
+                MouseButton::Middle,
+                cx.listener(|this, _: &MouseUpEvent, _, _| {
+                    this.last_mouse = None;
+                    this.navigation_drag = None;
+                }),
+            )
+            .on_mouse_up_out(
+                MouseButton::Middle,
+                cx.listener(|this, _: &MouseUpEvent, _, _| {
+                    this.last_mouse = None;
+                    this.navigation_drag = None;
                 }),
             )
             .on_mouse_down(
                 MouseButton::Middle,
                 cx.listener(|this, event: &MouseDownEvent, window, cx| {
                     this.focus.focus(window, cx);
-                    this.last_mouse = Some(event.position)
+                    this.begin_camera_drag(CameraDrag::Pan, event.position, false, false, cx)
                 }),
             )
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
                 // Ctrl snaps the drag to the grid.
                 let snap = window.modifiers().secondary();
+                if let Some(drag) = this.navigation_drag {
+                    if let Some(last) = this.last_mouse.replace(event.position) {
+                        let dx = f64::from(f32::from(event.position.x - last.x));
+                        let dy = f64::from(f32::from(event.position.y - last.y));
+                        let command = match drag {
+                            CameraDrag::Orbit => Command::Orbit(-dx * 0.008, -dy * 0.008),
+                            CameraDrag::Pan => Command::Pan(-dx * 0.002, dy * 0.002),
+                        };
+                        this.session.update(cx, |s, cx| s.send(command, cx));
+                    }
+                    return;
+                }
                 match event.pressed_button {
                     Some(MouseButton::Left) if this.overlays_visible => {
                         this.gizmo_move(event.position, true, snap, cx)
@@ -391,24 +467,7 @@ impl EditorPanel {
                     }
                     _ => {}
                 }
-                if this.gizmo_drag.is_none()
-                    && this.light_drag.is_none()
-                    && matches!(
-                        event.pressed_button,
-                        Some(MouseButton::Right | MouseButton::Middle)
-                    )
-                {
-                    if let Some(last) = this.last_mouse.replace(event.position) {
-                        let dx = f64::from(f32::from(event.position.x - last.x));
-                        let dy = f64::from(f32::from(event.position.y - last.y));
-                        let command = if event.pressed_button == Some(MouseButton::Right) {
-                            Command::Orbit(-dx * 0.008, -dy * 0.008)
-                        } else {
-                            Command::Pan(-dx * 0.002, dy * 0.002)
-                        };
-                        this.session.update(cx, |s, cx| s.send(command, cx));
-                    }
-                } else {
+                if this.gizmo_drag.is_some() || this.light_drag.is_some() {
                     this.last_mouse = None;
                 }
             }))
@@ -424,6 +483,14 @@ impl EditorPanel {
                 };
                 this.session
                     .update(cx, |s, cx| s.send(Command::Dolly(-delta), cx));
+            }))
+            .on_pinch(cx.listener(|this, event: &PinchEvent, _, cx| {
+                if this.gizmo_drag.is_some() || this.light_drag.is_some() || event.delta == 0. {
+                    return;
+                }
+                let delta = pinch_dolly(event.delta);
+                this.session
+                    .update(cx, |s, cx| s.send(Command::Dolly(delta), cx));
             }));
         if let Some(image) = image {
             viewport = viewport.child(

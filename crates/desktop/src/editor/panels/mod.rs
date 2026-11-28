@@ -77,6 +77,7 @@ impl EditorPanel {
                     this.fly_keys.clear();
                     this.fly_clock.reset();
                     this.last_mouse = None;
+                    this.navigation_drag = None;
                     cx.notify();
                 }
             })
@@ -107,6 +108,7 @@ impl EditorPanel {
             viewport: Rc::new(Cell::new(Bounds::default())),
             viewport_requested: Cell::new([0, 0]),
             last_mouse: None,
+            navigation_drag: None,
             fly_keys: scene::FlyKeys::default(),
             fly_clock: scene::FlyClock::default(),
             gizmo_hover: None,
