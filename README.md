@@ -163,6 +163,9 @@ Right drag orbits about the object under the cursor.
 | Action | Input |
 |---|---|
 | Orbit / Pan / Zoom | Right drag / Middle drag / Wheel |
+| Orbit / Pan without a middle button | Alt+left drag / Shift+right drag |
+| Pan on macOS / Linux / Windows | Option+Command+left drag / Alt+Ctrl+left drag |
+| Pinch zoom | Trackpad pinch |
 | Select | Click an object |
 | Frame selection / Frame all | F / Shift+F |
 | Move / Rotate / Scale / No tool | W / E / R / Q |
