@@ -73,9 +73,57 @@ pub fn default_siblings(kind: PanelKind) -> Vec<PanelKind> {
         .unwrap_or_default()
 }
 
+/// What a reopened panel splits beside when no panel of its default tab group
+/// is left.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Beside {
+    /// The whole layout's edge.
+    Root,
+    /// The tab group holding this panel.
+    Panel(PanelKind),
+}
+
+/// Where a reopened panel goes when its default tab group is gone: beside
+/// where the default arrangement puts it, with its default size where it
+/// has one. Without this a lone panel (Render, Hierarchy, ...) landed in the
+/// narrow left column.
+pub fn reopen_split(kind: PanelKind) -> (Beside, gpui_kit::base::Placement, Option<f32>) {
+    use gpui_kit::base::Placement::{Bottom, Left, Right};
+    match kind {
+        PanelKind::Hierarchy => (Beside::Root, Left, Some(235.)),
+        PanelKind::Inspector => (Beside::Root, Right, Some(330.)),
+        PanelKind::Scene => (Beside::Panel(PanelKind::Render), Left, None),
+        PanelKind::Render => (Beside::Panel(PanelKind::Scene), Right, None),
+        PanelKind::Contents | PanelKind::Console | PanelKind::Jobs => {
+            (Beside::Panel(PanelKind::Scene), Bottom, Some(180.))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lone_panel_reopens_beside_its_default_neighbour() {
+        use gpui_kit::base::Placement::{Bottom, Left, Right};
+        assert_eq!(
+            reopen_split(PanelKind::Render),
+            (Beside::Panel(PanelKind::Scene), Right, None)
+        );
+        assert_eq!(
+            reopen_split(PanelKind::Hierarchy),
+            (Beside::Root, Left, Some(235.))
+        );
+        assert_eq!(
+            reopen_split(PanelKind::Inspector),
+            (Beside::Root, Right, Some(330.))
+        );
+        assert_eq!(
+            reopen_split(PanelKind::Jobs),
+            (Beside::Panel(PanelKind::Scene), Bottom, Some(180.))
+        );
+    }
 
     #[test]
     fn layout_v3_resets_to_the_default_arrangement() {
