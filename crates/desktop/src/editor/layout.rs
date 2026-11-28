@@ -95,7 +95,7 @@ pub fn reopen_split(kind: PanelKind) -> (Beside, gpui_kit::base::Placement, Opti
         PanelKind::Scene => (Beside::Panel(PanelKind::Render), Left, None),
         PanelKind::Render => (Beside::Panel(PanelKind::Scene), Right, None),
         PanelKind::Contents | PanelKind::Console | PanelKind::Jobs => {
-            (Beside::Panel(PanelKind::Scene), Bottom, Some(180.))
+            (Beside::Panel(PanelKind::Scene), Bottom, Some(260.))
         }
     }
 }
@@ -121,7 +121,7 @@ mod tests {
         );
         assert_eq!(
             reopen_split(PanelKind::Jobs),
-            (Beside::Panel(PanelKind::Scene), Bottom, Some(180.))
+            (Beside::Panel(PanelKind::Scene), Bottom, Some(260.))
         );
     }
 
