@@ -489,9 +489,7 @@ fn mirror_conductor_reflects_a_quad_light_without_nan() {
     let _guard = GPU.lock().unwrap_or_else(|e| e.into_inner());
     // A roughness-0 mirror floor seen from z = 2; a 1×1 light at z = 3 faces
     // down, so its mirror image sits at the center of the view.
-    let source = format!(
-        "Film \"rgb\" \"integer xresolution\" 64 \"integer yresolution\" 64\nLookAt 0 0 2 0 0 0 0 1 0\nCamera \"perspective\" \"float fov\" 60\nWorldBegin\nAttributeBegin\nTranslate 0 0 3\nAreaLightSource \"diffuse\" \"rgb L\" [1 1 1]\nShape \"trianglemesh\" \"point3 P\" [-0.5 -0.5 0 0.5 -0.5 0 0.5 0.5 0 -0.5 0.5 0] \"integer indices\" [0 2 1 0 3 2]\nAttributeEnd\nMaterial \"conductor\" \"rgb reflectance\" [1 1 1] \"float roughness\" 0\nShape \"trianglemesh\" \"point3 P\" [-4 -4 0 4 -4 0 4 4 0 -4 4 0] \"integer indices\" [0 1 2 0 2 3]\n"
-    );
+    let source = "Film \"rgb\" \"integer xresolution\" 64 \"integer yresolution\" 64\nLookAt 0 0 2 0 0 0 0 1 0\nCamera \"perspective\" \"float fov\" 60\nWorldBegin\nAttributeBegin\nTranslate 0 0 3\nAreaLightSource \"diffuse\" \"rgb L\" [1 1 1]\nShape \"trianglemesh\" \"point3 P\" [-0.5 -0.5 0 0.5 -0.5 0 0.5 0.5 0 -0.5 0.5 0] \"integer indices\" [0 2 1 0 3 2]\nAttributeEnd\nMaterial \"conductor\" \"rgb reflectance\" [1 1 1] \"float roughness\" 0\nShape \"trianglemesh\" \"point3 P\" [-4 -4 0 4 -4 0 4 4 0 -4 4 0] \"integer indices\" [0 1 2 0 2 3]\n".to_string();
     let frame = render(&source, 64, 64, PreviewMode::Lit);
     assert!(red_at(&frame, 32, 32) > 200, "the light's reflection");
     assert!(red_at(&frame, 2, 2) < 40, "outside the reflection");
@@ -580,7 +578,7 @@ fn checkerboard_inputs_match_constant_inputs_per_cell() {
     let cases: Vec<(&str, String, String, String)> = vec![
         (
             "conductor reflectance",
-            format!("\"conductor\" \"texture reflectance\" \"t\" \"float roughness\" [0.2]"),
+            "\"conductor\" \"texture reflectance\" \"t\" \"float roughness\" [0.2]".to_string(),
             format!("\"conductor\" {red} \"float roughness\" [0.2]"),
             format!("\"conductor\" {blue} \"float roughness\" [0.2]"),
         ),

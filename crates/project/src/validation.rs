@@ -170,16 +170,15 @@ pub(crate) fn validate(doc: &ProjectDocument) -> Result<()> {
             if resource.kind == ResourceKind::Material && declared.transform.is_some() {
                 return Err(invalid("material declarations do not capture transforms"));
             }
-            if let Some(transform) = &declared.transform {
-                if !transform
+            if let Some(transform) = &declared.transform
+                && (!transform
                     .start
                     .iter()
                     .chain(&transform.end)
                     .all(|v| v.is_finite())
-                    || !transform.times.iter().all(|t| t.is_finite())
-                {
-                    return Err(invalid("captured declaration transform is not finite"));
-                }
+                    || !transform.times.iter().all(|t| t.is_finite()))
+            {
+                return Err(invalid("captured declaration transform is not finite"));
             }
             if let Some(graphics) = &declared.graphics {
                 state(doc, &StateOperation::Material(graphics.material.clone()))?;
@@ -234,7 +233,7 @@ pub(crate) fn validate(doc: &ProjectDocument) -> Result<()> {
         .map(|folder| normalize_location(folder))
         .collect::<BTreeSet<_>>();
     let mut item_parent_counts = BTreeMap::<String, usize>::new();
-    for (path, _) in &locations {
+    for path in locations.keys() {
         if let Some((parent, _)) = path.rsplit_once('/') {
             *item_parent_counts.entry(parent.to_owned()).or_default() += 1;
         }
@@ -361,20 +360,19 @@ fn validate_scene(doc: &ProjectDocument, scene: &SceneDocument) -> Result<()> {
     ) {
         return Err(invalid("scene world must reference a World scope"));
     }
-    if let Some(camera) = scene.render_camera {
-        if !scene.options.contains(&camera)
+    if let Some(camera) = scene.render_camera
+        && (!scene.options.contains(&camera)
             || !matches!(
                 scene.nodes.get(&camera).map(|node| &node.data),
                 Some(NodeKind::Entity {
                     entity: EntityKind::Camera,
                     ..
                 })
-            )
-        {
-            return Err(invalid(
-                "render camera must reference a Camera in the same scene",
-            ));
-        }
+            ))
+    {
+        return Err(invalid(
+            "render camera must reference a Camera in the same scene",
+        ));
     }
     let mut seen = BTreeSet::new();
     let mut owned_objects = BTreeSet::new();

@@ -4,8 +4,7 @@
 //! builds one index per revision.
 use project::{
     Edit, ItemId, MaterialBinding, Node, NodeKind, Parameter, ParameterValues, ProjectDocument,
-    ProjectSession, ReferenceVia, Resource, ResourceId, ResourceKind, Revision, ScopeKind,
-    StateOperation,
+    ProjectSession, Resource, ResourceId, ResourceKind, Revision, ScopeKind, StateOperation,
 };
 
 fn resource(kind: ResourceKind, label: &str, implementation: &str) -> Resource {
@@ -76,7 +75,7 @@ fn document() -> (
     let (fog, mut fog_resource) = id(&resource(ResourceKind::Medium, "Fog", "homogeneous"));
     fog_resource.location = "Media/Fog.medium".into();
     let (tex, tex_resource) = id(&resource(ResourceKind::Texture, "Tex", "checkerboard"));
-    let (mut tree, mut tree_resource) = id(&resource(ResourceKind::ObjectDefinition, "Tree", ""));
+    let (tree, mut tree_resource) = id(&resource(ResourceKind::ObjectDefinition, "Tree", ""));
     tree_resource.location = "Objects/Tree.object".into();
     document.resources.insert(bound, bound_resource);
     document.resources.insert(fog, fog_resource);

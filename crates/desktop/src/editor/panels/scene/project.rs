@@ -356,16 +356,14 @@ impl EditorPanel {
                     if crate::editor::session::scene_geometry_interactive(
                         model.updating,
                         model.stale_frame,
+                    ) && let Some(xy) = image_coordinates_for_size(
+                        this.viewport.get(),
+                        event.position,
+                        model.image_size,
                     ) {
-                        if let Some(xy) = image_coordinates_for_size(
-                            this.viewport.get(),
-                            event.position,
-                            model.image_size,
-                        ) {
-                            let frame_id = model.frame_id;
-                            this.session
-                                .update(cx, |s, cx| s.send(Command::Pick { frame_id, xy }, cx));
-                        }
+                        let frame_id = model.frame_id;
+                        this.session
+                            .update(cx, |s, cx| s.send(Command::Pick { frame_id, xy }, cx));
                     }
                 }),
             )
@@ -558,7 +556,7 @@ impl EditorPanel {
             .absolute()
             .size_full(),
         );
-        return div()
+        div()
             .size_full()
             .flex()
             .flex_col()
@@ -648,7 +646,7 @@ impl EditorPanel {
                         }),
                 ),
             )
-            .into_any_element();
+            .into_any_element()
     }
 }
 
@@ -658,15 +656,14 @@ impl EditorPanel {
         self.gizmo_hover = None;
         self.light_hover = None;
         self.overlays_visible = !self.overlays_visible;
-        if let Some(path) = &self.overlays_path {
-            if let Err(error) =
+        if let Some(path) = &self.overlays_path
+            && let Err(error) =
                 crate::editor::layout::save_overlays(path, self.kind.name(), self.overlays_visible)
-            {
-                self.session.update(cx, |session, cx| {
-                    session.status = format!("Could not save viewport preferences: {error}");
-                    cx.notify();
-                });
-            }
+        {
+            self.session.update(cx, |session, cx| {
+                session.status = format!("Could not save viewport preferences: {error}");
+                cx.notify();
+            });
         }
         self.session.update(cx, |session, cx| {
             session.send(Command::Overlays(self.overlays_visible), cx)

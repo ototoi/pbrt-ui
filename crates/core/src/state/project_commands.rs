@@ -239,7 +239,7 @@ impl Projects {
     pub(crate) fn project_folder(&self) -> Option<&std::path::Path> {
         self.active.as_ref().and_then(|active| {
             (active.mode == dto::ProjectMode::Project)
-                .then(|| active.path.as_deref())
+                .then_some(active.path.as_deref())
                 .flatten()
                 .map(std::path::Path::new)
                 .filter(|path| path.is_dir())

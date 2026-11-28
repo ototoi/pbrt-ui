@@ -339,10 +339,10 @@ fn find<'a>(
         if node["id"].as_str() == Some(id) {
             return Some((node, parent));
         }
-        if let Some(children) = node["children"].as_array() {
-            if let Some(found) = find(children, id, Some(node)) {
-                return Some(found);
-            }
+        if let Some(children) = node["children"].as_array()
+            && let Some(found) = find(children, id, Some(node))
+        {
+            return Some(found);
         }
     }
     None

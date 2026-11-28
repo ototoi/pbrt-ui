@@ -59,17 +59,15 @@ impl MetaV2 {
         if id.is_nil() {
             return Err(invalid("sidecar identity must not be nil"));
         }
-        match self {
-            Self::Asset {
-                media_type,
-                sha256,
-                size,
-                origin,
-                ..
-            } => {
-                validate_payload(media_type, sha256, *size, origin.as_ref())?;
-            }
-            _ => {}
+        if let Self::Asset {
+            media_type,
+            sha256,
+            size,
+            origin,
+            ..
+        } = self
+        {
+            validate_payload(media_type, sha256, *size, origin.as_ref())?;
         }
         Ok(())
     }
@@ -94,10 +92,10 @@ fn validate_payload(
     if size > MAX_OBJECT_BYTES {
         return Err(ProjectError::ResourceLimit("asset exceeds 4 GiB".into()));
     }
-    if let Some(origin) = origin {
-        if origin.import.0.is_nil() || origin.logical_path.is_empty() {
-            return Err(invalid("asset import origin is incomplete"));
-        }
+    if let Some(origin) = origin
+        && (origin.import.0.is_nil() || origin.logical_path.is_empty())
+    {
+        return Err(invalid("asset import origin is incomplete"));
     }
     Ok(())
 }

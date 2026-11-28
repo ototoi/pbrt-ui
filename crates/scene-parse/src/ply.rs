@@ -54,8 +54,8 @@ fn decode_scalar(ty: &str, bytes: &[u8], little: bool) -> Result<f64, ()> {
         _ => return Err(()),
     })
 }
-fn read_one<'a>(
-    bytes: &'a [u8],
+fn read_one(
+    bytes: &[u8],
     cursor: &mut usize,
     ty: &str,
     little: bool,
@@ -309,7 +309,7 @@ pub fn read_ply(path: &str, bytes: &[u8]) -> Result<PlyMesh, SceneParseError> {
                 .ok_or_else(|| error(path, "face vertex index list is missing"))?;
             for _ in 0..nf {
                 let count = read_one(all, &mut cursor, count_ty, little, path)? as usize;
-                if count < 3 || count > 1_000_000 {
+                if !(3..=1_000_000).contains(&count) {
                     return Err(error(path, "invalid face vertex count"));
                 }
                 let mut face = Vec::with_capacity(count);
@@ -352,7 +352,7 @@ fn read_faces_ascii<'a>(
             .ok_or_else(|| error(path, "truncated face data"))?
             .parse::<usize>()
             .map_err(|e| error(path, e))?;
-        if n < 3 || n > 1_000_000 {
+        if !(3..=1_000_000).contains(&n) {
             return Err(error(path, "invalid face vertex count"));
         }
         let mut face = Vec::with_capacity(n);

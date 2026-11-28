@@ -375,7 +375,7 @@ pub(super) fn build(
         // every downstream mesh id. Unresolved shapes keep the ordinal.
         let mesh_id = entity_of
             .and_then(|table| table.get(&shape.d.line))
-            .map(|entity| stable_mesh_id(entity))
+            .map(stable_mesh_id)
             .unwrap_or_else(|| manifest.meshes.len() as u64);
         let filename = format!("geometry/{mesh_id:08}.bin");
         let mut local = Bounds {

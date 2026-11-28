@@ -372,7 +372,7 @@ impl Display {
                                     .and_then(|n| n["id"].as_str())
                                     .map(str::to_owned)
                                 {
-                                    tree["nodes"] = json!(nodes.drain(..).collect::<Vec<_>>());
+                                    tree["nodes"] = json!(std::mem::take(&mut nodes));
                                     if let Ok(page) = project_nodes_page(
                                         &self.core,
                                         &reference,
@@ -394,19 +394,18 @@ impl Display {
                                 }
                                 if let Ok(definitions) =
                                     project_definition_roots(&self.core, &reference)
+                                    && let Some(roots) = tree["nodes"].as_array_mut()
                                 {
-                                    tree["nodes"].as_array_mut().map(|roots| {
-                                        roots.push(json!({
-                                            "id":"@object-definitions",
-                                            "label":"Object Definitions",
-                                            "kind":"definition_section",
-                                            "object":"definition_section",
-                                            "child_count":definitions.len(),
-                                            "loaded":true,
-                                            "children":definitions,
-                                            "more_offset":null,
-                                        }))
-                                    });
+                                    roots.push(json!({
+                                        "id":"@object-definitions",
+                                        "label":"Object Definitions",
+                                        "kind":"definition_section",
+                                        "object":"definition_section",
+                                        "child_count":definitions.len(),
+                                        "loaded":true,
+                                        "children":definitions,
+                                        "more_offset":null,
+                                    }))
                                 }
                                 let mut tree = tree;
                                 if let Some(geometry) = self.project_geometry.as_ref()
@@ -440,14 +439,14 @@ impl Display {
                                     .send(Update::Status(format!("Project scenes: {error}")));
                             }
                         }
-                        if activation_changed {
-                            if let Ok(presets) = request(
+                        if activation_changed
+                            && let Ok(presets) = request(
                                 &self.core,
                                 Method::ProjectListPresets,
                                 json!({"project":reference}),
-                            ) {
-                                let _ = self.tx.send(Update::ProjectPresets(presets));
-                            }
+                            )
+                        {
+                            let _ = self.tx.send(Update::ProjectPresets(presets));
                         }
                     }
                 } else if !reference.is_object() {

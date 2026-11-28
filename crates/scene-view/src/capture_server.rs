@@ -49,17 +49,13 @@ pub type Render = Box<
 
 /// Serve requests from `input`, writing replies to `output`. Returns on input
 /// EOF or an unrecoverable stream error.
-pub fn serve<R: BufRead, W: Write>(
-    input: R,
-    mut output: W,
-    mut render: Render,
-) -> Result<(), String> {
+pub fn serve<R: BufRead, W: Write>(input: R, output: W, mut render: Render) -> Result<(), String> {
     let mut writer = output;
     let mut session = Session {
         key: String::new(),
         loaded: false,
     };
-    let mut input = input;
+    let input = input;
     let mut line = String::new();
     let mut buffered = std::io::BufReader::new(input);
     line.clear();
@@ -211,6 +207,32 @@ fn write_line<W: Write>(writer: &mut W, value: Value) -> std::io::Result<()> {
     writer.write_all(encoded.as_bytes())
 }
 
+/// Mesh editions for the renderer: content digests of each mesh's blob, so
+/// equal content keeps its GPU buffers across requests. The whole blob is
+/// hashed — sampling its head would let same-length edits reuse stale GPU
+/// buffers.
+pub fn mesh_editions(
+    manifest: &GeometryManifest,
+    blobs: &BTreeMap<String, Vec<u8>>,
+) -> Result<BTreeMap<u64, u64>, String> {
+    let mut editions = BTreeMap::new();
+    for record in &manifest.meshes {
+        let blob = blobs
+            .get(&record.blob)
+            .ok_or_else(|| format!("missing blob {}", record.blob))?;
+        let mut hash = sha2::Sha256::new();
+        use sha2::Digest;
+        hash.update(record.mesh_id.to_le_bytes());
+        hash.update((blob.len() as u64).to_le_bytes());
+        hash.update(blob);
+        editions.insert(
+            record.mesh_id,
+            u64::from_be_bytes(hash.finalize()[..8].try_into().unwrap()),
+        );
+    }
+    Ok(editions)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -316,7 +338,7 @@ mod tests {
                 max: [0.; 3],
             },
         });
-        let mut before = vec![0u8; 8192];
+        let before = vec![0u8; 8192];
         let mut after = before.clone();
         after[8191] = 9;
         let first = mesh_editions(
@@ -401,30 +423,4 @@ mod tests {
         );
         assert_eq!(reply["lit_notes"][0]["draws"], 3, "{reply}");
     }
-}
-
-/// Mesh editions for the renderer: content digests of each mesh's blob, so
-/// equal content keeps its GPU buffers across requests. The whole blob is
-/// hashed — sampling its head would let same-length edits reuse stale GPU
-/// buffers.
-pub fn mesh_editions(
-    manifest: &GeometryManifest,
-    blobs: &BTreeMap<String, Vec<u8>>,
-) -> Result<BTreeMap<u64, u64>, String> {
-    let mut editions = BTreeMap::new();
-    for record in &manifest.meshes {
-        let blob = blobs
-            .get(&record.blob)
-            .ok_or_else(|| format!("missing blob {}", record.blob))?;
-        let mut hash = sha2::Sha256::new();
-        use sha2::Digest;
-        hash.update(record.mesh_id.to_le_bytes());
-        hash.update((blob.len() as u64).to_le_bytes());
-        hash.update(blob);
-        editions.insert(
-            record.mesh_id,
-            u64::from_be_bytes(hash.finalize()[..8].try_into().unwrap()),
-        );
-    }
-    Ok(editions)
 }

@@ -264,16 +264,14 @@ impl Display {
                                     self.import_jobs.push(job_id.to_owned());
                                 }
                             }
-                            if save {
-                                if let Some(job_id) = response["job_id"].as_str() {
+                            if save
+                                && let Some(job_id) = response["job_id"].as_str() {
                                     self.save_job = Some(job_id.to_owned());
                                 }
-                            }
-                            if export {
-                                if let Some(job_id) = response["job_id"].as_str() {
+                            if export
+                                && let Some(job_id) = response["job_id"].as_str() {
                                     self.export_jobs.push(job_id.to_owned());
                                 }
-                            }
                             Ok(())
                         }
                         // The window asks before replacing a dirty document; a
@@ -855,14 +853,14 @@ impl Display {
         match follow {
             Follow::Nothing => {}
             Follow::OpenScene => {
-                if let Some(scene) = created.iter().find(|item| item["kind"] == "scene") {
-                    if let Err(error) = request(
+                if let Some(scene) = created.iter().find(|item| item["kind"] == "scene")
+                    && let Err(error) = request(
                         &self.core,
                         Method::ProjectOpenScene,
                         json!({"project":project,"scene":scene["id"]}),
-                    ) {
-                        let _ = self.tx.send(Update::Status(error));
-                    }
+                    )
+                {
+                    let _ = self.tx.send(Update::Status(error));
                 }
             }
             Follow::RevealFirstCreated { parent } => {

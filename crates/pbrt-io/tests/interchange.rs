@@ -1047,7 +1047,7 @@ fn exporting_a_snapshot_is_deterministic_and_cancellation_leaves_no_bundle() {
     use sha2::Digest;
     assert_eq!(
         manifest["scene_sha256"],
-        format!("{:x}", sha2::Sha256::digest(&fs::read(&a).unwrap())),
+        format!("{:x}", sha2::Sha256::digest(fs::read(&a).unwrap())),
         "scene_sha256 must match the published scene.pbrt"
     );
     let cancelled = temp.path().join("cancelled");

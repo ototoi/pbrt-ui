@@ -90,12 +90,12 @@ pub(super) fn run_capture(
             .capture_daemon
             .lock()
             .map_err(|_| fail("capture daemon lock poisoned"))?;
-        if daemon.is_none() {
-            if let Some(program) = work.config.capture.as_ref() {
-                match capture_daemon::CaptureDaemon::spawn(program) {
-                    Ok(session) => *daemon = Some(session),
-                    Err(_) => *daemon = None,
-                }
+        if daemon.is_none()
+            && let Some(program) = work.config.capture.as_ref()
+        {
+            match capture_daemon::CaptureDaemon::spawn(program) {
+                Ok(session) => *daemon = Some(session),
+                Err(_) => *daemon = None,
             }
         }
         if let Some(session) = daemon.as_mut() {

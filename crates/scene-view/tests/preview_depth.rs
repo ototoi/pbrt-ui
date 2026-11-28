@@ -919,7 +919,7 @@ fn depth_keeps_distant_surfaces_ordered_with_a_tiny_near_plane() {
     .unwrap();
     let wrong = frame.pick_ids.iter().filter(|id| **id == back).count();
     assert_eq!(wrong, 0, "{wrong} of 4096 pixels show the back quad");
-    assert!(frame.pick_ids.iter().any(|id| *id == front));
+    assert!(frame.pick_ids.contains(&front));
 }
 
 #[test]

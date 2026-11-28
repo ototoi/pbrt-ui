@@ -2,57 +2,56 @@
 use super::*;
 impl Display {
     pub(super) fn poll_project_preview(&mut self) {
-        if let Some((job_id, _directory)) = self.project_preview_job.clone() {
-            if let Ok(job) = request(&self.core, Method::JobGet, json!({"job_id":job_id})) {
-                match job["state"].as_str().unwrap_or("") {
-                    "succeeded" => {
-                        // The heavy package work runs on the GPU worker
-                        // This loop only dispatches the install
-                        // and applies its result later, in poll_gpu.
-                        let preview_key = self.project_preview_key.clone().unwrap_or_default();
-                        let geometry_path =
-                            job["result"]["geometry_path"].as_str().map(PathBuf::from);
-                        let slot = geometry_path
-                            .as_ref()
-                            .and_then(|path| path.parent())
-                            .map(|slot| slot.to_path_buf());
-                        let failure = if geometry_path.is_none() {
-                            Some("preview job omitted its geometry path")
-                        } else if slot.is_none() {
-                            Some("geometry.json has no slot")
-                        } else {
-                            None
-                        };
-                        if let Some(message) = failure {
-                            let text = format!("Project preview parse: {message}");
-                            self.fail_current_camera_preview();
-                            let _ = self.tx.send(Update::PreviewUnavailable(Some(text.clone())));
-                            let _ = self.tx.send(Update::Status(text));
-                        } else {
-                            self.enqueue_install(preview_key, job_id, slot.unwrap(), None);
-                        }
-                        self.project_preview_job = None;
-                    }
-                    "failed" | "cancelled" => {
-                        let cancelled =
-                            job["state"] == "cancelled" || job["error"]["code"] == "cancelled";
-                        let message = if cancelled {
-                            "Preview cancelled".to_owned()
-                        } else {
-                            format!(
-                                "Preview failed: {}",
-                                job["error"]["message"].as_str().unwrap_or("unknown error")
-                            )
-                        };
-                        let _ = self
-                            .tx
-                            .send(Update::PreviewUnavailable(Some(message.clone())));
-                        let _ = self.tx.send(Update::Status(message));
+        if let Some((job_id, _directory)) = self.project_preview_job.clone()
+            && let Ok(job) = request(&self.core, Method::JobGet, json!({"job_id":job_id}))
+        {
+            match job["state"].as_str().unwrap_or("") {
+                "succeeded" => {
+                    // The heavy package work runs on the GPU worker
+                    // This loop only dispatches the install
+                    // and applies its result later, in poll_gpu.
+                    let preview_key = self.project_preview_key.clone().unwrap_or_default();
+                    let geometry_path = job["result"]["geometry_path"].as_str().map(PathBuf::from);
+                    let slot = geometry_path
+                        .as_ref()
+                        .and_then(|path| path.parent())
+                        .map(|slot| slot.to_path_buf());
+                    let failure = if geometry_path.is_none() {
+                        Some("preview job omitted its geometry path")
+                    } else if slot.is_none() {
+                        Some("geometry.json has no slot")
+                    } else {
+                        None
+                    };
+                    if let Some(message) = failure {
+                        let text = format!("Project preview parse: {message}");
                         self.fail_current_camera_preview();
-                        self.project_preview_job = None;
+                        let _ = self.tx.send(Update::PreviewUnavailable(Some(text.clone())));
+                        let _ = self.tx.send(Update::Status(text));
+                    } else {
+                        self.enqueue_install(preview_key, job_id, slot.unwrap(), None);
                     }
-                    _ => {}
+                    self.project_preview_job = None;
                 }
+                "failed" | "cancelled" => {
+                    let cancelled =
+                        job["state"] == "cancelled" || job["error"]["code"] == "cancelled";
+                    let message = if cancelled {
+                        "Preview cancelled".to_owned()
+                    } else {
+                        format!(
+                            "Preview failed: {}",
+                            job["error"]["message"].as_str().unwrap_or("unknown error")
+                        )
+                    };
+                    let _ = self
+                        .tx
+                        .send(Update::PreviewUnavailable(Some(message.clone())));
+                    let _ = self.tx.send(Update::Status(message));
+                    self.fail_current_camera_preview();
+                    self.project_preview_job = None;
+                }
+                _ => {}
             }
         }
     }
@@ -84,16 +83,16 @@ impl Display {
     /// Consume the queued install after a terminal result. Entries whose
     /// scene moved on while they waited are discarded, not sent.
     pub(super) fn flush_queued_install(&mut self) {
-        if let Some((key, job_id, slot, manifest)) = self.queued_install.take() {
-            if Some(&key) == self.project_preview_key.as_ref() {
-                let _ = self.gpu.requests.send(gpu::GpuRequest::Install {
-                    key,
-                    job_id,
-                    slot,
-                    manifest,
-                });
-                self.install_in_flight = true;
-            }
+        if let Some((key, job_id, slot, manifest)) = self.queued_install.take()
+            && Some(&key) == self.project_preview_key.as_ref()
+        {
+            let _ = self.gpu.requests.send(gpu::GpuRequest::Install {
+                key,
+                job_id,
+                slot,
+                manifest,
+            });
+            self.install_in_flight = true;
         }
     }
 

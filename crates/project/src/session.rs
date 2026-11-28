@@ -1149,19 +1149,16 @@ impl ProjectSession {
                         .scenes
                         .get(scene)
                         .ok_or_else(|| invalid("missing scene for render camera"))?;
-                    if let Some(camera) = camera {
-                        if !matches!(
+                    if let Some(camera) = camera
+                        && (!matches!(
                             current.nodes.get(camera).map(|node| &node.data),
                             Some(NodeKind::Entity {
                                 entity: EntityKind::Camera,
                                 ..
                             })
-                        ) || !current.options.contains(camera)
-                        {
-                            return Err(invalid(
-                                "render camera must be a Camera in the same scene",
-                            ));
-                        }
+                        ) || !current.options.contains(camera))
+                    {
+                        return Err(invalid("render camera must be a Camera in the same scene"));
                     }
                     if current.render_camera != *camera {
                         let mut updated = current.as_ref().clone();
@@ -1717,12 +1714,12 @@ impl ProjectSession {
                     if (*resource_kind == ResourceKind::Texture) != texture_value_type.is_some() {
                         return Err(invalid("texture value type is required only for textures"));
                     }
-                    if *resource_kind == ResourceKind::ObjectDefinition {
-                        if !implementation.is_empty() || !parameters.is_empty() {
-                            return Err(invalid(
-                                "object definitions take no implementation or parameters",
-                            ));
-                        }
+                    if *resource_kind == ResourceKind::ObjectDefinition
+                        && (!implementation.is_empty() || !parameters.is_empty())
+                    {
+                        return Err(invalid(
+                            "object definitions take no implementation or parameters",
+                        ));
                     }
                     let folder = folder
                         .clone()
@@ -2600,7 +2597,7 @@ impl ProjectSession {
                                     &mut document,
                                     active,
                                     group,
-                                    &content,
+                                    content,
                                     &mut created_nodes,
                                     &mut node_ids,
                                 )?;
@@ -2672,7 +2669,7 @@ impl ProjectSession {
                             match rewrite {
                                 Some(id) => {
                                     let (entity, _) = node_mut(&mut document, active, id)?;
-                                    entity.data = entity_kind(&content);
+                                    entity.data = entity_kind(content);
                                     node_ids.insert(id, NodeLocation::Scene(active));
                                 }
                                 None => {
@@ -2688,7 +2685,7 @@ impl ProjectSession {
                                     let run_start =
                                         component_run_start(&document, active, group, index);
                                     let entity =
-                                        Node::new("Local Area Light", entity_kind(&content));
+                                        Node::new("Local Area Light", entity_kind(content));
                                     insert_child_node(
                                         &mut document,
                                         active,
@@ -4239,7 +4236,7 @@ impl ProjectSession {
         Ok(result)
     }
 }
-fn node<'a>(document: &'a ProjectDocument, location: NodeLocation, id: NodeId) -> Option<&'a Node> {
+fn node(document: &ProjectDocument, location: NodeLocation, id: NodeId) -> Option<&Node> {
     match location {
         NodeLocation::Scene(scene) => document.scenes.get(&scene)?.nodes.get(&id),
         NodeLocation::Definition => document.definition_nodes.get(&id),
@@ -4444,11 +4441,11 @@ fn remove_definition_subtree(document: &mut ProjectDocument, root: NodeId) -> Ve
     }
     removed
 }
-fn node_mut<'a>(
-    document: &'a mut ProjectDocument,
+fn node_mut(
+    document: &mut ProjectDocument,
     active: impl Into<Option<SceneId>>,
     id: NodeId,
-) -> Result<(&'a mut Node, NodeLocation)> {
+) -> Result<(&mut Node, NodeLocation)> {
     if let Some(active) = active.into()
         && document
             .scenes
@@ -4909,7 +4906,7 @@ fn require_shape(
     object: NodeId,
     message: &'static str,
 ) -> Result<()> {
-    let is_shape = node(&document, NodeLocation::Scene(scene), object)
+    let is_shape = node(document, NodeLocation::Scene(scene), object)
         .map(|node| {
             matches!(
                 &node.data,
@@ -5275,7 +5272,7 @@ fn group_head_insert_at(
     match kind {
         0 => head
             .iter()
-            .rposition(|id| is_area_light(id))
+            .rposition(&is_area_light)
             .map(|index| index + 1)
             .unwrap_or(0),
         1 => head
@@ -5306,7 +5303,7 @@ fn set_group_head_state(
         .find(|child| {
             let _ = child;
             matches!(
-                node(document, location, **&child).map(|node| &node.data),
+                node(document, location, *child).map(|node| &node.data),
                 Some(NodeKind::State { operation: current, .. }) if operation_kind(current) == kind
             )
         })
@@ -5339,7 +5336,7 @@ fn remove_group_head_state(
         .copied()
         .find(|child| {
             matches!(
-                node(document, location, **&child).map(|node| &node.data),
+                node(document, location, *child).map(|node| &node.data),
                 Some(NodeKind::State { operation: current, .. }) if operation_kind(current) == kind
             )
         })

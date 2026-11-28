@@ -41,7 +41,7 @@ pub(super) fn execute(
             let log = directory.join("render.log");
             let mut command = Command::new(renderer);
             let root = if let Some(view) = view {
-                write_view_scene(root, view, &directory)?
+                write_view_scene(root, view, directory)?
             } else {
                 PathBuf::from(root)
             };

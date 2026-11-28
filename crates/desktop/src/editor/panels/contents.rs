@@ -958,13 +958,12 @@ impl EditorPanel {
                                     Box::new(OpenInEditor { id: id.to_owned() }),
                                     cx,
                                 );
-                            } else if entry["builtin"] == true {
-                                if let Some(preset) = entry["id"]
+                            } else if entry["builtin"] == true
+                                && let Some(preset) = entry["id"]
                                     .as_str()
                                     .and_then(|id| uuid::Uuid::parse_str(id).ok())
-                                {
-                                    window.dispatch_action(Box::new(CreatePreset { preset }), cx);
-                                }
+                            {
+                                window.dispatch_action(Box::new(CreatePreset { preset }), cx);
                             }
                             return;
                         }

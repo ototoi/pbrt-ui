@@ -17,7 +17,7 @@ pub fn curve_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
         || !matches!(basis.as_str(), "bezier" | "bspline")
         || !matches!(kind.as_str(), "flat" | "ribbon" | "cylinder")
         || raw_points.is_empty()
-        || raw_points.len() % 3 != 0
+        || !raw_points.len().is_multiple_of(3)
         || raw_points.iter().any(|value| !value.is_finite())
     {
         return Err(fail(
@@ -30,10 +30,10 @@ pub fn curve_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
         .collect::<Vec<_>>();
     let degree = degree as usize;
     let segments = match basis.as_str() {
-        "bezier" if controls.len() >= degree + 1 && (controls.len() - 1) % degree == 0 => {
+        "bezier" if controls.len() > degree && (controls.len() - 1) % degree == 0 => {
             (controls.len() - 1) / degree
         }
-        "bspline" if controls.len() >= degree + 1 => controls.len() - degree,
+        "bspline" if controls.len() > degree => controls.len() - degree,
         _ => {
             return Err(fail(
                 "curve control point count does not match its basis and degree",

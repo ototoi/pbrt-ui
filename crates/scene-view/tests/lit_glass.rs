@@ -165,7 +165,7 @@ fn animated_glass_sorts_at_the_rendered_time() {
 #[ignore = "requires a GPU adapter"]
 fn glass_beyond_the_appearance_limit_is_not_black() {
     let _guard = GPU.lock().unwrap_or_else(|e| e.into_inner());
-    let mut source = format!("{HEADER}");
+    let mut source = HEADER.to_string();
     for i in 0..128 {
         // Distinct materials on tiny quads out of view.
         let shade = i as f64 / 128.;
@@ -190,9 +190,7 @@ fn glass_beyond_the_appearance_limit_is_not_black() {
 fn glass_alpha_cuts_holes() {
     let _guard = GPU.lock().unwrap_or_else(|e| e.into_inner());
     let alpha = "Texture \"a\" \"float\" \"constant\" \"float value\" [0]\n";
-    let holed = format!(
-        "AttributeBegin\nMaterial \"dielectric\"\nShape \"trianglemesh\" \"point3 P\" [-3 -3 1 3 -3 1 3 3 1 -3 3 1] \"integer indices\" [0 1 2 0 2 3] \"texture alpha\" \"a\"\nAttributeEnd\n"
-    );
+    let holed = "AttributeBegin\nMaterial \"dielectric\"\nShape \"trianglemesh\" \"point3 P\" [-3 -3 1 3 -3 1 3 3 1 -3 3 1] \"integer indices\" [0 1 2 0 2 3] \"texture alpha\" \"a\"\nAttributeEnd\n".to_string();
     let (scene, frame) = render(&format!("{HEADER}{alpha}{}{holed}", red_backdrop()));
     assert_eq!(center(&frame).1, scene.manifest.draws[0].pick_id);
 }

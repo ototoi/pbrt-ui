@@ -38,9 +38,9 @@ pub fn triangle_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
     let raw_points = params.floats("P");
     let raw_indices = params.floats("indices");
     if raw_points.is_empty()
-        || raw_points.len() % 3 != 0
+        || !raw_points.len().is_multiple_of(3)
         || raw_indices.is_empty()
-        || raw_indices.len() % 3 != 0
+        || !raw_indices.len().is_multiple_of(3)
         || raw_indices
             .iter()
             .any(|v| !v.is_finite() || v.fract() != 0.0)

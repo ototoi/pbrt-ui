@@ -3230,16 +3230,14 @@ impl PreviewRenderer {
                 bytemuck::cast_slice(&scene.lit.mapping_rows(camera.eye)),
             );
         }
-        if let Some(setup) = &shadows {
-            if !setup.entries.is_empty() {
-                self.queue.write_buffer(
-                    &self.shadow_buffer,
-                    0,
-                    bytemuck::cast_slice(
-                        &setup.entries[..setup.entries.len().min(lit::MAX_LIGHTS)],
-                    ),
-                );
-            }
+        if let Some(setup) = &shadows
+            && !setup.entries.is_empty()
+        {
+            self.queue.write_buffer(
+                &self.shadow_buffer,
+                0,
+                bytemuck::cast_slice(&setup.entries[..setup.entries.len().min(lit::MAX_LIGHTS)]),
+            );
         }
         // Without draws nothing casts shadows (and no instance buffer exists).
         let render_shadows = scene.shadow_dirty

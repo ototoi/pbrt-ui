@@ -83,7 +83,7 @@ fn mesh_editions(
     manifest: &GeometryManifest,
     blobs: &BTreeMap<String, Vec<u8>>,
 ) -> Result<BTreeMap<u64, u64>, String> {
-    Ok(capture_server::mesh_editions(manifest, blobs)?)
+    capture_server::mesh_editions(manifest, blobs)
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {

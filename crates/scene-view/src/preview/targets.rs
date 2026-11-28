@@ -181,11 +181,11 @@ impl Targets {
                 let row = &pick[start..start + self.width as usize * 4];
                 // Mapped rows are normally aligned. Copy them directly on
                 // little-endian hosts instead of converting every pixel.
-                if cfg!(target_endian = "little") {
-                    if let Ok(values) = bytemuck::try_cast_slice::<u8, u32>(row) {
-                        pick_ids.extend_from_slice(values);
-                        continue;
-                    }
+                if cfg!(target_endian = "little")
+                    && let Ok(values) = bytemuck::try_cast_slice::<u8, u32>(row)
+                {
+                    pick_ids.extend_from_slice(values);
+                    continue;
                 }
                 pick_ids.extend(
                     row.chunks_exact(4)

@@ -928,7 +928,7 @@ fn count_mix_leaves(
     active: &mut Vec<usize>,
     leaves: &mut usize,
 ) -> bool {
-    if materials[id].implementation.to_ascii_lowercase() != "mix" {
+    if !materials[id].implementation.eq_ignore_ascii_case("mix") {
         *leaves += 1;
         return *leaves <= MAX_MIX_LEAVES;
     }

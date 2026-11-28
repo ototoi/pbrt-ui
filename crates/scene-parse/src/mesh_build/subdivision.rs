@@ -14,14 +14,13 @@ pub fn loop_subdiv(d: &Directive) -> Result<(Vec<[f64; 3]>, Vec<u32>), ScenePars
         .collect::<Vec<_>>();
     let raw_indices = params.floats("indices");
     let levels = params.int("levels", params.int("nlevels", 3));
-    if levels < 0
-        || levels > MAX_LEVELS
+    if !(0..=MAX_LEVELS).contains(&levels)
         || raw_points.is_empty()
-        || raw_points.len() % 3 != 0
+        || !raw_points.len().is_multiple_of(3)
         || points.is_empty()
         || points.iter().flatten().any(|value| !value.is_finite())
         || raw_indices.is_empty()
-        || raw_indices.len() % 3 != 0
+        || !raw_indices.len().is_multiple_of(3)
         || raw_indices.iter().any(|value| {
             !value.is_finite()
                 || value.fract() != 0.0

@@ -753,10 +753,10 @@ impl Hierarchy {
             self.search_total = page["total"].as_u64().unwrap_or(self.hits.len() as u64);
             // A continuation is answered once the page's next offset advances
             // Until then, keep the button in its loading state.
-            if let Some(requested) = self.more_offset {
-                if page["next_offset"].as_u64() != Some(requested) {
-                    self.more_offset = None;
-                }
+            if let Some(requested) = self.more_offset
+                && page["next_offset"].as_u64() != Some(requested)
+            {
+                self.more_offset = None;
             }
         } else {
             self.hits.clear();
@@ -988,12 +988,12 @@ impl Hierarchy {
             let selected_content = session.contents.selected().cloned();
             // The Scene root opens once per activation; its children arrive
             // with the roots.
-            if let Some(root) = project_tree["nodes"][0]["id"].as_str() {
-                if self.auto_expanded.as_deref() != Some(root) {
-                    self.auto_expanded = Some(root.to_owned());
-                    self.expansion.insert(format!("p:{root}"));
-                    self.force_rebuild = true;
-                }
+            if let Some(root) = project_tree["nodes"][0]["id"].as_str()
+                && self.auto_expanded.as_deref() != Some(root)
+            {
+                self.auto_expanded = Some(root.to_owned());
+                self.expansion.insert(format!("p:{root}"));
+                self.force_rebuild = true;
             }
             let created = session.reveal_created.clone();
             let picked = session.reveal_picked.clone();
@@ -1256,10 +1256,7 @@ impl Render for Hierarchy {
                 };
                 let presets = {
                     let session = self.session.read(cx);
-                    (!session.document().is_read_only()
-                        && session.project.context.project.is_some())
-                    .then(|| super::create_menu::presets(&session.project_presets))
-                    .unwrap_or_default()
+                    if !session.document().is_read_only() && session.project.context.project.is_some() { super::create_menu::presets(&session.project_presets) } else { Default::default() }
                 };
                 // A left press the rows do not take — the empty area
                 // below and around them — retires the selection. Every

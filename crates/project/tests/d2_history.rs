@@ -362,7 +362,7 @@ fn a_delete_whose_bytes_are_already_gone_stages_nothing() {
     let temporary = tempfile::tempdir().unwrap();
     let staging = tempfile::tempdir().unwrap();
     let bytes = b"ply mesh bytes";
-    let (mut session, mut store, asset, path) = asset_project(temporary.path(), bytes);
+    let (mut session, store, asset, path) = asset_project(temporary.path(), bytes);
     session.enable_payload_staging(staging.path(), path.join("Assets"));
     // The file vanished behind the project's back (before any save
     // recorded it): the delete has no bytes to pin and still applies.

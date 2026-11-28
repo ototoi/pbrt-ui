@@ -194,9 +194,9 @@ impl Compiler<'_> {
                 let mapping = self.mapping_2d(record);
                 if let Err(message) = &mapping {
                     self.fallback(expected, format!("imagemap {name} {message}"));
-                } else if !parameter(&record.parameters, "filename")
+                } else if parameter(&record.parameters, "filename")
                     .and_then(|p| p.texts.first())
-                    .is_some_and(|name| !name.is_empty())
+                    .is_none_or(|name| name.is_empty())
                 {
                     self.fallback(expected, format!("imagemap {name} has no filename"));
                 } else {

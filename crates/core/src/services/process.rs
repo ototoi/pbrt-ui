@@ -47,7 +47,7 @@ fn last_error_line(log: &Path) -> Option<String> {
         .lines()
         .filter(|line| line.contains("[ERROR]") || line.trim_start().starts_with("ERROR"))
         .map(str::trim)
-        .last()
+        .next_back()
         .map(str::to_owned)
 }
 

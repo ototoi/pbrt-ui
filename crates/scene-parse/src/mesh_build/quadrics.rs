@@ -69,6 +69,73 @@ pub fn paraboloid_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, 
     Ok((points, indices, uvs))
 }
 
+/// Tessellates PBRT's hyperboloid parameterization over its clipped angular range.
+pub fn hyperboloid_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, SceneParseError> {
+    const ANGULAR_STEPS: usize = 64;
+    // 32 rows keep the chordal sagitta near r4's exact surface under a
+    // preview pixel at grazing angles (the sphere tessellates 32 rows too).
+    const PROFILE_STEPS: usize = 32;
+    let params = d.params();
+    let fail = |reason| SceneParseError::syntax(&d.path, d.line, d.column, reason);
+    let p1_values = params.floats("p1");
+    let p2_values = params.floats("p2");
+    let p1 = if p1_values.is_empty() {
+        [0.0, 0.0, 0.0]
+    } else if p1_values.len() == 3 {
+        [p1_values[0], p1_values[1], p1_values[2]]
+    } else {
+        return Err(fail("hyperboloid p1 must contain three coordinates"));
+    };
+    let p2 = if p2_values.is_empty() {
+        [1.0, 1.0, 1.0]
+    } else if p2_values.len() == 3 {
+        [p2_values[0], p2_values[1], p2_values[2]]
+    } else {
+        return Err(fail("hyperboloid p2 must contain three coordinates"));
+    };
+    let phi = params.float("phimax", 360.0).clamp(0.0, 360.0);
+    if p1.iter().chain(p2.iter()).any(|value| !value.is_finite())
+        || !phi.is_finite()
+        || phi <= 0.0
+        || (p1[2] == p2[2])
+        || (p1[2] == 0.0 && p2[2] == 0.0)
+    {
+        return Err(fail(
+            "hyperboloid requires finite profile points and a non-empty z range",
+        ));
+    }
+    let angular_steps = ((ANGULAR_STEPS as f64 * phi / 360.0).ceil() as usize).max(1);
+    let mut points = Vec::with_capacity((PROFILE_STEPS + 1) * (angular_steps + 1));
+    let mut uvs = Vec::with_capacity((PROFILE_STEPS + 1) * (angular_steps + 1));
+    for row in 0..=PROFILE_STEPS {
+        let v = row as f64 / PROFILE_STEPS as f64;
+        let x = p1[0] * (1.0 - v) + p2[0] * v;
+        let y = p1[1] * (1.0 - v) + p2[1] * v;
+        let z = p1[2] * (1.0 - v) + p2[2] * v;
+        for column in 0..=angular_steps {
+            let angle =
+                std::f64::consts::TAU * (phi / 360.0) * column as f64 / angular_steps as f64;
+            points.push([
+                x * angle.cos() - y * angle.sin(),
+                x * angle.sin() + y * angle.cos(),
+                z,
+            ]);
+            uvs.push([column as f32 / angular_steps as f32, v as f32]);
+        }
+    }
+    let mut indices = Vec::with_capacity(PROFILE_STEPS * angular_steps * 6);
+    for row in 0..PROFILE_STEPS as u32 {
+        for column in 0..angular_steps as u32 {
+            let a = row * (angular_steps as u32 + 1) + column;
+            let b = a + 1;
+            let c = a + angular_steps as u32 + 1;
+            let e = c + 1;
+            indices.extend_from_slice(&[a, b, c, b, e, c]);
+        }
+    }
+    Ok((points, indices, uvs))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -138,71 +205,4 @@ mod tests {
         assert!((z_of(0.) - 2.).abs() < 1e-9, "v = 0 sits at p1.z = 2");
         assert!((z_of(1.) - 0.).abs() < 1e-9, "v = 1 sits at p2.z = 0");
     }
-}
-
-/// Tessellates PBRT's hyperboloid parameterization over its clipped angular range.
-pub fn hyperboloid_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, SceneParseError> {
-    const ANGULAR_STEPS: usize = 64;
-    // 32 rows keep the chordal sagitta near r4's exact surface under a
-    // preview pixel at grazing angles (the sphere tessellates 32 rows too).
-    const PROFILE_STEPS: usize = 32;
-    let params = d.params();
-    let fail = |reason| SceneParseError::syntax(&d.path, d.line, d.column, reason);
-    let p1_values = params.floats("p1");
-    let p2_values = params.floats("p2");
-    let p1 = if p1_values.is_empty() {
-        [0.0, 0.0, 0.0]
-    } else if p1_values.len() == 3 {
-        [p1_values[0], p1_values[1], p1_values[2]]
-    } else {
-        return Err(fail("hyperboloid p1 must contain three coordinates"));
-    };
-    let p2 = if p2_values.is_empty() {
-        [1.0, 1.0, 1.0]
-    } else if p2_values.len() == 3 {
-        [p2_values[0], p2_values[1], p2_values[2]]
-    } else {
-        return Err(fail("hyperboloid p2 must contain three coordinates"));
-    };
-    let phi = params.float("phimax", 360.0).clamp(0.0, 360.0);
-    if p1.iter().chain(p2.iter()).any(|value| !value.is_finite())
-        || !phi.is_finite()
-        || phi <= 0.0
-        || (p1[2] == p2[2])
-        || (p1[2] == 0.0 && p2[2] == 0.0)
-    {
-        return Err(fail(
-            "hyperboloid requires finite profile points and a non-empty z range",
-        ));
-    }
-    let angular_steps = ((ANGULAR_STEPS as f64 * phi / 360.0).ceil() as usize).max(1);
-    let mut points = Vec::with_capacity((PROFILE_STEPS + 1) * (angular_steps + 1));
-    let mut uvs = Vec::with_capacity((PROFILE_STEPS + 1) * (angular_steps + 1));
-    for row in 0..=PROFILE_STEPS {
-        let v = row as f64 / PROFILE_STEPS as f64;
-        let x = p1[0] * (1.0 - v) + p2[0] * v;
-        let y = p1[1] * (1.0 - v) + p2[1] * v;
-        let z = p1[2] * (1.0 - v) + p2[2] * v;
-        for column in 0..=angular_steps {
-            let angle =
-                std::f64::consts::TAU * (phi / 360.0) * column as f64 / angular_steps as f64;
-            points.push([
-                x * angle.cos() - y * angle.sin(),
-                x * angle.sin() + y * angle.cos(),
-                z,
-            ]);
-            uvs.push([column as f32 / angular_steps as f32, v as f32]);
-        }
-    }
-    let mut indices = Vec::with_capacity(PROFILE_STEPS * angular_steps * 6);
-    for row in 0..PROFILE_STEPS as u32 {
-        for column in 0..angular_steps as u32 {
-            let a = row * (angular_steps as u32 + 1) + column;
-            let b = a + 1;
-            let c = a + angular_steps as u32 + 1;
-            let e = c + 1;
-            indices.extend_from_slice(&[a, b, c, b, e, c]);
-        }
-    }
-    Ok((points, indices, uvs))
 }

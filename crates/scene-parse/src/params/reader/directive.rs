@@ -131,12 +131,12 @@ impl<'lexer, 'source> DirectiveReader<'lexer, 'source> {
                 }
             }
             Arity::OptionalQuoted => {
-                if let Some(located) = self.peek()? {
-                    if let Some(text) = located.token.quoted() {
-                        let text = text.to_string();
-                        self.take()?;
-                        directive.positional.push(Value::Text(text));
-                    }
+                if let Some(located) = self.peek()?
+                    && let Some(text) = located.token.quoted()
+                {
+                    let text = text.to_string();
+                    self.take()?;
+                    directive.positional.push(Value::Text(text));
                 }
             }
             Arity::Numbers(count) => {
@@ -253,12 +253,12 @@ impl<'lexer, 'source> DirectiveReader<'lexer, 'source> {
                         ));
                     }
                 }
-                if let Some(located) = self.peek()? {
-                    if !matches!(located.token, Token::OpenBracket) {
-                        let value = Value::from_token(&located.token);
-                        self.take()?;
-                        directive.positional.push(value);
-                    }
+                if let Some(located) = self.peek()?
+                    && !matches!(located.token, Token::OpenBracket)
+                {
+                    let value = Value::from_token(&located.token);
+                    self.take()?;
+                    directive.positional.push(value);
                 }
                 if self
                     .peek()?

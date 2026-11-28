@@ -51,8 +51,7 @@ impl Display {
                 // concluded) owns the slot instead.
                 if let (Some((reference, destination)), false) =
                     (&entry.queued_request, retired_is_current)
-                {
-                    if self.project_preview_job.is_none()
+                    && self.project_preview_job.is_none()
                         && self.project_preview_key.is_none()
                         && reference == &self.last_project["context"]["project"]
                     {
@@ -98,7 +97,6 @@ impl Display {
                             }
                         }
                     }
-                }
             }
             !terminal
         });

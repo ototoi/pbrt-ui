@@ -196,10 +196,10 @@ impl Workspace {
             if let Some(id) = entry["id"].as_str() {
                 self.reveal_definition(id, window, cx);
             }
-        } else if let Some(entry) = self.contents_selection(cx).filter(|e| e["kind"] == "scene") {
-            if let Some(id) = entry["id"].as_str() {
-                self.open_scene(id.to_owned(), cx);
-            }
+        } else if let Some(entry) = self.contents_selection(cx).filter(|e| e["kind"] == "scene")
+            && let Some(id) = entry["id"].as_str()
+        {
+            self.open_scene(id.to_owned(), cx);
         }
     }
 

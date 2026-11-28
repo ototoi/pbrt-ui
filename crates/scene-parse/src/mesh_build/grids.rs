@@ -8,17 +8,19 @@ pub fn bilinear_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, Sc
     let params = d.params();
     let raw_points = params.floats("P");
     let raw_indices = params.floats("indices");
-    let raw_indices =
-        if raw_indices.is_empty() && raw_points.len() >= 12 && raw_points.len() % 12 == 0 {
-            (0..raw_points.len() / 3)
-                .map(|index| index as f64)
-                .collect()
-        } else {
-            raw_indices
-        };
+    let raw_indices = if raw_indices.is_empty()
+        && raw_points.len() >= 12
+        && raw_points.len().is_multiple_of(12)
+    {
+        (0..raw_points.len() / 3)
+            .map(|index| index as f64)
+            .collect()
+    } else {
+        raw_indices
+    };
     let invalid = |reason| SceneParseError::syntax(&d.path, d.line, d.column, reason);
     if raw_points.is_empty()
-        || raw_points.len() % 3 != 0
+        || !raw_points.len().is_multiple_of(3)
         || raw_points.iter().any(|value| !value.is_finite())
         || raw_indices.is_empty()
         || raw_indices.len() % 4 != 0

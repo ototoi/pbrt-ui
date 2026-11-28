@@ -156,18 +156,18 @@ fn execute(
                 let (batch, report) = pbrt_io::prepare_scene_in(
                     Path::new(&source),
                     &Default::default(),
-                    &cancelled,
+                    cancelled,
                     &staging_base,
                 )
                 .map_err(interchange_error)?;
-                crate::import_prepare::validate_batch(&batch, &cancelled).map_err(project_error)?;
+                crate::import_prepare::validate_batch(&batch, cancelled).map_err(project_error)?;
                 (batch, report.diagnostics)
             } else {
                 (
                     crate::import_prepare::resource_in(
                         Path::new(&source),
                         &staging_base,
-                        &cancelled,
+                        cancelled,
                     )
                     .map_err(project_error)?,
                     Vec::new(),
@@ -185,7 +185,7 @@ fn execute(
                         Path::new(&source),
                         Path::new(&destination),
                         &Default::default(),
-                        &cancelled,
+                        cancelled,
                     )
                     .map_err(interchange_error)?;
                     let path = store
@@ -230,7 +230,7 @@ fn execute(
                         Path::new(&source),
                         &mut folder,
                         &Default::default(),
-                        &cancelled,
+                        cancelled,
                     )
                     .map_err(interchange_error)?;
                     (
