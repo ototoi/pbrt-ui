@@ -89,6 +89,14 @@ fn stepped_setting(text: &str, action: StepAction, size: u32) -> String {
     }
 }
 
+/// The fields with each invalid draft replaced by its baseline text.
+fn without_invalid_drafts(values: &[String; 2], baseline: &[String; 2]) -> [String; 2] {
+    std::array::from_fn(|i| match field_error(i, &values[i]) {
+        Some(_) => baseline[i].clone(),
+        None => values[i].clone(),
+    })
+}
+
 /// Enter and blur commit an edited field.
 #[derive(Debug)]
 enum SettingsCommit {
@@ -148,11 +156,20 @@ impl SettingsForm {
             input.update(cx, |state, cx| state.set_step(None, window, cx));
             cx.observe(input, |_, _, cx| cx.notify()).detach();
             // Blur commits a changed, valid edit too, so tabbing away from a
-            // fresh value still saves it.
-            cx.subscribe(input, |this, _, event: &InputEvent, cx| match event {
-                InputEvent::PressEnter { .. } | InputEvent::Blur => this.commit(cx),
-                _ => {}
-            })
+            // fresh value still saves it. Enter keeps an invalid draft to fix
+            // in place; leaving the field drops it.
+            cx.subscribe_in(
+                input,
+                window,
+                |this, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::PressEnter { .. } => this.commit(cx),
+                    InputEvent::Blur => {
+                        this.commit(cx);
+                        this.drop_invalid_drafts(window, cx);
+                    }
+                    _ => {}
+                },
+            )
             .detach();
             cx.subscribe_in(
                 input,
@@ -234,6 +251,22 @@ impl SettingsForm {
             }
             SettingsCommit::Invalid(message) => self.message = message,
         }
+        cx.notify();
+    }
+    /// Puts the saved value back into each field that holds an invalid draft.
+    fn drop_invalid_drafts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let values = self.values(cx);
+        let kept = without_invalid_drafts(&values, &self.baseline);
+        if kept == values {
+            return;
+        }
+        // Only the dropped fields: the field just focused keeps its cursor.
+        for ((input, value), old) in self.inputs.iter().zip(kept).zip(&values) {
+            if value != *old {
+                input.update(cx, |input, cx| input.set_value(value, window, cx));
+            }
+        }
+        self.message.clear();
         cx.notify();
     }
 }
@@ -326,7 +359,19 @@ impl Render for SettingsForm {
 mod tests {
     use super::{
         SettingsCommit, StepAction, flipped_gpu_settings, parse, settings_commit, stepped_setting,
+        without_invalid_drafts,
     };
+    #[test]
+    fn leaving_a_field_drops_only_invalid_drafts() {
+        assert_eq!(
+            without_invalid_drafts(&["8".into(), "1.".into()], &["".into(), "".into()]),
+            ["8", ""]
+        );
+        assert_eq!(
+            without_invalid_drafts(&["0".into(), "32".into()], &["4".into(), "".into()]),
+            ["4", "32"]
+        );
+    }
     #[test]
     fn steps_return_to_blank_below_one_and_shift_steps_by_ten() {
         assert_eq!(stepped_setting("", StepAction::Increment, 1), "1");
