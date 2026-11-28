@@ -58,6 +58,10 @@ actions!(
         AlignCameraToView,
         AlignViewToSceneCamera,
         AlignViewToSelected,
+        /// Shift+↑ / Shift+↓ in a spin box: a step of 10. Separate actions,
+        /// because the window's modifier state can lag a fresh focus.
+        StepUpTen,
+        StepDownTen,
     ]
 );
 
@@ -625,6 +629,10 @@ pub fn bind_keys(cx: &mut App) {
         // counts as the cancellation to win.
         KeyBinding::new("escape", Deselect, Some("HierarchyTree")),
         KeyBinding::new("f", FrameSelected, Some("SceneViewport")),
+        // Shift steps a spin box by 10 (Shift-click reads the modifier); the
+        // plain arrow bindings come with gpui-kit.
+        KeyBinding::new("shift-up", StepUpTen, Some("NumberInput")),
+        KeyBinding::new("shift-down", StepDownTen, Some("NumberInput")),
         KeyBinding::new("shift-f", FrameAll, Some("SceneViewport")),
         KeyBinding::new("escape", super::CancelGizmo, Some("SceneViewport")),
         KeyBinding::new("w", super::MoveTool, Some("SceneViewport")),
