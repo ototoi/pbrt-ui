@@ -813,7 +813,7 @@ impl Display {
             };
             if let Err(error) = result {
                 if render_request {
-                    let _ = self.tx.send(Update::RenderRequestFailed);
+                    let _ = self.tx.send(Update::RenderRequestFailed(error.clone()));
                 }
                 let _ = self.tx.send(Update::Status(error));
             }

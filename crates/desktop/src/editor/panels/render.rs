@@ -176,6 +176,13 @@ impl EditorPanel {
             render_received,
             ipr_received,
         );
+        if let Some(error) = &session.render_request_error {
+            status_lines.push(RenderStatusLine {
+                text: format!("Render not started · {error}"),
+                color: state_color("failed"),
+                spinner: false,
+            });
+        }
         if session.render_project == session.project_value()
             && let Some(warning) = medium_dark_warning(
                 session.render_mean_luminance,
@@ -203,7 +210,8 @@ impl EditorPanel {
                         row.child(Spinner::new().color(line.color.into()).xsmall())
                     })
                     .text_color(line.color)
-                    .child(line.text)
+                    // A long reason wraps instead of running past the panel.
+                    .child(div().flex_1().min_w_0().child(line.text))
             }));
         let display = div()
             .flex_1()

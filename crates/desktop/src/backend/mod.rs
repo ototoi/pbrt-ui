@@ -353,7 +353,8 @@ pub enum Update {
     Time(f64),
     Log(String),
     Status(String),
-    RenderRequestFailed,
+    /// A render request the core refused (no renderer, no camera, ...).
+    RenderRequestFailed(String),
     Project(protocol::project::ProjectState),
     RenderCamera(Option<String>),
     /// Lazy hierarchy: children of one node, one page at a time.

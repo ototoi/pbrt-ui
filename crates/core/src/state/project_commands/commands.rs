@@ -452,7 +452,7 @@ impl CoreState {
                 if !self.capabilities.render || self.service_config.is_none() {
                     return Err(ErrorPayload::new(
                         ErrorCode::Unsupported,
-                        "renderer is not configured",
+                        crate::state::ipr::RENDERER_NOT_CONFIGURED,
                     ));
                 }
                 if self

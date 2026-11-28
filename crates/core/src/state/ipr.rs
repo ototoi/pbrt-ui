@@ -10,6 +10,10 @@
 use super::*;
 use std::time::{Duration, Instant};
 
+/// Why a render is refused when no renderer was found: what to do about it.
+pub(crate) const RENDERER_NOT_CONFIGURED: &str = "renderer is not configured: place pbrt-r4 \
+     next to the executable or start it with --renderer-path";
+
 pub(crate) const IPR_JOB_KIND: &str = "ipr";
 const IPR_SAMPLES_LIMIT: u32 = 256;
 const IPR_DEBOUNCE_LIMIT: u64 = 5_000;
@@ -75,7 +79,7 @@ impl CoreState {
                 if !self.capabilities.render {
                     return Err(ErrorPayload::new(
                         ErrorCode::Unsupported,
-                        "renderer is not configured",
+                        RENDERER_NOT_CONFIGURED,
                     ));
                 }
                 self.ipr.enabled = p.enabled;

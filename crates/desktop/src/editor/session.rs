@@ -1029,6 +1029,7 @@ impl Session {
             return;
         }
         self.render_start.begin(&self.jobs, Instant::now());
+        self.render_request_error = None;
         cx.notify();
         self.send(Command::Render(current_view), cx);
     }
@@ -1183,8 +1184,9 @@ impl Session {
                                     }
                                     record_status(&mut this.status, &mut this.messages, status);
                                 }
-                                Update::RenderRequestFailed => {
+                                Update::RenderRequestFailed(error) => {
                                     this.render_start.request_failed();
+                                    this.render_request_error = Some(error);
                                 }
                                 Update::Project(project) => {
                                     let old = &this.project.context.project;
@@ -2101,6 +2103,7 @@ impl Session {
             render_mean_luminance: None,
             render_received: None,
             render_start: Default::default(),
+            render_request_error: None,
             backend,
             scene_key: "empty".into(),
             messages: Vec::new(),
