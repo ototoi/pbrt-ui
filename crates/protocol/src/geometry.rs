@@ -525,7 +525,7 @@ pub fn read_f32x3_array(blob: &[u8], array: &ArrayRef) -> Result<Vec<[f32; 3]>, 
     }
     let bytes = array_bytes(blob, array)?;
     let mut out = Vec::with_capacity(array.count as usize);
-    for chunk in bytes.chunks_exact(POSITION_STRIDE as usize) {
+    for chunk in bytes.as_chunks::<{ POSITION_STRIDE as usize }>().0 {
         out.push([
             f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
             f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
@@ -545,7 +545,7 @@ pub fn read_indices(blob: &[u8], array: &ArrayRef) -> Result<Vec<u32>, String> {
     }
     let bytes = array_bytes(blob, array)?;
     let mut out = Vec::with_capacity(array.count as usize);
-    for chunk in bytes.chunks_exact(INDEX_STRIDE as usize) {
+    for chunk in bytes.as_chunks::<{ INDEX_STRIDE as usize }>().0 {
         out.push(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
     }
     Ok(out)
@@ -555,7 +555,7 @@ fn array_bytes<'a>(blob: &'a [u8], array: &ArrayRef) -> Result<&'a [u8], String>
     let end = array.end();
     let start = usize::try_from(array.offset).map_err(|_| "array offset is too large")?;
     let end = usize::try_from(end).map_err(|_| "array length is too large")?;
-    if array.offset % GEOMETRY_ARRAY_ALIGNMENT != 0 {
+    if !array.offset.is_multiple_of(GEOMETRY_ARRAY_ALIGNMENT) {
         return Err(format!(
             "array offset {} is not {GEOMETRY_ARRAY_ALIGNMENT}-byte aligned",
             array.offset
@@ -569,6 +569,22 @@ fn array_bytes<'a>(blob: &'a [u8], array: &ArrayRef) -> Result<&'a [u8], String>
         ));
     }
     Ok(&blob[start..end])
+}
+
+/// Read a `uv` array (two f32 per element) from a geometry blob.
+pub fn read_f32x2_array(blob: &[u8], array: &ArrayRef) -> Result<Vec<[f32; 2]>, String> {
+    if array.stride != UV_STRIDE {
+        return Err(format!("uv stride {} is not {UV_STRIDE}", array.stride));
+    }
+    let bytes = array_bytes(blob, array)?;
+    let mut out = Vec::with_capacity(array.count as usize);
+    for chunk in bytes.as_chunks::<{ UV_STRIDE as usize }>().0 {
+        out.push([
+            f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
+            f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
+        ]);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -858,20 +874,4 @@ mod tests {
         assert_eq!(manifest.draws[0].material_id, None);
         assert_eq!(manifest.draws[0].area_light, None);
     }
-}
-
-/// Read a `uv` array (two f32 per element) from a geometry blob.
-pub fn read_f32x2_array(blob: &[u8], array: &ArrayRef) -> Result<Vec<[f32; 2]>, String> {
-    if array.stride != UV_STRIDE {
-        return Err(format!("uv stride {} is not {UV_STRIDE}", array.stride));
-    }
-    let bytes = array_bytes(blob, array)?;
-    let mut out = Vec::with_capacity(array.count as usize);
-    for chunk in bytes.chunks_exact(UV_STRIDE as usize) {
-        out.push([
-            f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
-            f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
-        ]);
-    }
-    Ok(out)
 }

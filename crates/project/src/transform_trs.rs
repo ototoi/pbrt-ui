@@ -131,8 +131,10 @@ pub fn decompose(m: &Mat4) -> Result<Trs, TrsError> {
     if m.0.iter().any(|v| !v.is_finite()) {
         return Err(TrsError::NonFinite);
     }
-    if !(close(m.0[12], 0., 1.) && close(m.0[13], 0., 1.) && close(m.0[14], 0., 1.))
-        || !close(m.0[15], 1., 1.)
+    if !(close(m.0[12], 0., 1.)
+        && close(m.0[13], 0., 1.)
+        && close(m.0[14], 0., 1.)
+        && close(m.0[15], 1., 1.))
     {
         return Err(TrsError::Projective);
     }

@@ -97,17 +97,16 @@ fn check(
         .and_then(|table| parameter_schema::implementation(table, implementation))
         .and_then(|implementation| implementation.parameters(lineage));
     for parameter in parameters {
-        if directive == "Texture" && !matches!(parameter.values, ParameterValues::Resources { .. })
-        {
-            if let Some(spec) = table.and_then(|rows| {
+        if directive == "Texture"
+            && !matches!(parameter.values, ParameterValues::Resources { .. })
+            && let Some(spec) = table.and_then(|rows| {
                 rows.iter().find(|row| {
                     row.name == parameter.name || row.aliases.contains(&parameter.name.as_str())
                 })
-            }) {
-                if !spec.value_types.contains(&parameter.value_type.as_str()) {
-                    errors.push(json!({"reference_from":owner,"parameter":parameter.name,"expected":spec.value_types,"actual":parameter.value_type,"reason":"literal_type_mismatch"}));
-                }
-            }
+            })
+            && !spec.value_types.contains(&parameter.value_type.as_str())
+        {
+            errors.push(json!({"reference_from":owner,"parameter":parameter.name,"expected":spec.value_types,"actual":parameter.value_type,"reason":"literal_type_mismatch"}));
         }
         let ParameterValues::Resources {
             kind: ResourceKind::Texture,

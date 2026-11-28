@@ -102,7 +102,7 @@ fn validate_ply_reader(
     cancelled: impl Fn() -> bool,
     drain_to_end: bool,
 ) -> Result<PlyInfo> {
-    let fail = |message: &str| PlyValidationError::Invalid(error(&name, message));
+    let fail = |message: &str| PlyValidationError::Invalid(error(name, message));
     if cancelled() {
         return Err(PlyValidationError::Cancelled);
     }
@@ -182,7 +182,7 @@ fn validate_ply_reader(
             _ => return Err(fail("unsupported PLY header layout")),
         }
     }
-    let header = parse_header(&name, &bytes)?;
+    let header = parse_header(name, &bytes)?;
     if header.vertices == 0 || header.faces == 0 {
         return Err(fail("PLY contains no triangle mesh"));
     }
@@ -195,7 +195,7 @@ fn validate_ply_reader(
         }
         for property in &header.vertex_props {
             let Property::Scalar(ty, _) = property;
-            let value = scalar(&mut reader, &header.format, ty, little, &name, false)?;
+            let value = scalar(&mut reader, &header.format, ty, little, name, false)?;
             if !value.is_finite() {
                 return Err(fail("nonfinite vertex value"));
             }
@@ -212,8 +212,8 @@ fn validate_ply_reader(
         // Face tokens use the mesh reader's strict integer syntax: the
         // values read_faces_ascii parses as usize/u32, not the integral
         // floating notation a zero-fraction f64 would still let through.
-        let count = scalar(&mut reader, &header.format, count_type, little, &name, true)?;
-        if !count.is_finite() || count < 3. || count > 1_000_000. {
+        let count = scalar(&mut reader, &header.format, count_type, little, name, true)?;
+        if !count.is_finite() || !(3. ..=1_000_000.).contains(&count) {
             return Err(fail("invalid face index count"));
         }
         let count = count as usize;
@@ -229,7 +229,7 @@ fn validate_ply_reader(
             if index % 4096 == 0 && cancelled() {
                 return Err(PlyValidationError::Cancelled);
             }
-            let value = scalar(&mut reader, &header.format, index_type, little, &name, true)?;
+            let value = scalar(&mut reader, &header.format, index_type, little, name, true)?;
             if !value.is_finite()
                 || value < 0.
                 || value >= header.vertices as f64
@@ -250,7 +250,7 @@ fn validate_ply_reader(
             }
         }
     }
-    Ok(ply_info(&name, &bytes)?)
+    Ok(ply_info(name, &bytes)?)
 }
 
 struct ExpandedLimitReader<R> {
@@ -277,6 +277,67 @@ impl<R: Read> Read for ExpandedLimitReader<R> {
         let count = self.input.read(&mut buffer[..read_limit])?;
         self.read += count as u64;
         Ok(count)
+    }
+}
+
+fn scalar(
+    reader: &mut impl BufRead,
+    format: &str,
+    ty: &str,
+    little: bool,
+    path: &str,
+    face_token: bool,
+) -> Result<f64> {
+    let invalid = |message: &str| PlyValidationError::Invalid(error(path, message));
+    if format == "ascii" {
+        // Fixed stack storage: one small Vec per token dominated ASCII scans
+        // of large meshes, and 128 bytes bounds every accepted token anyway.
+        let mut token = [0u8; 128];
+        let mut length = 0usize;
+        loop {
+            let available = reader.fill_buf().map_err(|e| invalid(&e.to_string()))?;
+            if available.is_empty() {
+                if length == 0 {
+                    return Err(invalid("truncated PLY body"));
+                }
+                break;
+            }
+            let byte = available[0];
+            reader.consume(1);
+            if byte.is_ascii_whitespace() {
+                if length > 0 {
+                    break;
+                }
+            } else {
+                if length == 128 {
+                    return Err(PlyValidationError::Limit("scalar token bytes"));
+                }
+                token[length] = byte;
+                length += 1;
+            }
+        }
+        let text = std::str::from_utf8(&token[..length]).map_err(|e| invalid(&e.to_string()))?;
+        if face_token {
+            // Face counts and indices are read as usize/u32 when the mesh
+            // loads, so the token must be integer syntax — "3.0" parses as
+            // an integral f64 here but the load would reject the file.
+            let digits = text.strip_prefix('+').unwrap_or(text);
+            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(invalid("face tokens require integer syntax"));
+            }
+        }
+        let value = text.parse::<f64>().map_err(|e| invalid(&e.to_string()))?;
+        if !matches!(ty, "float" | "float32" | "double" | "float64") && value.fract() != 0. {
+            return Err(invalid("nonintegral integer property"));
+        }
+        Ok(value)
+    } else {
+        let length = scalar_size(ty)?;
+        let mut bytes = [0u8; 8];
+        reader
+            .read_exact(&mut bytes[..length])
+            .map_err(|e| invalid(&e.to_string()))?;
+        decode_scalar(ty, &bytes[..length], little).map_err(|_| invalid("invalid scalar"))
     }
 }
 
@@ -342,66 +403,5 @@ mod tests {
             ),
             Err(PlyValidationError::Limit("expanded bytes"))
         ));
-    }
-}
-
-fn scalar(
-    reader: &mut impl BufRead,
-    format: &str,
-    ty: &str,
-    little: bool,
-    path: &str,
-    face_token: bool,
-) -> Result<f64> {
-    let invalid = |message: &str| PlyValidationError::Invalid(error(path, message));
-    if format == "ascii" {
-        // Fixed stack storage: one small Vec per token dominated ASCII scans
-        // of large meshes, and 128 bytes bounds every accepted token anyway.
-        let mut token = [0u8; 128];
-        let mut length = 0usize;
-        loop {
-            let available = reader.fill_buf().map_err(|e| invalid(&e.to_string()))?;
-            if available.is_empty() {
-                if length == 0 {
-                    return Err(invalid("truncated PLY body"));
-                }
-                break;
-            }
-            let byte = available[0];
-            reader.consume(1);
-            if byte.is_ascii_whitespace() {
-                if length > 0 {
-                    break;
-                }
-            } else {
-                if length == 128 {
-                    return Err(PlyValidationError::Limit("scalar token bytes"));
-                }
-                token[length] = byte;
-                length += 1;
-            }
-        }
-        let text = std::str::from_utf8(&token[..length]).map_err(|e| invalid(&e.to_string()))?;
-        if face_token {
-            // Face counts and indices are read as usize/u32 when the mesh
-            // loads, so the token must be integer syntax — "3.0" parses as
-            // an integral f64 here but the load would reject the file.
-            let digits = text.strip_prefix('+').unwrap_or(text);
-            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-                return Err(invalid("face tokens require integer syntax"));
-            }
-        }
-        let value = text.parse::<f64>().map_err(|e| invalid(&e.to_string()))?;
-        if !matches!(ty, "float" | "float32" | "double" | "float64") && value.fract() != 0. {
-            return Err(invalid("nonintegral integer property"));
-        }
-        Ok(value)
-    } else {
-        let length = scalar_size(ty)?;
-        let mut bytes = [0u8; 8];
-        reader
-            .read_exact(&mut bytes[..length])
-            .map_err(|e| invalid(&e.to_string()))?;
-        decode_scalar(ty, &bytes[..length], little).map_err(|_| invalid("invalid scalar"))
     }
 }

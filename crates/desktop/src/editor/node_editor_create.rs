@@ -152,10 +152,6 @@ mod tests {
         json!({"from":from,"to":to,"parameter":parameter})
     }
 
-    fn ids(names: &[&str]) -> HashSet<String> {
-        names.iter().copied().map(str::to_owned).collect()
-    }
-
     #[test]
     fn menu_rows_mirror_the_contents_new_lists() {
         let schema = json!({

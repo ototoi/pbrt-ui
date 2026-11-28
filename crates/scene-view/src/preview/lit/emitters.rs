@@ -53,7 +53,9 @@ pub(crate) fn emitter_geometry(
     let positions = protocol::geometry::read_f32x3_array(blob, &mesh.positions).ok()?;
     let indices = protocol::geometry::read_indices(blob, &mesh.indices).ok()?;
     let triangles = indices
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|tri| [tri[0], tri[1], tri[2]].map(|index| positions[index as usize].map(f64::from)))
         .collect();
     Some(EmitterGeometry {

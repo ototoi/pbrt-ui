@@ -200,6 +200,7 @@ fn geometry_bytes(size: u32) -> usize {
 /// agent sweeping every supported size cannot retain one buffer per
 /// size — all 505 sizes sum to about 1.8 GiB. What falls out is rebuilt
 /// on return; a preview holding an `Arc` keeps its memory to the end.
+#[derive(Default)]
 struct Geometry {
     order: std::collections::VecDeque<u32>,
     map: BTreeMap<u32, Arc<Vec<Option<Hit>>>>,
@@ -208,16 +209,6 @@ struct Geometry {
 
 /// Roughly three full-resolution (512 × 512) buffers.
 const GEOMETRY_BUDGET: usize = 32 * 1024 * 1024;
-
-impl Default for Geometry {
-    fn default() -> Self {
-        Self {
-            order: Default::default(),
-            map: Default::default(),
-            bytes: 0,
-        }
-    }
-}
 
 impl Geometry {
     fn get(&mut self, size: u32) -> Arc<Vec<Option<Hit>>> {

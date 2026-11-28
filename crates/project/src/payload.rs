@@ -52,6 +52,8 @@ impl PayloadLease {
         )
     }
 
+    // Staging takes the lease identity, the source, its owner and the cancel hook as distinct inputs.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn stage_cancellable(
         staging: &Path,
         asset: AssetId,
@@ -160,6 +162,8 @@ impl PayloadLease {
     /// `expected_sha256`), else an `InvalidData` error the caller names;
     /// the lease records the patched bytes' hash. Patches may come in any order
     /// but must be disjoint and inside the source.
+    // Staging takes the lease identity, the source, its owner and the cancel hook as distinct inputs.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn stage_patched_cancellable(
         staging: &Path,
         asset: AssetId,

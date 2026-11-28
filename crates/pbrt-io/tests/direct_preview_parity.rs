@@ -369,7 +369,7 @@ fn classify_uses_the_real_lexer() {
     assert_eq!(Value::classify("inf"), Value::Text("inf".to_string()));
     assert_eq!(Value::classify("true"), Value::Text("true".to_string()));
     assert_eq!(Value::classify("inf").as_float(), Some(f64::INFINITY));
-    assert_eq!(Value::classify("nan").as_float().unwrap().is_nan(), true);
+    assert!(Value::classify("nan").as_float().unwrap().is_nan());
 }
 
 /// The 16-valued matrix directives keep the historical column

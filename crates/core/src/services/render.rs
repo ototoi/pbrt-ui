@@ -2,7 +2,7 @@
 use super::*;
 pub(super) fn execute(
     work: &ServiceTask,
-    directory: &PathBuf,
+    directory: &std::path::Path,
     artifacts: &mut Vec<Artifact>,
     progress: std::sync::mpsc::Sender<(protocol::JobId, Artifact)>,
 ) -> Result<Value, ErrorPayload> {
@@ -41,7 +41,7 @@ pub(super) fn execute(
             let log = directory.join("render.log");
             let mut command = Command::new(renderer);
             let root = if let Some(view) = view {
-                write_view_scene(root, view, &directory)?
+                write_view_scene(root, view, directory)?
             } else {
                 PathBuf::from(root)
             };
@@ -68,7 +68,7 @@ pub(super) fn execute(
             let monitor = listener.zip(work.config.capture.clone()).map(|(listener, converter)| {
                     let stopped = stopped.clone();
                     let task = work.task.clone();
-                    let directory = directory.clone();
+                    let directory = directory.to_path_buf();
                     std::thread::spawn(move || {
                         let mut count = 0;
  // IPR jobs are short; a final render stretches its interval

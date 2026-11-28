@@ -167,7 +167,7 @@ pub fn import_warning_count(report: &serde_json::Value) -> usize {
         .filter(|diagnostic| {
             diagnostic["severity"]
                 .as_str()
-                .map_or(true, |severity| severity == "warning")
+                .is_none_or(|severity| severity == "warning")
         })
         .count()
 }

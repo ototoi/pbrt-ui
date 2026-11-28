@@ -45,10 +45,8 @@ pub fn fit_tab(
             ltc.magnitude = magnitude;
             ltc.fresnel = fresnel;
 
-            let isotropic;
-
             // First guess for the fit
-            if t == 0 {
+            let isotropic = if t == 0 {
                 // If theta == 0, the lobe is rotationally symmetric and aligned with Z
                 ltc.X = Vec3::new(1.0, 0.0, 0.0);
                 ltc.Y = Vec3::new(0.0, 1.0, 0.0);
@@ -68,7 +66,7 @@ pub fn fit_tab(
                 ltc.m13 = 0.0;
                 ltc.update();
 
-                isotropic = true;
+                true
             } else {
                 // Use previous configuration as first guess
                 let L = average_dir;
@@ -80,8 +78,8 @@ pub fn fit_tab(
 
                 ltc.update();
 
-                isotropic = false;
-            }
+                false
+            };
 
             // Fit (explore parameter space and refine first guess)
             let epsilon = 0.05;

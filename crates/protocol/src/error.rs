@@ -50,8 +50,9 @@ pub struct ErrorPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_id: Option<String>,
     /// Free-form, code-specific details (e.g. expected/current revision).
+    /// Boxed so `Result<_, ErrorPayload>` stays small; the JSON is unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<Value>,
+    pub details: Option<Box<Value>>,
 }
 
 impl ErrorPayload {
@@ -65,7 +66,7 @@ impl ErrorPayload {
     }
 
     pub fn with_details(mut self, details: Value) -> Self {
-        self.details = Some(details);
+        self.details = Some(Box::new(details));
         self
     }
 

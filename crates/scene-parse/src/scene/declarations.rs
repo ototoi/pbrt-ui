@@ -81,10 +81,8 @@ pub(super) fn collect(
                 let has_iso = d.parameters.iter().any(|parameter| parameter.name == "iso");
                 let scale = params.float("scale", 1.);
                 let iso = params.float("iso", 100.);
-                if has_scale || has_iso {
-                    if scale.is_finite() && iso.is_finite() {
-                        film_exposure = Some(scale * iso.max(0.) / 100.);
-                    }
+                if (has_scale || has_iso) && scale.is_finite() && iso.is_finite() {
+                    film_exposure = Some(scale * iso.max(0.) / 100.);
                 }
                 let width = params.float("xresolution", 1280.);
                 let height = params.float("yresolution", 720.);

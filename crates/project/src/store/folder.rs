@@ -328,10 +328,8 @@ impl FolderStore {
                 if meta.format != expected {
                     return Err(invalid("project and sidecar versions do not match"));
                 }
-                if self.is_v3() {
-                    if !declared_ids.insert(meta.id) {
-                        return Err(invalid("duplicate format-3 sidecar identity"));
-                    }
+                if self.is_v3() && !declared_ids.insert(meta.id) {
+                    return Err(invalid("duplicate format-3 sidecar identity"));
                 }
             }
         }
@@ -667,7 +665,7 @@ impl FolderStore {
     }
 
     pub fn is_empty_for_import(&self) -> Result<bool> {
-        if self.manifest.default_scene.is_some() || self.scan_assets()?.files.len() > 0 {
+        if self.manifest.default_scene.is_some() || !self.scan_assets()?.files.is_empty() {
             return Ok(false);
         }
         for name in ["Assets", "Imports"] {
@@ -868,10 +866,10 @@ impl FolderStore {
     pub fn set_default_scene(&mut self, scene: impl Into<Option<SceneId>>) -> Result<bool> {
         self.require_recovered()?;
         let scene = scene.into();
-        if let Some(id) = scene {
-            if !self.read_document()?.scenes.contains_key(&id) {
-                return Ok(false);
-            }
+        if let Some(id) = scene
+            && !self.read_document()?.scenes.contains_key(&id)
+        {
+            return Ok(false);
         }
         let manifest_path = PathBuf::from(FOLDER_MANIFEST);
         let current = file_stamp(&self.directory.join(FOLDER_MANIFEST))?;
@@ -927,7 +925,7 @@ impl FolderStore {
             .into());
         }
         fs::create_dir_all(parent)?;
-        let temporary = tempfile::tempdir_in(&parent)?;
+        let temporary = tempfile::tempdir_in(parent)?;
         let staged = temporary.path();
         for name in ["Assets", "Imports"] {
             let source = self.directory.join(name);
@@ -936,7 +934,7 @@ impl FolderStore {
             }
         }
         fs::create_dir(staged.join(".pbrtui"))?;
-        copy_ui_sidecars(&self.directory, &staged)?;
+        copy_ui_sidecars(&self.directory, staged)?;
         fs::create_dir(staged.join("Library"))?;
         cache::ensure_cache(&staged.join("Library/Cache"))?;
         write_gitignore(staged)?;
@@ -1331,14 +1329,7 @@ impl FolderStore {
         }
     }
 
-    fn snapshot_plan(
-        &self,
-        snapshot: &ProjectSnapshot,
-    ) -> Result<(
-        BTreeMap<PathBuf, Vec<u8>>,
-        std::collections::BTreeSet<PathBuf>,
-        std::collections::BTreeSet<PathBuf>,
-    )> {
+    fn snapshot_plan(&self, snapshot: &ProjectSnapshot) -> Result<SavePlan> {
         let document = snapshot.document();
         document.validate()?;
         if document.scenes.is_empty() && !self.is_v3() {
@@ -1716,7 +1707,7 @@ impl FolderStore {
     fn check_unchanged(&self, relative: &Path) -> Result<()> {
         let current = file_stamp(&self.directory.join(relative))?;
         if current != self.baseline.get(relative).copied() {
-            return Err(ProjectError::SourceChanged(project_path(&relative)));
+            return Err(ProjectError::SourceChanged(project_path(relative)));
         }
         Ok(())
     }
@@ -1974,10 +1965,10 @@ fn file_stamp(path: &Path) -> Result<Option<FileStamp>> {
 }
 
 fn file_equals(path: &Path, expected: &[u8]) -> Result<bool> {
-    if let Ok(metadata) = fs::symlink_metadata(path) {
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err(invalid("save destination is not a regular file"));
-        }
+    if let Ok(metadata) = fs::symlink_metadata(path)
+        && (!metadata.is_file() || metadata.file_type().is_symlink())
+    {
+        return Err(invalid("save destination is not a regular file"));
     }
     let mut file = match File::open(path) {
         Ok(file) => file,
@@ -2056,10 +2047,10 @@ fn cleanup_plan(root: &Path, files: &[JournalFile]) {
 }
 
 fn digest_matches(path: &Path, expected: &str) -> Result<bool> {
-    if let Ok(metadata) = fs::symlink_metadata(path) {
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err(invalid("journal path is not a regular file"));
-        }
+    if let Ok(metadata) = fs::symlink_metadata(path)
+        && (!metadata.is_file() || metadata.file_type().is_symlink())
+    {
+        return Err(invalid("journal path is not a regular file"));
     }
     let mut file = match File::open(path) {
         Ok(file) => file,
@@ -2077,6 +2068,14 @@ fn digest_matches(path: &Path, expected: &str) -> Result<bool> {
     }
     Ok(format!("{:x}", hash.finalize()) == expected)
 }
+
+/// What a save writes, deletes and creates: file bytes by path, files to
+/// delete, and directories.
+type SavePlan = (
+    BTreeMap<PathBuf, Vec<u8>>,
+    std::collections::BTreeSet<PathBuf>,
+    std::collections::BTreeSet<PathBuf>,
+);
 
 /// A project-relative path as errors name it: `/` on every platform, like
 /// the asset locations the store writes.

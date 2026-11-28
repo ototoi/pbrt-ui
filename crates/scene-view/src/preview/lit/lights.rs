@@ -177,14 +177,13 @@ pub(crate) fn light_entry(record: &LightRecord, notes: &mut Vec<LitNote>) -> Opt
     let power = scalar(params, "power", 0.);
     let mut position = [0.; 3];
     let mut direction = [0.; 3];
-    let kind;
-    match name.as_str() {
+    let kind = match name.as_str() {
         "point" => {
             position = transform_point(record.world_from_light, color(params, "from", [0.; 3]));
             if power > 0. {
                 rgb = rgb.map(|v| v * power / (4. * PI));
             }
-            kind = LIGHT_POINT;
+            LIGHT_POINT
         }
         "spot" => {
             position = transform_point(record.world_from_light, color(params, "from", [0.; 3]));
@@ -200,7 +199,7 @@ pub(crate) fn light_entry(record: &LightRecord, notes: &mut Vec<LitNote>) -> Opt
             let to = color(params, "to", [0., 0., 1.]);
             let axis = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
             direction = normalize(transform_vector(record.world_from_light, axis));
-            kind = LIGHT_SPOT;
+            let kind = LIGHT_SPOT;
             rgb = rgb.map(|v| v * scale);
             return Some(GpuLight {
                 position: [
@@ -230,17 +229,17 @@ pub(crate) fn light_entry(record: &LightRecord, notes: &mut Vec<LitNote>) -> Opt
             if illum > 0. {
                 rgb = rgb.map(|v| v * illum);
             }
-            kind = LIGHT_DISTANT;
+            LIGHT_DISTANT
         }
         "infinite" => {
             let illum = scalar(params, "illuminance", 0.);
             if illum > 0. {
                 rgb = rgb.map(|v| v * illum / PI);
             }
-            kind = LIGHT_INFINITE;
+            LIGHT_INFINITE
         }
         _ => return None,
-    }
+    };
     rgb = rgb.map(|v| v * scale);
     Some(GpuLight {
         position: [

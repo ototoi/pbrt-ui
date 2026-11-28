@@ -180,12 +180,13 @@ impl PreparedImport {
                 "a single resource import requires a destination folder".into(),
             ));
         }
-        if let Some(folder) = folder {
-            if !folder.is_empty() && !target.folders.contains(folder) {
-                return Err(ProjectError::Invalid(
-                    "import destination folder does not exist".into(),
-                ));
-            }
+        if let Some(folder) = folder
+            && !folder.is_empty()
+            && !target.folders.contains(folder)
+        {
+            return Err(ProjectError::Invalid(
+                "import destination folder does not exist".into(),
+            ));
         }
         let mut namer = layout::LocationNamer::new();
         for location in target

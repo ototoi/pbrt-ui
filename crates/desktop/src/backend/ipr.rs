@@ -73,11 +73,10 @@ impl Display {
             return;
         }
         self.synced_camera = Some(camera);
-        if current["view"]["size"] != json!(self.render_size())
+        if (current["view"]["size"] != json!(self.render_size())
             || current["view"]["mode"] != json!(mode)
-            || current["view"]["time"] != json!(self.project_time)
-        {
-            if request(
+            || current["view"]["time"] != json!(self.project_time))
+            && request(
                 &self.core,
                 Method::ProjectConfigureView,
                 json!({"project":project,"expected_view_revision":current["view_revision"],"size":self.render_size(),"mode":mode,"time":self.project_time}),
@@ -86,7 +85,6 @@ impl Display {
             {
                 self.view_due = Some(Instant::now());
             }
-        }
     }
     /// Read-only look at the shared view while nothing here moved: the app
     /// state carries no view revision, so poll for a camera another client

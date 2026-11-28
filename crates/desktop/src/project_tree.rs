@@ -380,7 +380,7 @@ mod tests {
         tree["nodes"][1].as_object_mut().unwrap().remove("stale");
         prune_refresh_requests(&tree, &mut requested);
         assert!(requested.is_empty());
-        assert!(is_stale(&tree, "world") == false);
+        assert!(!is_stale(&tree, "world"));
     }
 
     #[test]

@@ -234,7 +234,7 @@ fn set_area_light_wraps_rewrites_and_undoes() {
 fn set_area_light_sits_at_the_head_of_the_binding_run() {
     let (mut document, _, shape) = native_scene();
     let material = material(&mut document);
-    let world = scene(&document).world;
+    let _world = scene(&document).world;
     let mut session = ProjectSession::new(document).unwrap();
     apply(
         &mut session,
@@ -402,7 +402,7 @@ fn set_reverse_orientation_is_effective_idempotent_and_undoable() {
     );
     assert!(evaluate(&session).nodes[&shape].reverse_orientation);
     let group = group_of(session.document(), shape);
-    let mut toggles = |session: &ProjectSession| {
+    let toggles = |session: &ProjectSession| {
         children(session.document(), group)
             .into_iter()
             .filter(|child| {
@@ -615,7 +615,7 @@ fn camera_medium_binds_in_the_options_list() {
         },
     );
     let camera_id = camera.id;
-    let scene_id = document.default_scene.unwrap();
+    let _scene_id = document.default_scene.unwrap();
     {
         let scene = scene_mut(&mut document);
         scene.options.push(camera_id);

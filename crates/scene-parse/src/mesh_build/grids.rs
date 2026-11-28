@@ -8,17 +8,19 @@ pub fn bilinear_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, Sc
     let params = d.params();
     let raw_points = params.floats("P");
     let raw_indices = params.floats("indices");
-    let raw_indices =
-        if raw_indices.is_empty() && raw_points.len() >= 12 && raw_points.len() % 12 == 0 {
-            (0..raw_points.len() / 3)
-                .map(|index| index as f64)
-                .collect()
-        } else {
-            raw_indices
-        };
+    let raw_indices = if raw_indices.is_empty()
+        && raw_points.len() >= 12
+        && raw_points.len().is_multiple_of(12)
+    {
+        (0..raw_points.len() / 3)
+            .map(|index| index as f64)
+            .collect()
+    } else {
+        raw_indices
+    };
     let invalid = |reason| SceneParseError::syntax(&d.path, d.line, d.column, reason);
     if raw_points.is_empty()
-        || raw_points.len() % 3 != 0
+        || !raw_points.len().is_multiple_of(3)
         || raw_points.iter().any(|value| !value.is_finite())
         || raw_indices.is_empty()
         || raw_indices.len() % 4 != 0
@@ -35,7 +37,9 @@ pub fn bilinear_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, Sc
         ));
     }
     let controls = raw_points
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|point| [point[0], point[1], point[2]])
         .collect::<Vec<_>>();
     // r4 `bilinearmesh.rs`: per control point; "uv" wins over the legacy "st".
@@ -49,7 +53,9 @@ pub fn bilinear_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, Sc
         ));
     }
     let control_uvs = control_uvs
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| [pair[0] as f32, pair[1] as f32])
         .collect::<Vec<_>>();
     let mut points = Vec::with_capacity(raw_indices.len() / 4 * (SUBDIVISIONS + 1).pow(2));
@@ -76,7 +82,7 @@ pub fn bilinear_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, Sc
         });
         (point, uv)
     };
-    for face in raw_indices.chunks_exact(4) {
+    for face in raw_indices.as_chunks::<4>().0.iter() {
         let corners = face
             .iter()
             .map(|index| controls[*index as usize])
@@ -177,7 +183,7 @@ mod tests {
         assert!((uvs[0][0], uvs[0][1]) == (0., 0.));
         assert!((uvs.last().unwrap()[0] - 1.).abs() < 1e-6);
         assert!((uvs.last().unwrap()[1] - 1.).abs() < 1e-6);
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
+        assert!(indices.len().is_multiple_of(3));
     }
 
     fn bilinear_quad() -> &'static str {
@@ -196,7 +202,7 @@ mod tests {
             let (x, y) = ((index % side) as f32, (index / side) as f32);
             assert_eq!(*uv, [x / 8., y / 8.], "{point:?}");
         }
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
+        assert!(indices.len().is_multiple_of(3));
     }
 
     /// With "uv", the four corners' texcoords (per control point, corner order

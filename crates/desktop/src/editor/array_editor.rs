@@ -509,7 +509,6 @@ impl Render for ArrayEditor {
             .capture_action(cx.listener(
                 |this, _: &gpui_kit::component::input::Undo, window, cx| {
                     if !this.draft_history
-                        && true
                         && this.following.is_none()
                         && !this.session.read(cx).edit_feedback.is_pending(&this.form)
                     {
@@ -521,7 +520,6 @@ impl Render for ArrayEditor {
             .capture_action(cx.listener(
                 |this, _: &gpui_kit::component::input::Redo, window, cx| {
                     if !this.draft_history
-                        && true
                         && this.following.is_none()
                         && !this.session.read(cx).edit_feedback.is_pending(&this.form)
                     {

@@ -452,7 +452,7 @@ fn scene_graph_view_hides_state_and_attaches_area_lights() {
     let mut core = loaded(document);
 
     let roots = graph(&mut core, Value::Null);
-    assert_eq!(ids(&roots), [scene.clone()]);
+    assert_eq!(ids(&roots), std::slice::from_ref(&scene));
     assert_eq!(roots[0]["object"], "scene");
     assert_eq!(roots[0]["child_count"], 3);
     let scene_children = graph(&mut core, json!(scene));

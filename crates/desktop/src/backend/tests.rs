@@ -262,7 +262,7 @@ fn reload_camera_is_written_for_its_target_then_discarded_after_preview_cancel_a
 
     let mut original_camera = ViewerCamera::frame(None, 16. / 9.);
     original_camera.orbit(0.55, -0.18).unwrap();
-    display.camera = original_camera.clone();
+    display.camera = original_camera;
     let initial_view = request(
         &core,
         Method::ProjectGetView,
@@ -296,7 +296,7 @@ fn reload_camera_is_written_for_its_target_then_discarded_after_preview_cancel_a
         }),
         16. / 9.,
     );
-    assert!(display.choose_camera_for_preview(&reload_owner, manifest_camera.clone()));
+    assert!(display.choose_camera_for_preview(&reload_owner, manifest_camera));
     assert_eq!(display.camera.to_protocol(), original_camera.to_protocol());
     let reload_view = request(
         &core,
@@ -359,7 +359,7 @@ fn reload_camera_is_written_for_its_target_then_discarded_after_preview_cancel_a
     display.reconcile_camera_preservation();
     let external_project = display.last_project["context"]["project"].clone();
     let external_owner = camera_preservation::ProjectOwner::from_ref(&external_project).unwrap();
-    assert!(!display.choose_camera_for_preview(&external_owner, manifest_camera.clone()));
+    assert!(!display.choose_camera_for_preview(&external_owner, manifest_camera));
     let external_view = request(
         &core,
         Method::ProjectGetView,
@@ -3506,7 +3506,7 @@ fn rendered_applies_pick_state_and_publishes_frame() {
                 pick_ids: vec![7, 7],
                 ..tiny_frame()
             },
-            camera: camera.clone(),
+            camera,
         })
         .unwrap();
     display.poll_gpu();

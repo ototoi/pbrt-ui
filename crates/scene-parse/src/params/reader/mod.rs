@@ -98,10 +98,10 @@ impl<'lexer, 'source> DirectiveReader<'lexer, 'source> {
     }
 
     fn peek(&mut self) -> Result<Option<Located>, SceneParseError> {
-        if self.peeked.is_empty() {
-            if let Some(token) = self.lexer.next_token()? {
-                self.peeked.push_back(token);
-            }
+        if self.peeked.is_empty()
+            && let Some(token) = self.lexer.next_token()?
+        {
+            self.peeked.push_back(token);
         }
         Ok(self.peeked.front().cloned())
     }

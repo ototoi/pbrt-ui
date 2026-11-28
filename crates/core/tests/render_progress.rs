@@ -39,8 +39,10 @@ fn replacement_tiles_preserve_other_pixels_and_channel_order() {
     image.write_snapshot(&path).unwrap();
     let bytes = std::fs::read(path).unwrap();
     let values: Vec<_> = bytes[8..]
-        .chunks_exact(4)
-        .map(|value| f32::from_le_bytes(value.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|value| f32::from_le_bytes(*value))
         .collect();
     // The untouched pixel keeps the checker (not the tile's components);
     // pixel 1 holds R, G, B in order despite the reordered channels.
@@ -121,8 +123,10 @@ fn snapshots_draw_the_checker_only_over_unreceived_pixels() {
     );
     assert_eq!(size, (34, 2));
     let values: Vec<_> = bytes[8..]
-        .chunks_exact(4)
-        .map(|value| f32::from_le_bytes(value.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|value| f32::from_le_bytes(*value))
         .collect();
     let pixel = |x: usize, y: usize| {
         [

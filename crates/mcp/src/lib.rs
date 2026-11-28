@@ -339,11 +339,10 @@ impl Bridge {
                         let capability = if ["project.apply","project.undo","project.redo"].contains(m) {"project_editing"} else if **m=="project.export" {"project_export"} else {"project_management"};
                         return capabilities[capability]==true;
                     }
-                    if m.starts_with("render.") {
-                        if **m == "render.ipr_set" || **m == "render.ipr_submit" {
+                    if m.starts_with("render.")
+                        && (**m == "render.ipr_set" || **m == "render.ipr_submit") {
                             return capabilities["ipr"] == true;
                         }
-                    }
                     if **m=="workspace.reset_layout"{return capabilities["workspace_layout"]==true;}
                     true
                 }).map(|method|json!({"name":method.replace('.',"_"),"description":describe(method),"inputSchema":tool_schema(method),"annotations":{"readOnlyHint":is_read_only(method),"openWorldHint":false}})).collect();

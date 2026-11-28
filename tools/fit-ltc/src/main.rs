@@ -1,3 +1,6 @@
+// Vector and matrix code indexes several arrays with one component index;
+// iterator chains would read worse there.
+#![allow(clippy::needless_range_loop)]
 mod brdf;
 mod brdf_ggx;
 mod fit_tab;

@@ -439,7 +439,7 @@ impl CoreState {
                 let path = if scene_graph::visible_object_kind(&view, node.id).is_some() {
                     scene_graph::path(&view, node.id)
                 } else if let Some(owner) =
-                    scene_graph::visible_owner(&view, node.id).or_else(|| match &node.data {
+                    scene_graph::visible_owner(&view, node.id).or(match &node.data {
                         NodeKind::Scope {
                             owned_object: Some(owner),
                             ..
@@ -1530,6 +1530,35 @@ impl CoreState {
     }
 }
 
+/// Each node's parent scope, for every scope in `scene`.
+fn parent_links<'a>(
+    nodes: impl IntoIterator<Item = &'a project::Node>,
+) -> BTreeMap<project::NodeId, project::NodeId> {
+    let mut parents = BTreeMap::new();
+    for node in nodes {
+        if let NodeKind::Scope { children, .. } = &node.data {
+            for child in children {
+                parents.insert(*child, node.id);
+            }
+        }
+    }
+    parents
+}
+
+/// `node`'s ancestors, nearest first.
+fn ancestors(
+    parents: &BTreeMap<project::NodeId, project::NodeId>,
+    node: project::NodeId,
+) -> Vec<uuid::Uuid> {
+    let mut path = Vec::new();
+    let mut ancestor = parents.get(&node).copied();
+    while let Some(parent) = ancestor {
+        path.push(parent.0);
+        ancestor = parents.get(&parent).copied();
+    }
+    path
+}
+
 #[cfg(test)]
 mod image_contents_tests {
     use super::*;
@@ -1606,33 +1635,4 @@ mod image_contents_tests {
         assert_eq!(entries[0]["id"], resource_id.to_string());
         assert_eq!(entries[0]["resource_kind"], "texture");
     }
-}
-
-/// Each node's parent scope, for every scope in `scene`.
-fn parent_links<'a>(
-    nodes: impl IntoIterator<Item = &'a project::Node>,
-) -> BTreeMap<project::NodeId, project::NodeId> {
-    let mut parents = BTreeMap::new();
-    for node in nodes {
-        if let NodeKind::Scope { children, .. } = &node.data {
-            for child in children {
-                parents.insert(*child, node.id);
-            }
-        }
-    }
-    parents
-}
-
-/// `node`'s ancestors, nearest first.
-fn ancestors(
-    parents: &BTreeMap<project::NodeId, project::NodeId>,
-    node: project::NodeId,
-) -> Vec<uuid::Uuid> {
-    let mut path = Vec::new();
-    let mut ancestor = parents.get(&node).copied();
-    while let Some(parent) = ancestor {
-        path.push(parent.0);
-        ancestor = parents.get(&parent).copied();
-    }
-    path
 }

@@ -115,15 +115,14 @@ impl CoreState {
                 if let Some(reference) = &p.project {
                     self.projects.check(reference)?;
                 }
-                if let Some(view) = &p.view {
-                    if view.size[0] == 0
+                if let Some(view) = &p.view
+                    && (view.size[0] == 0
                         || view.size[1] == 0
                         || view.size[0] > 8192
                         || view.size[1] > 8192
-                        || u64::from(view.size[0]) * u64::from(view.size[1]) > 16_777_216
-                    {
-                        return Err(invalid("ipr view size exceeds limits"));
-                    }
+                        || u64::from(view.size[0]) * u64::from(view.size[1]) > 16_777_216)
+                {
+                    return Err(invalid("ipr view size exceeds limits"));
                 }
                 let project = if self.projects.is_active() {
                     Some(self.projects.reference().unwrap())
@@ -252,12 +251,11 @@ impl CoreState {
         let Some(&index) = self.job_indices.get(&id) else {
             return;
         };
-        if let Some((frame_job, previous)) = self.ipr.frame.take() {
-            if frame_job == id {
-                if let Some(superseded) = self.artifacts.remove(&previous) {
-                    let _ = std::fs::remove_file(&superseded.path);
-                }
-            }
+        if let Some((frame_job, previous)) = self.ipr.frame.take()
+            && frame_job == id
+            && let Some(superseded) = self.artifacts.remove(&previous)
+        {
+            let _ = std::fs::remove_file(&superseded.path);
         }
         self.ipr.frame = Some((id, artifact.artifact_id));
         self.jobs[index].job.artifacts = vec![artifact.artifact_id];
@@ -328,10 +326,10 @@ impl CoreState {
             return;
         }
         let debounce = Duration::from_millis(self.ipr.settings.debounce_ms);
-        if !self
+        if self
             .ipr
             .armed_at
-            .is_some_and(|at| now.saturating_duration_since(at) >= debounce)
+            .is_none_or(|at| now.saturating_duration_since(at) < debounce)
         {
             return;
         }

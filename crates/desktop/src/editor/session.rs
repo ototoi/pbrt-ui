@@ -315,7 +315,9 @@ fn evict_preview_images(
 /// Mean normalized RGB luminance of a decoded render, before channel reordering.
 fn mean_luminance(rgba: &[u8]) -> Option<f64> {
     let (sum, count) = rgba
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .fold((0., 0usize), |(sum, count), pixel| {
             (
                 sum + (0.2126 * f64::from(pixel[0])
@@ -1150,7 +1152,7 @@ impl Session {
                                     this.render_project = project;
                                     this.render_received = received;
                                     this.render_mean_luminance = mean_luminance(&rgba);
-                                    for pixel in rgba.chunks_exact_mut(4) {
+                                    for pixel in rgba.as_chunks_mut::<4>().0 {
                                         pixel.swap(0, 2);
                                     }
                                     if let Some(buffer) =
@@ -1294,7 +1296,7 @@ impl Session {
                                     // changes, so follow the position file itself.
                                     let file = (this.project.mode
                                         == Some(protocol::project::ProjectMode::Project))
-                                    .then(|| this.project.path.as_deref())
+                                    .then_some(this.project.path.as_deref())
                                     .flatten()
                                     .map(std::path::Path::new)
                                     .map(super::graph_layout::position_file_path);
@@ -1485,15 +1487,14 @@ impl Session {
                                         &this.contents_search_query,
                                         this.contents_search_generation,
                                         &page,
-                                    ) {
-                                        if super::project_contents_search::apply_page(
+                                    )
+                                        && super::project_contents_search::apply_page(
                                             &mut this.contents_search,
                                             offset,
                                             &page,
                                         ) {
                                             this.contents_search_error = None;
                                         }
-                                    }
                                     this.contents_search_in_flight = None;
                                     this.contents_search_settled = Some((generation, offset));
                                 }
@@ -1763,12 +1764,11 @@ impl Session {
                                     // Only the current project's answer lands;
                                     // anything else stays a no-show.
                                     let asked = format!("{}:{}", item.0, item.1);
-                                    if let Some(entry) = this.item_references.get_mut(&asked) {
-                                        if entry.0 == project {
+                                    if let Some(entry) = this.item_references.get_mut(&asked)
+                                        && entry.0 == project {
                                             entry.1 = list;
                                             cx.notify();
                                         }
-                                    }
                                 }
                                 Update::Preview { project, id, result } => {
                                     // A reply the entry no longer wants

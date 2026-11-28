@@ -27,9 +27,8 @@ fn preview_draws_match_parser_states_including_transform_scope_restoration() {
         .zip(states)
     {
         let origin = mesh.origin_f64;
-        let expected = state.start.mul(scene_parse::Mat4::translation(
-            origin[0], origin[1], origin[2],
-        ));
+        let expected =
+            state.start * scene_parse::Mat4::translation(origin[0], origin[1], origin[2]);
         for (actual, expected) in draw.world_from_object[0].iter().zip(expected.0) {
             assert!((actual - expected).abs() < 1e-10);
         }

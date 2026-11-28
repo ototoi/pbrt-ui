@@ -524,6 +524,8 @@ impl EditorPanel {
         grid.into_any_element()
     }
 
+    // One call site renders a row from its separate pieces; a struct would only repack them.
+    #[allow(clippy::too_many_arguments)]
     fn contents_row(
         &self,
         index: usize,
@@ -958,13 +960,12 @@ impl EditorPanel {
                                     Box::new(OpenInEditor { id: id.to_owned() }),
                                     cx,
                                 );
-                            } else if entry["builtin"] == true {
-                                if let Some(preset) = entry["id"]
+                            } else if entry["builtin"] == true
+                                && let Some(preset) = entry["id"]
                                     .as_str()
                                     .and_then(|id| uuid::Uuid::parse_str(id).ok())
-                                {
-                                    window.dispatch_action(Box::new(CreatePreset { preset }), cx);
-                                }
+                            {
+                                window.dispatch_action(Box::new(CreatePreset { preset }), cx);
                             }
                             return;
                         }

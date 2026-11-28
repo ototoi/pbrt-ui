@@ -80,37 +80,34 @@ impl ResourceEditor {
         let target_loading = kind == EditorKind::ImageViewer && path.is_some();
         let initial_generation = 0;
         let initial_id = entry["id"].as_str().map(str::to_owned);
-        match path {
-            Some(path) => {
-                let media_type = entry["media_type"].as_str().unwrap_or_default().to_owned();
-                cx.spawn(async move |this, cx| {
-                    let decoded = cx
-                        .background_executor()
-                        .spawn(async move { decode(&path, &media_type) })
-                        .await;
-                    let _ = this.update(cx, |this, cx| {
-                        if !target_response_is_current(
-                            initial_generation,
-                            this.switch_generation,
-                            initial_id.as_deref(),
-                            this.item_id(),
-                        ) {
-                            return;
+        if let Some(path) = path {
+            let media_type = entry["media_type"].as_str().unwrap_or_default().to_owned();
+            cx.spawn(async move |this, cx| {
+                let decoded = cx
+                    .background_executor()
+                    .spawn(async move { decode(&path, &media_type) })
+                    .await;
+                let _ = this.update(cx, |this, cx| {
+                    if !target_response_is_current(
+                        initial_generation,
+                        this.switch_generation,
+                        initial_id.as_deref(),
+                        this.item_id(),
+                    ) {
+                        return;
+                    }
+                    match decoded {
+                        Ok((image, size, tone_mapped)) => {
+                            this.image = Some((image, size));
+                            this.tone_mapped = tone_mapped;
                         }
-                        match decoded {
-                            Ok((image, size, tone_mapped)) => {
-                                this.image = Some((image, size));
-                                this.tone_mapped = tone_mapped;
-                            }
-                            Err(error) => this.message = error,
-                        }
-                        this.target_loading = false;
-                        cx.notify();
-                    });
-                })
-                .detach();
-            }
-            None => {}
+                        Err(error) => this.message = error,
+                    }
+                    this.target_loading = false;
+                    cx.notify();
+                });
+            })
+            .detach();
         }
         Self {
             kind,
@@ -302,7 +299,7 @@ impl ResourceEditor {
 fn decode(path: &str, media_type: &str) -> Result<(Arc<RenderImage>, [u32; 2], bool), String> {
     let (mut image, tone_mapped) = image_display::decode_to_rgba(path, media_type)?;
     let size = [image.width(), image.height()];
-    for pixel in image.chunks_exact_mut(4) {
+    for pixel in image.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2);
     }
     Ok((

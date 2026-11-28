@@ -181,15 +181,17 @@ impl Targets {
                 let row = &pick[start..start + self.width as usize * 4];
                 // Mapped rows are normally aligned. Copy them directly on
                 // little-endian hosts instead of converting every pixel.
-                if cfg!(target_endian = "little") {
-                    if let Ok(values) = bytemuck::try_cast_slice::<u8, u32>(row) {
-                        pick_ids.extend_from_slice(values);
-                        continue;
-                    }
+                if cfg!(target_endian = "little")
+                    && let Ok(values) = bytemuck::try_cast_slice::<u8, u32>(row)
+                {
+                    pick_ids.extend_from_slice(values);
+                    continue;
                 }
                 pick_ids.extend(
-                    row.chunks_exact(4)
-                        .map(|p| u32::from_le_bytes(p.try_into().unwrap())),
+                    row.as_chunks::<4>()
+                        .0
+                        .iter()
+                        .map(|p| u32::from_le_bytes(*p)),
                 );
             }
             Ok(PreviewFrame {
@@ -213,7 +215,7 @@ impl Targets {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> Result<(Vec<f32>, Vec<[f32; 3]>), String> {
-        let word = |p: &[u8]| u32::from_le_bytes(p.try_into().unwrap());
+        let word = |p: &[u8; 4]| u32::from_le_bytes(*p);
         let depth = self
             .read_texels(
                 device,
@@ -222,12 +224,16 @@ impl Targets {
                 wgpu::TextureAspect::DepthOnly,
                 4,
             )?
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| f32::from_bits(word(p)))
             .collect();
         let normal = self
             .read_texels(device, queue, &self.normal, wgpu::TextureAspect::All, 4)?
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| {
                 let p = word(p);
                 std::array::from_fn(|c| ((p >> (10 * c)) & 1023) as f32 / 1023. * 2. - 1.)

@@ -7,6 +7,9 @@
 //!
 //! Written against the wgpu 30 API (async `request_adapter`/`request_device`,
 //! `PollType`, `Option` entry points and buffer layouts).
+// Vector and matrix code indexes several arrays with one component index;
+// iterator chains would read worse there.
+#![allow(clippy::needless_range_loop)]
 
 use wgpu::util::DeviceExt;
 

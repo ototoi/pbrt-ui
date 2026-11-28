@@ -83,8 +83,10 @@ fn run_spec_capture(spec: &CaptureSpec, spec_path: &Path, output: &Path) {
 fn pick_ids(png: &Path) -> Vec<u32> {
     let bytes = std::fs::read(png.with_extension("pick")).unwrap();
     bytes
-        .chunks_exact(4)
-        .map(|value| u32::from_le_bytes(value.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|value| u32::from_le_bytes(*value))
         .collect()
 }
 

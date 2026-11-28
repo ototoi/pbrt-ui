@@ -247,12 +247,12 @@ fn in_dependency_order<'a>(
             return;
         }
         for parameter in &resource.parameters {
-            if let ParameterValues::Resources { kind, ids } = &parameter.values {
-                if *kind == resource.kind {
-                    for id in ids {
-                        if let Some(child) = document.resources.get(id) {
-                            visit(child, document, seen, out);
-                        }
+            if let ParameterValues::Resources { kind, ids } = &parameter.values
+                && *kind == resource.kind
+            {
+                for id in ids {
+                    if let Some(child) = document.resources.get(id) {
+                        visit(child, document, seen, out);
                     }
                 }
             }

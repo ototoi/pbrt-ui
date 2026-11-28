@@ -2,6 +2,9 @@
 //! light at `--maxdepth 1`, a diffuse surface of reflectance 0.5 shows
 //! `0.5 · V`, so twice r4's linear pixel is the cosine-weighted visibility
 //! the AO approximates. See `lit_ao_reference/README.md`.
+// Vector and matrix code indexes several arrays with one component index;
+// iterator chains would read worse there.
+#![allow(clippy::needless_range_loop)]
 use scene_view::{PreviewMode, PreviewRenderer, ViewerCamera};
 use std::path::PathBuf;
 

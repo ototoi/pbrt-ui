@@ -52,7 +52,7 @@ mod tests {
         let display = reinhard_srgb(&sample([1., 1., 1.]));
         let level = display.get_pixel(0, 0)[0];
         // 0.5 linear maps to ≈0.735 sRGB, so a clean white lands near 188.
-        assert!(level >= 186 && level <= 190, "unexpected level {level}");
+        assert!((186..=190).contains(&level), "unexpected level {level}");
     }
 
     #[test]

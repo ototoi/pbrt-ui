@@ -1139,10 +1139,9 @@ pub fn merge_project_children(
                 .as_object_mut()
                 .and_then(|object| object.get_mut("children"))
                 .and_then(Value::as_array_mut)
+                && let Some(found) = find(children, parent)
             {
-                if let Some(found) = find(children, parent) {
-                    return Some(found);
-                }
+                return Some(found);
             }
         }
         None

@@ -27,9 +27,12 @@ pub struct TransformForm {
     message: String,
 }
 
+/// One endpoint row: its label and the start and end fields.
+type SampleRow = (String, Vec<Entity<InputState>>, Vec<Entity<InputState>>);
+
 /// Read-only paired endpoint fields for an AnimatedTransform.
 pub struct AnimatedTransformForm {
-    rows: Vec<(String, Vec<Entity<InputState>>, Vec<Entity<InputState>>)>,
+    rows: Vec<SampleRow>,
     matrix: bool,
 }
 

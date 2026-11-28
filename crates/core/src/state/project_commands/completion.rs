@@ -388,13 +388,12 @@ impl CoreState {
                             return Err(crate::project_io::project_error(error));
                         }
                     };
-                    if let Some(root) = asset_root.as_deref() {
-                        if let Err(error) =
+                    if let Some(root) = asset_root.as_deref()
+                        && let Err(error) =
                             session.enable_temporary_payload_staging(std::path::Path::new(root))
-                        {
-                            self.projects.queue.push_back(IoCommand::Release(store_id));
-                            return Err(crate::project_io::project_error(error));
-                        }
+                    {
+                        self.projects.queue.push_back(IoCommand::Release(store_id));
+                        return Err(crate::project_io::project_error(error));
                     }
                     if let Some(old) = self.projects.active.take() {
                         self.projects
@@ -612,6 +611,7 @@ impl CoreState {
                 let mut details = error
                     .details
                     .take()
+                    .map(|details| *details)
                     .filter(Value::is_object)
                     .unwrap_or_else(|| json!({}));
                 details["published"] = json!(false);
@@ -623,7 +623,7 @@ impl CoreState {
                         .filter(Value::is_string)
                         .unwrap_or_else(|| json!(format!("{:?}", error.code)));
                 }
-                error.details = Some(details);
+                error.details = Some(Box::new(details));
             }
             error
         });

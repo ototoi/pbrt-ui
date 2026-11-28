@@ -2,7 +2,7 @@ use super::*;
 
 pub fn vertex_normals(points: &[[f64; 3]], indices: &[u32]) -> Vec<[f32; 3]> {
     let mut normals = vec![[0.; 3]; points.len()];
-    for tri in indices.chunks_exact(3) {
+    for tri in indices.as_chunks::<3>().0.iter() {
         let (a, b, c) = (
             points[tri[0] as usize],
             points[tri[1] as usize],
@@ -38,9 +38,9 @@ pub fn triangle_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
     let raw_points = params.floats("P");
     let raw_indices = params.floats("indices");
     if raw_points.is_empty()
-        || raw_points.len() % 3 != 0
+        || !raw_points.len().is_multiple_of(3)
         || raw_indices.is_empty()
-        || raw_indices.len() % 3 != 0
+        || !raw_indices.len().is_multiple_of(3)
         || raw_indices
             .iter()
             .any(|v| !v.is_finite() || v.fract() != 0.0)
@@ -53,7 +53,9 @@ pub fn triangle_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
         ));
     }
     let p = raw_points
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|v| [v[0], v[1], v[2]])
         .collect::<Vec<_>>();
     let ix = raw_indices
@@ -83,7 +85,9 @@ pub fn triangle_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
         }
         Some(
             raw_uv
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|pair| [pair[0] as f32, pair[1] as f32])
                 .collect(),
         )

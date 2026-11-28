@@ -277,7 +277,7 @@ impl Render for MeshViewer {
                 Ok(mut frame) => {
                     self.message.clear();
                     self.cache(frame.rgba.clone(), frame.width, frame.height, cx);
-                    for pixel in frame.rgba.chunks_exact_mut(4) {
+                    for pixel in frame.rgba.as_chunks_mut::<4>().0 {
                         pixel.swap(0, 2);
                     }
                     if let Some(buffer) =

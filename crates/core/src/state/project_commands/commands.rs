@@ -151,10 +151,11 @@ impl CoreState {
                 if !scene && p.folder.is_none() {
                     return Err(invalid("a resource import requires a destination folder"));
                 }
-                if let Some(folder) = &p.folder {
-                    if !folder.is_empty() && !active.session.document().folders.contains(folder) {
-                        return Err(invalid("import destination folder does not exist"));
-                    }
+                if let Some(folder) = &p.folder
+                    && !folder.is_empty()
+                    && !active.session.document().folders.contains(folder)
+                {
+                    return Err(invalid("import destination folder does not exist"));
                 }
                 let store_id = active.store_id;
                 Ok(self.project_job(
@@ -170,7 +171,7 @@ impl CoreState {
                         scene,
                         staging_base: crate::import_prepare::staging_base(
                             (active.mode == dto::ProjectMode::Project)
-                                .then(|| active.path.as_deref())
+                                .then_some(active.path.as_deref())
                                 .flatten()
                                 .map(std::path::Path::new)
                                 .filter(|path| path.is_dir()),
@@ -490,7 +491,7 @@ impl CoreState {
                 let active = self.projects.active.as_mut().unwrap();
                 let config = self.service_config.as_ref().unwrap().for_project(
                     (active.mode == dto::ProjectMode::Project)
-                        .then(|| active.path.as_deref())
+                        .then_some(active.path.as_deref())
                         .flatten()
                         .map(std::path::Path::new)
                         .filter(|path| path.is_dir()),
@@ -834,13 +835,12 @@ impl CoreState {
                             item: project::ItemId::Asset(_)
                         }
                     )
-                }) {
-                    if let Some(root) = active.asset_root.as_deref() {
-                        active
-                            .session
-                            .ensure_temporary_payload_staging(std::path::Path::new(root))
-                            .map_err(crate::project_io::project_error)?;
-                    }
+                }) && let Some(root) = active.asset_root.as_deref()
+                {
+                    active
+                        .session
+                        .ensure_temporary_payload_staging(std::path::Path::new(root))
+                        .map_err(crate::project_io::project_error)?;
                 }
                 let change = active
                     .session
@@ -1123,7 +1123,7 @@ impl CoreState {
         let active = self.projects.active.as_mut().unwrap();
         let config = self.service_config.as_ref().unwrap().for_project(
             (active.mode == dto::ProjectMode::Project)
-                .then(|| active.path.as_deref())
+                .then_some(active.path.as_deref())
                 .flatten()
                 .map(std::path::Path::new)
                 .filter(|path| path.is_dir()),

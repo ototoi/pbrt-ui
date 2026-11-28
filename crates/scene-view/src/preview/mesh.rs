@@ -131,7 +131,7 @@ impl PreparedMesh {
             normals
         } else {
             let mut normals = vec![[0f64; 3]; positions.len()];
-            for tri in triangles.chunks_exact(3) {
+            for tri in triangles.as_chunks::<3>().0.iter() {
                 let [a, b, c] = [tri[0] as usize, tri[1] as usize, tri[2] as usize];
                 let n = cross(
                     sub(positions[b].map(f64::from), positions[a].map(f64::from)),
@@ -171,7 +171,9 @@ impl PreparedMesh {
             if low <= high { (low + high) * 0.5 } else { 0. }
         });
         let lines = triangles
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .flat_map(|t| [t[0], t[1], t[1], t[2], t[2], t[0]])
             .collect();
         let vertices = positions

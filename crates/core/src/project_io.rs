@@ -11,6 +11,8 @@ use std::{
 };
 use uuid::Uuid;
 
+// Sent once per job, so the larger variant costs nothing worth a box at every match.
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Completion {
     Started(JobId),
     Finished(JobId, Result<IoOutput, ErrorPayload>),
@@ -156,18 +158,18 @@ fn execute(
                 let (batch, report) = pbrt_io::prepare_scene_in(
                     Path::new(&source),
                     &Default::default(),
-                    &cancelled,
+                    cancelled,
                     &staging_base,
                 )
                 .map_err(interchange_error)?;
-                crate::import_prepare::validate_batch(&batch, &cancelled).map_err(project_error)?;
+                crate::import_prepare::validate_batch(&batch, cancelled).map_err(project_error)?;
                 (batch, report.diagnostics)
             } else {
                 (
                     crate::import_prepare::resource_in(
                         Path::new(&source),
                         &staging_base,
-                        &cancelled,
+                        cancelled,
                     )
                     .map_err(project_error)?,
                     Vec::new(),
@@ -185,7 +187,7 @@ fn execute(
                         Path::new(&source),
                         Path::new(&destination),
                         &Default::default(),
-                        &cancelled,
+                        cancelled,
                     )
                     .map_err(interchange_error)?;
                     let path = store
@@ -230,7 +232,7 @@ fn execute(
                         Path::new(&source),
                         &mut folder,
                         &Default::default(),
-                        &cancelled,
+                        cancelled,
                     )
                     .map_err(interchange_error)?;
                     (
@@ -673,17 +675,19 @@ pub(crate) fn project_error(error: project::ProjectError) -> ErrorPayload {
     };
     let mut result = ErrorPayload::new(code, error.to_string());
     if matches!(&error, E::Invalid(message) if message == "no active scene") {
-        result.details = Some(serde_json::json!({"reason":"no_active_scene"}));
+        result.details = Some(Box::new(serde_json::json!({"reason":"no_active_scene"})));
     }
     if let E::Durability { revision, .. } = &error {
-        result.details = Some(serde_json::json!({"published":true,"revision":revision}));
+        result.details = Some(Box::new(
+            serde_json::json!({"published":true,"revision":revision}),
+        ));
     }
     // An edit may close a reference loop, regardless of which edit it was.
     if let E::ResourceCycle = &error {
-        result.details = Some(serde_json::json!({"reason":"resource_cycle"}));
+        result.details = Some(Box::new(serde_json::json!({"reason":"resource_cycle"})));
     }
     if let E::SourceChanged(path) = &error {
-        result.details = Some(serde_json::json!({"files":[path]}));
+        result.details = Some(Box::new(serde_json::json!({"files":[path]})));
     }
     result
 }

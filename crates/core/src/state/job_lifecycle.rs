@@ -71,17 +71,14 @@ impl CoreState {
             self.jobs[index].job.artifacts.push(artifact.artifact_id);
             self.artifacts.insert(artifact.artifact_id, artifact);
         }
-        if self.jobs[index].job.kind == "pick" {
-            if let (Ok(value), Some(pinned)) =
+        if self.jobs[index].job.kind == "pick"
+            && let (Ok(value), Some(pinned)) =
                 (&mut result.result, self.jobs[index].job.project.clone())
-            {
-                if let Some(node) = value["node_id"]
-                    .as_str()
-                    .and_then(|id| uuid::Uuid::parse_str(id).ok())
-                {
-                    value["node"] = self.project_node_summary(node, &pinned);
-                }
-            }
+            && let Some(node) = value["node_id"]
+                .as_str()
+                .and_then(|id| uuid::Uuid::parse_str(id).ok())
+        {
+            value["node"] = self.project_node_summary(node, &pinned);
         }
         let job = &mut self.jobs[index].job;
         if cancelled {

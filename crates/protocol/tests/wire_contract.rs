@@ -241,7 +241,7 @@ fn test_ipr_methods_and_params_round_trip() {
     };
     let encoded = serde_json::to_string(&status).unwrap();
     let decoded: IprStatus = serde_json::from_str(&encoded).unwrap();
-    assert_eq!(decoded.enabled, true);
+    assert!(decoded.enabled);
     assert_eq!(decoded.active_job_id, None);
 }
 

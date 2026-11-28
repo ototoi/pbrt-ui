@@ -117,10 +117,8 @@ impl Workspace {
                     this.run_pending(action, false, window, cx);
                 }
             }
-            if unsaved {
-                if let Some(action) = this.last_attempt.take() {
-                    this.open_unsaved_dialog(action, window, cx);
-                }
+            if unsaved && let Some(action) = this.last_attempt.take() {
+                this.open_unsaved_dialog(action, window, cx);
             }
             cx.notify();
         })
@@ -213,15 +211,14 @@ impl Workspace {
                                     super::editor_panels::strip_editors(&mut state);
                                     if let (Some(parent), Ok(bytes)) =
                                         (path.parent(), serde_json::to_vec_pretty(&state))
+                                        && std::fs::create_dir_all(parent).is_ok()
                                     {
-                                        if std::fs::create_dir_all(parent).is_ok() {
-                                            let temporary = path.with_extension(format!(
-                                                "{}.tmp",
-                                                uuid::Uuid::new_v4()
-                                            ));
-                                            if std::fs::write(&temporary, bytes).is_ok() {
-                                                let _ = std::fs::rename(temporary, path);
-                                            }
+                                        let temporary = path.with_extension(format!(
+                                            "{}.tmp",
+                                            uuid::Uuid::new_v4()
+                                        ));
+                                        if std::fs::write(&temporary, bytes).is_ok() {
+                                            let _ = std::fs::rename(temporary, path);
                                         }
                                     }
                                 })
@@ -286,13 +283,12 @@ impl Workspace {
             self.set_status("That item is not listed in Contents".into(), cx);
             return;
         };
-        if !self.panel_open(PanelKind::Contents, cx) {
-            if let Some(index) = PanelKind::ALL
+        if !self.panel_open(PanelKind::Contents, cx)
+            && let Some(index) = PanelKind::ALL
                 .iter()
                 .position(|k| *k == PanelKind::Contents)
-            {
-                self.toggle_fixed_panel(index, window, cx);
-            }
+        {
+            self.toggle_fixed_panel(index, window, cx);
         }
         let contents = PanelId::from(self.panel(PanelKind::Contents).entity_id());
         self.dock
@@ -341,13 +337,12 @@ impl Workspace {
         if !project.is_object() {
             return;
         }
-        if !self.panel_open(PanelKind::Hierarchy, cx) {
-            if let Some(index) = PanelKind::ALL
+        if !self.panel_open(PanelKind::Hierarchy, cx)
+            && let Some(index) = PanelKind::ALL
                 .iter()
                 .position(|k| *k == PanelKind::Hierarchy)
-            {
-                self.toggle_fixed_panel(index, window, cx);
-            }
+        {
+            self.toggle_fixed_panel(index, window, cx);
         }
         let hierarchy = PanelId::from(self.panel(PanelKind::Hierarchy).entity_id());
         self.dock
@@ -463,19 +458,14 @@ impl Workspace {
         let previous_request = self
             .latest_editor_requests
             .insert(identity.clone(), request_id);
-        let existing = if let Some(editor) = self
+        let existing = self
             .editors
             .iter()
             .find(|editor| {
                 let editor = editor.read(cx);
                 super::editor_panels::identity(editor.kind(), &editor.entry) == identity
             })
-            .cloned()
-        {
-            Some(editor)
-        } else {
-            None
-        };
+            .cloned();
         let requested_entry = entry.clone();
         let sent = self.session.update(cx, |session, _| {
             let project = session.project_value();
@@ -1369,25 +1359,25 @@ impl Workspace {
         let picker = cx.prompt_for_new_path(&directory, Some(&name));
         let session = self.session.clone();
         cx.spawn(async move |_, cx| {
-            if let Ok(Ok(Some(path))) = picker.await {
-                if let Some(destination) = path.to_str() {
-                    let _ = session.update(cx, |session, cx| {
-                        let project = session.project_value();
-                        if !project.is_null() {
-                            session.save_in_flight = true;
-                            session.send(
-                                Command::Project(
-                                    Method::ProjectSave,
-                                    serde_json::json!({
-                                        "project":project,
-                                        "destination":destination,
-                                    }),
-                                ),
-                                cx,
-                            );
-                        }
-                    });
-                }
+            if let Ok(Ok(Some(path))) = picker.await
+                && let Some(destination) = path.to_str()
+            {
+                session.update(cx, |session, cx| {
+                    let project = session.project_value();
+                    if !project.is_null() {
+                        session.save_in_flight = true;
+                        session.send(
+                            Command::Project(
+                                Method::ProjectSave,
+                                serde_json::json!({
+                                    "project":project,
+                                    "destination":destination,
+                                }),
+                            ),
+                            cx,
+                        );
+                    }
+                });
             }
         })
         .detach();
@@ -1408,21 +1398,21 @@ impl Workspace {
         let picker = cx.prompt_for_new_path(&directory, Some("pbrt-export"));
         let session = self.session.clone();
         cx.spawn(async move |_, cx| {
-            if let Ok(Ok(Some(path))) = picker.await {
-                if let Some(destination) = path.to_str() {
-                    let _ = session.update(cx, |session, cx| {
-                        session.send(
-                            Command::Project(
-                                Method::ProjectExport,
-                                serde_json::json!({
-                                    "project":project,
-                                    "destination":destination,
-                                }),
-                            ),
-                            cx,
-                        );
-                    });
-                }
+            if let Ok(Ok(Some(path))) = picker.await
+                && let Some(destination) = path.to_str()
+            {
+                session.update(cx, |session, cx| {
+                    session.send(
+                        Command::Project(
+                            Method::ProjectExport,
+                            serde_json::json!({
+                                "project":project,
+                                "destination":destination,
+                            }),
+                        ),
+                        cx,
+                    );
+                });
             }
         })
         .detach();

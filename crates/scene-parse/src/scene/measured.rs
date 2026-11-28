@@ -226,8 +226,8 @@ fn read_tensor_color(file: &mut File, size: u64) -> Result<[f32; 3], String> {
         let take = (spectra.bytes - position).min(chunk as u64) as usize;
         file.read_exact(&mut bytes[..take])
             .map_err(|e| e.to_string())?;
-        for (i, raw) in bytes[..take].chunks_exact(4).enumerate() {
-            let value = f32::from_le_bytes(raw.try_into().unwrap());
+        for (i, raw) in bytes[..take].as_chunks::<4>().0.iter().enumerate() {
+            let value = f32::from_le_bytes(*raw);
             if !value.is_finite() || value < 0. {
                 return Err("spectra contain a non-finite or negative value".into());
             }
@@ -271,8 +271,10 @@ fn floats(bytes: &[u8]) -> Result<Vec<f32>, String> {
         return Err("invalid float payload size".into());
     }
     Ok(bytes
-        .chunks_exact(4)
-        .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
         .collect())
 }
 

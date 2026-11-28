@@ -55,7 +55,7 @@ impl GraphicsState {
     fn apply(&mut self, matrix: Mat4, replace: bool) {
         for (bit, target) in [(1, &mut self.start), (2, &mut self.end)] {
             if self.active & bit != 0 {
-                *target = if replace { matrix } else { target.mul(matrix) };
+                *target = if replace { matrix } else { *target * matrix };
             }
         }
     }

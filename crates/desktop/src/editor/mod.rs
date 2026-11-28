@@ -72,6 +72,15 @@ actions!(
     ]
 );
 
+/// An editor tab ready to open: project, request id, entry, and the item's
+/// path (or why it could not be opened).
+type EditorReady = (
+    serde_json::Value,
+    u64,
+    serde_json::Value,
+    Result<Option<String>, protocol::ErrorPayload>,
+);
+
 struct Session {
     layout_revision: u64,
     jobs: serde_json::Value,
@@ -224,12 +233,7 @@ struct Session {
     colour_dialogs: color_dialog::OpenDialogs,
     /// Editor tabs ready to open, and items whose tabs must close; the
     /// window consumes both.
-    editors_ready: Vec<(
-        serde_json::Value,
-        u64,
-        serde_json::Value,
-        Result<Option<String>, protocol::ErrorPayload>,
-    )>,
+    editors_ready: Vec<EditorReady>,
     items_missing: Vec<(serde_json::Value, Vec<String>)>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

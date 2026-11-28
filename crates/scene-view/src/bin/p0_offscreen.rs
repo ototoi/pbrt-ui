@@ -7,6 +7,7 @@
 //!     bottom corners),
 //!   * vertical orientation is top-to-bottom (red at top, not bottom),
 //!   * alpha is opaque inside the triangle.
+//!
 //! Writes a PNG for visual inspection and exits non-zero on any failure.
 
 use image::{ImageBuffer, Rgba};

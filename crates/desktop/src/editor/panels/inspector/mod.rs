@@ -258,10 +258,10 @@ impl EditorPanel {
             // Camera editability is determined by whether its own Options
             // transform can be represented safely; selection is independent
             // of which Camera is active for rendering.
-            let object_editable = match details["node"]["object"].as_str() {
-                Some("camera" | "group" | "shape" | "light" | "instance") => true,
-                _ => false,
-            };
+            let object_editable = matches!(
+                details["node"]["object"].as_str(),
+                Some("camera" | "group" | "shape" | "light" | "instance")
+            );
             let editable = object_editable && component["editable"] != false;
             if component["kind"] != "transform" || !local["matrix"].is_array() || !editable {
                 continue;
@@ -295,13 +295,12 @@ impl EditorPanel {
                 .iter()
                 .find(|(_, id, _)| *id == node_id)
                 .map(|(_, _, form)| form.clone())
-            {
-                if form.update(cx, |form, cx| {
+                && form.update(cx, |form, cx| {
                     form.refresh(&project, local, matrix, window, cx)
-                }) {
-                    transforms.push((key, node_id.clone(), form));
-                    continue;
-                }
+                })
+            {
+                transforms.push((key, node_id.clone(), form));
+                continue;
             }
             let form = cx.new(|cx| {
                 transform_form::TransformForm::new(

@@ -102,6 +102,8 @@ pub(crate) struct IoTask {
     pub control: LoadTask,
     pub work: Work,
 }
+// Sent once per job, so the larger variant costs nothing worth a box at every match.
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum IoCommand {
     Run(IoTask),
     Release(Uuid),
@@ -239,7 +241,7 @@ impl Projects {
     pub(crate) fn project_folder(&self) -> Option<&std::path::Path> {
         self.active.as_ref().and_then(|active| {
             (active.mode == dto::ProjectMode::Project)
-                .then(|| active.path.as_deref())
+                .then_some(active.path.as_deref())
                 .flatten()
                 .map(std::path::Path::new)
                 .filter(|path| path.is_dir())

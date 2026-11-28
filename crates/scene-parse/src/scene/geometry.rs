@@ -38,6 +38,12 @@ fn emitter_shape(
     }
 }
 
+/// A built geometry package: its manifest, the binary blobs by name, and
+/// the scene bounds.
+type GeometryPackage = (GeometryManifest, BTreeMap<String, Vec<u8>>, Option<Bounds>);
+
+// The geometry build threads the parse context (options, cache, diagnostics, ids) through one call.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn build(
     shapes: Vec<Shape>,
     instances: &[InstanceUse],
@@ -47,7 +53,7 @@ pub(super) fn build(
     cache: &mut GeometryCache,
     diagnostics: &mut Vec<Diagnostic>,
     entity_of: Option<&BTreeMap<u32, protocol::EntityId>>,
-) -> Result<(GeometryManifest, BTreeMap<String, Vec<u8>>, Option<Bounds>), SceneParseError> {
+) -> Result<GeometryPackage, SceneParseError> {
     let mut instance_uses = BTreeMap::<&str, Vec<&InstanceUse>>::new();
     for instance in instances {
         instance_uses
@@ -375,7 +381,7 @@ pub(super) fn build(
         // every downstream mesh id. Unresolved shapes keep the ordinal.
         let mesh_id = entity_of
             .and_then(|table| table.get(&shape.d.line))
-            .map(|entity| stable_mesh_id(entity))
+            .map(stable_mesh_id)
             .unwrap_or_else(|| manifest.meshes.len() as u64);
         let filename = format!("geometry/{mesh_id:08}.bin");
         let mut local = Bounds {
@@ -423,9 +429,7 @@ pub(super) fn build(
                 world_from_object: transforms
                     .into_iter()
                     .map(|transform| {
-                        transform
-                            .mul(Mat4::translation(origin[0], origin[1], origin[2]))
-                            .0
+                        (transform * Mat4::translation(origin[0], origin[1], origin[2])).0
                     })
                     .collect(),
                 reverse_orientation: shape.reverse,

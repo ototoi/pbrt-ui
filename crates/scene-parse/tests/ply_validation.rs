@@ -113,7 +113,7 @@ fn header_line_and_property_limits_reject_early() {
     // A 2 MiB comment blows the 1 MiB header budget before any body work.
     let mut big = Vec::new();
     big.extend_from_slice(b"ply\nformat ascii 1.0\ncomment ");
-    big.extend(std::iter::repeat(b'x').take(2 * 1024 * 1024));
+    big.extend(std::iter::repeat_n(b'x', 2 * 1024 * 1024));
     let over = files.write("big-header.ply", &big);
     match validate(&over) {
         Err(E::Limit("header bytes")) => {}

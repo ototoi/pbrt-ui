@@ -122,7 +122,7 @@ fn finish_preview(core: &mut CoreState, job_id: JobId) {
     core.project_io_finished(
         job_id,
         Ok(IoOutput::Previewed {
-            path: preview_slot().into(),
+            path: preview_slot(),
             draws: 0,
             unsupported: 0,
             warnings: Vec::new(),

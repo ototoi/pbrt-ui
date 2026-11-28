@@ -69,77 +69,6 @@ pub fn paraboloid_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, 
     Ok((points, indices, uvs))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mesh_build::test_directive;
-
-    /// r4 `shapes/paraboloid.rs`: u = phi / phi_max, v = (z - zmin) / (zmax - zmin)
-    /// at each vertex's own parameters, so the seam column carries u = 1.
-    #[test]
-    fn paraboloid_uvs_follow_pbrt_at_every_vertex() {
-        let source = "Shape \"paraboloid\" \"float radius\" [1] \"float zmin\" [0.25] \
-\"float zmax\" [4] \"float phimax\" [300]";
-        let (points, indices, uvs) = paraboloid_mesh(&test_directive(source)).unwrap();
-        assert_eq!(points.len(), uvs.len());
-        let (z_min, z_max, phi_max) = (0.25f64, 4f64, std::f64::consts::TAU * 300. / 360.);
-        for (point, uv) in points.iter().zip(&uvs) {
-            let phi = point[1].atan2(point[0]).rem_euclid(std::f64::consts::TAU);
-            let u = phi / phi_max;
-            let v = (point[2] - z_min) / (z_max - z_min);
-            assert!((u - uv[0] as f64).abs() < 1e-5, "{point:?} {uv:?}");
-            assert!((v - uv[1] as f64).abs() < 1e-5, "{point:?} {uv:?}");
-        }
-        // The seam u = 1 exists as its own column of vertices.
-        assert!(uvs.iter().any(|uv| (uv[0] - 1.).abs() < 1e-6));
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
-    }
-
-    /// r4 `shapes/hyperboloid.rs`: `phi = u * phi_max` rotates the profile point
-    /// `pr(v) = lerp(p1, p2, v)`, so u is the rotation about that profile
-    /// direction — atan2(pr.x·y − x·pr.y, x·pr.x + y·pr.y) — and v is the
-    /// profile's own lerp parameter.
-    #[test]
-    fn hyperboloid_uvs_follow_pbrt_at_every_vertex() {
-        let source = "Shape \"hyperboloid\" \"point3 p1\" [0.2 0.1 0] \"point3 p2\" [0.4 0.2 2] \
-\"float phimax\" [300]";
-        let (points, indices, uvs) = hyperboloid_mesh(&test_directive(source)).unwrap();
-        assert_eq!(points.len(), uvs.len());
-        let (p1, p2) = ([0.2f64, 0.1, 0.], [0.4f64, 0.2, 2.]);
-        let phi_max = std::f64::consts::TAU * 300. / 360.;
-        for (point, uv) in points.iter().zip(&uvs) {
-            let v = (point[2] - p1[2]) / (p2[2] - p1[2]);
-            let pr = [p1[0] + (p2[0] - p1[0]) * v, p1[1] + (p2[1] - p1[1]) * v];
-            let rotation = (pr[0] * point[1] - point[0] * pr[1])
-                .atan2(point[0] * pr[0] + point[1] * pr[1])
-                .rem_euclid(std::f64::consts::TAU);
-            let u = rotation / phi_max;
-            assert!((u - uv[0] as f64).abs() < 1e-5, "{point:?} {uv:?}");
-            assert!((v - uv[1] as f64).abs() < 1e-5, "{point:?} {uv:?}");
-        }
-        assert!(uvs.iter().any(|uv| (uv[0] - 1.).abs() < 1e-6));
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
-    }
-
-    /// z may run downward, from p1.z down to p2.z: v still spans the profile 0..1
-    /// with v = 0 at p1.
-    #[test]
-    fn hyperboloid_v_runs_from_p1_whichever_way_z_goes() {
-        let source = "Shape \"hyperboloid\" \"point3 p1\" [0.2 0.1 2] \"point3 p2\" [0.4 0.2 0]";
-        let (points, _, uvs) = hyperboloid_mesh(&test_directive(source)).unwrap();
-        let z_of = |wanted: f32| {
-            let (point, _) = points
-                .iter()
-                .zip(&uvs)
-                .find(|(_, uv)| (uv[1] - wanted).abs() < 1e-6)
-                .unwrap();
-            point[2]
-        };
-        assert!((z_of(0.) - 2.).abs() < 1e-9, "v = 0 sits at p1.z = 2");
-        assert!((z_of(1.) - 0.).abs() < 1e-9, "v = 1 sits at p2.z = 0");
-    }
-}
-
 /// Tessellates PBRT's hyperboloid parameterization over its clipped angular range.
 pub fn hyperboloid_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, SceneParseError> {
     const ANGULAR_STEPS: usize = 64;
@@ -205,4 +134,75 @@ pub fn hyperboloid_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated,
         }
     }
     Ok((points, indices, uvs))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mesh_build::test_directive;
+
+    /// r4 `shapes/paraboloid.rs`: u = phi / phi_max, v = (z - zmin) / (zmax - zmin)
+    /// at each vertex's own parameters, so the seam column carries u = 1.
+    #[test]
+    fn paraboloid_uvs_follow_pbrt_at_every_vertex() {
+        let source = "Shape \"paraboloid\" \"float radius\" [1] \"float zmin\" [0.25] \
+\"float zmax\" [4] \"float phimax\" [300]";
+        let (points, indices, uvs) = paraboloid_mesh(&test_directive(source)).unwrap();
+        assert_eq!(points.len(), uvs.len());
+        let (z_min, z_max, phi_max) = (0.25f64, 4f64, std::f64::consts::TAU * 300. / 360.);
+        for (point, uv) in points.iter().zip(&uvs) {
+            let phi = point[1].atan2(point[0]).rem_euclid(std::f64::consts::TAU);
+            let u = phi / phi_max;
+            let v = (point[2] - z_min) / (z_max - z_min);
+            assert!((u - uv[0] as f64).abs() < 1e-5, "{point:?} {uv:?}");
+            assert!((v - uv[1] as f64).abs() < 1e-5, "{point:?} {uv:?}");
+        }
+        // The seam u = 1 exists as its own column of vertices.
+        assert!(uvs.iter().any(|uv| (uv[0] - 1.).abs() < 1e-6));
+        assert!(indices.len().is_multiple_of(3));
+    }
+
+    /// r4 `shapes/hyperboloid.rs`: `phi = u * phi_max` rotates the profile point
+    /// `pr(v) = lerp(p1, p2, v)`, so u is the rotation about that profile
+    /// direction — atan2(pr.x·y − x·pr.y, x·pr.x + y·pr.y) — and v is the
+    /// profile's own lerp parameter.
+    #[test]
+    fn hyperboloid_uvs_follow_pbrt_at_every_vertex() {
+        let source = "Shape \"hyperboloid\" \"point3 p1\" [0.2 0.1 0] \"point3 p2\" [0.4 0.2 2] \
+\"float phimax\" [300]";
+        let (points, indices, uvs) = hyperboloid_mesh(&test_directive(source)).unwrap();
+        assert_eq!(points.len(), uvs.len());
+        let (p1, p2) = ([0.2f64, 0.1, 0.], [0.4f64, 0.2, 2.]);
+        let phi_max = std::f64::consts::TAU * 300. / 360.;
+        for (point, uv) in points.iter().zip(&uvs) {
+            let v = (point[2] - p1[2]) / (p2[2] - p1[2]);
+            let pr = [p1[0] + (p2[0] - p1[0]) * v, p1[1] + (p2[1] - p1[1]) * v];
+            let rotation = (pr[0] * point[1] - point[0] * pr[1])
+                .atan2(point[0] * pr[0] + point[1] * pr[1])
+                .rem_euclid(std::f64::consts::TAU);
+            let u = rotation / phi_max;
+            assert!((u - uv[0] as f64).abs() < 1e-5, "{point:?} {uv:?}");
+            assert!((v - uv[1] as f64).abs() < 1e-5, "{point:?} {uv:?}");
+        }
+        assert!(uvs.iter().any(|uv| (uv[0] - 1.).abs() < 1e-6));
+        assert!(indices.len().is_multiple_of(3));
+    }
+
+    /// z may run downward, from p1.z down to p2.z: v still spans the profile 0..1
+    /// with v = 0 at p1.
+    #[test]
+    fn hyperboloid_v_runs_from_p1_whichever_way_z_goes() {
+        let source = "Shape \"hyperboloid\" \"point3 p1\" [0.2 0.1 2] \"point3 p2\" [0.4 0.2 0]";
+        let (points, _, uvs) = hyperboloid_mesh(&test_directive(source)).unwrap();
+        let z_of = |wanted: f32| {
+            let (point, _) = points
+                .iter()
+                .zip(&uvs)
+                .find(|(_, uv)| (uv[1] - wanted).abs() < 1e-6)
+                .unwrap();
+            point[2]
+        };
+        assert!((z_of(0.) - 2.).abs() < 1e-9, "v = 0 sits at p1.z = 2");
+        assert!((z_of(1.) - 0.).abs() < 1e-9, "v = 1 sits at p2.z = 0");
+    }
 }

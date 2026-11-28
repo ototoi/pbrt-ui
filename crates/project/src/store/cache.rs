@@ -150,7 +150,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
 /// dropped, and its size still leaves the accounting.
 fn evict(root: &Path, index: &mut CacheIndex, limit: u64) {
     let mut total: u128 = index.entries.values().map(|entry| entry.size as u128).sum();
-    while total > u64::MAX.min(limit).max(1) as u128 && index.entries.len() > 1 {
+    while total > limit.max(1) as u128 && index.entries.len() > 1 {
         let victim = index
             .entries
             .iter()

@@ -3,6 +3,21 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Mat4(pub [f64; 16]);
 
+impl std::ops::Mul for Mat4 {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self {
+        let mut out = [0.; 16];
+        for r in 0..4 {
+            for c in 0..4 {
+                for k in 0..4 {
+                    out[r * 4 + c] += self.0[r * 4 + k] * rhs.0[k * 4 + c];
+                }
+            }
+        }
+        Self(out)
+    }
+}
+
 impl Mat4 {
     pub const fn identity() -> Self {
         Self([
@@ -46,17 +61,6 @@ impl Mat4 {
             0.,
             1.,
         ])
-    }
-    pub fn mul(self, rhs: Self) -> Self {
-        let mut out = [0.; 16];
-        for r in 0..4 {
-            for c in 0..4 {
-                for k in 0..4 {
-                    out[r * 4 + c] += self.0[r * 4 + k] * rhs.0[k * 4 + c];
-                }
-            }
-        }
-        Self(out)
     }
     pub fn transform_point(self, p: [f64; 3]) -> [f64; 3] {
         let m = self.0;
@@ -314,8 +318,8 @@ mod tests {
     fn animated_transform_interpolates_translation_rotation_and_scale() {
         let start = Mat4::identity();
         let end = Mat4::translation(10.0, 0.0, 0.0)
-            .mul(Mat4::rotation(180.0, 0.0, 0.0, 1.0))
-            .mul(Mat4::scale(3.0, 3.0, 3.0));
+            * Mat4::rotation(180.0, 0.0, 0.0, 1.0)
+            * Mat4::scale(3.0, 3.0, 3.0);
         let middle = interpolate(start, end, 0.5).unwrap();
         let point = middle.transform_point([1.0, 0.0, 0.0]);
         assert!((point[0] - 5.0).abs() < 1e-8);
