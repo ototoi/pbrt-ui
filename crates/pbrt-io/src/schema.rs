@@ -183,6 +183,8 @@ pub(crate) fn plain_string(directive: &str, parameter: &str) -> bool {
         // because the name is only meaningful there.
         || (directive == "MakeNamedMedium"
             && matches!(parameter, "gridname" | "temperaturename"))
+        // subsurface's measured scattering preset ("Skin1", "Ketchup", ...).
+        || (matches!(directive, "Material" | "MakeNamedMaterial") && parameter == "name")
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OptionType {
