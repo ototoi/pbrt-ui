@@ -25,7 +25,9 @@ pub fn curve_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
         ));
     }
     let controls = raw_points
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|point| [point[0], point[1], point[2]])
         .collect::<Vec<_>>();
     let degree = degree as usize;
@@ -58,7 +60,9 @@ pub fn curve_mesh(d: &Directive) -> Result<Tessellated, SceneParseError> {
         }
         Some(
             normals
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .map(|n| [n[0], n[1], n[2]])
                 .collect::<Vec<_>>(),
         )

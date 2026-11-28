@@ -9,7 +9,9 @@ pub fn loop_subdiv(d: &Directive) -> Result<(Vec<[f64; 3]>, Vec<u32>), ScenePars
     let fail = |reason| SceneParseError::syntax(&d.path, d.line, d.column, reason);
     let raw_points = params.floats("P");
     let mut points = raw_points
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|point| [point[0], point[1], point[2]])
         .collect::<Vec<_>>();
     let raw_indices = params.floats("indices");
@@ -47,7 +49,7 @@ pub fn loop_subdiv(d: &Directive) -> Result<(Vec<[f64; 3]>, Vec<u32>), ScenePars
         .into_iter()
         .map(|value| value as u32)
         .collect::<Vec<_>>();
-    for face in triangles.chunks_exact(3) {
+    for face in triangles.as_chunks::<3>().0.iter() {
         if face[0] == face[1] || face[1] == face[2] || face[2] == face[0] {
             return Err(fail("loopsubdiv contains a degenerate triangle"));
         }
@@ -56,7 +58,7 @@ pub fn loop_subdiv(d: &Directive) -> Result<(Vec<[f64; 3]>, Vec<u32>), ScenePars
         let mut edges = BTreeMap::<(u32, u32), Vec<u32>>::new();
         let mut neighbors = vec![BTreeSet::<u32>::new(); points.len()];
         let mut boundary_neighbors = vec![BTreeSet::<u32>::new(); points.len()];
-        for face in triangles.chunks_exact(3) {
+        for face in triangles.as_chunks::<3>().0.iter() {
             for (a, b, opposite) in [
                 (face[0], face[1], face[2]),
                 (face[1], face[2], face[0]),
@@ -135,7 +137,7 @@ pub fn loop_subdiv(d: &Directive) -> Result<(Vec<[f64; 3]>, Vec<u32>), ScenePars
             edge_vertices.insert(edge, id);
         }
         let mut output = Vec::with_capacity(triangles.len() * 4);
-        for face in triangles.chunks_exact(3) {
+        for face in triangles.as_chunks::<3>().0.iter() {
             let (a, b, c) = (face[0], face[1], face[2]);
             let (ab, bc, ca) = (
                 edge_vertices[&(a.min(b), a.max(b))],

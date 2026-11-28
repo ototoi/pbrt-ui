@@ -70,7 +70,12 @@ pub fn nurbs_mesh(d: &Directive) -> Result<crate::tessellate::Tessellated, Scene
         .ok_or_else(|| fail("nurbs control grid dimensions overflow"))?;
     if values.len() != control_count * tuple
         || values.iter().any(|value| !value.is_finite())
-        || (homogeneous && values.chunks_exact(4).any(|point| point[3] == 0.0))
+        || (homogeneous
+            && values
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|point| point[3] == 0.0))
     {
         return Err(fail(
             "nurbs requires a finite P or Pw control grid matching nu × nv",
@@ -177,6 +182,6 @@ mod tests {
             assert!((uv[0] as f64 - expected_u).abs() < 1e-6, "{uv:?} {index}");
             assert!((uv[1] as f64 - expected_v).abs() < 1e-6, "{uv:?} {index}");
         }
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
+        assert!(indices.len().is_multiple_of(3));
     }
 }

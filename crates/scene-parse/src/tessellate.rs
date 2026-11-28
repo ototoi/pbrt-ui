@@ -150,7 +150,7 @@ mod tests {
     fn sphere_triangles_face_outward() {
         let (points, indices, _) = sphere(1., -1., 1., 360., 16);
         let mut checked = 0;
-        for triangle in indices.chunks_exact(3) {
+        for triangle in indices.as_chunks::<3>().0.iter() {
             let a = points[triangle[0] as usize];
             let b = points[triangle[1] as usize];
             let c = points[triangle[2] as usize];

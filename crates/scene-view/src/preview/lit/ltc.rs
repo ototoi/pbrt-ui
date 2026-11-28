@@ -8,8 +8,10 @@ pub(crate) fn ltc_layers() -> [Vec<f32>; 2] {
     assert_eq!(u32::from_le_bytes(DATA[4..8].try_into().unwrap()), LTC_SIZE);
     let decode = |layer: &[u8]| {
         layer
-            .chunks_exact(4)
-            .map(|bytes| f32::from_le_bytes(bytes.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|bytes| f32::from_le_bytes(*bytes))
             .collect()
     };
     let data = &DATA[HEADER_SIZE..];

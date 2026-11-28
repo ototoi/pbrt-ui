@@ -471,7 +471,7 @@ fn mean_scalar(source: &image::RgbaImage, use_alpha: bool) -> [f32; 3] {
     }
     let scale = if use_alpha { 255. } else { 3. * 255. };
     let mut sum = 0u64;
-    for texel in bytes.chunks_exact(4) {
+    for texel in bytes.as_chunks::<4>().0.iter() {
         sum += if use_alpha {
             u64::from(texel[3])
         } else {
@@ -491,7 +491,7 @@ fn rgba8_average(source: &image::RgbaImage, srgb: bool) -> [f32; 3] {
     }
     let lut = fixed_decode_lut(srgb);
     let mut sums = [0u64; 3];
-    for texel in bytes.chunks_exact(4) {
+    for texel in bytes.as_chunks::<4>().0.iter() {
         for channel in 0..3 {
             sums[channel] += u64::from(lut[texel[channel] as usize]);
         }

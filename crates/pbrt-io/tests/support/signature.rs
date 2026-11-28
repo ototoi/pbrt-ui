@@ -337,12 +337,16 @@ impl Builder<'_> {
                     .unwrap();
                 let values = match encoding {
                     ArrayEncoding::F64Le => bytes
-                        .chunks_exact(8)
-                        .map(|b| float_number(f64::from_le_bytes(b.try_into().unwrap())))
+                        .as_chunks::<8>()
+                        .0
+                        .iter()
+                        .map(|b| float_number(f64::from_le_bytes(*b)))
                         .collect::<Vec<_>>(),
                     ArrayEncoding::I64Le => bytes
-                        .chunks_exact(8)
-                        .map(|b| json!(i64::from_le_bytes(b.try_into().unwrap())))
+                        .as_chunks::<8>()
+                        .0
+                        .iter()
+                        .map(|b| json!(i64::from_le_bytes(*b)))
                         .collect(),
                     ArrayEncoding::BoolU8 => bytes.iter().map(|b| json!(*b != 0)).collect(),
                 };

@@ -159,7 +159,7 @@ mod tests {
         }
         // The seam u = 1 exists as its own column of vertices.
         assert!(uvs.iter().any(|uv| (uv[0] - 1.).abs() < 1e-6));
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
+        assert!(indices.len().is_multiple_of(3));
     }
 
     /// r4 `shapes/hyperboloid.rs`: `phi = u * phi_max` rotates the profile point
@@ -185,7 +185,7 @@ mod tests {
             assert!((v - uv[1] as f64).abs() < 1e-5, "{point:?} {uv:?}");
         }
         assert!(uvs.iter().any(|uv| (uv[0] - 1.).abs() < 1e-6));
-        assert_eq!(indices.chunks_exact(3).count() * 3, indices.len());
+        assert!(indices.len().is_multiple_of(3));
     }
 
     /// z may run downward, from p1.z down to p2.z: v still spans the profile 0..1
