@@ -45,6 +45,8 @@ pub struct ReferenceIndex {
     /// Owner resource of every node inside an ObjectDefinition scope: the
     /// definition's resource a "definition_node" reference reports.
     definition_owners: BTreeMap<NodeId, ResourceId>,
+    /// Byte length a parameter array requires of its asset.
+    array_bytes: BTreeMap<crate::AssetId, u64>,
 }
 
 impl ReferenceIndex {
@@ -126,6 +128,20 @@ impl ReferenceIndex {
             refs.dedup();
         }
         index
+    }
+
+    /// Referenced assets the document has no record of, each with the byte
+    /// length a parameter array needs of it (0 when no array refers to it).
+    pub(crate) fn unknown_assets(&self, document: &ProjectDocument) -> Vec<(crate::AssetId, u64)> {
+        self.references
+            .keys()
+            .filter_map(|item| match item {
+                ItemId::Asset(id) if !document.assets.contains_key(id) => {
+                    Some((*id, self.array_bytes.get(id).copied().unwrap_or(0)))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     pub fn references(&self, item: ItemId) -> &[ReferenceLocation] {
@@ -216,7 +232,17 @@ impl ReferenceIndex {
                     self.add(ItemId::Asset(*id), location.clone());
                 }
             }
-            ParameterValues::Array { asset, .. } => {
+            ParameterValues::Array {
+                asset,
+                encoding,
+                count,
+            } => {
+                let stride = match encoding {
+                    crate::ArrayEncoding::F64Le | crate::ArrayEncoding::I64Le => 8,
+                    crate::ArrayEncoding::BoolU8 => 1,
+                };
+                self.array_bytes
+                    .insert(*asset, count.saturating_mul(stride));
                 self.add(ItemId::Asset(*asset), location.clone());
             }
             ParameterValues::Resources { ids, .. } => {

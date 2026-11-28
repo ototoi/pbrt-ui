@@ -633,6 +633,22 @@ impl FolderStore {
             &self.directory.join("Assets"),
             &mut document.folders,
         )?;
+        // An asset whose file and `.meta` both vanished outside stays a
+        // missing record (§5), so its references still resolve and the
+        // project opens; a save writes nothing for it.
+        for (id, size) in crate::ReferenceIndex::build(&document).unknown_assets(&document) {
+            document.assets.insert(
+                id,
+                Asset {
+                    id,
+                    location: format!("{}.missing", id.0),
+                    media_type: "application/octet-stream".into(),
+                    sha256: format!("{:x}", Sha256::digest(b"")),
+                    size,
+                    origin: None,
+                },
+            );
+        }
         Ok(document)
     }
 
@@ -1090,19 +1106,17 @@ impl FolderStore {
         self.require_recovered()?;
         let current_revision = crate::validation::revision(&self.manifest.saved_revision)?;
         let incoming_revision = crate::validation::revision(snapshot.revision())?;
-        let mut persisted_snapshot = snapshot.document().clone();
-        for asset in persisted_snapshot.assets.values_mut() {
-            if let Some(origin) = &mut asset.origin {
-                origin.origin = None;
-            }
-        }
-        // Asset bodies are checked against the model's hash instead
-        // (`snapshot_plan`): a body rewritten outside was adopted by the session.
+        // Asset files are checked per asset instead (`snapshot_plan`): a body
+        // rewritten outside was adopted by the session, and one deleted outside
+        // is restored from its pinned bytes.
         let bodies = snapshot
             .document()
             .assets
             .values()
-            .map(|asset| PathBuf::from("Assets").join(&asset.location))
+            .flat_map(|asset| {
+                let body = PathBuf::from("Assets").join(&asset.location);
+                [meta_path(&body), body]
+            })
             .collect::<std::collections::BTreeSet<_>>();
         for (relative, expected) in &self.baseline {
             if bodies.contains(relative) {
@@ -1114,9 +1128,15 @@ impl FolderStore {
                 ));
             }
         }
+        // Asset records are left out: files changed outside are handled per
+        // asset in `snapshot_plan`.
+        let without_assets = |mut document: ProjectDocument| {
+            document.assets.clear();
+            document
+        };
         let same_revision_conflict = incoming_revision == current_revision
             && self.manifest.default_scene.is_some()
-            && self.read_document()? != persisted_snapshot;
+            && without_assets(self.read_document()?) != without_assets(snapshot.document().clone());
         if incoming_revision < current_revision || same_revision_conflict {
             return Err(ProjectError::RevisionConflict {
                 expected: snapshot.revision().0.clone(),
@@ -1180,7 +1200,8 @@ impl FolderStore {
             }
             let current = file_stamp(&path)?;
             let expected = self.baseline.get(&relative).copied();
-            if current != expected {
+            // Creating a file deleted outside overwrites nothing.
+            if current.is_some() && current != expected {
                 cleanup_plan(&self.directory, &plan);
                 cleanup_created_dirs(&created_dirs);
                 return Err(ProjectError::SourceChanged(relative.display().to_string()));
@@ -1450,10 +1471,11 @@ impl FolderStore {
                         .payload_by(asset.id)
                         .and_then(|lease| lease.origin().cloned())
                 });
-            self.check_unchanged(&meta_path(&current))?;
             let source = self.directory.join(&current);
+            if source.is_file() || self.directory.join(meta_path(&current)).is_file() {
+                self.check_unchanged(&meta_path(&current))?;
+            }
             if !source.is_file() {
-                self.check_unchanged(&current)?;
                 if let Some(lease) = snapshot.payload_by(asset.id) {
                     // a previous save already
                     // removed the file — the history's staged bytes
@@ -1515,7 +1537,9 @@ impl FolderStore {
                     );
                     continue;
                 }
-                return Err(invalid("asset file is missing"));
+                // Body and sidecar are both gone and no bytes were pinned:
+                // the record stays missing, and the files stay absent.
+                continue;
             }
             let input = File::open(&source)?;
             let mut bytes = Vec::new();

@@ -750,7 +750,10 @@ impl ProjectSession {
                 .assets
                 .get(id)
                 .is_some_and(|asset| asset.sha256 == lease.sha256() && asset.size == lease.size())
-                && stamp.as_ref().is_none_or(SourceStamp::unchanged)
+                // A pin outlives its file deleted outside: the save restores it.
+                && stamp
+                    .as_ref()
+                    .is_none_or(|stamp| stamp.unchanged() || !stamp.path.exists())
         });
         let unpinned = self
             .document
