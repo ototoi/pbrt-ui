@@ -459,16 +459,18 @@ impl Render for TransformForm {
                     div()
                         .flex_1()
                         .min_w_0()
-                        .child(Input::new(input).small().w_full()),
+                        .child(Input::new(input).xsmall().w_full()),
                 );
             }
+            // A narrow label column and xsmall fields leave each value room for
+            // its digits (`0.470123`) at the default Inspector width.
             let line = div()
                 .flex()
                 .items_center()
-                .gap_2()
+                .gap_1()
                 .child(
                     div()
-                        .w(px(72.))
+                        .w(px(56.))
                         .flex_shrink_0()
                         .text_xs()
                         .text_color(rgb(0x9098a6))
@@ -488,7 +490,7 @@ impl Render for TransformForm {
             .when(self.is_modified(cx) && feedback.is_empty(), |form| {
                 form.child(
                     div()
-                        .pl(px(80.))
+                        .pl(px(60.))
                         .text_xs()
                         .text_color(rgb(0x9098a6))
                         .child("Enter to apply"),
