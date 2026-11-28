@@ -28,6 +28,9 @@ fn with_uvs(
     (points, indices)
 }
 
+/// Triangle positions and indices.
+type Triangles = (Vec<[f64; 3]>, Vec<u32>);
+
 pub(super) fn build(
     shape: &Shape,
     kind: &str,
@@ -35,7 +38,7 @@ pub(super) fn build(
     options: &ParseOptions,
     ply_asset: Option<&[u8]>,
     uvs: &mut Option<Vec<[f32; 2]>>,
-) -> Option<Result<(Vec<[f64; 3]>, Vec<u32>), SceneParseError>> {
+) -> Option<Result<Triangles, SceneParseError>> {
     Some(match kind {
         "trianglemesh" => match mesh_build::triangle_mesh(&shape.d) {
             Ok(tessellated) => {

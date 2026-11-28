@@ -1329,14 +1329,7 @@ impl FolderStore {
         }
     }
 
-    fn snapshot_plan(
-        &self,
-        snapshot: &ProjectSnapshot,
-    ) -> Result<(
-        BTreeMap<PathBuf, Vec<u8>>,
-        std::collections::BTreeSet<PathBuf>,
-        std::collections::BTreeSet<PathBuf>,
-    )> {
+    fn snapshot_plan(&self, snapshot: &ProjectSnapshot) -> Result<SavePlan> {
         let document = snapshot.document();
         document.validate()?;
         if document.scenes.is_empty() && !self.is_v3() {
@@ -2075,6 +2068,14 @@ fn digest_matches(path: &Path, expected: &str) -> Result<bool> {
     }
     Ok(format!("{:x}", hash.finalize()) == expected)
 }
+
+/// What a save writes, deletes and creates: file bytes by path, files to
+/// delete, and directories.
+type SavePlan = (
+    BTreeMap<PathBuf, Vec<u8>>,
+    std::collections::BTreeSet<PathBuf>,
+    std::collections::BTreeSet<PathBuf>,
+);
 
 /// A project-relative path as errors name it: `/` on every platform, like
 /// the asset locations the store writes.

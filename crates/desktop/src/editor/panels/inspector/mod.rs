@@ -258,10 +258,10 @@ impl EditorPanel {
             // Camera editability is determined by whether its own Options
             // transform can be represented safely; selection is independent
             // of which Camera is active for rendering.
-            let object_editable = match details["node"]["object"].as_str() {
-                Some("camera" | "group" | "shape" | "light" | "instance") => true,
-                _ => false,
-            };
+            let object_editable = matches!(
+                details["node"]["object"].as_str(),
+                Some("camera" | "group" | "shape" | "light" | "instance")
+            );
             let editable = object_editable && component["editable"] != false;
             if component["kind"] != "transform" || !local["matrix"].is_array() || !editable {
                 continue;

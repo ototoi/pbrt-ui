@@ -368,15 +368,13 @@ impl NodeLocation {
     }
 }
 
+type SharedScene = Arc<SceneDocument>;
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Delta {
     nodes: Vec<(NodeLocation, NodeId, Node, Node)>,
     resources: Vec<(ResourceId, Option<Resource>, Option<Resource>)>,
-    scenes: Vec<(
-        SceneId,
-        Option<Arc<SceneDocument>>,
-        Option<Arc<SceneDocument>>,
-    )>,
+    scenes: Vec<(SceneId, Option<SharedScene>, Option<SharedScene>)>,
     assets: Vec<(AssetId, Option<Asset>, Option<Asset>)>,
     folders: Option<(BTreeSet<String>, BTreeSet<String>)>,
     created_nodes: Vec<(NodeLocation, Node)>,
@@ -5427,6 +5425,8 @@ fn remove_group_head_area_light(
 /// A camera's medium: the state sits in the options list right before the
 /// camera. Clearing removes that state; setting rewrites it in place or
 /// inserts it.
+// The document edit names its scene, camera, binding and edition fields one by one.
+#[allow(clippy::too_many_arguments)]
 fn set_camera_medium(
     document: &mut ProjectDocument,
     scene: SceneId,
@@ -5538,6 +5538,8 @@ fn run_area_lights(
         .collect()
 }
 
+// The document edit names its scene, parent, binding and edition fields one by one.
+#[allow(clippy::too_many_arguments)]
 fn remove_adjacent_binding(
     document: &mut ProjectDocument,
     scene: SceneId,

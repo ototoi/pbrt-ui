@@ -367,6 +367,8 @@ pub fn render_preview_at_time(
     )
 }
 
+// The public preview entry point takes each render input explicitly.
+#[allow(clippy::too_many_arguments)]
 pub fn render_preview_at_time_with_options(
     manifest: &GeometryManifest,
     blobs: &BTreeMap<String, Vec<u8>>,
@@ -623,8 +625,10 @@ mod tests {
             ViewerCamera::from_protocol(protocol::view::framing_camera(Some(&bounds), aspect));
         close(&framed, &protocol_framed);
         // Without a scene camera the manifest default is the framed camera.
-        let mut manifest = GeometryManifest::default();
-        manifest.bounds = Some(bounds);
+        let mut manifest = GeometryManifest {
+            bounds: Some(bounds),
+            ..Default::default()
+        };
         close(
             &ViewerCamera::from_manifest(&manifest, aspect),
             &ViewerCamera::frame(manifest.bounds.as_ref(), aspect),

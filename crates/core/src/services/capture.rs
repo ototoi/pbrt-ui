@@ -127,7 +127,7 @@ pub(super) fn run_capture(
 
 pub(super) fn execute(
     work: &ServiceTask,
-    directory: &PathBuf,
+    directory: &std::path::Path,
     artifacts: &mut Vec<Artifact>,
 ) -> Result<Value, ErrorPayload> {
     match &work.work {

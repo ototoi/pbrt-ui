@@ -1636,10 +1636,11 @@ mod tests {
         }
     }
     fn scene_of(materials: Vec<protocol::geometry::MaterialRecord>) -> GeometryManifest {
-        let mut manifest = GeometryManifest::default();
-        manifest.textures = vec![float_texture("r", "float"), float_texture("c", "spectrum")];
-        manifest.materials = materials;
-        manifest
+        GeometryManifest {
+            textures: vec![float_texture("r", "float"), float_texture("c", "spectrum")],
+            materials,
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -2624,8 +2625,10 @@ mod tests {
     /// light without a filename is skipped with a note instead of drawing.
     #[test]
     fn goniometric_and_projection_lights_no_longer_say_unsupported() {
-        let mut manifest = GeometryManifest::default();
-        manifest.lights = vec![light("goniometric", vec![]), light("projection", vec![])];
+        let manifest = GeometryManifest {
+            lights: vec![light("goniometric", vec![]), light("projection", vec![])],
+            ..Default::default()
+        };
         let lit = evaluate(&manifest, &std::collections::BTreeMap::new());
         assert!(
             !lit.notes.iter().any(|n| n.reason.contains("not supported")),
@@ -2774,8 +2777,10 @@ mod tests {
 
     #[test]
     fn notes_lights_over_limit() {
-        let mut manifest = GeometryManifest::default();
-        manifest.lights = (0..65).map(|_| light("point", vec![])).collect();
+        let manifest = GeometryManifest {
+            lights: (0..65).map(|_| light("point", vec![])).collect(),
+            ..Default::default()
+        };
         assert!(
             evaluate(&manifest, &BTreeMap::new())
                 .notes

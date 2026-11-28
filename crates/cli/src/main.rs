@@ -161,55 +161,30 @@ fn run() -> Result<Value, ClientError> {
     if positional.len() != expected {
         return Err(invalid("wrong number of command arguments"));
     }
-    if !query_options.is_empty()
-        && !(command == "project"
-            && [
-                "nodes",
-                "parameters",
-                "values",
-                "search",
-                "contents",
-                "list-references",
-            ]
-            .contains(&argument(1)?)
-            && query_options.keys().all(|key| key == "limit"))
-        && !(command == "project"
-            && ["nodes", "search"].contains(&argument(1)?)
-            && query_options
-                .keys()
-                .all(|key| key == "limit" || key == "view"))
-        && !(command == "project"
-            && argument(1)? == "create"
-            && query_options
-                .keys()
-                .all(|key| ["parent", "after", "definition"].contains(&key.as_str())))
-        && !(command == "project"
-            && argument(1)? == "new"
-            && query_options
-                .keys()
-                .all(|key| ["title", "up", "handedness"].contains(&key.as_str())))
-        && !(command == "project"
-            && ["render", "capture", "pick", "export"].contains(&argument(1)?)
-            && query_options.keys().all(|key| key == "scene"))
-        && !(command == "project"
-            && ["render", "capture"].contains(&argument(1)?)
-            && query_options
-                .keys()
-                .all(|key| ["scene", "camera"].contains(&key.as_str())))
-        && !(command == "project"
-            && ["import-scene", "import-resource"].contains(&argument(1)?)
-            && query_options.keys().all(|key| key == "folder"))
-        && !(command == "project"
-            && argument(1)? == "spectrum-color"
-            && query_options.keys().all(|key| key == "role"))
-        && !(command == "project"
-            && argument(1)? == "view"
-            && query_options
-                .keys()
-                .all(|key| ["mode", "size", "time"].contains(&key.as_str())))
-        && !(command == "ipr"
-            && argument(1)? == "submit"
-            && query_options.keys().all(|key| key == "scene"))
+    // The query options each command takes (all of them optional).
+    let allowed: &[&str] = if query_options.is_empty() {
+        &[]
+    } else {
+        match command {
+            "project" => match argument(1)? {
+                "nodes" | "search" => &["limit", "view"],
+                "parameters" | "values" | "contents" | "list-references" => &["limit"],
+                "create" => &["parent", "after", "definition"],
+                "new" => &["title", "up", "handedness"],
+                "render" | "capture" => &["scene", "camera"],
+                "pick" | "export" => &["scene"],
+                "import-scene" | "import-resource" => &["folder"],
+                "spectrum-color" => &["role"],
+                "view" => &["mode", "size", "time"],
+                _ => &[],
+            },
+            "ipr" if argument(1)? == "submit" => &["scene"],
+            _ => &[],
+        }
+    };
+    if !query_options
+        .keys()
+        .all(|key| allowed.contains(&key.as_str()))
     {
         return Err(invalid(
             "query options apply to project nodes, search, contents, parameters, spectrum-color, create, render, capture, pick, export, view and ipr submit",

@@ -384,7 +384,7 @@ fn progressive_frames_replace_the_previous_frame_instead_of_accumulating() {
     tick(&mut core, 50);
     let id = ipr_jobs(&core)[0];
     finish_export(&mut core, id);
-    core.take_services();
+    core.take_services().for_each(drop);
     let directory = tempfile::tempdir().unwrap();
     let frame = |index: u32| Artifact {
         artifact_id: Uuid::new_v4(),

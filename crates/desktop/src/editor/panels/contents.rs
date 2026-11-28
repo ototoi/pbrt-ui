@@ -524,6 +524,8 @@ impl EditorPanel {
         grid.into_any_element()
     }
 
+    // One call site renders a row from its separate pieces; a struct would only repack them.
+    #[allow(clippy::too_many_arguments)]
     fn contents_row(
         &self,
         index: usize,

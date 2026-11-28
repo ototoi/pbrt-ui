@@ -1,4 +1,6 @@
 #![allow(non_snake_case)]
+// `LTC` and the paper's other names are kept as written.
+#![allow(clippy::upper_case_acronyms)]
 
 use glam::{Mat3, Vec3};
 

@@ -50,7 +50,6 @@ fn arity_of(name: &str) -> Arity {
 
 /// Reads directives from a lexer, with a small push-back buffer so the parser
 /// can decide where one directive ends and the next begins.
-
 impl<'lexer, 'source> DirectiveReader<'lexer, 'source> {
     /// Next directive, or `None` at end of input.
     pub fn read_directive(&mut self) -> Result<Option<Directive>, SceneParseError> {

@@ -23,7 +23,7 @@ pub(super) fn placement_transforms(
         || instance.is_some_and(|use_site| use_site.start_transform != use_site.end_transform);
     if !animated {
         return Some(vec![instance.map_or(shape.start_transform, |use_site| {
-            use_site.start_transform.mul(shape.start_transform)
+            use_site.start_transform * shape.start_transform
         })]);
     }
     supported_times
@@ -45,7 +45,7 @@ pub(super) fn placement_transforms(
                     )
                 })
                 .unwrap_or(Some(Mat4::identity()))?;
-            Some(instance_transform.mul(shape_transform))
+            Some(instance_transform * shape_transform)
         })
         .collect()
 }

@@ -11,6 +11,9 @@
 //! with an identity transform, and every placement (top-level shape or
 //! `ObjectInstance`) carries its own `world_from_object` matrices in a
 //! `DrawRecord`.
+// Vector and matrix code indexes several arrays with one component index;
+// iterator chains would read worse there.
+#![allow(clippy::needless_range_loop)]
 
 pub mod document;
 pub mod error;

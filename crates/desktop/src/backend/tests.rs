@@ -3506,7 +3506,7 @@ fn rendered_applies_pick_state_and_publishes_frame() {
                 pick_ids: vec![7, 7],
                 ..tiny_frame()
             },
-            camera: camera,
+            camera,
         })
         .unwrap();
     display.poll_gpu();

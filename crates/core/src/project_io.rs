@@ -11,6 +11,8 @@ use std::{
 };
 use uuid::Uuid;
 
+// Sent once per job, so the larger variant costs nothing worth a box at every match.
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Completion {
     Started(JobId),
     Finished(JobId, Result<IoOutput, ErrorPayload>),

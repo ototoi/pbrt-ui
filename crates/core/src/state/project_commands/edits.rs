@@ -91,6 +91,8 @@ pub(super) fn values(value: dto::ParameterValues) -> Result<V, ErrorPayload> {
 /// executor (`patches`: byte offset, replacement), placed as `new_id` at
 /// `new_location`, and the old asset is deleted unless another parameter
 /// shares it.
+// Built once per array edit, so the larger variant costs nothing worth a box at every match.
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum ArrayEditPlan {
     Inline {
         target: project::ParameterTarget,

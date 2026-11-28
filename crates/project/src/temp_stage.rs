@@ -180,8 +180,11 @@ fn sweep(base: &Path, own_pid: u32) {
 }
 
 fn remove_all(dirs: Vec<PathBuf>) -> bool {
+    // Try every directory even after a failure (`all` would stop at the first).
     dirs.into_iter()
-        .fold(true, |all, dir| fs::remove_dir_all(dir).is_ok() && all)
+        .filter(|dir| fs::remove_dir_all(dir).is_err())
+        .count()
+        == 0
 }
 
 #[cfg(test)]

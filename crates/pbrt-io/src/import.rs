@@ -1349,11 +1349,7 @@ impl<F: Fn() -> bool> Builder<'_, '_, F> {
                 }
                 // pbrt-v4 writes `Option "bool name" value`; r4 reads the bare name.
                 let name = match text.split_once(char::is_whitespace) {
-                    Some((kind, name))
-                        if matches!(kind, "bool" | "integer" | "float" | "string") =>
-                    {
-                        name.trim().to_owned()
-                    }
+                    Some(("bool" | "integer" | "float" | "string", name)) => name.trim().to_owned(),
                     _ => text,
                 };
                 let value = crate::schema::parse_option(&name, &d.positional_tokens[1])?;

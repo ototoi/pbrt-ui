@@ -102,6 +102,8 @@ pub(crate) struct IoTask {
     pub control: LoadTask,
     pub work: Work,
 }
+// Sent once per job, so the larger variant costs nothing worth a box at every match.
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum IoCommand {
     Run(IoTask),
     Release(Uuid),

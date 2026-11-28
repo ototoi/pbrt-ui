@@ -6,6 +6,9 @@ use gpui_kit::component::{WindowExt as _, button::Button, button::ButtonVariants
 use gpui_kit::*;
 use std::rc::Rc;
 
+type OnText = Rc<dyn Fn(String, &mut Window, &mut App)>;
+type OnConfirm = Rc<dyn Fn(&mut Window, &mut App)>;
+
 /// Ask for one line of text. `on_ok` runs with the trimmed value when the
 /// user presses OK or Enter; Cancel and Escape send nothing.
 pub fn text(
@@ -18,7 +21,7 @@ pub fn text(
     let title = title.into();
     let initial = initial.to_owned();
     let state = cx.new(|cx| InputState::new(window, cx).default_value(initial));
-    let on_ok: Rc<dyn Fn(String, &mut Window, &mut App)> = Rc::new(on_ok);
+    let on_ok: OnText = Rc::new(on_ok);
     {
         let state = state.clone();
         let on_ok = on_ok.clone();
@@ -73,7 +76,7 @@ pub fn confirm(
 ) {
     let title = title.into();
     let description = description.into();
-    let on_confirm: Rc<dyn Fn(&mut Window, &mut App)> = Rc::new(on_confirm);
+    let on_confirm: OnConfirm = Rc::new(on_confirm);
     window.open_alert_dialog(cx, move |alert, _, _| {
         let on_confirm = on_confirm.clone();
         alert
