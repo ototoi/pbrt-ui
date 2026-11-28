@@ -94,6 +94,9 @@ pub fn reopen_split(kind: PanelKind) -> (Beside, gpui_kit::base::Placement, Opti
         PanelKind::Inspector => (Beside::Root, Right, Some(330.)),
         PanelKind::Scene => (Beside::Panel(PanelKind::Render), Left, None),
         PanelKind::Render => (Beside::Panel(PanelKind::Scene), Right, None),
+        // Below Scene: once the row is closed the dock flattens the split that
+        // held Scene and Render, and splitting either one cannot rebuild it.
+        // Reset Layout restores the row under both.
         PanelKind::Contents | PanelKind::Console | PanelKind::Jobs => {
             (Beside::Panel(PanelKind::Scene), Bottom, Some(260.))
         }
