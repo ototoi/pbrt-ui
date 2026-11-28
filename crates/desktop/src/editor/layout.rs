@@ -45,7 +45,7 @@ pub fn save_overlays(path: &Path, viewport: &str, visible: bool) -> std::io::Res
 /// │ ├─ h_split
 /// │ │ ├─ tabs[Scene] flex
 /// │ │ └─ tabs[Render] flex
-/// │ └─ tabs[Contents, Console, Jobs] 180px
+/// │ └─ tabs[Contents, Console, Jobs] 260px
 /// └─ tabs[Inspector] 330px
 /// ```
 pub const DEFAULT_GROUPS: [&[PanelKind]; 5] = [
