@@ -482,7 +482,8 @@ impl EditorPanel {
                     ScrollDelta::Lines(p) => f64::from(p.y) * 0.12,
                 };
                 this.session
-                    .update(cx, |s, cx| s.send(Command::Dolly(-delta), cx));
+                    // Wheel up (positive y) moves closer, as in Unity and Blender.
+                    .update(cx, |s, cx| s.send(Command::Dolly(delta), cx));
             }))
             .on_pinch(cx.listener(|this, event: &PinchEvent, _, cx| {
                 if this.gizmo_drag.is_some() || this.light_drag.is_some() || event.delta == 0. {
@@ -640,7 +641,7 @@ impl EditorPanel {
                                 // the generic keys, not it.
                                 let drag_hint = light_drag_hint(kind, editable).unwrap_or("");
                                 format!(
-                                    "{verb}{drag_hint} · Ctrl snap · X Local/World · Esc cancel · RMB orbit · F focus"
+                                    "{verb}{drag_hint} · Ctrl snap · X Local/World · Esc cancel · RMB/Alt+drag orbit · Shift+RMB pan · F focus"
                                 )
                                 }
                             }

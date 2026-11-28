@@ -417,7 +417,8 @@ impl Render for MeshViewer {
                             ScrollDelta::Pixels(p) => f64::from(f32::from(p.y)) * 0.005,
                             ScrollDelta::Lines(p) => f64::from(p.y) * 0.12,
                         };
-                        this.move_camera(|camera| camera.dolly(-delta), cx);
+                        // Wheel up moves closer, matching the Scene viewport.
+                        this.move_camera(|camera| camera.dolly(delta), cx);
                         cx.notify();
                     })),
             )
