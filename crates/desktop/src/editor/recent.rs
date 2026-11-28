@@ -32,6 +32,34 @@ pub struct RecentEntry {
     pub opened_at: String,
 }
 
+/// The File > Open Recent label: the file or folder name first, then its
+/// parent shortened (home as `~`, middle folders as `…`), so entries in
+/// look-alike folders stay distinguishable where the menu cuts a long row.
+pub fn menu_label(path: &Path, home: &Path) -> String {
+    let name = match path.file_name() {
+        Some(name) => name.to_string_lossy().into_owned(),
+        None => return path.display().to_string(),
+    };
+    let Some(parent) = path.parent() else {
+        return name;
+    };
+    let separator = std::path::MAIN_SEPARATOR_STR;
+    let parent = match parent.strip_prefix(home) {
+        Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
+        Ok(rest) => format!("~{separator}{}", rest.display()),
+        Err(_) => parent.display().to_string(),
+    };
+    let parts = parent.split(separator).collect::<Vec<_>>();
+    let parent = if parts.len() > 5 {
+        [&parts[..2], &["…"], &parts[parts.len() - 2..]]
+            .concat()
+            .join(separator)
+    } else {
+        parent
+    };
+    format!("{name} — {parent}")
+}
+
 /// Parse `recent.json`. A missing, unreadable or malformed file is empty, and
 /// malformed entries are skipped.
 pub fn parse(bytes: &[u8]) -> Vec<RecentEntry> {
@@ -290,5 +318,29 @@ mod tests {
         assert_eq!(age(&text, now), "2h");
         assert_eq!(age(&text, time + Duration::from_secs(3 * 86_400)), "3d");
         assert_eq!(age("yesterday", now), "");
+    }
+}
+
+#[cfg(all(test, unix))]
+mod menu_label_tests {
+    use super::menu_label;
+    use std::path::Path;
+
+    #[test]
+    fn labels_lead_with_the_name_and_shorten_the_parent() {
+        let home = Path::new("/home/user");
+        assert_eq!(
+            menu_label(Path::new("/home/user/scenes/book"), home),
+            "book — ~/scenes"
+        );
+        assert_eq!(menu_label(Path::new("/home/user/book"), home), "book — ~");
+        assert_eq!(
+            menu_label(Path::new("/home/user/work/qa/2026/round/hl3/P"), home),
+            "P — ~/work/…/round/hl3"
+        );
+        assert_eq!(
+            menu_label(Path::new("/mnt/hdd1/src/other/scenes/kitchen.pbrt"), home),
+            "kitchen.pbrt — /mnt/…/other/scenes"
+        );
     }
 }
