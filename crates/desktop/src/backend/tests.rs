@@ -4676,3 +4676,89 @@ fn a_fast_answer_naming_no_base_geometry_rebuilds_in_full() {
         Some(key_of(&moved).as_str())
     );
 }
+
+/// A display thread state over `core`, sending its updates to `tx`.
+fn test_display(core: app_core::CoreHandle, tx: mpsc::Sender<Update>) -> Display {
+    Display {
+        core,
+        tx,
+        frames: Arc::new(Mutex::new(None)),
+        thumbnail_mailbox: Arc::new(Mutex::new(ThumbnailMailbox::default())),
+        stopping: false,
+        render_in_flight: false,
+        install_in_flight: false,
+        queued_install: None,
+        gpu: gpu::GpuHandle::orphan(),
+        gpu_rx: gpu::orphan_rx(),
+        preview_ready: false,
+        camera: ViewerCamera::frame(None, 16. / 9.),
+        scene_camera: None,
+        synced_camera: None,
+        view_watch_due: None,
+        mode: PreviewMode::Solid,
+        size: [1280, 720],
+        dirty: false,
+        frame_id: 0u64,
+        last_frame: None,
+        last_state: Value::Null,
+        last_jobs: Value::Null,
+        job_ages: Default::default(),
+        last_artifact: None,
+        last_settings: Value::Null,
+        last_project: Value::Null,
+        selected_project_node: None,
+        project_items: None,
+        project_preview_key: None,
+        project_camera_owner: None,
+        project_preview_job: None,
+        import_jobs: Vec::new(),
+        foreground_jobs: Vec::new(),
+        foreground_preview_pending: false,
+        last_foreground_jobs: Value::Null,
+        save_job: None,
+        export_jobs: Vec::new(),
+        preserve_camera: None,
+        project_preview_cleanup: Vec::new(),
+        preview_slot_owner: None,
+        project_geometry: None,
+        project_preview_base: None,
+        gizmo_delta: None,
+        project_pick_nodes: BTreeMap::new(),
+        project_tree_snapshot: Value::Null,
+        project_object_bounds: BTreeMap::new(),
+        project_time: 0.0,
+        ipr_due: None,
+        view_due: None,
+        highlight: BTreeSet::new(),
+        overlays_visible: true,
+        highlight_key: None,
+        logged_lit_notes: Vec::new(),
+        logged_preview_warnings: Vec::new(),
+        thumbnail_project: Value::Null,
+        thumbnail_generation: 0,
+        thumbnail_candidates: Default::default(),
+        thumbnail_flight: None,
+        preview_queue: Default::default(),
+        preview_flight: None,
+    }
+}
+
+/// A render the core refuses before any job starts (no renderer here)
+/// reaches the window with its reason, for the Render panel to show.
+#[test]
+fn a_refused_render_carries_its_reason() {
+    let (_temp, host, _reference) = native_project(
+        "LookAt 0 0 5 0 0 0 0 1 0\nCamera \"perspective\"\nWorldBegin\nShape \"sphere\"\nWorldEnd\n",
+    );
+    let (tx, rx) = mpsc::channel();
+    let mut display = test_display(host.handle(), tx);
+    display.handle_commands([Command::Render(false)]);
+    let reason = rx
+        .try_iter()
+        .find_map(|update| match update {
+            Update::RenderRequestFailed(reason) => Some(reason),
+            _ => None,
+        })
+        .expect("the refusal reaches the window");
+    assert!(reason.contains("--renderer-path"), "{reason}");
+}

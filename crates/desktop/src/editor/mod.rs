@@ -90,6 +90,9 @@ struct Session {
     /// None for the final image or an artifact without the field.
     render_received: Option<(String, f64)>,
     render_start: render_start::RenderStart,
+    /// Why the last Render request was refused before any job started;
+    /// shown in the Render panel until the next request.
+    render_request_error: Option<String>,
     backend: Backend,
     scene_key: String,
     messages: Vec<String>,
