@@ -217,9 +217,34 @@ impl SettingsForm {
         cx.notify();
     }
 }
+impl SettingsForm {
+    /// Undo/Redo keys belong to the project unless a field holds an edit of
+    /// its own: focus stays in a spin box after a step, and its text undo
+    /// would otherwise swallow Ctrl+Z (as the Inspector fields already do).
+    fn forwards_history_keys(&self, cx: &App) -> bool {
+        self.pending.is_none() && self.values(cx) == self.baseline
+    }
+}
+
 impl Render for SettingsForm {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut row = div()
+            .capture_action(cx.listener(
+                |this, _: &gpui_kit::component::input::Undo, window, cx| {
+                    if this.forwards_history_keys(cx) {
+                        cx.stop_propagation();
+                        window.dispatch_action(Box::new(super::menu::UndoEdit), cx);
+                    }
+                },
+            ))
+            .capture_action(cx.listener(
+                |this, _: &gpui_kit::component::input::Redo, window, cx| {
+                    if this.forwards_history_keys(cx) {
+                        cx.stop_propagation();
+                        window.dispatch_action(Box::new(super::menu::RedoEdit), cx);
+                    }
+                },
+            ))
             .flex()
             .flex_wrap()
             .items_center()
