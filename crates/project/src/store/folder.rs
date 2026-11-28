@@ -1123,9 +1123,7 @@ impl FolderStore {
                 continue;
             }
             if file_stamp(&self.directory.join(relative))? != Some(*expected) {
-                return Err(ProjectError::SourceChanged(
-                    relative.to_string_lossy().into_owned(),
-                ));
+                return Err(ProjectError::SourceChanged(project_path(relative)));
             }
         }
         // Asset records are left out: files changed outside are handled per
@@ -1204,7 +1202,7 @@ impl FolderStore {
             if current.is_some() && current != expected {
                 cleanup_plan(&self.directory, &plan);
                 cleanup_created_dirs(&created_dirs);
-                return Err(ProjectError::SourceChanged(relative.display().to_string()));
+                return Err(ProjectError::SourceChanged(project_path(&relative)));
             }
             if current.is_some()
                 && let Err(error) = ensure_replaceable(&path, &relative)
@@ -1261,7 +1259,7 @@ impl FolderStore {
             if current != expected {
                 cleanup_plan(&self.directory, &plan);
                 cleanup_created_dirs(&created_dirs);
-                return Err(ProjectError::SourceChanged(relative.display().to_string()));
+                return Err(ProjectError::SourceChanged(project_path(&relative)));
             }
             if current.is_none() {
                 continue;
@@ -1562,7 +1560,7 @@ impl FolderStore {
             let hash = format!("{:x}", Sha256::digest(&bytes));
             if hash != asset.sha256 || bytes.len() as u64 != asset.size {
                 // Rewritten after the session adopted it; the next snapshot adopts again.
-                return Err(ProjectError::SourceChanged(current.display().to_string()));
+                return Err(ProjectError::SourceChanged(project_path(&current)));
             }
             expected.insert(target.clone());
             writes.insert(target.clone(), bytes);
@@ -1718,7 +1716,7 @@ impl FolderStore {
     fn check_unchanged(&self, relative: &Path) -> Result<()> {
         let current = file_stamp(&self.directory.join(relative))?;
         if current != self.baseline.get(relative).copied() {
-            return Err(ProjectError::SourceChanged(relative.display().to_string()));
+            return Err(ProjectError::SourceChanged(project_path(&relative)));
         }
         Ok(())
     }
@@ -2078,6 +2076,12 @@ fn digest_matches(path: &Path, expected: &str) -> Result<bool> {
         hash.update(&buffer[..count]);
     }
     Ok(format!("{:x}", hash.finalize()) == expected)
+}
+
+/// A project-relative path as errors name it: `/` on every platform, like
+/// the asset locations the store writes.
+fn project_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 pub(crate) fn hash_file(path: &Path) -> Result<(String, u64)> {
@@ -3196,9 +3200,10 @@ mod tests {
         store.save(&session.snapshot()).unwrap();
         let scene = path.join("Assets/Scenes/External.scene");
         fs::write(&scene, b"external edit").unwrap();
+        // The path uses `/` on every platform (no `Assets\\Scenes` on Windows).
         assert!(matches!(
             store.save(&session.snapshot()),
-            Err(ProjectError::SourceChanged(_))
+            Err(ProjectError::SourceChanged(path)) if path == "Assets/Scenes/External.scene"
         ));
     }
 
