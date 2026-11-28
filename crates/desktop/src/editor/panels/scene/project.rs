@@ -536,8 +536,10 @@ impl EditorPanel {
         viewport = viewport.child(
             canvas(
                 move |rect, window, _| {
+                    // refresh() is ignored mid-draw, and the dock's cached
+                    // panel would be reused anyway: notify it next frame.
                     if bounds.replace(rect).size != rect.size {
-                        window.refresh();
+                        window.request_animation_frame();
                     }
                 },
                 move |rect, _, window, _| {
