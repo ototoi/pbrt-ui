@@ -364,8 +364,9 @@ impl Render for MeshViewer {
                             move |bounds, window, _| {
                                 // A new size is known only after layout:
                                 // draw again so render can request it.
+                                // refresh() is ignored mid-draw.
                                 if viewport.replace(bounds).size != bounds.size {
-                                    window.refresh();
+                                    window.request_animation_frame();
                                 }
                             },
                             |_, _, _, _| {},
