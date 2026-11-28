@@ -612,6 +612,7 @@ impl CoreState {
                 let mut details = error
                     .details
                     .take()
+                    .map(|details| *details)
                     .filter(Value::is_object)
                     .unwrap_or_else(|| json!({}));
                 details["published"] = json!(false);
@@ -623,7 +624,7 @@ impl CoreState {
                         .filter(Value::is_string)
                         .unwrap_or_else(|| json!(format!("{:?}", error.code)));
                 }
-                error.details = Some(details);
+                error.details = Some(Box::new(details));
             }
             error
         });

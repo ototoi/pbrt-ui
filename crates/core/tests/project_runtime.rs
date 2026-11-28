@@ -549,7 +549,7 @@ fn viewer_import_is_read_only_but_supports_queries_preview_and_export() {
         let error = core.request(request(method, params)).error.unwrap();
         assert_eq!(error.code, ErrorCode::ReadOnly);
         assert_eq!(
-            error.details.unwrap(),
+            *error.details.unwrap(),
             json!({"mode":"viewer","hint":"project.save with destination"})
         );
     }

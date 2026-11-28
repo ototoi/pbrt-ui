@@ -673,17 +673,19 @@ pub(crate) fn project_error(error: project::ProjectError) -> ErrorPayload {
     };
     let mut result = ErrorPayload::new(code, error.to_string());
     if matches!(&error, E::Invalid(message) if message == "no active scene") {
-        result.details = Some(serde_json::json!({"reason":"no_active_scene"}));
+        result.details = Some(Box::new(serde_json::json!({"reason":"no_active_scene"})));
     }
     if let E::Durability { revision, .. } = &error {
-        result.details = Some(serde_json::json!({"published":true,"revision":revision}));
+        result.details = Some(Box::new(
+            serde_json::json!({"published":true,"revision":revision}),
+        ));
     }
     // An edit may close a reference loop, regardless of which edit it was.
     if let E::ResourceCycle = &error {
-        result.details = Some(serde_json::json!({"reason":"resource_cycle"}));
+        result.details = Some(Box::new(serde_json::json!({"reason":"resource_cycle"})));
     }
     if let E::SourceChanged(path) = &error {
-        result.details = Some(serde_json::json!({"files":[path]}));
+        result.details = Some(Box::new(serde_json::json!({"files":[path]})));
     }
     result
 }
