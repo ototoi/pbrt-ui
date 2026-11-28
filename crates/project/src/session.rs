@@ -668,8 +668,9 @@ impl ProjectSession {
             return Ok(None);
         };
         let persisted = crate::store::asset_file_by_id(&grounds.assets_root, asset.id)?;
+        // A copy: Undo must not see later in-place edits of the user's file.
         Ok(self
-            .stage_asset_at(asset, persisted)?
+            .stage_asset_at(asset, persisted, false)?
             .map(|(lease, _)| lease))
     }
 
@@ -677,10 +678,8 @@ impl ProjectSession {
         &self,
         asset: &Asset,
         persisted: Option<(std::path::PathBuf, Option<crate::store::AssetMetaOrigin>)>,
+        link: bool,
     ) -> Result<Option<StagedAsset>> {
-        if let Some(lease) = self.live_payloads.get(&asset.id) {
-            return Ok(Some((lease.clone(), None)));
-        }
         let Some(grounds) = &self.payloads else {
             return Ok(None);
         };
@@ -701,7 +700,7 @@ impl ProjectSession {
             return Ok(None);
         }
         let stamp = SourceStamp::of(&source);
-        let lease = PayloadLease::stage(
+        let lease = PayloadLease::stage_cancellable(
             &grounds.staging,
             asset.id,
             &asset.sha256,
@@ -709,6 +708,8 @@ impl ProjectSession {
             &source,
             origin,
             grounds.owner.clone(),
+            link,
+            || false,
         )
         // Bytes unlike the record changed outside the application.
         .map_err(|error| match error {
@@ -732,14 +733,17 @@ impl ProjectSession {
 
     /// Pin existing folder bytes before handing a snapshot to an I/O job.
     /// This can fail, unlike the cheap model snapshot used by read queries.
-    pub fn snapshot_for_io(&self) -> Result<ProjectSnapshot> {
-        let mut snapshot = self.snapshot();
-        let held = snapshot
+    /// An asset file rewritten outside the application is adopted first: its
+    /// record takes the bytes on disk (project folder §5), without an Undo
+    /// step and without changing whether the session is dirty.
+    pub fn snapshot_for_io(&mut self) -> Result<ProjectSnapshot> {
+        let mut held = self
+            .snapshot()
             .payloads
             .iter()
             .map(|lease| lease.asset())
             .collect::<BTreeSet<_>>();
-        let mut cache = self.io_leases.borrow_mut();
+        let mut cache = std::mem::take(self.io_leases.get_mut());
         // A file rewritten outside is staged again, which reports the change.
         cache.retain(|id, (lease, stamp)| {
             self.document
@@ -748,27 +752,67 @@ impl ProjectSession {
                 .is_some_and(|asset| asset.sha256 == lease.sha256() && asset.size == lease.size())
                 && stamp.as_ref().is_none_or(SourceStamp::unchanged)
         });
-        let missing = self
+        let unpinned = self
             .document
             .assets
-            .values()
-            .filter(|asset| !held.contains(&asset.id) && !cache.contains_key(&asset.id))
-            .collect::<Vec<_>>();
+            .keys()
+            .any(|id| !held.contains(id) && !cache.contains_key(id));
         // Scanning `Assets/` costs as much as the copies; skip it when warm.
         let mut files = match &self.payloads {
-            Some(grounds) if !missing.is_empty() => {
+            Some(grounds) if unpinned || !held.is_empty() => {
                 crate::store::asset_files_by_id(&grounds.assets_root)?
             }
             _ => BTreeMap::new(),
         };
-        for asset in missing {
-            if let Some(staged) = self.stage_asset_at(asset, files.remove(&asset.id))? {
-                cache.insert(asset.id, staged);
+        // History bytes stand in only for a file that is gone; a file on disk wins.
+        held.retain(|id| !files.contains_key(id));
+        let missing = self
+            .document
+            .assets
+            .keys()
+            .filter(|id| !held.contains(id) && !cache.contains_key(id))
+            .copied()
+            .collect::<Vec<_>>();
+        let mut adopted = Vec::new();
+        for id in missing {
+            let mut asset = self.document.assets[&id].clone();
+            let persisted = files.remove(&id);
+            let staged = match self.stage_asset_at(&asset, persisted.clone(), true) {
+                Err(ProjectError::SourceChanged(_)) if persisted.is_some() => {
+                    let (path, _) = persisted.as_ref().unwrap();
+                    (asset.sha256, asset.size) = crate::store::hash_file(path)?;
+                    let staged = self.stage_asset_at(&asset, persisted, true)?;
+                    adopted.push(asset);
+                    staged
+                }
+                staged => staged?,
+            };
+            if let Some(staged) = staged {
+                cache.insert(id, staged);
             }
         }
-        for asset in self.document.assets.values() {
-            if !held.contains(&asset.id)
-                && let Some((lease, _)) = cache.get(&asset.id)
+        *self.io_leases.get_mut() = cache;
+        if !adopted.is_empty() {
+            let clean = self.saved_content.as_ref() == Some(&self.current_content);
+            let mut document = (*self.document).clone();
+            for asset in adopted {
+                self.live_payloads.remove(&asset.id);
+                document.assets.insert(asset.id, asset);
+            }
+            self.document = Arc::new(document);
+            self.current_content = ContentId::of(&self.document);
+            if clean {
+                self.saved_content = Some(self.current_content.clone());
+            }
+        }
+        let mut snapshot = self.snapshot();
+        snapshot
+            .payloads
+            .retain(|lease| held.contains(&lease.asset()));
+        let cache = self.io_leases.get_mut();
+        for id in self.document.assets.keys() {
+            if !held.contains(id)
+                && let Some((lease, _)) = cache.get(id)
             {
                 snapshot.payloads.push(lease.clone());
             }

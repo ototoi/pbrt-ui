@@ -563,10 +563,11 @@ fn viewer_import_is_read_only_but_supports_queries_preview_and_export() {
 }
 
 /// An asset file rewritten outside the application (after Save As, when
-/// I/O jobs pin each asset's bytes first) is refused as a changed source
-/// naming the file, not as an internal copy error.
+/// I/O jobs pin each asset's bytes first) is adopted as the asset's new
+/// content: export and save succeed, the sidecar takes the new size, and
+/// the project stays clean (project folder §5).
 #[test]
-fn an_asset_rewritten_outside_reports_a_changed_source() {
+fn an_asset_rewritten_outside_is_adopted_as_new_content() {
     let temp = tempfile::tempdir().unwrap();
     fs::write(temp.path().join("checker.png"), b"not decoded by import").unwrap();
     let source = temp.path().join("viewer.pbrt");
@@ -592,19 +593,21 @@ fn an_asset_rewritten_outside_reports_a_changed_source() {
         b"not decoded by import, but longer now",
     )
     .unwrap();
-    // The bytes are pinned when the export is asked for.
-    let error = core
-        .request(request(
-            Method::ProjectExport,
-            json!({"project":state(&core)["context"]["project"],"destination":temp.path().join("bundle")}),
-        ))
-        .error
-        .expect("refused");
-    assert_eq!(error.code, ErrorCode::SourceChanged, "{error:?}");
-    assert_eq!(
-        error.details.unwrap()["files"],
-        json!(["Assets/Images/checker.png"])
+    let reference = state(&core)["context"]["project"].clone();
+    let export = call(
+        &core,
+        Method::ProjectExport,
+        json!({"project":reference,"destination":temp.path().join("bundle")}),
     );
+    assert_eq!(wait(&core, export)["state"], "succeeded");
+    assert_eq!(state(&core)["dirty"], false);
+    let save = call(&core, Method::ProjectSave, json!({"project":reference}));
+    assert_eq!(wait(&core, save)["state"], "succeeded");
+    let meta: Value = serde_json::from_slice(
+        &fs::read(destination.join("Assets/Images/checker.png.meta")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(meta["size"], "not decoded by import, but longer now".len());
 }
 
 #[test]

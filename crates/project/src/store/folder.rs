@@ -506,10 +506,9 @@ impl FolderStore {
                     );
                 }
                 "asset" => {
-                    let (Some(expected_hash), Some(expected_size)) = (meta.sha256, meta.size)
-                    else {
+                    if meta.sha256.is_none() || meta.size.is_none() {
                         return Err(invalid("asset meta is missing its content hash or size"));
-                    };
+                    }
                     let mut file = File::open(&path)?;
                     let mut hasher = Sha256::new();
                     let mut size = 0u64;
@@ -527,10 +526,9 @@ impl FolderStore {
                         }
                         hasher.update(&buffer[..count]);
                     }
+                    // Bytes unlike the sidecar were edited outside: they are the
+                    // asset's content now, and the next save rewrites the sidecar.
                     let sha256 = format!("{:x}", hasher.finalize());
-                    if self.is_v3() && (sha256 != expected_hash || size != expected_size) {
-                        return Err(invalid("asset bytes do not match sidecar"));
-                    }
                     let id = AssetId(meta.id);
                     let origin = meta.origin.map(|origin| AssetOrigin {
                         logical_path: origin.logical_path,
@@ -1098,7 +1096,18 @@ impl FolderStore {
                 origin.origin = None;
             }
         }
+        // Asset bodies are checked against the model's hash instead
+        // (`snapshot_plan`): a body rewritten outside was adopted by the session.
+        let bodies = snapshot
+            .document()
+            .assets
+            .values()
+            .map(|asset| PathBuf::from("Assets").join(&asset.location))
+            .collect::<std::collections::BTreeSet<_>>();
         for (relative, expected) in &self.baseline {
+            if bodies.contains(relative) {
+                continue;
+            }
             if file_stamp(&self.directory.join(relative))? != Some(*expected) {
                 return Err(ProjectError::SourceChanged(
                     relative.to_string_lossy().into_owned(),
@@ -1441,10 +1450,10 @@ impl FolderStore {
                         .payload_by(asset.id)
                         .and_then(|lease| lease.origin().cloned())
                 });
-            self.check_unchanged(&current)?;
             self.check_unchanged(&meta_path(&current))?;
             let source = self.directory.join(&current);
             if !source.is_file() {
+                self.check_unchanged(&current)?;
                 if let Some(lease) = snapshot.payload_by(asset.id) {
                     // a previous save already
                     // removed the file — the history's staged bytes
@@ -1516,7 +1525,8 @@ impl FolderStore {
             }
             let hash = format!("{:x}", Sha256::digest(&bytes));
             if hash != asset.sha256 || bytes.len() as u64 != asset.size {
-                return Err(invalid("asset contents do not match the project model"));
+                // Rewritten after the session adopted it; the next snapshot adopts again.
+                return Err(ProjectError::SourceChanged(current.display().to_string()));
             }
             expected.insert(target.clone());
             writes.insert(target.clone(), bytes);
@@ -1998,7 +2008,7 @@ fn digest_matches(path: &Path, expected: &str) -> Result<bool> {
     Ok(format!("{:x}", hash.finalize()) == expected)
 }
 
-fn hash_file(path: &Path) -> Result<(String, u64)> {
+pub(crate) fn hash_file(path: &Path) -> Result<(String, u64)> {
     let mut file = File::open(path)?;
     let mut hash = Sha256::new();
     let mut size = 0u64;

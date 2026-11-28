@@ -364,3 +364,69 @@ fn sha256hex(bytes: &[u8]) -> String {
     }
     text
 }
+
+/// History keeps a copy, not a hard link: rewriting the user's file in place
+/// after the delete must not change the bytes Undo brings back.
+#[test]
+fn deleted_asset_history_is_not_changed_by_an_in_place_edit() {
+    let temporary = tempfile::tempdir().unwrap();
+    let staging = tempfile::tempdir().unwrap();
+    let bytes = b"ply mesh bytes";
+    let (mut session, store, asset, path) = asset_project(temporary.path(), bytes);
+    session.enable_payload_staging(staging.path(), path.join("Assets"));
+    // An I/O snapshot first, as every save does, pinning the file.
+    session.snapshot_for_io().unwrap();
+    session
+        .apply(
+            &session.revision(),
+            &[Edit::DeleteItem {
+                item: ItemId::Asset(asset),
+            }],
+        )
+        .unwrap();
+    let file = path.join("Assets/Meshes/box.ply");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&file)
+        .and_then(|mut file| std::io::Write::write_all(&mut file, b"PLY"))
+        .unwrap();
+    session.undo(&session.revision()).unwrap();
+    let snapshot = session.snapshot();
+    let lease = snapshot.payload_by(asset).unwrap();
+    assert_eq!(std::fs::read(lease.path()).unwrap(), bytes);
+    drop(store);
+}
+
+/// A file rewritten outside the application is adopted as the asset's new
+/// content by the next I/O snapshot; the save rewrites its sidecar, the
+/// session stays clean, and the project reopens with the new hash.
+#[test]
+fn an_asset_rewritten_outside_is_adopted_by_the_next_save() {
+    let temporary = tempfile::tempdir().unwrap();
+    let staging = tempfile::tempdir().unwrap();
+    let (mut session, mut store, asset, path) = asset_project(temporary.path(), b"ply mesh bytes");
+    session.enable_payload_staging(staging.path(), path.join("Assets"));
+    session.snapshot_for_io().unwrap();
+    let file = path.join("Assets/Meshes/box.ply");
+    let edited = b"ply mesh bytes, edited elsewhere";
+    std::fs::write(&file, edited).unwrap();
+
+    let snapshot = session.snapshot_for_io().unwrap();
+    assert_eq!(session.document().assets[&asset].sha256, sha256hex(edited));
+    assert!(!session.is_dirty());
+    let receipt = store.save(&snapshot).unwrap();
+    session.mark_saved(&receipt).unwrap();
+    assert!(!session.is_dirty());
+    let meta: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(path.join("Assets/Meshes/box.ply.meta")).unwrap())
+            .unwrap();
+    assert_eq!(meta["sha256"], sha256hex(edited));
+    drop(store);
+
+    // Rewritten again while closed: the open takes the bytes on disk.
+    let again = b"third version";
+    std::fs::write(&file, again).unwrap();
+    let (_, reopened) = FolderStore::open_project(&path).unwrap();
+    assert_eq!(reopened.document().assets[&asset].sha256, sha256hex(again));
+    assert_eq!(reopened.document().assets[&asset].size, again.len() as u64);
+}

@@ -29,6 +29,7 @@ impl PayloadLease {
     /// Stage `source` in `staging` and lease it. Same-filesystem sources can
     /// be hard-linked (application-owned files only); either way, declared
     /// size and SHA-256 must match.
+    #[cfg(test)]
     pub(crate) fn stage(
         staging: &Path,
         asset: AssetId,

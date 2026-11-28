@@ -466,32 +466,24 @@ fn format_two_legacy_projects_convert_the_same_way() {
 }
 
 #[test]
-fn tampered_spd_disk_bytes_never_reach_the_migration_as_truth() {
+fn spd_bytes_edited_outside_are_what_the_migration_reads() {
+    // Bytes unlike the sidecar are the asset's content now (project folder
+    // §5), in format 3 as in format 2, so the migration reads them.
     let home = tempfile::tempdir().unwrap();
     let project_path = legacy_project_in_format(&home, &[("Au.k.spd", AU_K)], Format::Three);
-    let spd = project_path.join("Assets/Spectra/Au.k.spd");
-    fs::write(&spd, "999 4.5\n").unwrap();
-    // At rest, tamper detection is the format's own provenance check, not
-    // the migration's: a v3 project refuses the whole open when bytes no
-    // longer match the sidecar's recorded hash — exactly as for any other
-    // asset kind — so the migration never even partially runs.
-    let error = match ProjectStore::open(&project_path) {
-        Ok(_) => panic!("tampered spd bytes must refuse the v3 open"),
-        Err(error) => error,
-    };
-    assert!(
-        error
-            .to_string()
-            .contains("asset bytes do not match sidecar"),
-        "{error}"
-    );
-    assert_eq!(fs::read(&spd).unwrap(), b"999 4.5\n");
-    assert!(!project_path.join("Assets/Spectra/Au.k.spectrum").is_file());
+    fs::write(project_path.join("Assets/Spectra/Au.k.spd"), "999 4.5\n").unwrap();
+    let (_, session) = ProjectStore::open(&project_path).unwrap();
+    let spectrum = session
+        .document()
+        .resources
+        .values()
+        .find(|resource| resource.kind == ResourceKind::SpectrumData)
+        .unwrap();
+    assert_eq!(samples(spectrum), (vec![999.0], vec![4.5]));
+    drop(session);
 
-    // Format 2 has no tamper story at all — its asset records are built
-    // from the bytes it finds on disk — so the conversion follows the
-    // bytes that are there, like every other v2 read, and publishing as
-    // v3 records them honestly under the hash it just computed.
+    // Publishing a format-2 project as format 3 records the bytes found
+    // under the hash just computed.
     let home = tempfile::tempdir().unwrap();
     let project_path = legacy_project_in_format(&home, &[("Au.k.spd", AU_K)], Format::Two);
     fs::write(project_path.join("Assets/Spectra/Au.k.spd"), "999 4.5\n").unwrap();

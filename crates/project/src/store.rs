@@ -70,7 +70,7 @@ pub enum ProjectStore {
 mod folder;
 pub mod meta_v2;
 pub use folder::{AssetMeta, FolderScan, FolderStore};
-pub(crate) use folder::{AssetMetaOrigin, asset_file_by_id, asset_files_by_id};
+pub(crate) use folder::{AssetMetaOrigin, asset_file_by_id, asset_files_by_id, hash_file};
 mod cache;
 pub use cache::{CacheHit, DEFAULT_CACHE_LIMIT, cache_get, cache_put, ensure_cache};
 mod files;
