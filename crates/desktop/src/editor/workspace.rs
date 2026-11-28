@@ -31,6 +31,7 @@ use gpui_kit::component::dock::{
     PanelStyle, panel_handle, register_panel,
 };
 use gpui_kit::component::menu::AppMenuBar;
+use gpui_kit::component::notification::Notification;
 use gpui_kit::component::{Sizable, WindowExt as _, button::Button, spinner::Spinner};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -103,6 +104,13 @@ impl Workspace {
                 let pending = this.pending.take();
                 if !ok {
                     let error = error.unwrap_or_else(|| "unsaved changes kept".into());
+                    // The Console is often behind another tab; a failed save must be seen.
+                    window.push_notification(
+                        Notification::error(error.clone())
+                            .title("Save failed")
+                            .autohide(false),
+                        cx,
+                    );
                     this.set_status(format!("Save failed — {error}"), cx);
                 }
                 if let AfterSave::Run(action) = after_save(ok, pending) {
